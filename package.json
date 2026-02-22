@@ -42,7 +42,6 @@
     "drizzle-orm": "^0.45.0",
     "lucide-react": "^0.545.0",
     "nitro": "npm:nitro-nightly@latest",
-    "pg": "^8.16.3",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "superjson": "^2.2.2",
@@ -50,12 +49,12 @@
     "zod": "^4.1.11"
   },
   "devDependencies": {
+    "@libsql/client": "^0.17.0",
     "@tanstack/devtools-event-client": "^0.4.0",
     "@tanstack/devtools-vite": "^0.3.11",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/react": "^16.2.0",
     "@types/node": "^22.10.2",
-    "@types/pg": "^8.15.6",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.0.4",

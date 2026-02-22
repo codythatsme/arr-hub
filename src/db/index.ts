@@ -1,5 +1,13 @@
-import { drizzle } from 'drizzle-orm/node-postgres'
+import { mkdirSync } from 'node:fs'
+import { dirname } from 'node:path'
+import { drizzle } from 'drizzle-orm/bun-sqlite'
+import { sql } from 'drizzle-orm'
 
 import * as schema from './schema.ts'
 
-export const db = drizzle(process.env.DATABASE_URL!, { schema })
+const DB_PATH = process.env.DATABASE_PATH ?? 'data/arr-hub.db'
+mkdirSync(dirname(DB_PATH), { recursive: true })
+
+export const db = drizzle({ connection: DB_PATH, schema })
+
+db.run(sql`PRAGMA journal_mode = WAL`)

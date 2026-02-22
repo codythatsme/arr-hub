@@ -148,18 +148,11 @@ function DemoDrizzle() {
             Powered by Drizzle ORM
           </h3>
           <p className="text-sm text-indigo-300/80 mb-4">
-            Next-generation ORM for Node.js & TypeScript with PostgreSQL
+            Next-generation ORM for Node.js & TypeScript with SQLite
           </p>
           <div className="space-y-2 text-sm">
             <p className="text-indigo-200 font-medium">Setup Instructions:</p>
             <ol className="list-decimal list-inside space-y-2 text-indigo-300/80">
-              <li>
-                Configure your{' '}
-                <code className="px-2 py-1 rounded bg-black/30 text-purple-300">
-                  DATABASE_URL
-                </code>{' '}
-                in .env.local
-              </li>
               <li>
                 Run:{' '}
                 <code className="px-2 py-1 rounded bg-black/30 text-purple-300">
