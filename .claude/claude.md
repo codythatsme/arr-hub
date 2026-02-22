@@ -1,0 +1,1 @@
+this project is extremely greenfield. Dont be afraid of making large schema changes/worrying about backwards compatability.
