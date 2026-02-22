@@ -1,0 +1,200 @@
+import { orderBy } from 'lodash';
+import React, { useCallback, useMemo, useState } from 'react';
+import { useSelect } from 'App/Select/SelectContext';
+import FormGroup from 'Components/Form/FormGroup';
+import FormInputGroup from 'Components/Form/FormInputGroup';
+import FormLabel from 'Components/Form/FormLabel';
+import Button from 'Components/Link/Button';
+import ModalBody from 'Components/Modal/ModalBody';
+import ModalContent from 'Components/Modal/ModalContent';
+import ModalFooter from 'Components/Modal/ModalFooter';
+import ModalHeader from 'Components/Modal/ModalHeader';
+import { inputTypes, kinds } from 'Helpers/Props';
+import Series from 'Series/Series';
+import {
+  setSeriesDeleteOptions,
+  useSeriesDeleteOptions,
+} from 'Series/seriesOptionsStore';
+import useSeries, { useBulkDeleteSeries } from 'Series/useSeries';
+import { InputChanged } from 'typings/inputs';
+import formatBytes from 'Utilities/Number/formatBytes';
+import translate from 'Utilities/String/translate';
+import styles from './DeleteSeriesModalContent.css';
+
+export interface DeleteSeriesModalContentProps {
+  onModalClose(): void;
+}
+
+function DeleteSeriesModalContent({
+  onModalClose,
+}: DeleteSeriesModalContentProps) {
+  const { addImportListExclusion } = useSeriesDeleteOptions();
+  const { data: allSeries } = useSeries();
+  const { bulkDeleteSeries } = useBulkDeleteSeries();
+  const [deleteFiles, setDeleteFiles] = useState(false);
+  const { useSelectedIds } = useSelect<Series>();
+  const seriesIds = useSelectedIds();
+
+  const series = useMemo((): Series[] => {
+    const seriesList = seriesIds.map((id) => {
+      return allSeries.find((s) => s.id === id);
+    }) as Series[];
+
+    return orderBy(seriesList, ['sortTitle']);
+  }, [allSeries, seriesIds]);
+
+  const onDeleteFilesChange = useCallback(
+    ({ value }: InputChanged<boolean>) => {
+      setDeleteFiles(value);
+    },
+    [setDeleteFiles]
+  );
+
+  const onDeleteOptionChange = useCallback(
+    ({ name, value }: { name: string; value: boolean }) => {
+      setSeriesDeleteOptions({
+        [name]: value,
+      });
+    },
+    []
+  );
+
+  const onDeleteSeriesConfirmed = useCallback(() => {
+    setDeleteFiles(false);
+
+    bulkDeleteSeries({
+      seriesIds,
+      deleteFiles,
+      addImportListExclusion,
+    });
+
+    onModalClose();
+  }, [
+    deleteFiles,
+    addImportListExclusion,
+    setDeleteFiles,
+    seriesIds,
+    bulkDeleteSeries,
+    onModalClose,
+  ]);
+
+  const { totalEpisodeFileCount, totalSizeOnDisk } = useMemo(() => {
+    return series.reduce(
+      (acc, { statistics = {} }) => {
+        const { episodeFileCount = 0, sizeOnDisk = 0 } = statistics;
+
+        acc.totalEpisodeFileCount += episodeFileCount;
+        acc.totalSizeOnDisk += sizeOnDisk;
+
+        return acc;
+      },
+      {
+        totalEpisodeFileCount: 0,
+        totalSizeOnDisk: 0,
+      }
+    );
+  }, [series]);
+
+  return (
+    <ModalContent onModalClose={onModalClose}>
+      <ModalHeader>{translate('DeleteSelectedSeries')}</ModalHeader>
+
+      <ModalBody>
+        <div>
+          <FormGroup>
+            <FormLabel>{translate('AddListExclusion')}</FormLabel>
+
+            <FormInputGroup
+              type={inputTypes.CHECK}
+              name="addImportListExclusion"
+              value={addImportListExclusion}
+              helpText={translate('AddListExclusionSeriesHelpText')}
+              onChange={onDeleteOptionChange}
+            />
+          </FormGroup>
+
+          <FormGroup>
+            <FormLabel>
+              {series.length > 1
+                ? translate('DeleteSeriesFolders')
+                : translate('DeleteSeriesFolder')}
+            </FormLabel>
+
+            <FormInputGroup
+              type={inputTypes.CHECK}
+              name="deleteFiles"
+              value={deleteFiles}
+              helpText={
+                series.length > 1
+                  ? translate('DeleteSeriesFoldersHelpText')
+                  : translate('DeleteSeriesFolderHelpText')
+              }
+              kind="danger"
+              onChange={onDeleteFilesChange}
+            />
+          </FormGroup>
+        </div>
+
+        <div className={styles.message}>
+          {deleteFiles
+            ? translate('DeleteSeriesFolderCountWithFilesConfirmation', {
+                count: series.length,
+              })
+            : translate('DeleteSeriesFolderCountConfirmation', {
+                count: series.length,
+              })}
+        </div>
+
+        <ul>
+          {series.map(({ title, path, statistics = {} }) => {
+            const { episodeFileCount = 0, sizeOnDisk = 0 } = statistics;
+
+            return (
+              <li key={title}>
+                <span>{title}</span>
+
+                {deleteFiles && (
+                  <span>
+                    <span className={styles.pathContainer}>
+                      -<span className={styles.path}>{path}</span>
+                    </span>
+
+                    {!!episodeFileCount && (
+                      <span className={styles.statistics}>
+                        (
+                        {translate('DeleteSeriesFolderEpisodeCount', {
+                          episodeFileCount,
+                          size: formatBytes(sizeOnDisk),
+                        })}
+                        )
+                      </span>
+                    )}
+                  </span>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+
+        {deleteFiles && !!totalEpisodeFileCount ? (
+          <div className={styles.deleteFilesMessage}>
+            {translate('DeleteSeriesFolderEpisodeCount', {
+              episodeFileCount: totalEpisodeFileCount,
+              size: formatBytes(totalSizeOnDisk),
+            })}
+          </div>
+        ) : null}
+      </ModalBody>
+
+      <ModalFooter>
+        <Button onPress={onModalClose}>{translate('Cancel')}</Button>
+
+        <Button kind={kinds.DANGER} onPress={onDeleteSeriesConfirmed}>
+          {translate('Delete')}
+        </Button>
+      </ModalFooter>
+    </ModalContent>
+  );
+}
+
+export default DeleteSeriesModalContent;
