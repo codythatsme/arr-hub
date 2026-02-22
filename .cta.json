@@ -1,0 +1,31 @@
+{
+  "projectName": "arr-hub",
+  "mode": "file-router",
+  "typescript": true,
+  "tailwind": true,
+  "packageManager": "bun",
+  "git": true,
+  "install": true,
+  "addOnOptions": {
+    "drizzle": {
+      "database": "postgresql"
+    }
+  },
+  "includeExamples": true,
+  "envVarValues": {},
+  "routerOnly": false,
+  "version": 1,
+  "framework": "react-cra",
+  "chosenAddOns": [
+    "tanstack-query",
+    "db",
+    "store",
+    "form",
+    "table",
+    "nitro",
+    "drizzle",
+    "tRPC",
+    "compiler",
+    "t3env"
+  ]
+}
