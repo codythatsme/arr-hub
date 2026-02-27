@@ -1,9 +1,77 @@
-import { initTRPC } from '@trpc/server'
+import { initTRPC, TRPCError } from '@trpc/server'
+import { Cause, Effect, Exit, Option, type ManagedRuntime } from 'effect'
+import { SqlError } from '@effect/sql/SqlError'
 import superjson from 'superjson'
+import { AppRuntime } from '#/effect/runtime'
+import { AuthService } from '#/effect/services/AuthService'
+import type { AuthError, ConflictError, NotFoundError, ValidationError } from '#/effect/errors'
 
-const t = initTRPC.create({
+type AppContext = typeof AppRuntime extends ManagedRuntime.ManagedRuntime<infer R, infer _E> ? R : never
+
+export interface TRPCContext {
+  headers: Headers
+  userId: number | null
+}
+
+export function createContext({ request }: { request: Request }): TRPCContext {
+  return { headers: request.headers, userId: null }
+}
+
+const t = initTRPC.context<TRPCContext>().create({
   transformer: superjson,
 })
 
 export const createTRPCRouter = t.router
+
 export const publicProcedure = t.procedure
+
+type DomainError = NotFoundError | ValidationError | ConflictError | AuthError
+
+function domainToTRPC(error: DomainError): TRPCError {
+  switch (error._tag) {
+    case 'NotFoundError':
+      return new TRPCError({ code: 'NOT_FOUND', message: `${error.entity} ${error.id} not found` })
+    case 'ValidationError':
+      return new TRPCError({ code: 'BAD_REQUEST', message: error.message })
+    case 'ConflictError':
+      return new TRPCError({ code: 'CONFLICT', message: `${error.entity} with ${error.field}=${error.value} already exists` })
+    case 'AuthError':
+      return new TRPCError({ code: 'UNAUTHORIZED', message: error.reason })
+  }
+}
+
+/** Run an Effect through AppRuntime, mapping domain/sql errors → TRPCError thrown directly. */
+export async function runEffect<A>(
+  effect: Effect.Effect<A, DomainError | SqlError, AppContext>,
+): Promise<A> {
+  const exit = await AppRuntime.runPromise(Effect.exit(effect))
+  if (Exit.isSuccess(exit)) return exit.value
+
+  const failure = Cause.failureOption(exit.cause)
+  if (Option.isSome(failure)) {
+    const e = failure.value
+    if (e._tag === 'SqlError') {
+      throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: e.message })
+    }
+    throw domainToTRPC(e)
+  }
+  // Defect or interruption
+  throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'unexpected error' })
+}
+
+export const authedProcedure = publicProcedure.use(async ({ ctx, next }) => {
+  const authHeader = ctx.headers.get('authorization')
+  if (!authHeader?.startsWith('Bearer ')) {
+    throw new TRPCError({ code: 'UNAUTHORIZED', message: 'missing' })
+  }
+
+  const token = authHeader.slice(7)
+  const validated = await runEffect(
+    Effect.gen(function* () {
+      const auth = yield* AuthService
+      return yield* auth.validateToken(token)
+    }),
+  )
+
+  return next({ ctx: { ...ctx, userId: validated.userId } })
+})
