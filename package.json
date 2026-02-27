@@ -53,6 +53,7 @@
     "zod": "^4.1.11"
   },
   "devDependencies": {
+    "@effect/vitest": "^0.27.0",
     "@libsql/client": "^0.17.0",
     "@tanstack/devtools-event-client": "^0.4.0",
     "@tanstack/devtools-vite": "^0.3.11",

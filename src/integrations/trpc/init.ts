@@ -27,7 +27,7 @@ export const publicProcedure = t.procedure
 
 type DomainError = NotFoundError | ValidationError | ConflictError | AuthError
 
-function domainToTRPC(error: DomainError): TRPCError {
+export function domainToTRPC(error: DomainError): TRPCError {
   switch (error._tag) {
     case 'NotFoundError':
       return new TRPCError({ code: 'NOT_FOUND', message: `${error.entity} ${error.id} not found` })
