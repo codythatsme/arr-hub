@@ -121,6 +121,47 @@ const runDdl = Effect.gen(function* () {
     error_message TEXT,
     response_time_ms INTEGER
   )`
+
+  yield* sql`CREATE TABLE download_clients (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL,
+    host TEXT NOT NULL,
+    port INTEGER NOT NULL,
+    username TEXT NOT NULL,
+    password_encrypted TEXT NOT NULL,
+    use_ssl INTEGER NOT NULL DEFAULT 0,
+    category TEXT,
+    priority INTEGER NOT NULL DEFAULT 50,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    settings TEXT NOT NULL DEFAULT '{"pollIntervalMs":5000}',
+    created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+  )`
+
+  yield* sql`CREATE TABLE download_client_health (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    download_client_id INTEGER NOT NULL UNIQUE REFERENCES download_clients(id) ON DELETE CASCADE,
+    last_check INTEGER NOT NULL DEFAULT (unixepoch()),
+    status TEXT NOT NULL DEFAULT 'unknown',
+    error_message TEXT,
+    response_time_ms INTEGER
+  )`
+
+  yield* sql`CREATE TABLE download_queue (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    download_client_id INTEGER NOT NULL REFERENCES download_clients(id) ON DELETE CASCADE,
+    movie_id INTEGER REFERENCES movies(id) ON DELETE SET NULL,
+    external_id TEXT NOT NULL UNIQUE,
+    status TEXT NOT NULL DEFAULT 'queued',
+    title TEXT NOT NULL,
+    size_bytes INTEGER NOT NULL DEFAULT 0,
+    progress REAL NOT NULL DEFAULT 0.0,
+    eta_seconds INTEGER,
+    error_message TEXT,
+    added_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+  )`
 })
 
 /**
