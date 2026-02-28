@@ -1,5 +1,7 @@
 import { sql } from "drizzle-orm"
-import { integer, sqliteTable, text, unique } from "drizzle-orm/sqlite-core"
+import { integer, real, sqliteTable, text, unique } from "drizzle-orm/sqlite-core"
+
+import type { DownloadClientSettings } from "#/effect/domain/downloadClient"
 
 export const users = sqliteTable("users", {
   id: integer().primaryKey({ autoIncrement: true }),
@@ -158,4 +160,67 @@ export const indexerHealth = sqliteTable("indexer_health", {
     .default("unknown"),
   errorMessage: text("error_message"),
   responseTimeMs: integer("response_time_ms"),
+})
+
+export const downloadClients = sqliteTable("download_clients", {
+  id: integer().primaryKey({ autoIncrement: true }),
+  name: text().notNull(),
+  type: text({ enum: ["qbittorrent"] }).notNull(),
+  host: text().notNull(),
+  port: integer().notNull(),
+  username: text().notNull(),
+  passwordEncrypted: text("password_encrypted").notNull(),
+  useSsl: integer("use_ssl", { mode: "boolean" }).notNull().default(false),
+  category: text(),
+  priority: integer().notNull().default(50),
+  enabled: integer({ mode: "boolean" }).notNull().default(true),
+  settings: text({ mode: "json" })
+    .$type<DownloadClientSettings>()
+    .notNull()
+    .default(sql`'{"pollIntervalMs":5000}'`),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+})
+
+export const downloadClientHealth = sqliteTable("download_client_health", {
+  id: integer().primaryKey({ autoIncrement: true }),
+  downloadClientId: integer("download_client_id")
+    .notNull()
+    .unique()
+    .references(() => downloadClients.id, { onDelete: "cascade" }),
+  lastCheck: integer("last_check", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  status: text({ enum: ["healthy", "unhealthy", "unknown"] })
+    .notNull()
+    .default("unknown"),
+  errorMessage: text("error_message"),
+  responseTimeMs: integer("response_time_ms"),
+})
+
+export const downloadQueue = sqliteTable("download_queue", {
+  id: integer().primaryKey({ autoIncrement: true }),
+  downloadClientId: integer("download_client_id")
+    .notNull()
+    .references(() => downloadClients.id, { onDelete: "cascade" }),
+  movieId: integer("movie_id").references(() => movies.id, { onDelete: "set null" }),
+  externalId: text("external_id").notNull().unique(),
+  status: text({ enum: ["queued", "downloading", "importing", "completed", "failed"] })
+    .notNull()
+    .default("queued"),
+  title: text().notNull(),
+  sizeBytes: integer("size_bytes").notNull().default(0),
+  progress: real().notNull().default(0.0),
+  etaSeconds: integer("eta_seconds"),
+  errorMessage: text("error_message"),
+  addedAt: integer("added_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
 })

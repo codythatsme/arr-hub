@@ -54,3 +54,19 @@ export class IndexerError extends Data.TaggedError("IndexerError")<{
 export class EncryptionError extends Data.TaggedError("EncryptionError")<{
   readonly message: string
 }> {}
+
+export type DownloadClientErrorReason =
+  | "auth_failed"
+  | "connection_refused"
+  | "timeout"
+  | "category_create_failed"
+  | "download_rejected"
+  | "invalid_response"
+
+export class DownloadClientError extends Data.TaggedError("DownloadClientError")<{
+  readonly clientId: number
+  readonly clientName: string
+  readonly reason: DownloadClientErrorReason
+  readonly message: string
+  readonly retryable: boolean
+}> {}

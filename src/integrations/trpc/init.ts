@@ -8,6 +8,7 @@ import type {
   BundleNotFoundError,
   BundleVersionConflictError,
   ConflictError,
+  DownloadClientError,
   EncryptionError,
   IndexerError,
   NotFoundError,
@@ -46,6 +47,7 @@ type DomainError =
   | BundleNotFoundError
   | BundleVersionConflictError
   | IndexerError
+  | DownloadClientError
   | EncryptionError
 
 export function domainToTRPC(error: DomainError): TRPCError {
@@ -84,6 +86,20 @@ export function domainToTRPC(error: DomainError): TRPCError {
       return new TRPCError({
         code: codeMap[error.reason] ?? "BAD_GATEWAY",
         message: `[${error.indexerName}] ${error.message}`,
+      })
+    }
+    case "DownloadClientError": {
+      const codeMap: Record<string, TRPCError["code"]> = {
+        auth_failed: "UNAUTHORIZED",
+        connection_refused: "BAD_GATEWAY",
+        timeout: "TIMEOUT",
+        category_create_failed: "BAD_GATEWAY",
+        download_rejected: "BAD_REQUEST",
+        invalid_response: "BAD_GATEWAY",
+      }
+      return new TRPCError({
+        code: codeMap[error.reason] ?? "BAD_GATEWAY",
+        message: `[${error.clientName}] ${error.message}`,
       })
     }
     case "EncryptionError":

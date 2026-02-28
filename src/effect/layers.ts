@@ -4,6 +4,7 @@ import { AuthServiceLive } from "./services/AuthService"
 import { ConfigServiceLive } from "./services/ConfigService"
 import { CryptoServiceLive } from "./services/CryptoService"
 import { DbLive } from "./services/Db"
+import { DownloadClientServiceLive } from "./services/DownloadClientService"
 import { IndexerServiceLive } from "./services/IndexerService"
 import { MovieServiceLive } from "./services/MovieService"
 import { ProfileDefaultsEngineLive } from "./services/ProfileDefaultsEngine"
@@ -15,6 +16,7 @@ export const AppLive = Layer.mergeAll(
   AuthServiceLive,
   MovieServiceLive,
   IndexerServiceLive,
+  DownloadClientServiceLive,
 ).pipe(
   Layer.provideMerge(ProfileDefaultsEngineLive),
   Layer.provideMerge(ProfileServiceLive),
