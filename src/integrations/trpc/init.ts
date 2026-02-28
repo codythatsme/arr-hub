@@ -4,7 +4,15 @@ import { SqlError } from '@effect/sql/SqlError'
 import superjson from 'superjson'
 import { AppRuntime } from '#/effect/runtime'
 import { AuthService } from '#/effect/services/AuthService'
-import type { AuthError, ConflictError, NotFoundError, ValidationError } from '#/effect/errors'
+import type {
+  AuthError,
+  BundleNotFoundError,
+  BundleVersionConflictError,
+  ConflictError,
+  NotFoundError,
+  ProfileInUseError,
+  ValidationError,
+} from '#/effect/errors'
 
 type AppContext = typeof AppRuntime extends ManagedRuntime.ManagedRuntime<infer R, infer _E> ? R : never
 
@@ -25,7 +33,14 @@ export const createTRPCRouter = t.router
 
 export const publicProcedure = t.procedure
 
-type DomainError = NotFoundError | ValidationError | ConflictError | AuthError
+type DomainError =
+  | NotFoundError
+  | ValidationError
+  | ConflictError
+  | AuthError
+  | ProfileInUseError
+  | BundleNotFoundError
+  | BundleVersionConflictError
 
 export function domainToTRPC(error: DomainError): TRPCError {
   switch (error._tag) {
@@ -37,6 +52,12 @@ export function domainToTRPC(error: DomainError): TRPCError {
       return new TRPCError({ code: 'CONFLICT', message: `${error.entity} with ${error.field}=${error.value} already exists` })
     case 'AuthError':
       return new TRPCError({ code: 'UNAUTHORIZED', message: error.reason })
+    case 'ProfileInUseError':
+      return new TRPCError({ code: 'CONFLICT', message: `profile ${error.profileId} in use by ${error.movieCount} movie(s)` })
+    case 'BundleNotFoundError':
+      return new TRPCError({ code: 'NOT_FOUND', message: `bundle ${error.bundleId} not found` })
+    case 'BundleVersionConflictError':
+      return new TRPCError({ code: 'CONFLICT', message: `bundle ${error.bundleId} v${error.appliedVersion} already applied` })
   }
 }
 

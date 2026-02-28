@@ -24,3 +24,18 @@ export type AuthErrorReason =
 export class AuthError extends Data.TaggedError('AuthError')<{
   readonly reason: AuthErrorReason
 }> {}
+
+export class ProfileInUseError extends Data.TaggedError('ProfileInUseError')<{
+  readonly profileId: number
+  readonly movieCount: number
+}> {}
+
+export class BundleNotFoundError extends Data.TaggedError('BundleNotFoundError')<{
+  readonly bundleId: string
+}> {}
+
+export class BundleVersionConflictError extends Data.TaggedError('BundleVersionConflictError')<{
+  readonly bundleId: string
+  readonly appliedVersion: number
+  readonly requestedVersion: number
+}> {}
