@@ -105,3 +105,28 @@ export const settings = sqliteTable('settings', {
   value: text().notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
 })
+
+export const indexers = sqliteTable('indexers', {
+  id: integer().primaryKey({ autoIncrement: true }),
+  name: text().notNull(),
+  type: text({ enum: ['torznab', 'newznab'] }).notNull(),
+  baseUrl: text('base_url').notNull(),
+  apiKeyEncrypted: text('api_key_encrypted').notNull(),
+  enabled: integer({ mode: 'boolean' }).notNull().default(true),
+  priority: integer().notNull().default(50),
+  categories: text({ mode: 'json' }).$type<ReadonlyArray<number>>().notNull().default(sql`'[]'`),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+})
+
+export const indexerHealth = sqliteTable('indexer_health', {
+  id: integer().primaryKey({ autoIncrement: true }),
+  indexerId: integer('indexer_id')
+    .notNull()
+    .unique()
+    .references(() => indexers.id, { onDelete: 'cascade' }),
+  lastCheck: integer('last_check', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+  status: text({ enum: ['healthy', 'unhealthy', 'unknown'] }).notNull().default('unknown'),
+  errorMessage: text('error_message'),
+  responseTimeMs: integer('response_time_ms'),
+})
