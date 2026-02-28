@@ -9,9 +9,7 @@ import {
   IndexerError,
   EncryptionError,
 } from "#/effect/errors"
-import { NotFoundError, ValidationError, ConflictError, AuthError } from "#/effect/errors"
 
-import { domainToTRPC } from "./init"
 import { domainToTRPC } from "./init"
 
 describe("domainToTRPC", () => {
