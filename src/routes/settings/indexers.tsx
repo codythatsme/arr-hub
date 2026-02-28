@@ -1,6 +1,6 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute } from "@tanstack/react-router"
 
-export const Route = createFileRoute('/settings/indexers')({ component: Indexers })
+export const Route = createFileRoute("/settings/indexers")({ component: Indexers })
 
 function Indexers() {
   return (

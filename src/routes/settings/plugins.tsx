@@ -1,6 +1,6 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute } from "@tanstack/react-router"
 
-export const Route = createFileRoute('/settings/plugins')({ component: Plugins })
+export const Route = createFileRoute("/settings/plugins")({ component: Plugins })
 
 function Plugins() {
   return (

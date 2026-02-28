@@ -1,5 +1,4 @@
-import type { LucideIcon } from 'lucide-react'
-import type { FileRoutesByTo } from '@/routeTree.gen'
+import type { LucideIcon } from "lucide-react"
 import {
   Activity,
   Bell,
@@ -18,7 +17,9 @@ import {
   Server,
   Settings,
   Tv,
-} from 'lucide-react'
+} from "lucide-react"
+
+import type { FileRoutesByTo } from "@/routeTree.gen"
 
 type RouteTo = keyof FileRoutesByTo
 
@@ -37,44 +38,44 @@ interface NavGroup {
 }
 
 const topLevelItems = [
-  { title: 'Dashboard', to: '/', icon: LayoutDashboard },
-  { title: 'Movies', to: '/movies', icon: Clapperboard },
-  { title: 'TV Shows', to: '/tv', icon: Tv },
+  { title: "Dashboard", to: "/", icon: LayoutDashboard },
+  { title: "Movies", to: "/movies", icon: Clapperboard },
+  { title: "TV Shows", to: "/tv", icon: Tv },
 ] as const satisfies readonly NavItem[]
 
 const collapsibleGroups = [
   {
-    label: 'Activity',
+    label: "Activity",
     icon: Activity,
-    basePath: '/activity',
-    indexTo: '/activity',
+    basePath: "/activity",
+    indexTo: "/activity",
     items: [
-      { title: 'Queue', to: '/activity/queue', icon: ListOrdered },
-      { title: 'History', to: '/activity/history', icon: History },
+      { title: "Queue", to: "/activity/queue", icon: ListOrdered },
+      { title: "History", to: "/activity/history", icon: History },
     ],
   },
   {
-    label: 'Settings',
+    label: "Settings",
     icon: Settings,
-    basePath: '/settings',
-    indexTo: '/settings',
+    basePath: "/settings",
+    indexTo: "/settings",
     items: [
-      { title: 'General', to: '/settings/general', icon: Gauge },
-      { title: 'Media Mgmt', to: '/settings/media-management', icon: FolderCog },
-      { title: 'Profiles', to: '/settings/profiles', icon: ListOrdered },
-      { title: 'Indexers', to: '/settings/indexers', icon: Search },
-      { title: 'Download Cl.', to: '/settings/download-clients', icon: Download },
-      { title: 'Media Servers', to: '/settings/media-servers', icon: Monitor },
-      { title: 'Notifications', to: '/settings/notifications', icon: Bell },
-      { title: 'Scheduler', to: '/settings/scheduler', icon: Calendar },
-      { title: 'Security', to: '/settings/security', icon: Lock },
-      { title: 'Plugins', to: '/settings/plugins', icon: Puzzle },
+      { title: "General", to: "/settings/general", icon: Gauge },
+      { title: "Media Mgmt", to: "/settings/media-management", icon: FolderCog },
+      { title: "Profiles", to: "/settings/profiles", icon: ListOrdered },
+      { title: "Indexers", to: "/settings/indexers", icon: Search },
+      { title: "Download Cl.", to: "/settings/download-clients", icon: Download },
+      { title: "Media Servers", to: "/settings/media-servers", icon: Monitor },
+      { title: "Notifications", to: "/settings/notifications", icon: Bell },
+      { title: "Scheduler", to: "/settings/scheduler", icon: Calendar },
+      { title: "Security", to: "/settings/security", icon: Lock },
+      { title: "Plugins", to: "/settings/plugins", icon: Puzzle },
     ],
   },
 ] as const satisfies readonly NavGroup[]
 
 const bottomItems = [
-  { title: 'System', to: '/system', icon: Server },
+  { title: "System", to: "/system", icon: Server },
 ] as const satisfies readonly NavItem[]
 
 export { topLevelItems, collapsibleGroups, bottomItems }

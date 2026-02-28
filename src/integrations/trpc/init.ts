@@ -1,9 +1,8 @@
-import { initTRPC, TRPCError } from '@trpc/server'
-import { Cause, Effect, Exit, Option, type ManagedRuntime } from 'effect'
-import { SqlError } from '@effect/sql/SqlError'
-import superjson from 'superjson'
-import { AppRuntime } from '#/effect/runtime'
-import { AuthService } from '#/effect/services/AuthService'
+import { SqlError } from "@effect/sql/SqlError"
+import { initTRPC, TRPCError } from "@trpc/server"
+import { Cause, Effect, Exit, Option, type ManagedRuntime } from "effect"
+import superjson from "superjson"
+
 import type {
   AuthError,
   BundleNotFoundError,
@@ -14,9 +13,12 @@ import type {
   NotFoundError,
   ProfileInUseError,
   ValidationError,
-} from '#/effect/errors'
+} from "#/effect/errors"
+import { AppRuntime } from "#/effect/runtime"
+import { AuthService } from "#/effect/services/AuthService"
 
-type AppContext = typeof AppRuntime extends ManagedRuntime.ManagedRuntime<infer R, infer _E> ? R : never
+type AppContext =
+  typeof AppRuntime extends ManagedRuntime.ManagedRuntime<infer R, infer _E> ? R : never
 
 export interface TRPCContext {
   headers: Headers
@@ -87,19 +89,19 @@ export async function runEffect<A>(
   const failure = Cause.failureOption(exit.cause)
   if (Option.isSome(failure)) {
     const e = failure.value
-    if (e._tag === 'SqlError') {
-      throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: e.message })
+    if (e._tag === "SqlError") {
+      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: e.message })
     }
     throw domainToTRPC(e)
   }
   // Defect or interruption
-  throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'unexpected error' })
+  throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "unexpected error" })
 }
 
 export const authedProcedure = publicProcedure.use(async ({ ctx, next }) => {
-  const authHeader = ctx.headers.get('authorization')
-  if (!authHeader?.startsWith('Bearer ')) {
-    throw new TRPCError({ code: 'UNAUTHORIZED', message: 'missing' })
+  const authHeader = ctx.headers.get("authorization")
+  if (!authHeader?.startsWith("Bearer ")) {
+    throw new TRPCError({ code: "UNAUTHORIZED", message: "missing" })
   }
 
   const token = authHeader.slice(7)

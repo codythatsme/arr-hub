@@ -1,10 +1,12 @@
-import { Context, Effect, Layer } from 'effect'
-import { SqlError } from '@effect/sql/SqlError'
-import { eq, and, isNull } from 'drizzle-orm'
-import { users, apiKeys } from '#/db/schema'
-import { Db } from './Db'
-import { CryptoService } from './CryptoService'
-import { AuthError } from '../errors'
+import { SqlError } from "@effect/sql/SqlError"
+import { eq, and, isNull } from "drizzle-orm"
+import { Context, Effect, Layer } from "effect"
+
+import { users, apiKeys } from "#/db/schema"
+
+import { AuthError } from "../errors"
+import { CryptoService } from "./CryptoService"
+import { Db } from "./Db"
 
 interface SessionResult {
   readonly token: string
@@ -19,13 +21,16 @@ interface ApiKeyResult {
 interface ValidatedUser {
   readonly userId: number
   readonly keyId: number
-  readonly kind: 'session' | 'api_key'
+  readonly kind: "session" | "api_key"
 }
 
-export class AuthService extends Context.Tag('AuthService')<
+export class AuthService extends Context.Tag("AuthService")<
   AuthService,
   {
-    readonly login: (username: string, password: string) => Effect.Effect<SessionResult, AuthError | SqlError>
+    readonly login: (
+      username: string,
+      password: string,
+    ) => Effect.Effect<SessionResult, AuthError | SqlError>
     readonly validateToken: (token: string) => Effect.Effect<ValidatedUser, AuthError | SqlError>
     readonly createApiKey: (userId: number, name: string) => Effect.Effect<ApiKeyResult, SqlError>
     readonly revokeApiKey: (id: number) => Effect.Effect<void, SqlError>
@@ -43,19 +48,16 @@ export const AuthServiceLive = Layer.effect(
     return {
       login: (username, password) =>
         Effect.gen(function* () {
-          const rows = yield* db
-            .select()
-            .from(users)
-            .where(eq(users.username, username))
+          const rows = yield* db.select().from(users).where(eq(users.username, username))
 
           const user = rows[0]
           if (!user) {
-            return yield* new AuthError({ reason: 'invalid_credentials' })
+            return yield* new AuthError({ reason: "invalid_credentials" })
           }
 
           const valid = yield* crypto.verifyPassword(password, user.passwordHash)
           if (!valid) {
-            return yield* new AuthError({ reason: 'invalid_credentials' })
+            return yield* new AuthError({ reason: "invalid_credentials" })
           }
 
           const rawToken = yield* crypto.generateToken()
@@ -64,8 +66,8 @@ export const AuthServiceLive = Layer.effect(
 
           yield* db.insert(apiKeys).values({
             userId: user.id,
-            kind: 'session',
-            name: 'session',
+            kind: "session",
+            name: "session",
             tokenHash,
             expiresAt,
           })
@@ -80,26 +82,18 @@ export const AuthServiceLive = Layer.effect(
           const rows = yield* db
             .select()
             .from(apiKeys)
-            .where(
-              and(
-                eq(apiKeys.tokenHash, tokenHash),
-                isNull(apiKeys.revokedAt),
-              ),
-            )
+            .where(and(eq(apiKeys.tokenHash, tokenHash), isNull(apiKeys.revokedAt)))
 
           const key = rows[0]
           if (!key) {
-            return yield* new AuthError({ reason: 'missing' })
+            return yield* new AuthError({ reason: "missing" })
           }
 
           if (key.expiresAt && key.expiresAt < new Date()) {
-            return yield* new AuthError({ reason: 'expired' })
+            return yield* new AuthError({ reason: "expired" })
           }
 
-          yield* db
-            .update(apiKeys)
-            .set({ lastUsedAt: new Date() })
-            .where(eq(apiKeys.id, key.id))
+          yield* db.update(apiKeys).set({ lastUsedAt: new Date() }).where(eq(apiKeys.id, key.id))
 
           return { userId: key.userId, keyId: key.id, kind: key.kind }
         }),
@@ -113,7 +107,7 @@ export const AuthServiceLive = Layer.effect(
             .insert(apiKeys)
             .values({
               userId,
-              kind: 'api_key',
+              kind: "api_key",
               name,
               tokenHash,
             })
@@ -124,10 +118,7 @@ export const AuthServiceLive = Layer.effect(
 
       revokeApiKey: (id) =>
         Effect.gen(function* () {
-          yield* db
-            .update(apiKeys)
-            .set({ revokedAt: new Date() })
-            .where(eq(apiKeys.id, id))
+          yield* db.update(apiKeys).set({ revokedAt: new Date() }).where(eq(apiKeys.id, id))
         }),
     }
   }),

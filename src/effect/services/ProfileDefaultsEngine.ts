@@ -1,22 +1,19 @@
-import { Context, Effect, Layer } from 'effect'
-import { SqlError } from '@effect/sql/SqlError'
-import { eq } from 'drizzle-orm'
-import {
-  qualityProfiles,
-  customFormats,
-  customFormatSpecs,
-  customFormatScores,
-} from '#/db/schema'
-import { Db } from './Db'
+import { SqlError } from "@effect/sql/SqlError"
+import { eq } from "drizzle-orm"
+import { Context, Effect, Layer } from "effect"
+
+import { qualityProfiles, customFormats, customFormatSpecs } from "#/db/schema"
+
+import { BUNDLES, BUNDLE_LIST, type Bundle, type BundleCustomFormat } from "../domain/bundles"
+import { NotFoundError, BundleNotFoundError, BundleVersionConflictError } from "../errors"
+import { ConfigService } from "./ConfigService"
+import { Db } from "./Db"
 import {
   ProfileService,
   type ProfileWithDetails,
   type QualityItemInput,
   type FormatScoreInput,
-} from './ProfileService'
-import { ConfigService } from './ConfigService'
-import { NotFoundError, BundleNotFoundError, BundleVersionConflictError } from '../errors'
-import { BUNDLES, BUNDLE_LIST, type Bundle, type BundleCustomFormat } from '../domain/bundles'
+} from "./ProfileService"
 
 // ── Snapshot types for diff-based reapply ──
 
@@ -27,7 +24,7 @@ interface BundleSnapshot {
 
 // ── Service ──
 
-export class ProfileDefaultsEngine extends Context.Tag('@arr-hub/ProfileDefaultsEngine')<
+export class ProfileDefaultsEngine extends Context.Tag("@arr-hub/ProfileDefaultsEngine")<
   ProfileDefaultsEngine,
   {
     readonly listBundles: () => Effect.Effect<ReadonlyArray<Bundle>>
@@ -36,7 +33,10 @@ export class ProfileDefaultsEngine extends Context.Tag('@arr-hub/ProfileDefaults
       bundleId: string,
       profileId: number,
       opts?: { readonly force?: boolean },
-    ) => Effect.Effect<ProfileWithDetails, BundleNotFoundError | BundleVersionConflictError | NotFoundError | SqlError>
+    ) => Effect.Effect<
+      ProfileWithDetails,
+      BundleNotFoundError | BundleVersionConflictError | NotFoundError | SqlError
+    >
     readonly previewEffective: (
       bundleId: string,
       overrides?: { readonly qualityItems?: ReadonlyArray<QualityItemInput> },
@@ -61,9 +61,7 @@ export const ProfileDefaultsEngineLive = Layer.effect(
     /** Resolve bundle or fail. */
     const resolveBundle = (bundleId: string): Effect.Effect<Bundle, BundleNotFoundError> => {
       const bundle = BUNDLES.get(bundleId)
-      return bundle
-        ? Effect.succeed(bundle)
-        : Effect.fail(new BundleNotFoundError({ bundleId }))
+      return bundle ? Effect.succeed(bundle) : Effect.fail(new BundleNotFoundError({ bundleId }))
     }
 
     /** Ensure all custom formats from a bundle exist in DB, return name→id map. */
@@ -109,7 +107,10 @@ export const ProfileDefaultsEngineLive = Layer.effect(
     const bundleToProfileInput = (
       bundle: Bundle,
       formatMap: ReadonlyMap<string, number>,
-    ): { qualityItems: ReadonlyArray<QualityItemInput>; formatScores: ReadonlyArray<FormatScoreInput> } => {
+    ): {
+      qualityItems: ReadonlyArray<QualityItemInput>
+      formatScores: ReadonlyArray<FormatScoreInput>
+    } => {
       const qualityItems: Array<QualityItemInput> = bundle.qualityItems.map((item) => ({
         qualityName: item.qualityName,
         groupName: item.groupName,
@@ -143,7 +144,10 @@ export const ProfileDefaultsEngineLive = Layer.effect(
     })
 
     /** Save snapshot to settings table. */
-    const saveSnapshot = (profileId: number, snapshot: BundleSnapshot): Effect.Effect<void, SqlError> =>
+    const saveSnapshot = (
+      profileId: number,
+      snapshot: BundleSnapshot,
+    ): Effect.Effect<void, SqlError> =>
       configService.set(snapshotKey(profileId), JSON.stringify(snapshot))
 
     /** Load snapshot from settings table. Returns null if not found. */
@@ -163,15 +167,18 @@ export const ProfileDefaultsEngineLive = Layer.effect(
       current: ProfileWithDetails,
       newBundle: Bundle,
       formatMap: ReadonlyMap<string, number>,
-    ): { qualityItems: ReadonlyArray<QualityItemInput>; formatScores: ReadonlyArray<FormatScoreInput> } => {
+    ): {
+      qualityItems: ReadonlyArray<QualityItemInput>
+      formatScores: ReadonlyArray<FormatScoreInput>
+    } => {
       // Build lookup: qualityName+groupName → item from old snapshot
-      const snapshotItemKey = (i: QualityItemInput) => `${i.qualityName ?? ''}|${i.groupName ?? ''}`
+      const snapshotItemKey = (i: QualityItemInput) => `${i.qualityName ?? ""}|${i.groupName ?? ""}`
       const oldItemMap = new Map(oldSnapshot.qualityItems.map((i) => [snapshotItemKey(i), i]))
 
       // Current items: detect user edits (differ from old snapshot)
       const userEditedItems = new Map<string, QualityItemInput>()
       for (const ci of current.qualityItems) {
-        const key = `${ci.qualityName ?? ''}|${ci.groupName ?? ''}`
+        const key = `${ci.qualityName ?? ""}|${ci.groupName ?? ""}`
         const oldItem = oldItemMap.get(key)
         if (!oldItem || oldItem.weight !== ci.weight || oldItem.allowed !== ci.allowed) {
           userEditedItems.set(key, {
@@ -185,14 +192,16 @@ export const ProfileDefaultsEngineLive = Layer.effect(
 
       // Start from new bundle items, overlay user edits
       const mergedItems: Array<QualityItemInput> = newBundle.qualityItems.map((ni) => {
-        const key = `${ni.qualityName ?? ''}|${ni.groupName ?? ''}`
+        const key = `${ni.qualityName ?? ""}|${ni.groupName ?? ""}`
         const userEdit = userEditedItems.get(key)
-        return userEdit ?? {
-          qualityName: ni.qualityName,
-          groupName: ni.groupName,
-          weight: ni.weight,
-          allowed: ni.allowed,
-        }
+        return (
+          userEdit ?? {
+            qualityName: ni.qualityName,
+            groupName: ni.groupName,
+            weight: ni.weight,
+            allowed: ni.allowed,
+          }
+        )
       })
 
       // Format scores: detect user edits

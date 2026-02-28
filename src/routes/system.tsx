@@ -1,6 +1,6 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute } from "@tanstack/react-router"
 
-export const Route = createFileRoute('/system')({ component: System })
+export const Route = createFileRoute("/system")({ component: System })
 
 function System() {
   return (

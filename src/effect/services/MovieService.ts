@@ -1,9 +1,11 @@
-import { Context, Effect, Layer } from 'effect'
-import { SqlError } from '@effect/sql/SqlError'
-import { eq, like, and, type SQL } from 'drizzle-orm'
-import { movies } from '#/db/schema'
-import { Db } from './Db'
-import { NotFoundError, ConflictError } from '../errors'
+import { SqlError } from "@effect/sql/SqlError"
+import { eq, like, and, type SQL } from "drizzle-orm"
+import { Context, Effect, Layer } from "effect"
+
+import { movies } from "#/db/schema"
+
+import { NotFoundError, ConflictError } from "../errors"
+import { Db } from "./Db"
 
 type Movie = typeof movies.$inferSelect
 
@@ -13,7 +15,7 @@ interface MovieInput {
   readonly year?: number | null
   readonly overview?: string | null
   readonly posterPath?: string | null
-  readonly status?: 'wanted' | 'available' | 'missing'
+  readonly status?: "wanted" | "available" | "missing"
   readonly qualityProfileId?: number | null
   readonly rootFolderPath?: string | null
   readonly monitored?: boolean
@@ -24,24 +26,27 @@ interface MovieUpdate {
   readonly year?: number | null
   readonly overview?: string | null
   readonly posterPath?: string | null
-  readonly status?: 'wanted' | 'available' | 'missing'
+  readonly status?: "wanted" | "available" | "missing"
   readonly qualityProfileId?: number | null
   readonly rootFolderPath?: string | null
   readonly monitored?: boolean
 }
 
 interface MovieFilters {
-  readonly status?: 'wanted' | 'available' | 'missing'
+  readonly status?: "wanted" | "available" | "missing"
   readonly monitored?: boolean
 }
 
-export class MovieService extends Context.Tag('MovieService')<
+export class MovieService extends Context.Tag("MovieService")<
   MovieService,
   {
     readonly add: (input: MovieInput) => Effect.Effect<Movie, ConflictError | SqlError>
     readonly list: (filters?: MovieFilters) => Effect.Effect<ReadonlyArray<Movie>, SqlError>
     readonly getById: (id: number) => Effect.Effect<Movie, NotFoundError | SqlError>
-    readonly update: (id: number, data: MovieUpdate) => Effect.Effect<Movie, NotFoundError | SqlError>
+    readonly update: (
+      id: number,
+      data: MovieUpdate,
+    ) => Effect.Effect<Movie, NotFoundError | SqlError>
     readonly remove: (id: number) => Effect.Effect<void, NotFoundError | SqlError>
     readonly lookup: (query: string) => Effect.Effect<ReadonlyArray<Movie>, SqlError>
   }
@@ -62,8 +67,8 @@ export const MovieServiceLive = Layer.effect(
 
           if (existing.length > 0) {
             return yield* new ConflictError({
-              entity: 'movie',
-              field: 'tmdbId',
+              entity: "movie",
+              field: "tmdbId",
               value: input.tmdbId,
             })
           }
@@ -76,7 +81,7 @@ export const MovieServiceLive = Layer.effect(
               year: input.year ?? null,
               overview: input.overview ?? null,
               posterPath: input.posterPath ?? null,
-              status: input.status ?? 'wanted',
+              status: input.status ?? "wanted",
               qualityProfileId: input.qualityProfileId ?? null,
               rootFolderPath: input.rootFolderPath ?? null,
               monitored: input.monitored ?? true,
@@ -103,29 +108,22 @@ export const MovieServiceLive = Layer.effect(
 
       getById: (id) =>
         Effect.gen(function* () {
-          const rows = yield* db
-            .select()
-            .from(movies)
-            .where(eq(movies.id, id))
+          const rows = yield* db.select().from(movies).where(eq(movies.id, id))
 
           const movie = rows[0]
           if (!movie) {
-            return yield* new NotFoundError({ entity: 'movie', id })
+            return yield* new NotFoundError({ entity: "movie", id })
           }
           return movie
         }),
 
       update: (id, data) =>
         Effect.gen(function* () {
-          const rows = yield* db
-            .update(movies)
-            .set(data)
-            .where(eq(movies.id, id))
-            .returning()
+          const rows = yield* db.update(movies).set(data).where(eq(movies.id, id)).returning()
 
           const movie = rows[0]
           if (!movie) {
-            return yield* new NotFoundError({ entity: 'movie', id })
+            return yield* new NotFoundError({ entity: "movie", id })
           }
           return movie
         }),
@@ -138,7 +136,7 @@ export const MovieServiceLive = Layer.effect(
             .returning({ id: movies.id })
 
           if (rows.length === 0) {
-            return yield* new NotFoundError({ entity: 'movie', id })
+            return yield* new NotFoundError({ entity: "movie", id })
           }
         }),
 

@@ -1,19 +1,21 @@
-import { z } from 'zod'
-import { Effect } from 'effect'
-import { eq } from 'drizzle-orm'
-import { authedProcedure, runEffect } from '../init'
-import { Db } from '#/effect/services/Db'
-import { customFormats, customFormatSpecs } from '#/db/schema'
-import { NotFoundError } from '#/effect/errors'
-import type { TRPCRouterRecord } from '@trpc/server'
+import type { TRPCRouterRecord } from "@trpc/server"
+import { eq } from "drizzle-orm"
+import { Effect } from "effect"
+import { z } from "zod"
+
+import { customFormats, customFormatSpecs } from "#/db/schema"
+import { NotFoundError } from "#/effect/errors"
+import { Db } from "#/effect/services/Db"
+
+import { authedProcedure, runEffect } from "../init"
 
 const specFieldEnum = z.enum([
-  'releaseTitle',
-  'releaseGroup',
-  'edition',
-  'source',
-  'resolution',
-  'qualityModifier',
+  "releaseTitle",
+  "releaseGroup",
+  "edition",
+  "source",
+  "resolution",
+  "qualityModifier",
 ])
 
 const specSchema = z.object({
@@ -88,13 +90,10 @@ export const formatsRouter = {
     runEffect(
       Effect.gen(function* () {
         const db = yield* Db
-        const rows = yield* db
-          .select()
-          .from(customFormats)
-          .where(eq(customFormats.id, input.id))
+        const rows = yield* db.select().from(customFormats).where(eq(customFormats.id, input.id))
         const format = rows[0]
         if (!format) {
-          return yield* new NotFoundError({ entity: 'customFormat', id: input.id })
+          return yield* new NotFoundError({ entity: "customFormat", id: input.id })
         }
         const specs = yield* db
           .select()
@@ -116,7 +115,7 @@ export const formatsRouter = {
             .from(customFormats)
             .where(eq(customFormats.id, input.id))
           if (existing.length === 0) {
-            return yield* new NotFoundError({ entity: 'customFormat', id: input.id })
+            return yield* new NotFoundError({ entity: "customFormat", id: input.id })
           }
 
           const updateSet: Record<string, unknown> = {}
@@ -168,7 +167,7 @@ export const formatsRouter = {
           .where(eq(customFormats.id, input.id))
           .returning({ id: customFormats.id })
         if (rows.length === 0) {
-          return yield* new NotFoundError({ entity: 'customFormat', id: input.id })
+          return yield* new NotFoundError({ entity: "customFormat", id: input.id })
         }
       }),
     ),

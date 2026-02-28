@@ -1,10 +1,7 @@
-import { Link, useRouterState } from '@tanstack/react-router'
-import { ChevronRight, Globe } from 'lucide-react'
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible'
+import { Link, useRouterState } from "@tanstack/react-router"
+import { ChevronRight, Globe } from "lucide-react"
+
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import {
   Sidebar,
   SidebarContent,
@@ -20,18 +17,19 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
   SidebarRail,
-} from '@/components/ui/sidebar'
-import { topLevelItems, collapsibleGroups, bottomItems } from './nav-data'
-import type { NavGroup, NavItem } from './nav-data'
+} from "@/components/ui/sidebar"
+
+import { topLevelItems, collapsibleGroups, bottomItems } from "./nav-data"
+import type { NavGroup, NavItem } from "./nav-data"
 
 export function AppSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
 
   function isActive(to: string): boolean {
-    if (to === '/') return pathname === '/'
+    if (to === "/") return pathname === "/"
     // strip trailing slash for comparison
-    const normalizedPath = pathname.endsWith('/') ? pathname.slice(0, -1) : pathname
-    const normalizedTo = to.endsWith('/') ? to.slice(0, -1) : to
+    const normalizedPath = pathname.endsWith("/") ? pathname.slice(0, -1) : pathname
+    const normalizedTo = to.endsWith("/") ? to.slice(0, -1) : to
     return normalizedPath === normalizedTo
   }
 
@@ -65,11 +63,7 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {topLevelItems.map((item) => (
-                <TopLevelNavItem
-                  key={item.to}
-                  item={item}
-                  active={isActive(item.to)}
-                />
+                <TopLevelNavItem key={item.to} item={item} active={isActive(item.to)} />
               ))}
             </SidebarMenu>
           </SidebarGroupContent>
@@ -89,11 +83,7 @@ export function AppSidebar() {
       <SidebarFooter>
         <SidebarMenu>
           {bottomItems.map((item) => (
-            <TopLevelNavItem
-              key={item.to}
-              item={item}
-              active={isActive(item.to)}
-            />
+            <TopLevelNavItem key={item.to} item={item} active={isActive(item.to)} />
           ))}
         </SidebarMenu>
       </SidebarFooter>
@@ -103,13 +93,7 @@ export function AppSidebar() {
   )
 }
 
-function TopLevelNavItem({
-  item,
-  active,
-}: {
-  item: NavItem
-  active: boolean
-}) {
+function TopLevelNavItem({ item, active }: { item: NavItem; active: boolean }) {
   return (
     <SidebarMenuItem>
       <SidebarMenuButton asChild isActive={active} tooltip={item.title}>

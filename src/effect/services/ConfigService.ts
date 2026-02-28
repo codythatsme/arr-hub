@@ -1,11 +1,13 @@
-import { Context, Effect, Layer } from 'effect'
-import { SqlError } from '@effect/sql/SqlError'
-import { eq } from 'drizzle-orm'
-import { settings } from '#/db/schema'
-import { Db } from './Db'
-import { NotFoundError } from '../errors'
+import { SqlError } from "@effect/sql/SqlError"
+import { eq } from "drizzle-orm"
+import { Context, Effect, Layer } from "effect"
 
-export class ConfigService extends Context.Tag('ConfigService')<
+import { settings } from "#/db/schema"
+
+import { NotFoundError } from "../errors"
+import { Db } from "./Db"
+
+export class ConfigService extends Context.Tag("ConfigService")<
   ConfigService,
   {
     readonly get: (key: string) => Effect.Effect<string | null, SqlError>
@@ -31,7 +33,7 @@ export const ConfigServiceLive = Layer.effect(
           const rows = yield* db.select().from(settings).where(eq(settings.key, key))
           const row = rows[0]
           if (!row) {
-            return yield* new NotFoundError({ entity: 'setting', id: key })
+            return yield* new NotFoundError({ entity: "setting", id: key })
           }
           return row.value
         }),

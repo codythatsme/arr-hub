@@ -1,6 +1,6 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute } from "@tanstack/react-router"
 
-export const Route = createFileRoute('/settings/scheduler')({ component: Scheduler })
+export const Route = createFileRoute("/settings/scheduler")({ component: Scheduler })
 
 function Scheduler() {
   return (

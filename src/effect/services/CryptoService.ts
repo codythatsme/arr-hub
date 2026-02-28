@@ -2,7 +2,9 @@ import { randomBytes, scryptSync, timingSafeEqual, createHash, createCipheriv, c
 import { Context, Effect, Layer } from 'effect'
 import { EncryptionError } from '../errors'
 
-export class CryptoService extends Context.Tag('CryptoService')<
+import { Context, Effect, Layer } from "effect"
+
+export class CryptoService extends Context.Tag("CryptoService")<
   CryptoService,
   {
     readonly hashPassword: (password: string) => Effect.Effect<string>
@@ -30,20 +32,19 @@ function getEncryptionKey(): Buffer {
 export const CryptoServiceLive = Layer.succeed(CryptoService, {
   hashPassword: (password) =>
     Effect.sync(() => {
-      const salt = randomBytes(SALT_LEN).toString('hex')
-      const derived = scryptSync(password, salt, SCRYPT_KEYLEN).toString('hex')
+      const salt = randomBytes(SALT_LEN).toString("hex")
+      const derived = scryptSync(password, salt, SCRYPT_KEYLEN).toString("hex")
       return `${salt}:${derived}`
     }),
 
   verifyPassword: (password, hash) =>
     Effect.sync(() => {
-      const [salt, stored] = hash.split(':')
+      const [salt, stored] = hash.split(":")
       const derived = scryptSync(password, salt, SCRYPT_KEYLEN)
-      return timingSafeEqual(derived, Buffer.from(stored, 'hex'))
+      return timingSafeEqual(derived, Buffer.from(stored, "hex"))
     }),
 
-  generateToken: () =>
-    Effect.sync(() => randomBytes(32).toString('hex')),
+  generateToken: () => Effect.sync(() => randomBytes(32).toString("hex")),
 
   hashToken: (token) =>
     Effect.sync(() => createHash('sha256').update(token).digest('hex')),

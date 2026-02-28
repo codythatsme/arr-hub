@@ -15,7 +15,11 @@
     "db:push": "drizzle-kit push",
     "db:pull": "drizzle-kit pull",
     "db:studio": "drizzle-kit studio",
-    "ui:add": "bunx shadcn@latest add --yes"
+    "ui:add": "bunx shadcn@latest add --yes",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "fmt": "oxfmt",
+    "fmt:check": "oxfmt --check"
   },
   "dependencies": {
     "@effect/experimental": "^0.58.0",
@@ -70,6 +74,8 @@
     "babel-plugin-react-compiler": "^1.0.0",
     "dotenv": "^16.0.0",
     "jsdom": "^27.0.0",
+    "oxfmt": "^0.35.0",
+    "oxlint": "^1.50.0",
     "tsx": "^4.0.0",
     "typescript": "^5.7.2",
     "vite": "^7.1.7",

@@ -1,25 +1,18 @@
-import {
-  HeadContent,
-  Scripts,
-  createRootRouteWithContext,
-} from '@tanstack/react-router'
-import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
-import { TanStackDevtools } from '@tanstack/react-devtools'
+import { TanStackDevtools } from "@tanstack/react-devtools"
+import type { QueryClient } from "@tanstack/react-query"
+import { HeadContent, Scripts, createRootRouteWithContext } from "@tanstack/react-router"
+import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
+import type { TRPCOptionsProxy } from "@trpc/tanstack-react-query"
 
-import { AppSidebar } from '../components/sidebar/app-sidebar'
-import { SidebarInset, SidebarProvider, SidebarTrigger } from '../components/ui/sidebar'
-import { Separator } from '../components/ui/separator'
+import type { TRPCRouter } from "#/integrations/trpc/router"
 
-import TanStackQueryProvider from '../integrations/tanstack-query/root-provider'
+import { AppSidebar } from "../components/sidebar/app-sidebar"
+import { Separator } from "../components/ui/separator"
+import { SidebarInset, SidebarProvider, SidebarTrigger } from "../components/ui/sidebar"
+import TanStackQueryDevtools from "../integrations/tanstack-query/devtools"
+import TanStackQueryProvider from "../integrations/tanstack-query/root-provider"
 
-import TanStackQueryDevtools from '../integrations/tanstack-query/devtools'
-
-import appCss from '../styles.css?url'
-
-import type { QueryClient } from '@tanstack/react-query'
-
-import type { TRPCRouter } from '#/integrations/trpc/router'
-import type { TRPCOptionsProxy } from '@trpc/tanstack-react-query'
+import appCss from "../styles.css?url"
 
 interface MyRouterContext {
   queryClient: QueryClient
@@ -31,19 +24,19 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
   head: () => ({
     meta: [
       {
-        charSet: 'utf-8',
+        charSet: "utf-8",
       },
       {
-        name: 'viewport',
-        content: 'width=device-width, initial-scale=1',
+        name: "viewport",
+        content: "width=device-width, initial-scale=1",
       },
       {
-        title: 'arr-hub',
+        title: "arr-hub",
       },
     ],
     links: [
       {
-        rel: 'stylesheet',
+        rel: "stylesheet",
         href: appCss,
       },
     ],
@@ -66,18 +59,16 @@ function RootDocument({ children }: { children: React.ReactNode }) {
                 <SidebarTrigger className="-ml-1" />
                 <Separator orientation="vertical" className="mr-2 h-4" />
               </header>
-              <div className="flex-1">
-                {children}
-              </div>
+              <div className="flex-1">{children}</div>
             </SidebarInset>
           </SidebarProvider>
           <TanStackDevtools
             config={{
-              position: 'bottom-right',
+              position: "bottom-right",
             }}
             plugins={[
               {
-                name: 'Tanstack Router',
+                name: "Tanstack Router",
                 render: <TanStackRouterDevtoolsPanel />,
               },
               TanStackQueryDevtools,
