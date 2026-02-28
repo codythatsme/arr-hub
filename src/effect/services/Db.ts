@@ -1,6 +1,7 @@
+import { SqlClient } from '@effect/sql'
 import * as SqliteDrizzle from '@effect/sql-drizzle/Sqlite'
 import { SqliteClient } from '@effect/sql-sqlite-node'
-import { Context, Layer } from 'effect'
+import { Context, Effect, Layer } from 'effect'
 import type { SqliteRemoteDatabase } from 'drizzle-orm/sqlite-proxy'
 import * as schema from '#/db/schema'
 
@@ -12,10 +13,14 @@ export class Db extends Context.Tag('Db')<
 
 const DB_PATH = process.env.DATABASE_PATH ?? 'data/arr-hub.db'
 
-/** SqliteClient → Db (schema-typed drizzle instance) */
+/** SqliteClient → Db (schema-typed drizzle instance), with foreign keys enabled. */
 const DrizzleLayer = Layer.effect(
   Db,
-  SqliteDrizzle.make({ schema }),
+  Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient
+    yield* sql`PRAGMA foreign_keys = ON`
+    return yield* SqliteDrizzle.make({ schema })
+  }),
 )
 
 /** Full Db layer: SqliteClient + schema-typed Drizzle */

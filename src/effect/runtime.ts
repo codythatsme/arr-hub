@@ -2,27 +2,31 @@ import { Effect, ManagedRuntime } from 'effect'
 import { AppLive } from './layers'
 import { Db } from './services/Db'
 import { CryptoService } from './services/CryptoService'
+import { ProfileDefaultsEngine } from './services/ProfileDefaultsEngine'
 import { users } from '#/db/schema'
 
 export const AppRuntime = ManagedRuntime.make(AppLive)
 
-/** Seed admin user if users table is empty. */
+/** Seed admin user + default quality profile if tables are empty. */
 const seed = Effect.gen(function* () {
   const db = yield* Db
   const crypto = yield* CryptoService
 
   const existing = yield* db.select({ id: users.id }).from(users).limit(1)
-  if (existing.length > 0) return
+  if (existing.length === 0) {
+    const password = process.env.INITIAL_ADMIN_PASSWORD ?? 'admin'
+    const passwordHash = yield* crypto.hashPassword(password)
 
-  const password = process.env.INITIAL_ADMIN_PASSWORD ?? 'admin'
-  const passwordHash = yield* crypto.hashPassword(password)
+    yield* db.insert(users).values({
+      username: 'admin',
+      passwordHash,
+    })
 
-  yield* db.insert(users).values({
-    username: 'admin',
-    passwordHash,
-  })
+    console.log('[arr-hub] admin user seeded')
+  }
 
-  console.log('[arr-hub] admin user seeded')
+  const engine = yield* ProfileDefaultsEngine
+  yield* engine.seedDefaults()
 })
 
 AppRuntime.runPromise(seed).catch((err) => {

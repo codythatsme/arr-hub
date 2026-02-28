@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm'
-import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
+import { integer, sqliteTable, text, unique } from 'drizzle-orm/sqlite-core'
 
 export const users = sqliteTable('users', {
   id: integer().primaryKey({ autoIncrement: true }),
@@ -26,8 +26,61 @@ export const apiKeys = sqliteTable('api_keys', {
 export const qualityProfiles = sqliteTable('quality_profiles', {
   id: integer().primaryKey({ autoIncrement: true }),
   name: text().notNull().unique(),
+  upgradeAllowed: integer('upgrade_allowed', { mode: 'boolean' }).notNull().default(false),
+  minFormatScore: integer('min_format_score').notNull().default(0),
+  cutoffFormatScore: integer('cutoff_format_score').notNull().default(0),
+  minUpgradeFormatScore: integer('min_upgrade_format_score').notNull().default(1),
+  isDefault: integer('is_default', { mode: 'boolean' }).notNull().default(false),
+  appliedBundleId: text('applied_bundle_id'),
+  appliedBundleVersion: integer('applied_bundle_version'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+})
+
+export const qualityItems = sqliteTable('quality_items', {
+  id: integer().primaryKey({ autoIncrement: true }),
+  profileId: integer('profile_id')
+    .notNull()
+    .references(() => qualityProfiles.id, { onDelete: 'cascade' }),
+  qualityName: text('quality_name'),
+  groupName: text('group_name'),
+  weight: integer().notNull(),
+  allowed: integer({ mode: 'boolean' }).notNull().default(true),
+})
+
+export const customFormats = sqliteTable('custom_formats', {
+  id: integer().primaryKey({ autoIncrement: true }),
+  name: text().notNull().unique(),
+  includeWhenRenaming: integer('include_when_renaming', { mode: 'boolean' }).notNull().default(false),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
 })
+
+export const customFormatSpecs = sqliteTable('custom_format_specs', {
+  id: integer().primaryKey({ autoIncrement: true }),
+  customFormatId: integer('custom_format_id')
+    .notNull()
+    .references(() => customFormats.id, { onDelete: 'cascade' }),
+  name: text().notNull(),
+  field: text({ enum: ['releaseTitle', 'releaseGroup', 'edition', 'source', 'resolution', 'qualityModifier'] }).notNull(),
+  pattern: text().notNull(),
+  negate: integer({ mode: 'boolean' }).notNull().default(false),
+  required: integer({ mode: 'boolean' }).notNull().default(false),
+})
+
+export const customFormatScores = sqliteTable(
+  'custom_format_scores',
+  {
+    id: integer().primaryKey({ autoIncrement: true }),
+    profileId: integer('profile_id')
+      .notNull()
+      .references(() => qualityProfiles.id, { onDelete: 'cascade' }),
+    customFormatId: integer('custom_format_id')
+      .notNull()
+      .references(() => customFormats.id, { onDelete: 'cascade' }),
+    score: integer().notNull().default(0),
+  },
+  (t) => [unique().on(t.profileId, t.customFormatId)],
+)
 
 export const movies = sqliteTable('movies', {
   id: integer().primaryKey({ autoIncrement: true }),

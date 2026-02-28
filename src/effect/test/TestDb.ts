@@ -9,6 +9,8 @@ import * as schema from '#/db/schema'
 const runDdl = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient
 
+  yield* sql`PRAGMA foreign_keys = ON`
+
   yield* sql`CREATE TABLE users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT NOT NULL UNIQUE,
@@ -32,7 +34,15 @@ const runDdl = Effect.gen(function* () {
   yield* sql`CREATE TABLE quality_profiles (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE,
-    created_at INTEGER NOT NULL DEFAULT (unixepoch())
+    upgrade_allowed INTEGER NOT NULL DEFAULT 0,
+    min_format_score INTEGER NOT NULL DEFAULT 0,
+    cutoff_format_score INTEGER NOT NULL DEFAULT 0,
+    min_upgrade_format_score INTEGER NOT NULL DEFAULT 1,
+    is_default INTEGER NOT NULL DEFAULT 0,
+    applied_bundle_id TEXT,
+    applied_bundle_version INTEGER,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    updated_at INTEGER NOT NULL DEFAULT (unixepoch())
   )`
 
   yield* sql`CREATE TABLE movies (
@@ -47,6 +57,40 @@ const runDdl = Effect.gen(function* () {
     root_folder_path TEXT,
     monitored INTEGER NOT NULL DEFAULT 1,
     added_at INTEGER NOT NULL DEFAULT (unixepoch())
+  )`
+
+  yield* sql`CREATE TABLE quality_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    profile_id INTEGER NOT NULL REFERENCES quality_profiles(id) ON DELETE CASCADE,
+    quality_name TEXT,
+    group_name TEXT,
+    weight INTEGER NOT NULL,
+    allowed INTEGER NOT NULL DEFAULT 1
+  )`
+
+  yield* sql`CREATE TABLE custom_formats (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    include_when_renaming INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch())
+  )`
+
+  yield* sql`CREATE TABLE custom_format_specs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    custom_format_id INTEGER NOT NULL REFERENCES custom_formats(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    field TEXT NOT NULL,
+    pattern TEXT NOT NULL,
+    negate INTEGER NOT NULL DEFAULT 0,
+    required INTEGER NOT NULL DEFAULT 0
+  )`
+
+  yield* sql`CREATE TABLE custom_format_scores (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    profile_id INTEGER NOT NULL REFERENCES quality_profiles(id) ON DELETE CASCADE,
+    custom_format_id INTEGER NOT NULL REFERENCES custom_formats(id) ON DELETE CASCADE,
+    score INTEGER NOT NULL DEFAULT 0,
+    UNIQUE(profile_id, custom_format_id)
   )`
 
   yield* sql`CREATE TABLE settings (
