@@ -8,6 +8,8 @@ import type {
   BundleNotFoundError,
   BundleVersionConflictError,
   ConflictError,
+  EncryptionError,
+  IndexerError,
   NotFoundError,
   ProfileInUseError,
   ValidationError,
@@ -43,6 +45,8 @@ type DomainError =
   | ProfileInUseError
   | BundleNotFoundError
   | BundleVersionConflictError
+  | IndexerError
+  | EncryptionError
 
 export function domainToTRPC(error: DomainError): TRPCError {
   switch (error._tag) {
@@ -69,6 +73,21 @@ export function domainToTRPC(error: DomainError): TRPCError {
         code: "CONFLICT",
         message: `bundle ${error.bundleId} v${error.appliedVersion} already applied`,
       })
+    case "IndexerError": {
+      const codeMap: Record<string, TRPCError["code"]> = {
+        auth_failed: "UNAUTHORIZED",
+        search_timeout: "TIMEOUT",
+        rate_limited: "TOO_MANY_REQUESTS",
+        connection_failed: "BAD_GATEWAY",
+        invalid_response: "BAD_GATEWAY",
+      }
+      return new TRPCError({
+        code: codeMap[error.reason] ?? "BAD_GATEWAY",
+        message: `[${error.indexerName}] ${error.message}`,
+      })
+    }
+    case "EncryptionError":
+      return new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message })
   }
 }
 

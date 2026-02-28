@@ -99,6 +99,28 @@ const runDdl = Effect.gen(function* () {
     value TEXT NOT NULL,
     updated_at INTEGER NOT NULL DEFAULT (unixepoch())
   )`
+
+  yield* sql`CREATE TABLE indexers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL,
+    base_url TEXT NOT NULL,
+    api_key_encrypted TEXT NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    priority INTEGER NOT NULL DEFAULT 50,
+    categories TEXT NOT NULL DEFAULT '[]',
+    created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+  )`
+
+  yield* sql`CREATE TABLE indexer_health (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    indexer_id INTEGER NOT NULL UNIQUE REFERENCES indexers(id) ON DELETE CASCADE,
+    last_check INTEGER NOT NULL DEFAULT (unixepoch()),
+    status TEXT NOT NULL DEFAULT 'unknown',
+    error_message TEXT,
+    response_time_ms INTEGER
+  )`
 })
 
 /**

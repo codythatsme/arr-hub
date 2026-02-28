@@ -4,12 +4,18 @@ import { AuthServiceLive } from "./services/AuthService"
 import { ConfigServiceLive } from "./services/ConfigService"
 import { CryptoServiceLive } from "./services/CryptoService"
 import { DbLive } from "./services/Db"
+import { IndexerServiceLive } from "./services/IndexerService"
 import { MovieServiceLive } from "./services/MovieService"
 import { ProfileDefaultsEngineLive } from "./services/ProfileDefaultsEngine"
 import { ProfileServiceLive } from "./services/ProfileService"
 
 /** All application services, fully wired. Db + CryptoService also exposed for direct use. */
-export const AppLive = Layer.mergeAll(ConfigServiceLive, AuthServiceLive, MovieServiceLive).pipe(
+export const AppLive = Layer.mergeAll(
+  ConfigServiceLive,
+  AuthServiceLive,
+  MovieServiceLive,
+  IndexerServiceLive,
+).pipe(
   Layer.provideMerge(ProfileDefaultsEngineLive),
   Layer.provideMerge(ProfileServiceLive),
   Layer.provideMerge(CryptoServiceLive),

@@ -1,6 +1,7 @@
 import { createTRPCRouter } from "./init"
 import { authRouter } from "./routers/auth"
 import { formatsRouter } from "./routers/formats"
+import { indexersRouter } from "./routers/indexers"
 import { moviesRouter } from "./routers/movies"
 import { profilesRouter } from "./routers/profiles"
 
@@ -9,6 +10,7 @@ export const trpcRouter = createTRPCRouter({
   movies: moviesRouter,
   profiles: profilesRouter,
   formats: formatsRouter,
+  indexers: indexersRouter,
 })
 
 export type TRPCRouter = typeof trpcRouter
