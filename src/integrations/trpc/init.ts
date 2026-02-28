@@ -1,9 +1,8 @@
-import { initTRPC, TRPCError } from '@trpc/server'
-import { Cause, Effect, Exit, Option, type ManagedRuntime } from 'effect'
-import { SqlError } from '@effect/sql/SqlError'
-import superjson from 'superjson'
-import { AppRuntime } from '#/effect/runtime'
-import { AuthService } from '#/effect/services/AuthService'
+import { SqlError } from "@effect/sql/SqlError"
+import { initTRPC, TRPCError } from "@trpc/server"
+import { Cause, Effect, Exit, Option, type ManagedRuntime } from "effect"
+import superjson from "superjson"
+
 import type {
   AuthError,
   BundleNotFoundError,
@@ -12,9 +11,12 @@ import type {
   NotFoundError,
   ProfileInUseError,
   ValidationError,
-} from '#/effect/errors'
+} from "#/effect/errors"
+import { AppRuntime } from "#/effect/runtime"
+import { AuthService } from "#/effect/services/AuthService"
 
-type AppContext = typeof AppRuntime extends ManagedRuntime.ManagedRuntime<infer R, infer _E> ? R : never
+type AppContext =
+  typeof AppRuntime extends ManagedRuntime.ManagedRuntime<infer R, infer _E> ? R : never
 
 export interface TRPCContext {
   headers: Headers
@@ -44,20 +46,29 @@ type DomainError =
 
 export function domainToTRPC(error: DomainError): TRPCError {
   switch (error._tag) {
-    case 'NotFoundError':
-      return new TRPCError({ code: 'NOT_FOUND', message: `${error.entity} ${error.id} not found` })
-    case 'ValidationError':
-      return new TRPCError({ code: 'BAD_REQUEST', message: error.message })
-    case 'ConflictError':
-      return new TRPCError({ code: 'CONFLICT', message: `${error.entity} with ${error.field}=${error.value} already exists` })
-    case 'AuthError':
-      return new TRPCError({ code: 'UNAUTHORIZED', message: error.reason })
-    case 'ProfileInUseError':
-      return new TRPCError({ code: 'CONFLICT', message: `profile ${error.profileId} in use by ${error.movieCount} movie(s)` })
-    case 'BundleNotFoundError':
-      return new TRPCError({ code: 'NOT_FOUND', message: `bundle ${error.bundleId} not found` })
-    case 'BundleVersionConflictError':
-      return new TRPCError({ code: 'CONFLICT', message: `bundle ${error.bundleId} v${error.appliedVersion} already applied` })
+    case "NotFoundError":
+      return new TRPCError({ code: "NOT_FOUND", message: `${error.entity} ${error.id} not found` })
+    case "ValidationError":
+      return new TRPCError({ code: "BAD_REQUEST", message: error.message })
+    case "ConflictError":
+      return new TRPCError({
+        code: "CONFLICT",
+        message: `${error.entity} with ${error.field}=${error.value} already exists`,
+      })
+    case "AuthError":
+      return new TRPCError({ code: "UNAUTHORIZED", message: error.reason })
+    case "ProfileInUseError":
+      return new TRPCError({
+        code: "CONFLICT",
+        message: `profile ${error.profileId} in use by ${error.movieCount} movie(s)`,
+      })
+    case "BundleNotFoundError":
+      return new TRPCError({ code: "NOT_FOUND", message: `bundle ${error.bundleId} not found` })
+    case "BundleVersionConflictError":
+      return new TRPCError({
+        code: "CONFLICT",
+        message: `bundle ${error.bundleId} v${error.appliedVersion} already applied`,
+      })
   }
 }
 
@@ -71,19 +82,19 @@ export async function runEffect<A>(
   const failure = Cause.failureOption(exit.cause)
   if (Option.isSome(failure)) {
     const e = failure.value
-    if (e._tag === 'SqlError') {
-      throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: e.message })
+    if (e._tag === "SqlError") {
+      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: e.message })
     }
     throw domainToTRPC(e)
   }
   // Defect or interruption
-  throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'unexpected error' })
+  throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "unexpected error" })
 }
 
 export const authedProcedure = publicProcedure.use(async ({ ctx, next }) => {
-  const authHeader = ctx.headers.get('authorization')
-  if (!authHeader?.startsWith('Bearer ')) {
-    throw new TRPCError({ code: 'UNAUTHORIZED', message: 'missing' })
+  const authHeader = ctx.headers.get("authorization")
+  if (!authHeader?.startsWith("Bearer ")) {
+    throw new TRPCError({ code: "UNAUTHORIZED", message: "missing" })
   }
 
   const token = authHeader.slice(7)

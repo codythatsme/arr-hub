@@ -1,6 +1,6 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute } from "@tanstack/react-router"
 
-export const Route = createFileRoute('/activity/history')({ component: History })
+export const Route = createFileRoute("/activity/history")({ component: History })
 
 function History() {
   return (

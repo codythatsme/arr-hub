@@ -1,9 +1,10 @@
-import { SqlClient } from '@effect/sql'
-import { SqliteClient } from '@effect/sql-sqlite-node'
-import * as SqliteDrizzle from '@effect/sql-drizzle/Sqlite'
-import { Effect, Layer } from 'effect'
-import { Db } from '#/effect/services/Db'
-import * as schema from '#/db/schema'
+import { SqlClient } from "@effect/sql"
+import * as SqliteDrizzle from "@effect/sql-drizzle/Sqlite"
+import { SqliteClient } from "@effect/sql-sqlite-node"
+import { Effect, Layer } from "effect"
+
+import * as schema from "#/db/schema"
+import { Db } from "#/effect/services/Db"
 
 /** DDL matching src/db/schema.ts — executed before Drizzle layer is created. */
 const runDdl = Effect.gen(function* () {
@@ -110,6 +111,4 @@ export const TestDbLive = Layer.effect(
     yield* runDdl
     return yield* SqliteDrizzle.make({ schema })
   }),
-).pipe(
-  Layer.provideMerge(SqliteClient.layer({ filename: ':memory:' })),
-)
+).pipe(Layer.provideMerge(SqliteClient.layer({ filename: ":memory:" })))

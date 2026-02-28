@@ -1,9 +1,11 @@
-import { z } from 'zod'
-import { Effect } from 'effect'
-import { authedProcedure, runEffect } from '../init'
-import { ProfileService } from '#/effect/services/ProfileService'
-import { ProfileDefaultsEngine } from '#/effect/services/ProfileDefaultsEngine'
-import type { TRPCRouterRecord } from '@trpc/server'
+import type { TRPCRouterRecord } from "@trpc/server"
+import { Effect } from "effect"
+import { z } from "zod"
+
+import { ProfileDefaultsEngine } from "#/effect/services/ProfileDefaultsEngine"
+import { ProfileService } from "#/effect/services/ProfileService"
+
+import { authedProcedure, runEffect } from "../init"
 
 const qualityItemSchema = z.object({
   qualityName: z.string().nullable(),

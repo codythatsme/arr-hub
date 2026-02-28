@@ -1,8 +1,8 @@
-import { createTRPCRouter } from './init'
-import { authRouter } from './routers/auth'
-import { moviesRouter } from './routers/movies'
-import { profilesRouter } from './routers/profiles'
-import { formatsRouter } from './routers/formats'
+import { createTRPCRouter } from "./init"
+import { authRouter } from "./routers/auth"
+import { formatsRouter } from "./routers/formats"
+import { moviesRouter } from "./routers/movies"
+import { profilesRouter } from "./routers/profiles"
 
 export const trpcRouter = createTRPCRouter({
   auth: authRouter,

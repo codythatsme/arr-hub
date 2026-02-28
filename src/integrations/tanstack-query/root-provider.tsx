@@ -1,15 +1,15 @@
-import type { ReactNode } from 'react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import superjson from 'superjson'
-import { createTRPCClient, httpBatchStreamLink } from '@trpc/client'
-import { createTRPCOptionsProxy } from '@trpc/tanstack-react-query'
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import { createTRPCClient, httpBatchStreamLink } from "@trpc/client"
+import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query"
+import type { ReactNode } from "react"
+import superjson from "superjson"
 
-import type { TRPCRouter } from '#/integrations/trpc/router'
-import { TRPCProvider } from '#/integrations/trpc/react'
+import { TRPCProvider } from "#/integrations/trpc/react"
+import type { TRPCRouter } from "#/integrations/trpc/router"
 
 function getUrl() {
   const base = (() => {
-    if (typeof window !== 'undefined') return ''
+    if (typeof window !== "undefined") return ""
     return `http://localhost:${process.env.PORT ?? 3000}`
   })()
   return `${base}/api/trpc`
@@ -55,11 +55,7 @@ export function getContext() {
   return context
 }
 
-export default function TanStackQueryProvider({
-  children,
-}: {
-  children: ReactNode
-}) {
+export default function TanStackQueryProvider({ children }: { children: ReactNode }) {
   const { queryClient } = getContext()
 
   return (

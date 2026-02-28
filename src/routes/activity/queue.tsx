@@ -1,6 +1,6 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute } from "@tanstack/react-router"
 
-export const Route = createFileRoute('/activity/queue')({ component: Queue })
+export const Route = createFileRoute("/activity/queue")({ component: Queue })
 
 function Queue() {
   return (

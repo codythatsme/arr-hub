@@ -1,6 +1,6 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute } from "@tanstack/react-router"
 
-export const Route = createFileRoute('/settings/security')({ component: Security })
+export const Route = createFileRoute("/settings/security")({ component: Security })
 
 function Security() {
   return (

@@ -1,14 +1,11 @@
-import { Context, Effect, Layer } from 'effect'
-import { SqlError } from '@effect/sql/SqlError'
-import { eq, sql, count } from 'drizzle-orm'
-import {
-  qualityProfiles,
-  qualityItems,
-  customFormatScores,
-  movies,
-} from '#/db/schema'
-import { Db } from './Db'
-import { NotFoundError, ConflictError, ProfileInUseError } from '../errors'
+import { SqlError } from "@effect/sql/SqlError"
+import { eq, sql, count } from "drizzle-orm"
+import { Context, Effect, Layer } from "effect"
+
+import { qualityProfiles, qualityItems, customFormatScores, movies } from "#/db/schema"
+
+import { NotFoundError, ConflictError, ProfileInUseError } from "../errors"
+import { Db } from "./Db"
 
 // ── Types ──
 
@@ -60,14 +57,21 @@ export interface ProfileUpdate {
 
 // ── Service ──
 
-export class ProfileService extends Context.Tag('@arr-hub/ProfileService')<
+export class ProfileService extends Context.Tag("@arr-hub/ProfileService")<
   ProfileService,
   {
-    readonly create: (input: ProfileInput) => Effect.Effect<ProfileWithDetails, ConflictError | SqlError>
+    readonly create: (
+      input: ProfileInput,
+    ) => Effect.Effect<ProfileWithDetails, ConflictError | SqlError>
     readonly list: () => Effect.Effect<ReadonlyArray<ProfileWithDetails>, SqlError>
     readonly getById: (id: number) => Effect.Effect<ProfileWithDetails, NotFoundError | SqlError>
-    readonly update: (id: number, data: ProfileUpdate) => Effect.Effect<ProfileWithDetails, NotFoundError | SqlError>
-    readonly remove: (id: number) => Effect.Effect<void, NotFoundError | ProfileInUseError | SqlError>
+    readonly update: (
+      id: number,
+      data: ProfileUpdate,
+    ) => Effect.Effect<ProfileWithDetails, NotFoundError | SqlError>
+    readonly remove: (
+      id: number,
+    ) => Effect.Effect<void, NotFoundError | ProfileInUseError | SqlError>
     readonly getDefault: () => Effect.Effect<ProfileWithDetails | null, SqlError>
   }
 >() {}
@@ -149,7 +153,11 @@ export const ProfileServiceLive = Layer.effect(
             .from(qualityProfiles)
             .where(eq(qualityProfiles.name, input.name))
           if (existing.length > 0) {
-            return yield* new ConflictError({ entity: 'qualityProfile', field: 'name', value: input.name })
+            return yield* new ConflictError({
+              entity: "qualityProfile",
+              field: "name",
+              value: input.name,
+            })
           }
 
           // Clear other defaults if needed
@@ -186,13 +194,10 @@ export const ProfileServiceLive = Layer.effect(
 
       getById: (id) =>
         Effect.gen(function* () {
-          const rows = yield* db
-            .select()
-            .from(qualityProfiles)
-            .where(eq(qualityProfiles.id, id))
+          const rows = yield* db.select().from(qualityProfiles).where(eq(qualityProfiles.id, id))
           const profile = rows[0]
           if (!profile) {
-            return yield* new NotFoundError({ entity: 'qualityProfile', id })
+            return yield* new NotFoundError({ entity: "qualityProfile", id })
           }
           return yield* loadDetails(profile)
         }),
@@ -205,7 +210,7 @@ export const ProfileServiceLive = Layer.effect(
             .from(qualityProfiles)
             .where(eq(qualityProfiles.id, id))
           if (existingRows.length === 0) {
-            return yield* new NotFoundError({ entity: 'qualityProfile', id })
+            return yield* new NotFoundError({ entity: "qualityProfile", id })
           }
 
           // Clear other defaults if setting this as default
@@ -218,11 +223,14 @@ export const ProfileServiceLive = Layer.effect(
           if (data.name !== undefined) updateSet.name = data.name
           if (data.upgradeAllowed !== undefined) updateSet.upgradeAllowed = data.upgradeAllowed
           if (data.minFormatScore !== undefined) updateSet.minFormatScore = data.minFormatScore
-          if (data.cutoffFormatScore !== undefined) updateSet.cutoffFormatScore = data.cutoffFormatScore
-          if (data.minUpgradeFormatScore !== undefined) updateSet.minUpgradeFormatScore = data.minUpgradeFormatScore
+          if (data.cutoffFormatScore !== undefined)
+            updateSet.cutoffFormatScore = data.cutoffFormatScore
+          if (data.minUpgradeFormatScore !== undefined)
+            updateSet.minUpgradeFormatScore = data.minUpgradeFormatScore
           if (data.isDefault !== undefined) updateSet.isDefault = data.isDefault
           if (data.appliedBundleId !== undefined) updateSet.appliedBundleId = data.appliedBundleId
-          if (data.appliedBundleVersion !== undefined) updateSet.appliedBundleVersion = data.appliedBundleVersion
+          if (data.appliedBundleVersion !== undefined)
+            updateSet.appliedBundleVersion = data.appliedBundleVersion
 
           yield* db.update(qualityProfiles).set(updateSet).where(eq(qualityProfiles.id, id))
 
@@ -239,10 +247,7 @@ export const ProfileServiceLive = Layer.effect(
           }
 
           // Reload
-          const updated = yield* db
-            .select()
-            .from(qualityProfiles)
-            .where(eq(qualityProfiles.id, id))
+          const updated = yield* db.select().from(qualityProfiles).where(eq(qualityProfiles.id, id))
           return yield* loadDetails(updated[0])
         }),
 
@@ -254,7 +259,7 @@ export const ProfileServiceLive = Layer.effect(
             .from(qualityProfiles)
             .where(eq(qualityProfiles.id, id))
           if (existing.length === 0) {
-            return yield* new NotFoundError({ entity: 'qualityProfile', id })
+            return yield* new NotFoundError({ entity: "qualityProfile", id })
           }
 
           // Check if in use by movies

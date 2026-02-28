@@ -1,9 +1,11 @@
-import { Effect, ManagedRuntime } from 'effect'
-import { AppLive } from './layers'
-import { Db } from './services/Db'
-import { CryptoService } from './services/CryptoService'
-import { ProfileDefaultsEngine } from './services/ProfileDefaultsEngine'
-import { users } from '#/db/schema'
+import { Effect, ManagedRuntime } from "effect"
+
+import { users } from "#/db/schema"
+
+import { AppLive } from "./layers"
+import { CryptoService } from "./services/CryptoService"
+import { Db } from "./services/Db"
+import { ProfileDefaultsEngine } from "./services/ProfileDefaultsEngine"
 
 export const AppRuntime = ManagedRuntime.make(AppLive)
 
@@ -14,15 +16,15 @@ const seed = Effect.gen(function* () {
 
   const existing = yield* db.select({ id: users.id }).from(users).limit(1)
   if (existing.length === 0) {
-    const password = process.env.INITIAL_ADMIN_PASSWORD ?? 'admin'
+    const password = process.env.INITIAL_ADMIN_PASSWORD ?? "admin"
     const passwordHash = yield* crypto.hashPassword(password)
 
     yield* db.insert(users).values({
-      username: 'admin',
+      username: "admin",
       passwordHash,
     })
 
-    console.log('[arr-hub] admin user seeded')
+    console.log("[arr-hub] admin user seeded")
   }
 
   const engine = yield* ProfileDefaultsEngine
@@ -30,12 +32,12 @@ const seed = Effect.gen(function* () {
 })
 
 AppRuntime.runPromise(seed).catch((err) => {
-  console.error('[arr-hub] seed failed:', err)
+  console.error("[arr-hub] seed failed:", err)
 })
 
-process.on('beforeExit', () => {
+process.on("beforeExit", () => {
   AppRuntime.dispose().then(
     () => {},
-    (err) => console.error('[arr-hub] runtime dispose failed:', err),
+    (err) => console.error("[arr-hub] runtime dispose failed:", err),
   )
 })

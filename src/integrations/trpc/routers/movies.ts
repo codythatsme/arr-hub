@@ -1,8 +1,10 @@
-import { z } from 'zod'
-import { Effect } from 'effect'
-import { authedProcedure, runEffect } from '../init'
-import { MovieService } from '#/effect/services/MovieService'
-import type { TRPCRouterRecord } from '@trpc/server'
+import type { TRPCRouterRecord } from "@trpc/server"
+import { Effect } from "effect"
+import { z } from "zod"
+
+import { MovieService } from "#/effect/services/MovieService"
+
+import { authedProcedure, runEffect } from "../init"
 
 const movieInputSchema = z.object({
   tmdbId: z.number(),
@@ -10,7 +12,7 @@ const movieInputSchema = z.object({
   year: z.number().nullish(),
   overview: z.string().nullish(),
   posterPath: z.string().nullish(),
-  status: z.enum(['wanted', 'available', 'missing']).optional(),
+  status: z.enum(["wanted", "available", "missing"]).optional(),
   qualityProfileId: z.number().nullish(),
   rootFolderPath: z.string().nullish(),
   monitored: z.boolean().optional(),
@@ -21,7 +23,7 @@ const movieUpdateSchema = z.object({
   year: z.number().nullish(),
   overview: z.string().nullish(),
   posterPath: z.string().nullish(),
-  status: z.enum(['wanted', 'available', 'missing']).optional(),
+  status: z.enum(["wanted", "available", "missing"]).optional(),
   qualityProfileId: z.number().nullish(),
   rootFolderPath: z.string().nullish(),
   monitored: z.boolean().optional(),
@@ -29,44 +31,38 @@ const movieUpdateSchema = z.object({
 
 const movieFiltersSchema = z
   .object({
-    status: z.enum(['wanted', 'available', 'missing']).optional(),
+    status: z.enum(["wanted", "available", "missing"]).optional(),
     monitored: z.boolean().optional(),
   })
   .nullish()
 
 export const moviesRouter = {
-  add: authedProcedure
-    .input(movieInputSchema)
-    .mutation(({ input }) =>
-      runEffect(
-        Effect.gen(function* () {
-          const svc = yield* MovieService
-          return yield* svc.add(input)
-        }),
-      ),
+  add: authedProcedure.input(movieInputSchema).mutation(({ input }) =>
+    runEffect(
+      Effect.gen(function* () {
+        const svc = yield* MovieService
+        return yield* svc.add(input)
+      }),
     ),
+  ),
 
-  list: authedProcedure
-    .input(movieFiltersSchema)
-    .query(({ input }) =>
-      runEffect(
-        Effect.gen(function* () {
-          const svc = yield* MovieService
-          return yield* svc.list(input ?? undefined)
-        }),
-      ),
+  list: authedProcedure.input(movieFiltersSchema).query(({ input }) =>
+    runEffect(
+      Effect.gen(function* () {
+        const svc = yield* MovieService
+        return yield* svc.list(input ?? undefined)
+      }),
     ),
+  ),
 
-  get: authedProcedure
-    .input(z.object({ id: z.number() }))
-    .query(({ input }) =>
-      runEffect(
-        Effect.gen(function* () {
-          const svc = yield* MovieService
-          return yield* svc.getById(input.id)
-        }),
-      ),
+  get: authedProcedure.input(z.object({ id: z.number() })).query(({ input }) =>
+    runEffect(
+      Effect.gen(function* () {
+        const svc = yield* MovieService
+        return yield* svc.getById(input.id)
+      }),
     ),
+  ),
 
   update: authedProcedure
     .input(z.object({ id: z.number(), data: movieUpdateSchema }))
@@ -79,25 +75,21 @@ export const moviesRouter = {
       ),
     ),
 
-  remove: authedProcedure
-    .input(z.object({ id: z.number() }))
-    .mutation(({ input }) =>
-      runEffect(
-        Effect.gen(function* () {
-          const svc = yield* MovieService
-          yield* svc.remove(input.id)
-        }),
-      ),
+  remove: authedProcedure.input(z.object({ id: z.number() })).mutation(({ input }) =>
+    runEffect(
+      Effect.gen(function* () {
+        const svc = yield* MovieService
+        yield* svc.remove(input.id)
+      }),
     ),
+  ),
 
-  lookup: authedProcedure
-    .input(z.object({ query: z.string() }))
-    .query(({ input }) =>
-      runEffect(
-        Effect.gen(function* () {
-          const svc = yield* MovieService
-          return yield* svc.lookup(input.query)
-        }),
-      ),
+  lookup: authedProcedure.input(z.object({ query: z.string() })).query(({ input }) =>
+    runEffect(
+      Effect.gen(function* () {
+        const svc = yield* MovieService
+        return yield* svc.lookup(input.query)
+      }),
     ),
+  ),
 } satisfies TRPCRouterRecord
