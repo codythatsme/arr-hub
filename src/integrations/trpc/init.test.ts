@@ -1,10 +1,17 @@
-import { TRPCError } from '@trpc/server'
-import { describe, expect, it } from 'vitest'
-import { NotFoundError, ValidationError, ConflictError, AuthError, IndexerError, EncryptionError } from '#/effect/errors'
-import { domainToTRPC } from './init'
+import { TRPCError } from "@trpc/server"
+import { describe, expect, it } from "vitest"
 
+import {
+  NotFoundError,
+  ValidationError,
+  ConflictError,
+  AuthError,
+  IndexerError,
+  EncryptionError,
+} from "#/effect/errors"
 import { NotFoundError, ValidationError, ConflictError, AuthError } from "#/effect/errors"
 
+import { domainToTRPC } from "./init"
 import { domainToTRPC } from "./init"
 
 describe("domainToTRPC", () => {
@@ -32,38 +39,62 @@ describe("domainToTRPC", () => {
     expect(err.code).toBe("UNAUTHORIZED")
   })
 
-  it('maps IndexerError auth_failed to UNAUTHORIZED', () => {
-    const err = domainToTRPC(new IndexerError({
-      indexerId: 1, indexerName: 'test', reason: 'auth_failed', message: 'bad key', retryable: false,
-    }))
+  it("maps IndexerError auth_failed to UNAUTHORIZED", () => {
+    const err = domainToTRPC(
+      new IndexerError({
+        indexerId: 1,
+        indexerName: "test",
+        reason: "auth_failed",
+        message: "bad key",
+        retryable: false,
+      }),
+    )
     expect(err).toBeInstanceOf(TRPCError)
-    expect(err.code).toBe('UNAUTHORIZED')
+    expect(err.code).toBe("UNAUTHORIZED")
   })
 
-  it('maps IndexerError connection_failed to BAD_GATEWAY', () => {
-    const err = domainToTRPC(new IndexerError({
-      indexerId: 1, indexerName: 'test', reason: 'connection_failed', message: 'refused', retryable: true,
-    }))
-    expect(err.code).toBe('BAD_GATEWAY')
+  it("maps IndexerError connection_failed to BAD_GATEWAY", () => {
+    const err = domainToTRPC(
+      new IndexerError({
+        indexerId: 1,
+        indexerName: "test",
+        reason: "connection_failed",
+        message: "refused",
+        retryable: true,
+      }),
+    )
+    expect(err.code).toBe("BAD_GATEWAY")
   })
 
-  it('maps IndexerError search_timeout to TIMEOUT', () => {
-    const err = domainToTRPC(new IndexerError({
-      indexerId: 1, indexerName: 'test', reason: 'search_timeout', message: 'timed out', retryable: true,
-    }))
-    expect(err.code).toBe('TIMEOUT')
+  it("maps IndexerError search_timeout to TIMEOUT", () => {
+    const err = domainToTRPC(
+      new IndexerError({
+        indexerId: 1,
+        indexerName: "test",
+        reason: "search_timeout",
+        message: "timed out",
+        retryable: true,
+      }),
+    )
+    expect(err.code).toBe("TIMEOUT")
   })
 
-  it('maps IndexerError rate_limited to TOO_MANY_REQUESTS', () => {
-    const err = domainToTRPC(new IndexerError({
-      indexerId: 1, indexerName: 'test', reason: 'rate_limited', message: 'slow down', retryable: true,
-    }))
-    expect(err.code).toBe('TOO_MANY_REQUESTS')
+  it("maps IndexerError rate_limited to TOO_MANY_REQUESTS", () => {
+    const err = domainToTRPC(
+      new IndexerError({
+        indexerId: 1,
+        indexerName: "test",
+        reason: "rate_limited",
+        message: "slow down",
+        retryable: true,
+      }),
+    )
+    expect(err.code).toBe("TOO_MANY_REQUESTS")
   })
 
-  it('maps EncryptionError to INTERNAL_SERVER_ERROR', () => {
-    const err = domainToTRPC(new EncryptionError({ message: 'decrypt failed' }))
+  it("maps EncryptionError to INTERNAL_SERVER_ERROR", () => {
+    const err = domainToTRPC(new EncryptionError({ message: "decrypt failed" }))
     expect(err).toBeInstanceOf(TRPCError)
-    expect(err.code).toBe('INTERNAL_SERVER_ERROR')
+    expect(err.code).toBe("INTERNAL_SERVER_ERROR")
   })
 })

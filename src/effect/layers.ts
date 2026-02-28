@@ -1,12 +1,13 @@
-import { Layer } from 'effect'
-import { DbLive } from './services/Db'
-import { CryptoServiceLive } from './services/CryptoService'
-import { ConfigServiceLive } from './services/ConfigService'
-import { AuthServiceLive } from './services/AuthService'
-import { MovieServiceLive } from './services/MovieService'
-import { ProfileServiceLive } from './services/ProfileService'
-import { ProfileDefaultsEngineLive } from './services/ProfileDefaultsEngine'
-import { IndexerServiceLive } from './services/IndexerService'
+import { Layer } from "effect"
+
+import { AuthServiceLive } from "./services/AuthService"
+import { ConfigServiceLive } from "./services/ConfigService"
+import { CryptoServiceLive } from "./services/CryptoService"
+import { DbLive } from "./services/Db"
+import { IndexerServiceLive } from "./services/IndexerService"
+import { MovieServiceLive } from "./services/MovieService"
+import { ProfileDefaultsEngineLive } from "./services/ProfileDefaultsEngine"
+import { ProfileServiceLive } from "./services/ProfileService"
 
 /** All application services, fully wired. Db + CryptoService also exposed for direct use. */
 export const AppLive = Layer.mergeAll(

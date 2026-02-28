@@ -37,13 +37,13 @@ export class BundleVersionConflictError extends Data.TaggedError("BundleVersionC
 }> {}
 
 export type IndexerErrorReason =
-  | 'connection_failed'
-  | 'auth_failed'
-  | 'search_timeout'
-  | 'invalid_response'
-  | 'rate_limited'
+  | "connection_failed"
+  | "auth_failed"
+  | "search_timeout"
+  | "invalid_response"
+  | "rate_limited"
 
-export class IndexerError extends Data.TaggedError('IndexerError')<{
+export class IndexerError extends Data.TaggedError("IndexerError")<{
   readonly indexerId: number
   readonly indexerName: string
   readonly reason: IndexerErrorReason
@@ -51,6 +51,6 @@ export class IndexerError extends Data.TaggedError('IndexerError')<{
   readonly retryable: boolean
 }> {}
 
-export class EncryptionError extends Data.TaggedError('EncryptionError')<{
+export class EncryptionError extends Data.TaggedError("EncryptionError")<{
   readonly message: string
 }> {}

@@ -1,11 +1,9 @@
-import { Context, Effect, Either, Layer } from 'effect'
-import { SqlError } from '@effect/sql/SqlError'
-import { eq } from 'drizzle-orm'
-import { indexers, indexerHealth } from '#/db/schema'
-import { Db } from './Db'
-import { CryptoService } from './CryptoService'
-import { createAdapter } from './IndexerAdapter'
-import { NotFoundError, IndexerError, type EncryptionError } from '../errors'
+import { SqlError } from "@effect/sql/SqlError"
+import { eq } from "drizzle-orm"
+import { Context, Effect, Either, Layer } from "effect"
+
+import { indexers, indexerHealth } from "#/db/schema"
+
 import type {
   IndexerConfig,
   IndexerWithHealth,
@@ -14,7 +12,11 @@ import type {
   SearchQuery,
   SearchResult,
   IndexerType,
-} from '../domain/indexer'
+} from "../domain/indexer"
+import { NotFoundError, IndexerError, type EncryptionError } from "../errors"
+import { CryptoService } from "./CryptoService"
+import { Db } from "./Db"
+import { createAdapter } from "./IndexerAdapter"
 
 // ── Input types ──
 
@@ -40,15 +42,22 @@ interface IndexerUpdate {
 
 // ── Service tag ──
 
-export class IndexerService extends Context.Tag('@arr-hub/IndexerService')<
+export class IndexerService extends Context.Tag("@arr-hub/IndexerService")<
   IndexerService,
   {
-    readonly add: (input: IndexerInput) => Effect.Effect<IndexerWithHealth, EncryptionError | SqlError>
+    readonly add: (
+      input: IndexerInput,
+    ) => Effect.Effect<IndexerWithHealth, EncryptionError | SqlError>
     readonly list: () => Effect.Effect<ReadonlyArray<IndexerWithHealth>, SqlError>
     readonly getById: (id: number) => Effect.Effect<IndexerWithHealth, NotFoundError | SqlError>
-    readonly update: (id: number, data: IndexerUpdate) => Effect.Effect<IndexerWithHealth, NotFoundError | EncryptionError | SqlError>
+    readonly update: (
+      id: number,
+      data: IndexerUpdate,
+    ) => Effect.Effect<IndexerWithHealth, NotFoundError | EncryptionError | SqlError>
     readonly remove: (id: number) => Effect.Effect<void, NotFoundError | SqlError>
-    readonly testConnection: (id: number) => Effect.Effect<IndexerWithHealth, NotFoundError | IndexerError | EncryptionError | SqlError>
+    readonly testConnection: (
+      id: number,
+    ) => Effect.Effect<IndexerWithHealth, NotFoundError | IndexerError | EncryptionError | SqlError>
     readonly search: (query: SearchQuery) => Effect.Effect<SearchResult, EncryptionError | SqlError>
   }
 >() {}
@@ -97,7 +106,7 @@ export const IndexerServiceLive = Layer.effect(
           .where(eq(indexers.id, id))
 
         const row = rows[0]
-        if (!row) return yield* new NotFoundError({ entity: 'indexer', id })
+        if (!row) return yield* new NotFoundError({ entity: "indexer", id })
         return toWithHealth(row.indexers, row.indexer_health ?? undefined)
       })
 
@@ -153,7 +162,7 @@ export const IndexerServiceLive = Layer.effect(
             .where(eq(indexers.id, id))
             .returning()
 
-          if (rows.length === 0) return yield* new NotFoundError({ entity: 'indexer', id })
+          if (rows.length === 0) return yield* new NotFoundError({ entity: "indexer", id })
           return yield* loadWithHealth(id)
         }),
 
@@ -164,14 +173,14 @@ export const IndexerServiceLive = Layer.effect(
             .where(eq(indexers.id, id))
             .returning({ id: indexers.id })
 
-          if (rows.length === 0) return yield* new NotFoundError({ entity: 'indexer', id })
+          if (rows.length === 0) return yield* new NotFoundError({ entity: "indexer", id })
         }),
 
       testConnection: (id) =>
         Effect.gen(function* () {
           const row = yield* db.select().from(indexers).where(eq(indexers.id, id))
           const indexer = row[0]
-          if (!indexer) return yield* new NotFoundError({ entity: 'indexer', id })
+          if (!indexer) return yield* new NotFoundError({ entity: "indexer", id })
 
           const apiKey = yield* crypto.decrypt(indexer.apiKeyEncrypted)
           const config: IndexerConfig = {
@@ -194,14 +203,14 @@ export const IndexerServiceLive = Layer.effect(
                   .insert(indexerHealth)
                   .values({
                     indexerId: id,
-                    status: 'healthy',
+                    status: "healthy",
                     responseTimeMs: Date.now() - start,
                     errorMessage: null,
                   })
                   .onConflictDoUpdate({
                     target: indexerHealth.indexerId,
                     set: {
-                      status: 'healthy',
+                      status: "healthy",
                       responseTimeMs: Date.now() - start,
                       errorMessage: null,
                       lastCheck: new Date(),
@@ -212,14 +221,14 @@ export const IndexerServiceLive = Layer.effect(
                   .insert(indexerHealth)
                   .values({
                     indexerId: id,
-                    status: 'unhealthy',
+                    status: "unhealthy",
                     errorMessage: err.message,
                     responseTimeMs: Date.now() - start,
                   })
                   .onConflictDoUpdate({
                     target: indexerHealth.indexerId,
                     set: {
-                      status: 'unhealthy',
+                      status: "unhealthy",
                       errorMessage: err.message,
                       responseTimeMs: Date.now() - start,
                       lastCheck: new Date(),
@@ -256,7 +265,7 @@ export const IndexerServiceLive = Layer.effect(
                 const adapter = createAdapter(config)
                 return yield* adapter.search(query)
               }).pipe(Effect.either),
-            { concurrency: 'unbounded' },
+            { concurrency: "unbounded" },
           )
 
           const releases: Array<ReleaseCandidate> = []
@@ -267,7 +276,7 @@ export const IndexerServiceLive = Layer.effect(
               releases.push(...either.right)
             } else {
               const err = either.left
-              if (err._tag === 'IndexerError') {
+              if (err._tag === "IndexerError") {
                 errors.push(err)
               }
             }
@@ -275,7 +284,8 @@ export const IndexerServiceLive = Layer.effect(
 
           // Sort by priority (lower = higher priority), then by seeders desc for torrents
           releases.sort((a, b) => {
-            if (a.indexerPriority !== b.indexerPriority) return a.indexerPriority - b.indexerPriority
+            if (a.indexerPriority !== b.indexerPriority)
+              return a.indexerPriority - b.indexerPriority
             const aSeeders = a.seeders ?? 0
             const bSeeders = b.seeders ?? 0
             return bSeeders - aSeeders

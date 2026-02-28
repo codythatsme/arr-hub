@@ -1,12 +1,14 @@
-import { z } from 'zod'
-import { Effect } from 'effect'
-import { authedProcedure, runEffect } from '../init'
-import { IndexerService } from '#/effect/services/IndexerService'
-import type { TRPCRouterRecord } from '@trpc/server'
+import type { TRPCRouterRecord } from "@trpc/server"
+import { Effect } from "effect"
+import { z } from "zod"
+
+import { IndexerService } from "#/effect/services/IndexerService"
+
+import { authedProcedure, runEffect } from "../init"
 
 const indexerInputSchema = z.object({
   name: z.string(),
-  type: z.enum(['torznab', 'newznab']),
+  type: z.enum(["torznab", "newznab"]),
   baseUrl: z.string().url(),
   apiKey: z.string(),
   enabled: z.boolean().optional(),
@@ -16,7 +18,7 @@ const indexerInputSchema = z.object({
 
 const indexerUpdateSchema = z.object({
   name: z.string().optional(),
-  type: z.enum(['torznab', 'newznab']).optional(),
+  type: z.enum(["torznab", "newznab"]).optional(),
   baseUrl: z.string().url().optional(),
   apiKey: z.string().optional(),
   enabled: z.boolean().optional(),
@@ -26,7 +28,7 @@ const indexerUpdateSchema = z.object({
 
 const searchInputSchema = z.object({
   term: z.string(),
-  type: z.enum(['movie', 'tv', 'general']),
+  type: z.enum(["movie", "tv", "general"]),
   categories: z.array(z.number().int()).optional(),
   limit: z.number().int().positive().optional(),
   imdbId: z.string().optional(),
@@ -37,16 +39,14 @@ const searchInputSchema = z.object({
 })
 
 export const indexersRouter = {
-  add: authedProcedure
-    .input(indexerInputSchema)
-    .mutation(({ input }) =>
-      runEffect(
-        Effect.gen(function* () {
-          const svc = yield* IndexerService
-          return yield* svc.add(input)
-        }),
-      ),
+  add: authedProcedure.input(indexerInputSchema).mutation(({ input }) =>
+    runEffect(
+      Effect.gen(function* () {
+        const svc = yield* IndexerService
+        return yield* svc.add(input)
+      }),
     ),
+  ),
 
   list: authedProcedure.query(() =>
     runEffect(
@@ -57,16 +57,14 @@ export const indexersRouter = {
     ),
   ),
 
-  get: authedProcedure
-    .input(z.object({ id: z.number() }))
-    .query(({ input }) =>
-      runEffect(
-        Effect.gen(function* () {
-          const svc = yield* IndexerService
-          return yield* svc.getById(input.id)
-        }),
-      ),
+  get: authedProcedure.input(z.object({ id: z.number() })).query(({ input }) =>
+    runEffect(
+      Effect.gen(function* () {
+        const svc = yield* IndexerService
+        return yield* svc.getById(input.id)
+      }),
     ),
+  ),
 
   update: authedProcedure
     .input(z.object({ id: z.number(), data: indexerUpdateSchema }))
@@ -79,36 +77,30 @@ export const indexersRouter = {
       ),
     ),
 
-  remove: authedProcedure
-    .input(z.object({ id: z.number() }))
-    .mutation(({ input }) =>
-      runEffect(
-        Effect.gen(function* () {
-          const svc = yield* IndexerService
-          yield* svc.remove(input.id)
-        }),
-      ),
+  remove: authedProcedure.input(z.object({ id: z.number() })).mutation(({ input }) =>
+    runEffect(
+      Effect.gen(function* () {
+        const svc = yield* IndexerService
+        yield* svc.remove(input.id)
+      }),
     ),
+  ),
 
-  test: authedProcedure
-    .input(z.object({ id: z.number() }))
-    .mutation(({ input }) =>
-      runEffect(
-        Effect.gen(function* () {
-          const svc = yield* IndexerService
-          return yield* svc.testConnection(input.id)
-        }),
-      ),
+  test: authedProcedure.input(z.object({ id: z.number() })).mutation(({ input }) =>
+    runEffect(
+      Effect.gen(function* () {
+        const svc = yield* IndexerService
+        return yield* svc.testConnection(input.id)
+      }),
     ),
+  ),
 
-  search: authedProcedure
-    .input(searchInputSchema)
-    .query(({ input }) =>
-      runEffect(
-        Effect.gen(function* () {
-          const svc = yield* IndexerService
-          return yield* svc.search(input)
-        }),
-      ),
+  search: authedProcedure.input(searchInputSchema).query(({ input }) =>
+    runEffect(
+      Effect.gen(function* () {
+        const svc = yield* IndexerService
+        return yield* svc.search(input)
+      }),
     ),
+  ),
 } satisfies TRPCRouterRecord

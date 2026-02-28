@@ -1,8 +1,16 @@
-import { randomBytes, scryptSync, timingSafeEqual, createHash, createCipheriv, createDecipheriv } from 'node:crypto'
-import { Context, Effect, Layer } from 'effect'
-import { EncryptionError } from '../errors'
+import {
+  randomBytes,
+  scryptSync,
+  timingSafeEqual,
+  createHash,
+  createCipheriv,
+  createDecipheriv,
+} from "node:crypto"
 
 import { Context, Effect, Layer } from "effect"
+import { Context, Effect, Layer } from "effect"
+
+import { EncryptionError } from "../errors"
 
 export class CryptoService extends Context.Tag("CryptoService")<
   CryptoService,
@@ -23,10 +31,10 @@ const IV_LEN = 12
 function getEncryptionKey(): Buffer {
   const raw = process.env.ENCRYPTION_KEY
   if (!raw) {
-    console.warn('[CryptoService] ENCRYPTION_KEY not set — using insecure dev fallback')
-    return createHash('sha256').update('arr-hub-dev-key-do-not-use-in-prod').digest()
+    console.warn("[CryptoService] ENCRYPTION_KEY not set — using insecure dev fallback")
+    return createHash("sha256").update("arr-hub-dev-key-do-not-use-in-prod").digest()
   }
-  return createHash('sha256').update(raw).digest()
+  return createHash("sha256").update(raw).digest()
 }
 
 export const CryptoServiceLive = Layer.succeed(CryptoService, {
@@ -46,35 +54,39 @@ export const CryptoServiceLive = Layer.succeed(CryptoService, {
 
   generateToken: () => Effect.sync(() => randomBytes(32).toString("hex")),
 
-  hashToken: (token) =>
-    Effect.sync(() => createHash('sha256').update(token).digest('hex')),
+  hashToken: (token) => Effect.sync(() => createHash("sha256").update(token).digest("hex")),
 
   encrypt: (plaintext) =>
     Effect.try({
       try: () => {
         const key = getEncryptionKey()
         const iv = randomBytes(IV_LEN)
-        const cipher = createCipheriv('aes-256-gcm', key, iv)
-        const encrypted = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()])
+        const cipher = createCipheriv("aes-256-gcm", key, iv)
+        const encrypted = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()])
         const authTag = cipher.getAuthTag()
-        return `${iv.toString('hex')}:${authTag.toString('hex')}:${encrypted.toString('hex')}`
+        return `${iv.toString("hex")}:${authTag.toString("hex")}:${encrypted.toString("hex")}`
       },
-      catch: (e) => new EncryptionError({ message: e instanceof Error ? e.message : 'encryption failed' }),
+      catch: (e) =>
+        new EncryptionError({ message: e instanceof Error ? e.message : "encryption failed" }),
     }),
 
   decrypt: (ciphertext) =>
     Effect.try({
       try: () => {
-        const [ivHex, authTagHex, encryptedHex] = ciphertext.split(':')
+        const [ivHex, authTagHex, encryptedHex] = ciphertext.split(":")
         if (!ivHex || !authTagHex || !encryptedHex) {
-          throw new Error('invalid ciphertext format')
+          throw new Error("invalid ciphertext format")
         }
         const key = getEncryptionKey()
-        const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(ivHex, 'hex'))
-        decipher.setAuthTag(Buffer.from(authTagHex, 'hex'))
-        const decrypted = Buffer.concat([decipher.update(Buffer.from(encryptedHex, 'hex')), decipher.final()])
-        return decrypted.toString('utf8')
+        const decipher = createDecipheriv("aes-256-gcm", key, Buffer.from(ivHex, "hex"))
+        decipher.setAuthTag(Buffer.from(authTagHex, "hex"))
+        const decrypted = Buffer.concat([
+          decipher.update(Buffer.from(encryptedHex, "hex")),
+          decipher.final(),
+        ])
+        return decrypted.toString("utf8")
       },
-      catch: (e) => new EncryptionError({ message: e instanceof Error ? e.message : 'decryption failed' }),
+      catch: (e) =>
+        new EncryptionError({ message: e instanceof Error ? e.message : "decryption failed" }),
     }),
 })

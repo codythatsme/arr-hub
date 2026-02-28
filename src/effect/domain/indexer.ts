@@ -1,8 +1,8 @@
-import type { IndexerError } from '../errors'
+import type { IndexerError } from "../errors"
 
-export type IndexerType = 'torznab' | 'newznab'
-export type IndexerProtocol = 'torrent' | 'usenet'
-export type IndexerHealthStatus = 'healthy' | 'unhealthy' | 'unknown'
+export type IndexerType = "torznab" | "newznab"
+export type IndexerProtocol = "torrent" | "usenet"
+export type IndexerHealthStatus = "healthy" | "unhealthy" | "unknown"
 
 export interface ReleaseCandidate {
   readonly title: string
@@ -28,7 +28,7 @@ export interface IndexerCapabilities {
   readonly categories: ReadonlyArray<{ readonly id: number; readonly name: string }>
 }
 
-export type SearchType = 'movie' | 'tv' | 'general'
+export type SearchType = "movie" | "tv" | "general"
 
 export interface SearchQuery {
   readonly term: string

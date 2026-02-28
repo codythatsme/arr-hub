@@ -50,32 +50,44 @@ type DomainError =
 
 export function domainToTRPC(error: DomainError): TRPCError {
   switch (error._tag) {
-    case 'NotFoundError':
-      return new TRPCError({ code: 'NOT_FOUND', message: `${error.entity} ${error.id} not found` })
-    case 'ValidationError':
-      return new TRPCError({ code: 'BAD_REQUEST', message: error.message })
-    case 'ConflictError':
-      return new TRPCError({ code: 'CONFLICT', message: `${error.entity} with ${error.field}=${error.value} already exists` })
-    case 'AuthError':
-      return new TRPCError({ code: 'UNAUTHORIZED', message: error.reason })
-    case 'ProfileInUseError':
-      return new TRPCError({ code: 'CONFLICT', message: `profile ${error.profileId} in use by ${error.movieCount} movie(s)` })
-    case 'BundleNotFoundError':
-      return new TRPCError({ code: 'NOT_FOUND', message: `bundle ${error.bundleId} not found` })
-    case 'BundleVersionConflictError':
-      return new TRPCError({ code: 'CONFLICT', message: `bundle ${error.bundleId} v${error.appliedVersion} already applied` })
-    case 'IndexerError': {
-      const codeMap: Record<string, TRPCError['code']> = {
-        auth_failed: 'UNAUTHORIZED',
-        search_timeout: 'TIMEOUT',
-        rate_limited: 'TOO_MANY_REQUESTS',
-        connection_failed: 'BAD_GATEWAY',
-        invalid_response: 'BAD_GATEWAY',
+    case "NotFoundError":
+      return new TRPCError({ code: "NOT_FOUND", message: `${error.entity} ${error.id} not found` })
+    case "ValidationError":
+      return new TRPCError({ code: "BAD_REQUEST", message: error.message })
+    case "ConflictError":
+      return new TRPCError({
+        code: "CONFLICT",
+        message: `${error.entity} with ${error.field}=${error.value} already exists`,
+      })
+    case "AuthError":
+      return new TRPCError({ code: "UNAUTHORIZED", message: error.reason })
+    case "ProfileInUseError":
+      return new TRPCError({
+        code: "CONFLICT",
+        message: `profile ${error.profileId} in use by ${error.movieCount} movie(s)`,
+      })
+    case "BundleNotFoundError":
+      return new TRPCError({ code: "NOT_FOUND", message: `bundle ${error.bundleId} not found` })
+    case "BundleVersionConflictError":
+      return new TRPCError({
+        code: "CONFLICT",
+        message: `bundle ${error.bundleId} v${error.appliedVersion} already applied`,
+      })
+    case "IndexerError": {
+      const codeMap: Record<string, TRPCError["code"]> = {
+        auth_failed: "UNAUTHORIZED",
+        search_timeout: "TIMEOUT",
+        rate_limited: "TOO_MANY_REQUESTS",
+        connection_failed: "BAD_GATEWAY",
+        invalid_response: "BAD_GATEWAY",
       }
-      return new TRPCError({ code: codeMap[error.reason] ?? 'BAD_GATEWAY', message: `[${error.indexerName}] ${error.message}` })
+      return new TRPCError({
+        code: codeMap[error.reason] ?? "BAD_GATEWAY",
+        message: `[${error.indexerName}] ${error.message}`,
+      })
     }
-    case 'EncryptionError':
-      return new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: error.message })
+    case "EncryptionError":
+      return new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message })
   }
 }
 
