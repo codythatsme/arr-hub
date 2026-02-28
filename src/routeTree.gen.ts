@@ -9,12 +9,114 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SystemRouteImport } from './routes/system'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as TvIndexRouteImport } from './routes/tv/index'
+import { Route as SettingsIndexRouteImport } from './routes/settings/index'
+import { Route as MoviesIndexRouteImport } from './routes/movies/index'
+import { Route as ActivityIndexRouteImport } from './routes/activity/index'
+import { Route as SettingsSecurityRouteImport } from './routes/settings/security'
+import { Route as SettingsSchedulerRouteImport } from './routes/settings/scheduler'
+import { Route as SettingsProfilesRouteImport } from './routes/settings/profiles'
+import { Route as SettingsPluginsRouteImport } from './routes/settings/plugins'
+import { Route as SettingsNotificationsRouteImport } from './routes/settings/notifications'
+import { Route as SettingsMediaServersRouteImport } from './routes/settings/media-servers'
+import { Route as SettingsMediaManagementRouteImport } from './routes/settings/media-management'
+import { Route as SettingsIndexersRouteImport } from './routes/settings/indexers'
+import { Route as SettingsGeneralRouteImport } from './routes/settings/general'
+import { Route as SettingsDownloadClientsRouteImport } from './routes/settings/download-clients'
+import { Route as ActivityQueueRouteImport } from './routes/activity/queue'
+import { Route as ActivityHistoryRouteImport } from './routes/activity/history'
 import { Route as ApiTrpcSplatRouteImport } from './routes/api.trpc.$'
 
+const SystemRoute = SystemRouteImport.update({
+  id: '/system',
+  path: '/system',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TvIndexRoute = TvIndexRouteImport.update({
+  id: '/tv/',
+  path: '/tv/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsIndexRoute = SettingsIndexRouteImport.update({
+  id: '/settings/',
+  path: '/settings/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MoviesIndexRoute = MoviesIndexRouteImport.update({
+  id: '/movies/',
+  path: '/movies/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ActivityIndexRoute = ActivityIndexRouteImport.update({
+  id: '/activity/',
+  path: '/activity/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsSecurityRoute = SettingsSecurityRouteImport.update({
+  id: '/settings/security',
+  path: '/settings/security',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsSchedulerRoute = SettingsSchedulerRouteImport.update({
+  id: '/settings/scheduler',
+  path: '/settings/scheduler',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsProfilesRoute = SettingsProfilesRouteImport.update({
+  id: '/settings/profiles',
+  path: '/settings/profiles',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsPluginsRoute = SettingsPluginsRouteImport.update({
+  id: '/settings/plugins',
+  path: '/settings/plugins',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsNotificationsRoute = SettingsNotificationsRouteImport.update({
+  id: '/settings/notifications',
+  path: '/settings/notifications',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsMediaServersRoute = SettingsMediaServersRouteImport.update({
+  id: '/settings/media-servers',
+  path: '/settings/media-servers',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsMediaManagementRoute = SettingsMediaManagementRouteImport.update({
+  id: '/settings/media-management',
+  path: '/settings/media-management',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsIndexersRoute = SettingsIndexersRouteImport.update({
+  id: '/settings/indexers',
+  path: '/settings/indexers',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsGeneralRoute = SettingsGeneralRouteImport.update({
+  id: '/settings/general',
+  path: '/settings/general',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsDownloadClientsRoute = SettingsDownloadClientsRouteImport.update({
+  id: '/settings/download-clients',
+  path: '/settings/download-clients',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ActivityQueueRoute = ActivityQueueRouteImport.update({
+  id: '/activity/queue',
+  path: '/activity/queue',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ActivityHistoryRoute = ActivityHistoryRouteImport.update({
+  id: '/activity/history',
+  path: '/activity/history',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiTrpcSplatRoute = ApiTrpcSplatRouteImport.update({
@@ -25,37 +127,282 @@ const ApiTrpcSplatRoute = ApiTrpcSplatRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/system': typeof SystemRoute
+  '/activity/history': typeof ActivityHistoryRoute
+  '/activity/queue': typeof ActivityQueueRoute
+  '/settings/download-clients': typeof SettingsDownloadClientsRoute
+  '/settings/general': typeof SettingsGeneralRoute
+  '/settings/indexers': typeof SettingsIndexersRoute
+  '/settings/media-management': typeof SettingsMediaManagementRoute
+  '/settings/media-servers': typeof SettingsMediaServersRoute
+  '/settings/notifications': typeof SettingsNotificationsRoute
+  '/settings/plugins': typeof SettingsPluginsRoute
+  '/settings/profiles': typeof SettingsProfilesRoute
+  '/settings/scheduler': typeof SettingsSchedulerRoute
+  '/settings/security': typeof SettingsSecurityRoute
+  '/activity/': typeof ActivityIndexRoute
+  '/movies/': typeof MoviesIndexRoute
+  '/settings/': typeof SettingsIndexRoute
+  '/tv/': typeof TvIndexRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/system': typeof SystemRoute
+  '/activity/history': typeof ActivityHistoryRoute
+  '/activity/queue': typeof ActivityQueueRoute
+  '/settings/download-clients': typeof SettingsDownloadClientsRoute
+  '/settings/general': typeof SettingsGeneralRoute
+  '/settings/indexers': typeof SettingsIndexersRoute
+  '/settings/media-management': typeof SettingsMediaManagementRoute
+  '/settings/media-servers': typeof SettingsMediaServersRoute
+  '/settings/notifications': typeof SettingsNotificationsRoute
+  '/settings/plugins': typeof SettingsPluginsRoute
+  '/settings/profiles': typeof SettingsProfilesRoute
+  '/settings/scheduler': typeof SettingsSchedulerRoute
+  '/settings/security': typeof SettingsSecurityRoute
+  '/activity': typeof ActivityIndexRoute
+  '/movies': typeof MoviesIndexRoute
+  '/settings': typeof SettingsIndexRoute
+  '/tv': typeof TvIndexRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/system': typeof SystemRoute
+  '/activity/history': typeof ActivityHistoryRoute
+  '/activity/queue': typeof ActivityQueueRoute
+  '/settings/download-clients': typeof SettingsDownloadClientsRoute
+  '/settings/general': typeof SettingsGeneralRoute
+  '/settings/indexers': typeof SettingsIndexersRoute
+  '/settings/media-management': typeof SettingsMediaManagementRoute
+  '/settings/media-servers': typeof SettingsMediaServersRoute
+  '/settings/notifications': typeof SettingsNotificationsRoute
+  '/settings/plugins': typeof SettingsPluginsRoute
+  '/settings/profiles': typeof SettingsProfilesRoute
+  '/settings/scheduler': typeof SettingsSchedulerRoute
+  '/settings/security': typeof SettingsSecurityRoute
+  '/activity/': typeof ActivityIndexRoute
+  '/movies/': typeof MoviesIndexRoute
+  '/settings/': typeof SettingsIndexRoute
+  '/tv/': typeof TvIndexRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/trpc/$'
+  fullPaths:
+    | '/'
+    | '/system'
+    | '/activity/history'
+    | '/activity/queue'
+    | '/settings/download-clients'
+    | '/settings/general'
+    | '/settings/indexers'
+    | '/settings/media-management'
+    | '/settings/media-servers'
+    | '/settings/notifications'
+    | '/settings/plugins'
+    | '/settings/profiles'
+    | '/settings/scheduler'
+    | '/settings/security'
+    | '/activity/'
+    | '/movies/'
+    | '/settings/'
+    | '/tv/'
+    | '/api/trpc/$'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/trpc/$'
-  id: '__root__' | '/' | '/api/trpc/$'
+  to:
+    | '/'
+    | '/system'
+    | '/activity/history'
+    | '/activity/queue'
+    | '/settings/download-clients'
+    | '/settings/general'
+    | '/settings/indexers'
+    | '/settings/media-management'
+    | '/settings/media-servers'
+    | '/settings/notifications'
+    | '/settings/plugins'
+    | '/settings/profiles'
+    | '/settings/scheduler'
+    | '/settings/security'
+    | '/activity'
+    | '/movies'
+    | '/settings'
+    | '/tv'
+    | '/api/trpc/$'
+  id:
+    | '__root__'
+    | '/'
+    | '/system'
+    | '/activity/history'
+    | '/activity/queue'
+    | '/settings/download-clients'
+    | '/settings/general'
+    | '/settings/indexers'
+    | '/settings/media-management'
+    | '/settings/media-servers'
+    | '/settings/notifications'
+    | '/settings/plugins'
+    | '/settings/profiles'
+    | '/settings/scheduler'
+    | '/settings/security'
+    | '/activity/'
+    | '/movies/'
+    | '/settings/'
+    | '/tv/'
+    | '/api/trpc/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  SystemRoute: typeof SystemRoute
+  ActivityHistoryRoute: typeof ActivityHistoryRoute
+  ActivityQueueRoute: typeof ActivityQueueRoute
+  SettingsDownloadClientsRoute: typeof SettingsDownloadClientsRoute
+  SettingsGeneralRoute: typeof SettingsGeneralRoute
+  SettingsIndexersRoute: typeof SettingsIndexersRoute
+  SettingsMediaManagementRoute: typeof SettingsMediaManagementRoute
+  SettingsMediaServersRoute: typeof SettingsMediaServersRoute
+  SettingsNotificationsRoute: typeof SettingsNotificationsRoute
+  SettingsPluginsRoute: typeof SettingsPluginsRoute
+  SettingsProfilesRoute: typeof SettingsProfilesRoute
+  SettingsSchedulerRoute: typeof SettingsSchedulerRoute
+  SettingsSecurityRoute: typeof SettingsSecurityRoute
+  ActivityIndexRoute: typeof ActivityIndexRoute
+  MoviesIndexRoute: typeof MoviesIndexRoute
+  SettingsIndexRoute: typeof SettingsIndexRoute
+  TvIndexRoute: typeof TvIndexRoute
   ApiTrpcSplatRoute: typeof ApiTrpcSplatRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/system': {
+      id: '/system'
+      path: '/system'
+      fullPath: '/system'
+      preLoaderRoute: typeof SystemRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tv/': {
+      id: '/tv/'
+      path: '/tv'
+      fullPath: '/tv/'
+      preLoaderRoute: typeof TvIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/': {
+      id: '/settings/'
+      path: '/settings'
+      fullPath: '/settings/'
+      preLoaderRoute: typeof SettingsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/movies/': {
+      id: '/movies/'
+      path: '/movies'
+      fullPath: '/movies/'
+      preLoaderRoute: typeof MoviesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/activity/': {
+      id: '/activity/'
+      path: '/activity'
+      fullPath: '/activity/'
+      preLoaderRoute: typeof ActivityIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/security': {
+      id: '/settings/security'
+      path: '/settings/security'
+      fullPath: '/settings/security'
+      preLoaderRoute: typeof SettingsSecurityRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/scheduler': {
+      id: '/settings/scheduler'
+      path: '/settings/scheduler'
+      fullPath: '/settings/scheduler'
+      preLoaderRoute: typeof SettingsSchedulerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/profiles': {
+      id: '/settings/profiles'
+      path: '/settings/profiles'
+      fullPath: '/settings/profiles'
+      preLoaderRoute: typeof SettingsProfilesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/plugins': {
+      id: '/settings/plugins'
+      path: '/settings/plugins'
+      fullPath: '/settings/plugins'
+      preLoaderRoute: typeof SettingsPluginsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/notifications': {
+      id: '/settings/notifications'
+      path: '/settings/notifications'
+      fullPath: '/settings/notifications'
+      preLoaderRoute: typeof SettingsNotificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/media-servers': {
+      id: '/settings/media-servers'
+      path: '/settings/media-servers'
+      fullPath: '/settings/media-servers'
+      preLoaderRoute: typeof SettingsMediaServersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/media-management': {
+      id: '/settings/media-management'
+      path: '/settings/media-management'
+      fullPath: '/settings/media-management'
+      preLoaderRoute: typeof SettingsMediaManagementRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/indexers': {
+      id: '/settings/indexers'
+      path: '/settings/indexers'
+      fullPath: '/settings/indexers'
+      preLoaderRoute: typeof SettingsIndexersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/general': {
+      id: '/settings/general'
+      path: '/settings/general'
+      fullPath: '/settings/general'
+      preLoaderRoute: typeof SettingsGeneralRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/download-clients': {
+      id: '/settings/download-clients'
+      path: '/settings/download-clients'
+      fullPath: '/settings/download-clients'
+      preLoaderRoute: typeof SettingsDownloadClientsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/activity/queue': {
+      id: '/activity/queue'
+      path: '/activity/queue'
+      fullPath: '/activity/queue'
+      preLoaderRoute: typeof ActivityQueueRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/activity/history': {
+      id: '/activity/history'
+      path: '/activity/history'
+      fullPath: '/activity/history'
+      preLoaderRoute: typeof ActivityHistoryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/trpc/$': {
@@ -70,6 +417,23 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  SystemRoute: SystemRoute,
+  ActivityHistoryRoute: ActivityHistoryRoute,
+  ActivityQueueRoute: ActivityQueueRoute,
+  SettingsDownloadClientsRoute: SettingsDownloadClientsRoute,
+  SettingsGeneralRoute: SettingsGeneralRoute,
+  SettingsIndexersRoute: SettingsIndexersRoute,
+  SettingsMediaManagementRoute: SettingsMediaManagementRoute,
+  SettingsMediaServersRoute: SettingsMediaServersRoute,
+  SettingsNotificationsRoute: SettingsNotificationsRoute,
+  SettingsPluginsRoute: SettingsPluginsRoute,
+  SettingsProfilesRoute: SettingsProfilesRoute,
+  SettingsSchedulerRoute: SettingsSchedulerRoute,
+  SettingsSecurityRoute: SettingsSecurityRoute,
+  ActivityIndexRoute: ActivityIndexRoute,
+  MoviesIndexRoute: MoviesIndexRoute,
+  SettingsIndexRoute: SettingsIndexRoute,
+  TvIndexRoute: TvIndexRoute,
   ApiTrpcSplatRoute: ApiTrpcSplatRoute,
 }
 export const routeTree = rootRouteImport

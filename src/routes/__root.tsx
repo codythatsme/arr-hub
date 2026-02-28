@@ -6,7 +6,9 @@ import {
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
 
-import Header from '../components/Header'
+import { AppSidebar } from '../components/sidebar/app-sidebar'
+import { SidebarInset, SidebarProvider, SidebarTrigger } from '../components/ui/sidebar'
+import { Separator } from '../components/ui/separator'
 
 import TanStackQueryProvider from '../integrations/tanstack-query/root-provider'
 
@@ -51,14 +53,24 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <head>
         <HeadContent />
       </head>
       <body>
         <TanStackQueryProvider>
-          <Header />
-          {children}
+          <SidebarProvider>
+            <AppSidebar />
+            <SidebarInset>
+              <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
+                <SidebarTrigger className="-ml-1" />
+                <Separator orientation="vertical" className="mr-2 h-4" />
+              </header>
+              <div className="flex-1">
+                {children}
+              </div>
+            </SidebarInset>
+          </SidebarProvider>
           <TanStackDevtools
             config={{
               position: 'bottom-right',

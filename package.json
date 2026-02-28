@@ -14,7 +14,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:pull": "drizzle-kit pull",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "ui:add": "bunx shadcn@latest add --yes"
   },
   "dependencies": {
     "@effect/experimental": "^0.58.0",
@@ -41,7 +42,7 @@
     "drizzle-kit": "^0.31.8",
     "drizzle-orm": "^0.45.0",
     "effect": "^3.19.19",
-    "lucide-react": "^0.545.0",
+    "lucide-react": "^0.575.0",
     "nitro": "npm:nitro-nightly@latest",
     "radix-ui": "^1.4.3",
     "react": "^19.2.0",
