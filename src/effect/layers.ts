@@ -9,12 +9,14 @@ import { IndexerServiceLive } from "./services/IndexerService"
 import { MovieServiceLive } from "./services/MovieService"
 import { ProfileDefaultsEngineLive } from "./services/ProfileDefaultsEngine"
 import { ProfileServiceLive } from "./services/ProfileService"
+import { SeriesServiceLive } from "./services/SeriesService"
 
 /** All application services, fully wired. Db + CryptoService also exposed for direct use. */
 export const AppLive = Layer.mergeAll(
   ConfigServiceLive,
   AuthServiceLive,
   MovieServiceLive,
+  SeriesServiceLive,
   IndexerServiceLive,
   DownloadClientServiceLive,
 ).pipe(

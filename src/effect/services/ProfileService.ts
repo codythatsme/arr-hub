@@ -2,7 +2,7 @@ import { SqlError } from "@effect/sql/SqlError"
 import { eq, sql, count } from "drizzle-orm"
 import { Context, Effect, Layer } from "effect"
 
-import { qualityProfiles, qualityItems, customFormatScores, movies } from "#/db/schema"
+import { qualityProfiles, qualityItems, customFormatScores, movies, series } from "#/db/schema"
 
 import { NotFoundError, ConflictError, ProfileInUseError } from "../errors"
 import { Db } from "./Db"
@@ -262,13 +262,19 @@ export const ProfileServiceLive = Layer.effect(
             return yield* new NotFoundError({ entity: "qualityProfile", id })
           }
 
-          // Check if in use by movies
-          const usage = yield* db
+          // Check if in use by movies or series
+          const movieUsage = yield* db
             .select({ movieCount: count() })
             .from(movies)
             .where(eq(movies.qualityProfileId, id))
-          if (usage[0].movieCount > 0) {
-            return yield* new ProfileInUseError({ profileId: id, movieCount: usage[0].movieCount })
+          const seriesUsage = yield* db
+            .select({ seriesCount: count() })
+            .from(series)
+            .where(eq(series.qualityProfileId, id))
+          const movieCount = movieUsage[0].movieCount
+          const seriesCount = seriesUsage[0].seriesCount
+          if (movieCount > 0 || seriesCount > 0) {
+            return yield* new ProfileInUseError({ profileId: id, movieCount, seriesCount })
           }
 
           yield* db.delete(qualityProfiles).where(eq(qualityProfiles.id, id))

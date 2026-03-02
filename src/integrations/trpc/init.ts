@@ -66,7 +66,7 @@ export function domainToTRPC(error: DomainError): TRPCError {
     case "ProfileInUseError":
       return new TRPCError({
         code: "CONFLICT",
-        message: `profile ${error.profileId} in use by ${error.movieCount} movie(s)`,
+        message: `profile ${error.profileId} in use by ${error.movieCount} movie(s) and ${error.seriesCount} series`,
       })
     case "BundleNotFoundError":
       return new TRPCError({ code: "NOT_FOUND", message: `bundle ${error.bundleId} not found` })

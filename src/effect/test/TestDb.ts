@@ -94,6 +94,44 @@ const runDdl = Effect.gen(function* () {
     UNIQUE(profile_id, custom_format_id)
   )`
 
+  yield* sql`CREATE TABLE series (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tvdb_id INTEGER NOT NULL UNIQUE,
+    title TEXT NOT NULL,
+    year INTEGER,
+    overview TEXT,
+    poster_path TEXT,
+    status TEXT NOT NULL DEFAULT 'wanted',
+    network TEXT,
+    root_folder_path TEXT,
+    monitored INTEGER NOT NULL DEFAULT 1,
+    quality_profile_id INTEGER REFERENCES quality_profiles(id),
+    season_folder INTEGER NOT NULL DEFAULT 1,
+    added_at INTEGER NOT NULL DEFAULT (unixepoch())
+  )`
+
+  yield* sql`CREATE TABLE seasons (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    series_id INTEGER NOT NULL REFERENCES series(id) ON DELETE CASCADE,
+    season_number INTEGER NOT NULL,
+    monitored INTEGER NOT NULL DEFAULT 1,
+    UNIQUE(series_id, season_number)
+  )`
+
+  yield* sql`CREATE TABLE episodes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    season_id INTEGER NOT NULL REFERENCES seasons(id) ON DELETE CASCADE,
+    tvdb_id INTEGER NOT NULL UNIQUE,
+    title TEXT NOT NULL,
+    episode_number INTEGER NOT NULL,
+    air_date INTEGER,
+    overview TEXT,
+    has_file INTEGER NOT NULL DEFAULT 0,
+    file_path TEXT,
+    monitored INTEGER NOT NULL DEFAULT 1,
+    UNIQUE(season_id, episode_number)
+  )`
+
   yield* sql`CREATE TABLE settings (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL,
