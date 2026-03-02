@@ -57,6 +57,8 @@ const runDdl = Effect.gen(function* () {
     quality_profile_id INTEGER REFERENCES quality_profiles(id),
     root_folder_path TEXT,
     monitored INTEGER NOT NULL DEFAULT 1,
+    has_file INTEGER NOT NULL DEFAULT 0,
+    file_path TEXT,
     added_at INTEGER NOT NULL DEFAULT (unixepoch())
   )`
 
@@ -199,6 +201,40 @@ const runDdl = Effect.gen(function* () {
     error_message TEXT,
     added_at INTEGER NOT NULL DEFAULT (unixepoch()),
     updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+  )`
+
+  yield* sql`CREATE TABLE media_servers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL,
+    host TEXT NOT NULL,
+    port INTEGER NOT NULL,
+    token_encrypted TEXT NOT NULL,
+    use_ssl INTEGER NOT NULL DEFAULT 0,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    settings TEXT NOT NULL DEFAULT '{"syncIntervalMs":3600000}',
+    created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+  )`
+
+  yield* sql`CREATE TABLE media_server_health (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    media_server_id INTEGER NOT NULL UNIQUE REFERENCES media_servers(id) ON DELETE CASCADE,
+    last_check INTEGER NOT NULL DEFAULT (unixepoch()),
+    status TEXT NOT NULL DEFAULT 'unknown',
+    error_message TEXT,
+    response_time_ms INTEGER
+  )`
+
+  yield* sql`CREATE TABLE media_server_libraries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    media_server_id INTEGER NOT NULL REFERENCES media_servers(id) ON DELETE CASCADE,
+    external_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    last_synced INTEGER,
+    UNIQUE(media_server_id, external_id)
   )`
 })
 

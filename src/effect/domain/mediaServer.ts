@@ -1,0 +1,108 @@
+export type MediaServerType = "plex"
+
+export type MediaServerHealthStatus = "healthy" | "unhealthy" | "unknown"
+
+export type MediaServerLibraryType = "movie" | "show"
+
+export interface MediaServerSettings {
+  readonly syncIntervalMs: number
+}
+
+/** Config shape used by the adapter factory — no DB concerns. */
+export interface MediaServerConfig {
+  readonly id: number
+  readonly name: string
+  readonly type: MediaServerType
+  readonly host: string
+  readonly port: number
+  readonly token: string
+  readonly useSsl: boolean
+  readonly settings: MediaServerSettings
+}
+
+export interface MediaServerConnectionInfo {
+  readonly serverName: string
+  readonly version: string
+  readonly machineId: string
+}
+
+export interface MediaServerLibrary {
+  readonly externalId: string
+  readonly name: string
+  readonly type: MediaServerLibraryType
+}
+
+// ── GUID extraction ──
+
+export interface ParsedGuid {
+  readonly tmdbId: number | null
+  readonly tvdbId: number | null
+  readonly imdbId: string | null
+}
+
+// ── Synced items (discriminated union) ──
+
+export interface SyncedMovieItem {
+  readonly title: string
+  readonly year: number | null
+  readonly tmdbId: number | null
+  readonly filePath: string | null
+}
+
+export interface SyncedEpisodeItem {
+  readonly title: string
+  readonly seasonNumber: number
+  readonly episodeNumber: number
+  readonly seriesTvdbId: number | null
+  readonly filePath: string | null
+}
+
+export type SyncedItem =
+  | { readonly kind: "movie"; readonly item: SyncedMovieItem }
+  | { readonly kind: "episode"; readonly item: SyncedEpisodeItem }
+
+// ── Health ──
+
+export interface MediaServerHealth {
+  readonly connected: boolean
+  readonly serverName: string | null
+  readonly version: string | null
+  readonly libraryCount: number | null
+  readonly errorMessage: string | null
+}
+
+/** Public-facing shape — never exposes token. */
+export interface MediaServerWithHealth {
+  readonly id: number
+  readonly name: string
+  readonly type: MediaServerType
+  readonly host: string
+  readonly port: number
+  readonly useSsl: boolean
+  readonly enabled: boolean
+  readonly settings: MediaServerSettings
+  readonly createdAt: Date
+  readonly updatedAt: Date
+  readonly health: {
+    readonly lastCheck: Date
+    readonly status: MediaServerHealthStatus
+    readonly errorMessage: string | null
+    readonly responseTimeMs: number | null
+  } | null
+}
+
+export interface MediaServerLibraryWithSync {
+  readonly id: number
+  readonly mediaServerId: number
+  readonly externalId: string
+  readonly name: string
+  readonly type: MediaServerLibraryType
+  readonly enabled: boolean
+  readonly lastSynced: Date | null
+}
+
+export interface SyncResult {
+  readonly matched: number
+  readonly unmatched: number
+  readonly libraryId: string
+}
