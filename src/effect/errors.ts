@@ -71,3 +71,19 @@ export class DownloadClientError extends Data.TaggedError("DownloadClientError")
   readonly message: string
   readonly retryable: boolean
 }> {}
+
+export type MediaServerErrorReason =
+  | "auth_failed"
+  | "connection_refused"
+  | "timeout"
+  | "library_not_found"
+  | "sync_failed"
+  | "invalid_response"
+
+export class MediaServerError extends Data.TaggedError("MediaServerError")<{
+  readonly serverId: number
+  readonly serverName: string
+  readonly reason: MediaServerErrorReason
+  readonly message: string
+  readonly retryable: boolean
+}> {}

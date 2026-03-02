@@ -11,6 +11,7 @@ import type {
   DownloadClientError,
   EncryptionError,
   IndexerError,
+  MediaServerError,
   NotFoundError,
   ProfileInUseError,
   ValidationError,
@@ -48,6 +49,7 @@ type DomainError =
   | BundleVersionConflictError
   | IndexerError
   | DownloadClientError
+  | MediaServerError
   | EncryptionError
 
 export function domainToTRPC(error: DomainError): TRPCError {
@@ -100,6 +102,20 @@ export function domainToTRPC(error: DomainError): TRPCError {
       return new TRPCError({
         code: codeMap[error.reason] ?? "BAD_GATEWAY",
         message: `[${error.clientName}] ${error.message}`,
+      })
+    }
+    case "MediaServerError": {
+      const codeMap: Record<string, TRPCError["code"]> = {
+        auth_failed: "UNAUTHORIZED",
+        connection_refused: "BAD_GATEWAY",
+        timeout: "TIMEOUT",
+        library_not_found: "NOT_FOUND",
+        sync_failed: "BAD_GATEWAY",
+        invalid_response: "BAD_GATEWAY",
+      }
+      return new TRPCError({
+        code: codeMap[error.reason] ?? "BAD_GATEWAY",
+        message: `[${error.serverName}] ${error.message}`,
       })
     }
     case "EncryptionError":

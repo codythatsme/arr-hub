@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm"
 import { integer, real, sqliteTable, text, unique } from "drizzle-orm/sqlite-core"
 
 import type { DownloadClientSettings } from "#/effect/domain/downloadClient"
+import type { MediaServerSettings } from "#/effect/domain/mediaServer"
 
 export const users = sqliteTable("users", {
   id: integer().primaryKey({ autoIncrement: true }),
@@ -113,6 +114,8 @@ export const movies = sqliteTable("movies", {
   qualityProfileId: integer("quality_profile_id").references(() => qualityProfiles.id),
   rootFolderPath: text("root_folder_path"),
   monitored: integer({ mode: "boolean" }).notNull().default(true),
+  hasFile: integer("has_file", { mode: "boolean" }).notNull().default(false),
+  filePath: text("file_path"),
   addedAt: integer("added_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),
@@ -276,3 +279,58 @@ export const downloadQueue = sqliteTable("download_queue", {
     .notNull()
     .default(sql`(unixepoch())`),
 })
+
+// ── Media Servers ──
+
+export const mediaServers = sqliteTable("media_servers", {
+  id: integer().primaryKey({ autoIncrement: true }),
+  name: text().notNull(),
+  type: text({ enum: ["plex"] }).notNull(),
+  host: text().notNull(),
+  port: integer().notNull(),
+  tokenEncrypted: text("token_encrypted").notNull(),
+  useSsl: integer("use_ssl", { mode: "boolean" }).notNull().default(false),
+  enabled: integer({ mode: "boolean" }).notNull().default(true),
+  settings: text({ mode: "json" })
+    .$type<MediaServerSettings>()
+    .notNull()
+    .default(sql`'{"syncIntervalMs":3600000}'`),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+})
+
+export const mediaServerHealth = sqliteTable("media_server_health", {
+  id: integer().primaryKey({ autoIncrement: true }),
+  mediaServerId: integer("media_server_id")
+    .notNull()
+    .unique()
+    .references(() => mediaServers.id, { onDelete: "cascade" }),
+  lastCheck: integer("last_check", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  status: text({ enum: ["healthy", "unhealthy", "unknown"] })
+    .notNull()
+    .default("unknown"),
+  errorMessage: text("error_message"),
+  responseTimeMs: integer("response_time_ms"),
+})
+
+export const mediaServerLibraries = sqliteTable(
+  "media_server_libraries",
+  {
+    id: integer().primaryKey({ autoIncrement: true }),
+    mediaServerId: integer("media_server_id")
+      .notNull()
+      .references(() => mediaServers.id, { onDelete: "cascade" }),
+    externalId: text("external_id").notNull(),
+    name: text().notNull(),
+    type: text({ enum: ["movie", "show"] }).notNull(),
+    enabled: integer({ mode: "boolean" }).notNull().default(true),
+    lastSynced: integer("last_synced", { mode: "timestamp" }),
+  },
+  (t) => [unique().on(t.mediaServerId, t.externalId)],
+)
