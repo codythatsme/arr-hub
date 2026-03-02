@@ -7,8 +7,9 @@ import { TestDbLive } from "#/effect/test/TestDb"
 import { Db } from "./Db"
 import { MovieService, MovieServiceLive } from "./MovieService"
 import { ProfileService, ProfileServiceLive } from "./ProfileService"
+import { SeriesService, SeriesServiceLive } from "./SeriesService"
 
-const TestLayer = Layer.mergeAll(ProfileServiceLive, MovieServiceLive).pipe(
+const TestLayer = Layer.mergeAll(ProfileServiceLive, MovieServiceLive, SeriesServiceLive).pipe(
   Layer.provideMerge(TestDbLive),
 )
 
@@ -181,6 +182,26 @@ describe("ProfileService", () => {
       expect(error._tag).toBe("ProfileInUseError")
       if (error._tag === "ProfileInUseError") {
         expect(error.movieCount).toBe(1)
+        expect(error.seriesCount).toBe(0)
+      }
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("remove fails with ProfileInUseError when series reference profile", () =>
+    Effect.gen(function* () {
+      const profileSvc = yield* ProfileService
+      const seriesSvc = yield* SeriesService
+      const created = yield* profileSvc.create({ name: "Series Use" })
+      yield* seriesSvc.add({
+        tvdbId: 888,
+        title: "Linked Series",
+        qualityProfileId: created.profile.id,
+      })
+      const error = yield* Effect.flip(profileSvc.remove(created.profile.id))
+      expect(error._tag).toBe("ProfileInUseError")
+      if (error._tag === "ProfileInUseError") {
+        expect(error.movieCount).toBe(0)
+        expect(error.seriesCount).toBe(1)
       }
     }).pipe(Effect.provide(TestLayer)),
   )

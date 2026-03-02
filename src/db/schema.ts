@@ -118,6 +118,58 @@ export const movies = sqliteTable("movies", {
     .default(sql`(unixepoch())`),
 })
 
+export const series = sqliteTable("series", {
+  id: integer().primaryKey({ autoIncrement: true }),
+  tvdbId: integer("tvdb_id").notNull().unique(),
+  title: text().notNull(),
+  year: integer(),
+  overview: text(),
+  posterPath: text("poster_path"),
+  status: text({ enum: ["continuing", "ended", "wanted", "available"] })
+    .notNull()
+    .default("wanted"),
+  network: text(),
+  rootFolderPath: text("root_folder_path"),
+  monitored: integer({ mode: "boolean" }).notNull().default(true),
+  qualityProfileId: integer("quality_profile_id").references(() => qualityProfiles.id),
+  seasonFolder: integer("season_folder", { mode: "boolean" }).notNull().default(true),
+  addedAt: integer("added_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+})
+
+export const seasons = sqliteTable(
+  "seasons",
+  {
+    id: integer().primaryKey({ autoIncrement: true }),
+    seriesId: integer("series_id")
+      .notNull()
+      .references(() => series.id, { onDelete: "cascade" }),
+    seasonNumber: integer("season_number").notNull(),
+    monitored: integer({ mode: "boolean" }).notNull().default(true),
+  },
+  (t) => [unique().on(t.seriesId, t.seasonNumber)],
+)
+
+export const episodes = sqliteTable(
+  "episodes",
+  {
+    id: integer().primaryKey({ autoIncrement: true }),
+    seasonId: integer("season_id")
+      .notNull()
+      .references(() => seasons.id, { onDelete: "cascade" }),
+    tvdbId: integer("tvdb_id").notNull().unique(),
+    title: text().notNull(),
+    episodeNumber: integer("episode_number").notNull(),
+    airDate: integer("air_date", { mode: "timestamp" }),
+    overview: text(),
+    hasFile: integer("has_file", { mode: "boolean" }).notNull().default(false),
+    filePath: text("file_path"),
+    monitored: integer({ mode: "boolean" }).notNull().default(true),
+  },
+  (t) => [unique().on(t.seasonId, t.episodeNumber)],
+)
+
 export const settings = sqliteTable("settings", {
   key: text().primaryKey(),
   value: text().notNull(),

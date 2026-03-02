@@ -24,6 +24,7 @@ export class AuthError extends Data.TaggedError("AuthError")<{
 export class ProfileInUseError extends Data.TaggedError("ProfileInUseError")<{
   readonly profileId: number
   readonly movieCount: number
+  readonly seriesCount: number
 }> {}
 
 export class BundleNotFoundError extends Data.TaggedError("BundleNotFoundError")<{
