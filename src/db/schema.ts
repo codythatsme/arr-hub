@@ -3,6 +3,7 @@ import { integer, real, sqliteTable, text, unique } from "drizzle-orm/sqlite-cor
 
 import type { DownloadClientSettings } from "#/effect/domain/downloadClient"
 import type { MediaServerSettings } from "#/effect/domain/mediaServer"
+import type { DecisionReason, MediaType, ReleaseDecision } from "#/effect/domain/release"
 
 export const users = sqliteTable("users", {
   id: integer().primaryKey({ autoIncrement: true }),
@@ -334,3 +335,24 @@ export const mediaServerLibraries = sqliteTable(
   },
   (t) => [unique().on(t.mediaServerId, t.externalId)],
 )
+
+// ── Release Decisions ──
+
+export const releaseDecisions = sqliteTable("release_decisions", {
+  id: integer().primaryKey({ autoIncrement: true }),
+  mediaId: integer("media_id").notNull(),
+  mediaType: text("media_type").$type<MediaType>().notNull(),
+  candidateTitle: text("candidate_title").notNull(),
+  indexerId: integer("indexer_id"),
+  indexerName: text("indexer_name"),
+  qualityRank: integer("quality_rank"),
+  formatScore: integer("format_score").notNull().default(0),
+  decision: text().$type<ReleaseDecision>().notNull(),
+  reasons: text({ mode: "json" })
+    .$type<ReadonlyArray<DecisionReason>>()
+    .notNull()
+    .default(sql`'[]'`),
+  decidedAt: integer("decided_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+})

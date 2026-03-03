@@ -13,6 +13,7 @@ import type {
   IndexerError,
   MediaServerError,
   NotFoundError,
+  ParseFailed,
   ProfileInUseError,
   ValidationError,
 } from "#/effect/errors"
@@ -51,6 +52,7 @@ type DomainError =
   | DownloadClientError
   | MediaServerError
   | EncryptionError
+  | ParseFailed
 
 export function domainToTRPC(error: DomainError): TRPCError {
   switch (error._tag) {
@@ -120,6 +122,8 @@ export function domainToTRPC(error: DomainError): TRPCError {
     }
     case "EncryptionError":
       return new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message })
+    case "ParseFailed":
+      return new TRPCError({ code: "BAD_REQUEST", message: `parse failed: ${error.title}` })
   }
 }
 

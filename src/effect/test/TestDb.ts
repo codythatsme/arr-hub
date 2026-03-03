@@ -236,6 +236,20 @@ const runDdl = Effect.gen(function* () {
     last_synced INTEGER,
     UNIQUE(media_server_id, external_id)
   )`
+
+  yield* sql`CREATE TABLE release_decisions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    media_id INTEGER NOT NULL,
+    media_type TEXT NOT NULL,
+    candidate_title TEXT NOT NULL,
+    indexer_id INTEGER,
+    indexer_name TEXT,
+    quality_rank INTEGER,
+    format_score INTEGER NOT NULL DEFAULT 0,
+    decision TEXT NOT NULL,
+    reasons TEXT NOT NULL DEFAULT '[]',
+    decided_at INTEGER NOT NULL DEFAULT (unixepoch())
+  )`
 })
 
 /**

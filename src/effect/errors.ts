@@ -87,3 +87,8 @@ export class MediaServerError extends Data.TaggedError("MediaServerError")<{
   readonly message: string
   readonly retryable: boolean
 }> {}
+
+export class ParseFailed extends Data.TaggedError("ParseFailed")<{
+  readonly title: string
+  readonly message: string
+}> {}
