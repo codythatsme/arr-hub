@@ -10,7 +10,9 @@ import { MediaServerServiceLive } from "./services/MediaServerService"
 import { MovieServiceLive } from "./services/MovieService"
 import { ProfileDefaultsEngineLive } from "./services/ProfileDefaultsEngine"
 import { ProfileServiceLive } from "./services/ProfileService"
+import { ReleasePolicyEngineLive } from "./services/ReleasePolicyEngine"
 import { SeriesServiceLive } from "./services/SeriesService"
+import { TitleParserServiceLive } from "./services/TitleParserService"
 
 /** All application services, fully wired. Db + CryptoService also exposed for direct use. */
 export const AppLive = Layer.mergeAll(
@@ -21,7 +23,9 @@ export const AppLive = Layer.mergeAll(
   IndexerServiceLive,
   DownloadClientServiceLive,
   MediaServerServiceLive,
+  ReleasePolicyEngineLive,
 ).pipe(
+  Layer.provideMerge(TitleParserServiceLive),
   Layer.provideMerge(ProfileDefaultsEngineLive),
   Layer.provideMerge(ProfileServiceLive),
   Layer.provideMerge(CryptoServiceLive),
