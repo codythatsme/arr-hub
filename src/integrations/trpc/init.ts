@@ -4,6 +4,7 @@ import { Cause, Effect, Exit, Option, type ManagedRuntime } from "effect"
 import superjson from "superjson"
 
 import type {
+  AcquisitionError,
   AuthError,
   BundleNotFoundError,
   BundleVersionConflictError,
@@ -15,6 +16,7 @@ import type {
   NotFoundError,
   ParseFailed,
   ProfileInUseError,
+  SchedulerError,
   ValidationError,
 } from "#/effect/errors"
 import { AppRuntime } from "#/effect/runtime"
@@ -53,6 +55,8 @@ type DomainError =
   | MediaServerError
   | EncryptionError
   | ParseFailed
+  | SchedulerError
+  | AcquisitionError
 
 export function domainToTRPC(error: DomainError): TRPCError {
   switch (error._tag) {
@@ -124,6 +128,22 @@ export function domainToTRPC(error: DomainError): TRPCError {
       return new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message })
     case "ParseFailed":
       return new TRPCError({ code: "BAD_REQUEST", message: `parse failed: ${error.title}` })
+    case "SchedulerError": {
+      const codeMap: Record<string, TRPCError["code"]> = {
+        duplicate_job: "CONFLICT",
+        invalid_transition: "BAD_REQUEST",
+        paused: "PRECONDITION_FAILED",
+      }
+      return new TRPCError({
+        code: codeMap[error.reason] ?? "BAD_REQUEST",
+        message: error.message,
+      })
+    }
+    case "AcquisitionError":
+      return new TRPCError({
+        code: "BAD_REQUEST",
+        message: `[movie:${error.movieId}] ${error.stage}: ${error.message}`,
+      })
   }
 }
 

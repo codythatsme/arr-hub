@@ -6,10 +6,12 @@ import { AppLive } from "./layers"
 import { CryptoService } from "./services/CryptoService"
 import { Db } from "./services/Db"
 import { ProfileDefaultsEngine } from "./services/ProfileDefaultsEngine"
+import { SchedulerService } from "./services/SchedulerService"
+import { createSchedulerLoop } from "./services/SchedulerLoop"
 
 export const AppRuntime = ManagedRuntime.make(AppLive)
 
-/** Seed admin user + default quality profile if tables are empty. */
+/** Seed admin user + default quality profile + scheduler config if tables are empty. */
 const seed = Effect.gen(function* () {
   const db = yield* Db
   const crypto = yield* CryptoService
@@ -29,11 +31,24 @@ const seed = Effect.gen(function* () {
 
   const engine = yield* ProfileDefaultsEngine
   yield* engine.seedDefaults()
+
+  const scheduler = yield* SchedulerService
+  yield* scheduler.seedConfig()
 })
 
-AppRuntime.runPromise(seed).catch((err) => {
-  console.error("[arr-hub] seed failed:", err)
-})
+AppRuntime.runPromise(seed).then(
+  () => {
+    // Fork the scheduler loop — interrupted on AppRuntime.dispose()
+    AppRuntime.runFork(
+      createSchedulerLoop().pipe(
+        Effect.catchAllDefect((d) => Effect.logError(`[scheduler] fatal defect: ${d}`)),
+      ),
+    )
+  },
+  (err) => {
+    console.error("[arr-hub] seed failed:", err)
+  },
+)
 
 process.on("beforeExit", () => {
   AppRuntime.dispose().then(

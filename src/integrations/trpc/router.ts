@@ -7,6 +7,7 @@ import { mediaServersRouter } from "./routers/mediaServers"
 import { moviesRouter } from "./routers/movies"
 import { profilesRouter } from "./routers/profiles"
 import { releasesRouter } from "./routers/releases"
+import { schedulerRouter } from "./routers/scheduler"
 import { seriesRouter } from "./routers/series"
 
 export const trpcRouter = createTRPCRouter({
@@ -19,6 +20,7 @@ export const trpcRouter = createTRPCRouter({
   downloadClients: downloadClientsRouter,
   mediaServers: mediaServersRouter,
   releases: releasesRouter,
+  scheduler: schedulerRouter,
 })
 
 export type TRPCRouter = typeof trpcRouter

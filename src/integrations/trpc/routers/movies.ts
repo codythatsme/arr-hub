@@ -2,6 +2,7 @@ import type { TRPCRouterRecord } from "@trpc/server"
 import { Effect } from "effect"
 import { z } from "zod"
 
+import { AcquisitionPipeline } from "#/effect/services/AcquisitionPipeline"
 import { MovieService } from "#/effect/services/MovieService"
 
 import { authedProcedure, runEffect } from "../init"
@@ -92,4 +93,43 @@ export const moviesRouter = {
       }),
     ),
   ),
+
+  search: authedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(({ input }) =>
+      runEffect(
+        Effect.gen(function* () {
+          const pipeline = yield* AcquisitionPipeline
+          return yield* pipeline.searchAndEvaluate(input.id)
+        }),
+      ),
+    ),
+
+  grab: authedProcedure
+    .input(
+      z.object({
+        id: z.number(),
+        downloadUrl: z.string(),
+        candidateTitle: z.string(),
+      }),
+    )
+    .mutation(({ input }) =>
+      runEffect(
+        Effect.gen(function* () {
+          const pipeline = yield* AcquisitionPipeline
+          return yield* pipeline.grab(input.id, input.downloadUrl, input.candidateTitle)
+        }),
+      ),
+    ),
+
+  searchAndGrab: authedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(({ input }) =>
+      runEffect(
+        Effect.gen(function* () {
+          const pipeline = yield* AcquisitionPipeline
+          return yield* pipeline.searchAndGrab(input.id)
+        }),
+      ),
+    ),
 } satisfies TRPCRouterRecord

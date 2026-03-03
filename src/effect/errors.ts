@@ -92,3 +92,18 @@ export class ParseFailed extends Data.TaggedError("ParseFailed")<{
   readonly title: string
   readonly message: string
 }> {}
+
+export type SchedulerErrorReason = "duplicate_job" | "invalid_transition" | "paused"
+
+export class SchedulerError extends Data.TaggedError("SchedulerError")<{
+  readonly reason: SchedulerErrorReason
+  readonly message: string
+}> {}
+
+export type AcquisitionStage = "search" | "evaluate" | "grab"
+
+export class AcquisitionError extends Data.TaggedError("AcquisitionError")<{
+  readonly movieId: number
+  readonly stage: AcquisitionStage
+  readonly message: string
+}> {}
