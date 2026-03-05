@@ -4,6 +4,11 @@ import { integer, real, sqliteTable, text, unique } from "drizzle-orm/sqlite-cor
 import type { DownloadClientSettings } from "#/effect/domain/downloadClient"
 import type { MediaServerSettings } from "#/effect/domain/mediaServer"
 import type { DecisionReason, MediaType, ReleaseDecision } from "#/effect/domain/release"
+import type {
+  SchedulerJobPayload,
+  SchedulerJobStatus,
+  SchedulerJobType,
+} from "#/effect/domain/scheduler"
 
 export const users = sqliteTable("users", {
   id: integer().primaryKey({ autoIncrement: true }),
@@ -117,6 +122,9 @@ export const movies = sqliteTable("movies", {
   monitored: integer({ mode: "boolean" }).notNull().default(true),
   hasFile: integer("has_file", { mode: "boolean" }).notNull().default(false),
   filePath: text("file_path"),
+  existingQualityName: text("existing_quality_name"),
+  existingQualityRank: integer("existing_quality_rank"),
+  existingFormatScore: integer("existing_format_score"),
   addedAt: integer("added_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),
@@ -353,6 +361,40 @@ export const releaseDecisions = sqliteTable("release_decisions", {
     .notNull()
     .default(sql`'[]'`),
   decidedAt: integer("decided_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+})
+
+// ── Scheduler ──
+
+export const schedulerConfig = sqliteTable("scheduler_config", {
+  id: integer().primaryKey({ autoIncrement: true }),
+  jobType: text("job_type")
+    .$type<SchedulerJobType>()
+    .notNull()
+    .unique(),
+  intervalMinutes: integer("interval_minutes").notNull(),
+  retryDelaySeconds: integer("retry_delay_seconds").notNull().default(60),
+  maxRetries: integer("max_retries").notNull().default(3),
+  backoffMultiplier: real("backoff_multiplier").notNull().default(2),
+  enabled: integer({ mode: "boolean" }).notNull().default(true),
+})
+
+export const schedulerJobs = sqliteTable("scheduler_jobs", {
+  id: integer().primaryKey({ autoIncrement: true }),
+  jobType: text("job_type").$type<SchedulerJobType>().notNull(),
+  status: text().$type<SchedulerJobStatus>().notNull().default("pending"),
+  dedupeKey: text("dedupe_key").notNull(),
+  payload: text({ mode: "json" }).$type<SchedulerJobPayload>().notNull(),
+  attempts: integer().notNull().default(0),
+  maxAttempts: integer("max_attempts").notNull().default(3),
+  nextRunAt: integer("next_run_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  startedAt: integer("started_at", { mode: "timestamp" }),
+  completedAt: integer("completed_at", { mode: "timestamp" }),
+  errorMessage: text("error_message"),
+  createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),
 })

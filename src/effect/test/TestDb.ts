@@ -59,6 +59,9 @@ const runDdl = Effect.gen(function* () {
     monitored INTEGER NOT NULL DEFAULT 1,
     has_file INTEGER NOT NULL DEFAULT 0,
     file_path TEXT,
+    existing_quality_name TEXT,
+    existing_quality_rank INTEGER,
+    existing_format_score INTEGER,
     added_at INTEGER NOT NULL DEFAULT (unixepoch())
   )`
 
@@ -249,6 +252,31 @@ const runDdl = Effect.gen(function* () {
     decision TEXT NOT NULL,
     reasons TEXT NOT NULL DEFAULT '[]',
     decided_at INTEGER NOT NULL DEFAULT (unixepoch())
+  )`
+
+  yield* sql`CREATE TABLE scheduler_config (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    job_type TEXT NOT NULL UNIQUE,
+    interval_minutes INTEGER NOT NULL,
+    retry_delay_seconds INTEGER NOT NULL DEFAULT 60,
+    max_retries INTEGER NOT NULL DEFAULT 3,
+    backoff_multiplier REAL NOT NULL DEFAULT 2,
+    enabled INTEGER NOT NULL DEFAULT 1
+  )`
+
+  yield* sql`CREATE TABLE scheduler_jobs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    job_type TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    dedupe_key TEXT NOT NULL,
+    payload TEXT NOT NULL,
+    attempts INTEGER NOT NULL DEFAULT 0,
+    max_attempts INTEGER NOT NULL DEFAULT 3,
+    next_run_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    started_at INTEGER,
+    completed_at INTEGER,
+    error_message TEXT,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch())
   )`
 })
 
