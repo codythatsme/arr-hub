@@ -44,7 +44,7 @@ describe("AuthService", () => {
       const auth = yield* AuthService
       const error = yield* Effect.flip(auth.login("bob", "wrong"))
       expect(error._tag).toBe("AuthError")
-      expect(error.reason).toBe("invalid_credentials")
+      if (error._tag === "AuthError") expect(error.reason).toBe("invalid_credentials")
     }).pipe(Effect.provide(TestLayer)),
   )
 
@@ -53,7 +53,7 @@ describe("AuthService", () => {
       const auth = yield* AuthService
       const error = yield* Effect.flip(auth.login("ghost", "whatever"))
       expect(error._tag).toBe("AuthError")
-      expect(error.reason).toBe("invalid_credentials")
+      if (error._tag === "AuthError") expect(error.reason).toBe("invalid_credentials")
     }).pipe(Effect.provide(TestLayer)),
   )
 
@@ -74,7 +74,7 @@ describe("AuthService", () => {
       const auth = yield* AuthService
       const error = yield* Effect.flip(auth.validateToken("deadbeef".repeat(8)))
       expect(error._tag).toBe("AuthError")
-      expect(error.reason).toBe("missing")
+      if (error._tag === "AuthError") expect(error.reason).toBe("missing")
     }).pipe(Effect.provide(TestLayer)),
   )
 
@@ -95,7 +95,7 @@ describe("AuthService", () => {
 
       const error = yield* Effect.flip(auth.validateToken(session.token))
       expect(error._tag).toBe("AuthError")
-      expect(error.reason).toBe("expired")
+      if (error._tag === "AuthError") expect(error.reason).toBe("expired")
     }).pipe(Effect.provide(TestLayer)),
   )
 
@@ -110,7 +110,7 @@ describe("AuthService", () => {
 
       const error = yield* Effect.flip(auth.validateToken(session.token))
       expect(error._tag).toBe("AuthError")
-      expect(error.reason).toBe("missing")
+      if (error._tag === "AuthError") expect(error.reason).toBe("missing")
     }).pipe(Effect.provide(TestLayer)),
   )
 

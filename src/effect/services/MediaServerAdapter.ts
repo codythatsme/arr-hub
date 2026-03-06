@@ -133,6 +133,9 @@ const PLEX_TYPE_MAP: Record<string, MediaServerLibraryType> = {
   show: "show",
 }
 
+const extractFilePath = (metadata: PlexMetadata): string | null =>
+  metadata.Media?.[0]?.Part?.[0]?.file ?? null
+
 // ── Factory ──
 
 export function createPlexAdapter(config: MediaServerConfig): MediaServerAdapter {
@@ -190,9 +193,6 @@ export function createPlexAdapter(config: MediaServerConfig): MediaServerAdapter
       })
     })
 
-  const extractFilePath = (metadata: PlexMetadata): string | null =>
-    metadata.Media?.[0]?.Part?.[0]?.file ?? null
-
   return {
     testConnection: () =>
       Effect.gen(function* () {
@@ -243,9 +243,7 @@ export function createPlexAdapter(config: MediaServerConfig): MediaServerAdapter
         }
 
         if (libraryType === "movie") {
-          const items = yield* plexJson<PlexLibraryItems>(
-            `/library/sections/${libraryId}/all`,
-          )
+          const items = yield* plexJson<PlexLibraryItems>(`/library/sections/${libraryId}/all`)
           const metadata = items.MediaContainer.Metadata ?? []
 
           return metadata.map((m): SyncedItem => {
@@ -263,9 +261,7 @@ export function createPlexAdapter(config: MediaServerConfig): MediaServerAdapter
         }
 
         // Show library: fetch episodes (type=4)
-        const items = yield* plexJson<PlexLibraryItems>(
-          `/library/sections/${libraryId}/all?type=4`,
-        )
+        const items = yield* plexJson<PlexLibraryItems>(`/library/sections/${libraryId}/all?type=4`)
         const metadata = items.MediaContainer.Metadata ?? []
 
         return metadata.map((m): SyncedItem => {
@@ -289,9 +285,7 @@ export function createPlexAdapter(config: MediaServerConfig): MediaServerAdapter
 
     refreshLibrary: (libraryId, path) =>
       Effect.gen(function* () {
-        yield* plexFetch(
-          `/library/sections/${libraryId}/refresh?path=${encodeURIComponent(path)}`,
-        )
+        yield* plexFetch(`/library/sections/${libraryId}/refresh?path=${encodeURIComponent(path)}`)
       }),
 
     getHealth: () =>
@@ -314,9 +308,9 @@ export function createPlexAdapter(config: MediaServerConfig): MediaServerAdapter
           Effect.catchAll(() => Effect.succeed(null as PlexLibrarySections | null)),
         )
 
-        const libraryCount = sections?.MediaContainer.Directory?.filter(
-          (d) => d.type === "movie" || d.type === "show",
-        ).length ?? null
+        const libraryCount =
+          sections?.MediaContainer.Directory?.filter((d) => d.type === "movie" || d.type === "show")
+            .length ?? null
 
         return {
           connected: true,

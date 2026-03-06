@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { createTRPCClient, httpBatchStreamLink } from "@trpc/client"
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query"
 import type { ReactNode } from "react"
-import superjson from "superjson"
+import superjson, { deserialize, serialize } from "superjson"
 
 import { TRPCProvider } from "#/integrations/trpc/react"
 import type { TRPCRouter } from "#/integrations/trpc/router"
@@ -38,8 +38,8 @@ export function getContext() {
 
   const queryClient = new QueryClient({
     defaultOptions: {
-      dehydrate: { serializeData: superjson.serialize },
-      hydrate: { deserializeData: superjson.deserialize },
+      dehydrate: { serializeData: serialize },
+      hydrate: { deserializeData: deserialize },
     },
   })
 

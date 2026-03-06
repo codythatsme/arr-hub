@@ -95,9 +95,7 @@ describe("ReleasePolicyEngine", () => {
       // Profile only allows Bluray1080p
       const result = yield* svc.create({
         name: "Restricted",
-        qualityItems: [
-          { qualityName: "Bluray1080p", groupName: null, weight: 1, allowed: true },
-        ],
+        qualityItems: [{ qualityName: "Bluray1080p", groupName: null, weight: 1, allowed: true }],
       })
       const engine = yield* ReleasePolicyEngine
       const results = yield* engine.evaluate(
@@ -117,10 +115,7 @@ describe("ReleasePolicyEngine", () => {
       const profileId = yield* setupProfile({ minFormatScore: 0 })
 
       // Create BR-DISK custom format with -10000 score
-      const [fmt] = yield* db
-        .insert(customFormats)
-        .values({ name: "BR-DISK" })
-        .returning()
+      const [fmt] = yield* db.insert(customFormats).values({ name: "BR-DISK" }).returning()
       yield* db.insert(customFormatSpecs).values({
         customFormatId: fmt.id,
         name: "BR-DISK detect",
@@ -159,10 +154,7 @@ describe("ReleasePolicyEngine", () => {
       const profileId = yield* setupProfile()
 
       // Create x265 custom format with +1000 score
-      const [fmt] = yield* db
-        .insert(customFormats)
-        .values({ name: "x265" })
-        .returning()
+      const [fmt] = yield* db.insert(customFormats).values({ name: "x265" }).returning()
       yield* db.insert(customFormatSpecs).values({
         customFormatId: fmt.id,
         name: "x265 detect",
@@ -241,7 +233,11 @@ describe("ReleasePolicyEngine", () => {
       )
       expect(results).toHaveLength(1)
       expect(results[0].decision).toBe("skipped")
-      expect(results[0].reasons.some((r) => r.rule === "format_score_not_improved" || r.rule === "format_score_at_cutoff")).toBe(true)
+      expect(
+        results[0].reasons.some(
+          (r) => r.rule === "format_score_not_improved" || r.rule === "format_score_at_cutoff",
+        ),
+      ).toBe(true)
     }).pipe(Effect.provide(TestLayer)),
   )
 
@@ -255,10 +251,7 @@ describe("ReleasePolicyEngine", () => {
       })
 
       // Create a small boost format
-      const [fmt] = yield* db
-        .insert(customFormats)
-        .values({ name: "SmallBoost" })
-        .returning()
+      const [fmt] = yield* db.insert(customFormats).values({ name: "SmallBoost" }).returning()
       yield* db.insert(customFormatSpecs).values({
         customFormatId: fmt.id,
         name: "detect",
@@ -291,26 +284,28 @@ describe("ReleasePolicyEngine", () => {
     }).pipe(Effect.provide(TestLayer)),
   )
 
-  it.effect("lexicographic ranking: quality primary, format score secondary, seeders tertiary", () =>
-    Effect.gen(function* () {
-      const profileId = yield* setupProfile()
-      const engine = yield* ReleasePolicyEngine
+  it.effect(
+    "lexicographic ranking: quality primary, format score secondary, seeders tertiary",
+    () =>
+      Effect.gen(function* () {
+        const profileId = yield* setupProfile()
+        const engine = yield* ReleasePolicyEngine
 
-      const candidates = [
-        makeCandidate({ title: "Movie.2024.720p.HDTV.x264-LOW", seeders: 1000 }),
-        makeCandidate({ title: "Movie.2024.1080p.BluRay.x264-MED", seeders: 50 }),
-        makeCandidate({ title: "Movie.2024.1080p.BluRay.x264-HIGH", seeders: 200 }),
-      ]
+        const candidates = [
+          makeCandidate({ title: "Movie.2024.720p.HDTV.x264-LOW", seeders: 1000 }),
+          makeCandidate({ title: "Movie.2024.1080p.BluRay.x264-MED", seeders: 50 }),
+          makeCandidate({ title: "Movie.2024.1080p.BluRay.x264-HIGH", seeders: 200 }),
+        ]
 
-      const results = yield* engine.evaluate(candidates, profileId, baseContext)
-      expect(results).toHaveLength(3)
+        const results = yield* engine.evaluate(candidates, profileId, baseContext)
+        expect(results).toHaveLength(3)
 
-      // Higher weight = better quality. Bluray1080p(6) > HDTV720p(2).
-      // Between two Bluray1080p: same rank → seeders DESC (200 > 50).
-      expect(results[0].candidate.title).toContain("HIGH")   // Bluray1080p, 200 seeders
-      expect(results[1].candidate.title).toContain("MED")    // Bluray1080p, 50 seeders
-      expect(results[2].candidate.title).toContain("LOW")    // HDTV720p, 1000 seeders
-    }).pipe(Effect.provide(TestLayer)),
+        // Higher weight = better quality. Bluray1080p(6) > HDTV720p(2).
+        // Between two Bluray1080p: same rank → seeders DESC (200 > 50).
+        expect(results[0].candidate.title).toContain("HIGH") // Bluray1080p, 200 seeders
+        expect(results[1].candidate.title).toContain("MED") // Bluray1080p, 50 seeders
+        expect(results[2].candidate.title).toContain("LOW") // HDTV720p, 1000 seeders
+      }).pipe(Effect.provide(TestLayer)),
   )
 
   it.effect("deterministic: same inputs same output", () =>

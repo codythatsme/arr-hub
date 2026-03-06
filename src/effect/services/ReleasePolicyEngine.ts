@@ -2,12 +2,7 @@ import { SqlError } from "@effect/sql/SqlError"
 import { eq, and } from "drizzle-orm"
 import { Context, Effect, Layer } from "effect"
 
-import {
-  customFormats,
-  customFormatSpecs,
-  customFormatScores,
-  releaseDecisions,
-} from "#/db/schema"
+import { customFormatSpecs, releaseDecisions } from "#/db/schema"
 import type { ReleaseCandidate } from "#/effect/domain/indexer"
 import type { QualityName, SpecField } from "#/effect/domain/quality"
 import type {
@@ -23,6 +18,20 @@ import { NotFoundError } from "#/effect/errors"
 import { Db } from "./Db"
 import { ProfileService, type ProfileWithDetails } from "./ProfileService"
 import { TitleParserService } from "./TitleParserService"
+
+// ── Quality helpers (module-scope — no closure needed) ──
+
+/** Find a quality item's weight for a given qualityName. */
+function findQualityRank(profile: ProfileWithDetails, qualityName: QualityName): number | null {
+  const item = profile.qualityItems.find((qi) => qi.qualityName === qualityName)
+  return item ? item.weight : null
+}
+
+/** Check if a quality is allowed in the profile. */
+function isQualityAllowed(profile: ProfileWithDetails, qualityName: QualityName): boolean {
+  const item = profile.qualityItems.find((qi) => qi.qualityName === qualityName)
+  return item ? item.allowed : false
+}
 
 // ── Spec Matching (from Radarr CustomFormatCalculationService) ──
 
@@ -78,8 +87,9 @@ function formatMatchesSpecs(
   const required = specs.filter((s) => s.required)
   const optional = specs.filter((s) => !s.required)
 
-  const requiredPass = required.length === 0 || required.every((s) => specMatches(s, parsed, rawTitle))
-  const optionalPass = optional.length === 0 || optional.some((s) => specMatches(s, parsed, rawTitle))
+  const requiredPass = required.every((s) => specMatches(s, parsed, rawTitle))
+  const optionalPass =
+    optional.length === 0 || optional.some((s) => specMatches(s, parsed, rawTitle))
 
   return requiredPass && optionalPass
 }
@@ -93,10 +103,7 @@ export class ReleasePolicyEngine extends Context.Tag("@arr-hub/ReleasePolicyEngi
       candidates: ReadonlyArray<ReleaseCandidate>,
       profileId: number,
       context: EvaluationContext,
-    ) => Effect.Effect<
-      ReadonlyArray<RankedDecision>,
-      NotFoundError | ParseFailed | SqlError
-    >
+    ) => Effect.Effect<ReadonlyArray<RankedDecision>, NotFoundError | ParseFailed | SqlError>
     readonly recordDecisions: (
       decisions: ReadonlyArray<RankedDecision>,
       context: EvaluationContext,
@@ -104,10 +111,7 @@ export class ReleasePolicyEngine extends Context.Tag("@arr-hub/ReleasePolicyEngi
     readonly history: (
       mediaId: number,
       mediaType: MediaType,
-    ) => Effect.Effect<
-      ReadonlyArray<typeof releaseDecisions.$inferSelect>,
-      SqlError
-    >
+    ) => Effect.Effect<ReadonlyArray<typeof releaseDecisions.$inferSelect>, SqlError>
   }
 >() {}
 
@@ -118,28 +122,6 @@ export const ReleasePolicyEngineLive = Layer.effect(
     const profileService = yield* ProfileService
     const titleParser = yield* TitleParserService
 
-    /** Find a quality item's weight for a given qualityName. */
-    function findQualityRank(
-      profile: ProfileWithDetails,
-      qualityName: QualityName,
-    ): number | null {
-      const item = profile.qualityItems.find(
-        (qi) => qi.qualityName === qualityName,
-      )
-      return item ? item.weight : null
-    }
-
-    /** Check if a quality is allowed in the profile. */
-    function isQualityAllowed(
-      profile: ProfileWithDetails,
-      qualityName: QualityName,
-    ): boolean {
-      const item = profile.qualityItems.find(
-        (qi) => qi.qualityName === qualityName,
-      )
-      return item ? item.allowed : false
-    }
-
     return {
       evaluate: (candidates, profileId, context) =>
         Effect.gen(function* () {
@@ -149,11 +131,7 @@ export const ReleasePolicyEngineLive = Layer.effect(
           // Batch-load all custom format specs for scored formats
           const scoredFormatIds = profile.formatScores.map((fs) => fs.customFormatId)
           const allSpecs =
-            scoredFormatIds.length > 0
-              ? yield* db
-                  .select()
-                  .from(customFormatSpecs)
-              : []
+            scoredFormatIds.length > 0 ? yield* db.select().from(customFormatSpecs) : []
 
           // Group specs by customFormatId
           const specsByFormatId = new Map<number, ReadonlyArray<SpecRow>>()
@@ -192,7 +170,9 @@ export const ReleasePolicyEngineLive = Layer.effect(
                 qualityRank: null,
                 formatScore: 0,
                 decision: "rejected",
-                reasons: [{ stage: "parse", rule: "parse_failed", detail: parseResult.left.message }],
+                reasons: [
+                  { stage: "parse", rule: "parse_failed", detail: parseResult.left.message },
+                ],
               })
               continue
             }
@@ -206,7 +186,9 @@ export const ReleasePolicyEngineLive = Layer.effect(
                 qualityRank: null,
                 formatScore: 0,
                 decision: "rejected",
-                reasons: [{ stage: "filter", rule: "unknown_quality", detail: "could not resolve quality" }],
+                reasons: [
+                  { stage: "filter", rule: "unknown_quality", detail: "could not resolve quality" },
+                ],
               })
               continue
             }
@@ -295,7 +277,11 @@ export const ReleasePolicyEngineLive = Layer.effect(
                   decision: "skipped",
                   reasons: [
                     ...reasons,
-                    { stage: "upgrade", rule: "upgrades_disabled", detail: "profile disallows upgrades" },
+                    {
+                      stage: "upgrade",
+                      rule: "upgrades_disabled",
+                      detail: "profile disallows upgrades",
+                    },
                   ],
                 })
                 continue
@@ -425,7 +411,10 @@ export const ReleasePolicyEngineLive = Layer.effect(
               qualityRank,
               formatScore,
               decision: "accepted",
-              reasons: [...reasons, { stage: "rank", rule: "accepted", detail: "no existing file" }],
+              reasons: [
+                ...reasons,
+                { stage: "rank", rule: "accepted", detail: "no existing file" },
+              ],
             })
           }
 
@@ -482,10 +471,7 @@ export const ReleasePolicyEngineLive = Layer.effect(
             .select()
             .from(releaseDecisions)
             .where(
-              and(
-                eq(releaseDecisions.mediaId, mediaId),
-                eq(releaseDecisions.mediaType, mediaType),
-              ),
+              and(eq(releaseDecisions.mediaId, mediaId), eq(releaseDecisions.mediaType, mediaType)),
             )
         }),
     }

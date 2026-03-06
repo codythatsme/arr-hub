@@ -56,9 +56,7 @@ describe("SeriesService", () => {
           {
             seasonNumber: 1,
             monitored: true, // should be overridden
-            episodes: [
-              { tvdbId: 3001, title: "Ep1", episodeNumber: 1, monitored: true },
-            ],
+            episodes: [{ tvdbId: 3001, title: "Ep1", episodeNumber: 1, monitored: true }],
           },
         ],
       })
@@ -301,9 +299,7 @@ describe("SeriesService", () => {
         seasons: [
           {
             seasonNumber: 1,
-            episodes: [
-              { tvdbId: 9101, title: "Ep1", episodeNumber: 1, airDate: feb15 },
-            ],
+            episodes: [{ tvdbId: 9101, title: "Ep1", episodeNumber: 1, airDate: feb15 }],
           },
         ],
       })
@@ -329,7 +325,13 @@ describe("SeriesService", () => {
             seasonNumber: 1,
             episodes: [
               { tvdbId: 9201, title: "Monitored", episodeNumber: 1, airDate: feb15 },
-              { tvdbId: 9202, title: "Unmonitored", episodeNumber: 2, airDate: feb15, monitored: false },
+              {
+                tvdbId: 9202,
+                title: "Unmonitored",
+                episodeNumber: 2,
+                airDate: feb15,
+                monitored: false,
+              },
             ],
           },
         ],

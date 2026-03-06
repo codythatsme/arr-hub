@@ -1,5 +1,6 @@
 import { Link, useRouterState } from "@tanstack/react-router"
 import { ChevronRight, Globe } from "lucide-react"
+import { useCallback } from "react"
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import {
@@ -25,13 +26,15 @@ import type { NavGroup, NavItem } from "./nav-data"
 export function AppSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
 
-  function isActive(to: string): boolean {
-    if (to === "/") return pathname === "/"
-    // strip trailing slash for comparison
-    const normalizedPath = pathname.endsWith("/") ? pathname.slice(0, -1) : pathname
-    const normalizedTo = to.endsWith("/") ? to.slice(0, -1) : to
-    return normalizedPath === normalizedTo
-  }
+  const isActive = useCallback(
+    (to: string): boolean => {
+      if (to === "/") return pathname === "/"
+      const normalizedPath = pathname.endsWith("/") ? pathname.slice(0, -1) : pathname
+      const normalizedTo = to.endsWith("/") ? to.slice(0, -1) : to
+      return normalizedPath === normalizedTo
+    },
+    [pathname],
+  )
 
   function isGroupActive(basePath: string): boolean {
     return pathname.startsWith(basePath)

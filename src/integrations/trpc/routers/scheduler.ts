@@ -66,25 +66,21 @@ export const schedulerRouter = {
       ),
     ),
 
-  pause: authedProcedure
-    .input(z.object({ jobType: jobTypeSchema }))
-    .mutation(({ input }) =>
-      runEffect(
-        Effect.gen(function* () {
-          const svc = yield* SchedulerService
-          yield* svc.pause(input.jobType)
-        }),
-      ),
+  pause: authedProcedure.input(z.object({ jobType: jobTypeSchema })).mutation(({ input }) =>
+    runEffect(
+      Effect.gen(function* () {
+        const svc = yield* SchedulerService
+        yield* svc.pause(input.jobType)
+      }),
     ),
+  ),
 
-  resume: authedProcedure
-    .input(z.object({ jobType: jobTypeSchema }))
-    .mutation(({ input }) =>
-      runEffect(
-        Effect.gen(function* () {
-          const svc = yield* SchedulerService
-          yield* svc.resume(input.jobType)
-        }),
-      ),
+  resume: authedProcedure.input(z.object({ jobType: jobTypeSchema })).mutation(({ input }) =>
+    runEffect(
+      Effect.gen(function* () {
+        const svc = yield* SchedulerService
+        yield* svc.resume(input.jobType)
+      }),
     ),
+  ),
 } satisfies TRPCRouterRecord

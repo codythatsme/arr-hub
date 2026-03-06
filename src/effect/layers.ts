@@ -19,7 +19,6 @@ import { TitleParserServiceLive } from "./services/TitleParserService"
 
 /** All application services, fully wired. Db + CryptoService also exposed for direct use. */
 export const AppLive = Layer.mergeAll(
-  ConfigServiceLive,
   AuthServiceLive,
   SchedulerServiceLive,
   AcquisitionPipelineLive,
@@ -37,6 +36,7 @@ export const AppLive = Layer.mergeAll(
   ),
   Layer.provideMerge(TitleParserServiceLive),
   Layer.provideMerge(ProfileDefaultsEngineLive),
+  Layer.provideMerge(ConfigServiceLive),
   Layer.provideMerge(ProfileServiceLive),
   Layer.provideMerge(CryptoServiceLive),
   Layer.provideMerge(DbLive),

@@ -1,5 +1,5 @@
-import type { QualityModifier, QualityName, QualitySource } from "./quality"
 import type { ReleaseCandidate } from "./indexer"
+import type { QualityModifier, QualityName, QualitySource } from "./quality"
 
 // ── Parsed Title ──
 

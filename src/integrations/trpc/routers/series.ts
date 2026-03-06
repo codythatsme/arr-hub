@@ -137,14 +137,12 @@ export const seriesRouter = {
       ),
     ),
 
-  calendar: authedProcedure
-    .input(z.object({ start: z.date(), end: z.date() }))
-    .query(({ input }) =>
-      runEffect(
-        Effect.gen(function* () {
-          const svc = yield* SeriesService
-          return yield* svc.calendar(input)
-        }),
-      ),
+  calendar: authedProcedure.input(z.object({ start: z.date(), end: z.date() })).query(({ input }) =>
+    runEffect(
+      Effect.gen(function* () {
+        const svc = yield* SeriesService
+        return yield* svc.calendar(input)
+      }),
     ),
+  ),
 } satisfies TRPCRouterRecord

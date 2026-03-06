@@ -94,16 +94,14 @@ export const moviesRouter = {
     ),
   ),
 
-  search: authedProcedure
-    .input(z.object({ id: z.number() }))
-    .mutation(({ input }) =>
-      runEffect(
-        Effect.gen(function* () {
-          const pipeline = yield* AcquisitionPipeline
-          return yield* pipeline.searchAndEvaluate(input.id)
-        }),
-      ),
+  search: authedProcedure.input(z.object({ id: z.number() })).mutation(({ input }) =>
+    runEffect(
+      Effect.gen(function* () {
+        const pipeline = yield* AcquisitionPipeline
+        return yield* pipeline.searchAndEvaluate(input.id)
+      }),
     ),
+  ),
 
   grab: authedProcedure
     .input(
@@ -122,14 +120,12 @@ export const moviesRouter = {
       ),
     ),
 
-  searchAndGrab: authedProcedure
-    .input(z.object({ id: z.number() }))
-    .mutation(({ input }) =>
-      runEffect(
-        Effect.gen(function* () {
-          const pipeline = yield* AcquisitionPipeline
-          return yield* pipeline.searchAndGrab(input.id)
-        }),
-      ),
+  searchAndGrab: authedProcedure.input(z.object({ id: z.number() })).mutation(({ input }) =>
+    runEffect(
+      Effect.gen(function* () {
+        const pipeline = yield* AcquisitionPipeline
+        return yield* pipeline.searchAndGrab(input.id)
+      }),
     ),
+  ),
 } satisfies TRPCRouterRecord

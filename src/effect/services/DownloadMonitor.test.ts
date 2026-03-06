@@ -36,10 +36,9 @@ const MockMediaServerService = Layer.succeed(MediaServerService, {
   refreshLibrary: () => Effect.void,
 })
 
-const BaseLayer = Layer.mergeAll(
-  MockDownloadClientService,
-  MockMediaServerService,
-).pipe(Layer.provideMerge(TestDbLive))
+const BaseLayer = Layer.mergeAll(MockDownloadClientService, MockMediaServerService).pipe(
+  Layer.provideMerge(TestDbLive),
+)
 
 const TestLayer = DownloadMonitorLive.pipe(Layer.provideMerge(BaseLayer))
 

@@ -369,10 +369,7 @@ export const releaseDecisions = sqliteTable("release_decisions", {
 
 export const schedulerConfig = sqliteTable("scheduler_config", {
   id: integer().primaryKey({ autoIncrement: true }),
-  jobType: text("job_type")
-    .$type<SchedulerJobType>()
-    .notNull()
-    .unique(),
+  jobType: text("job_type").$type<SchedulerJobType>().notNull().unique(),
   intervalMinutes: integer("interval_minutes").notNull(),
   retryDelaySeconds: integer("retry_delay_seconds").notNull().default(60),
   maxRetries: integer("max_retries").notNull().default(3),

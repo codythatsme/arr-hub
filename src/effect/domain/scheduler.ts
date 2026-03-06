@@ -49,10 +49,38 @@ export interface SchedulerJobConfig {
 // ── Default configs ──
 
 export const DEFAULT_CONFIGS: ReadonlyArray<SchedulerJobConfig> = [
-  { jobType: "rss_sync", intervalMinutes: 20, retryDelaySeconds: 60, maxRetries: 3, backoffMultiplier: 2, enabled: true },
-  { jobType: "search_missing", intervalMinutes: 0, retryDelaySeconds: 120, maxRetries: 3, backoffMultiplier: 2, enabled: true },
-  { jobType: "search_cutoff", intervalMinutes: 360, retryDelaySeconds: 120, maxRetries: 3, backoffMultiplier: 2, enabled: true },
-  { jobType: "download_monitor", intervalMinutes: 1, retryDelaySeconds: 30, maxRetries: 5, backoffMultiplier: 1.5, enabled: true },
+  {
+    jobType: "rss_sync",
+    intervalMinutes: 20,
+    retryDelaySeconds: 60,
+    maxRetries: 3,
+    backoffMultiplier: 2,
+    enabled: true,
+  },
+  {
+    jobType: "search_missing",
+    intervalMinutes: 0,
+    retryDelaySeconds: 120,
+    maxRetries: 3,
+    backoffMultiplier: 2,
+    enabled: true,
+  },
+  {
+    jobType: "search_cutoff",
+    intervalMinutes: 360,
+    retryDelaySeconds: 120,
+    maxRetries: 3,
+    backoffMultiplier: 2,
+    enabled: true,
+  },
+  {
+    jobType: "download_monitor",
+    intervalMinutes: 1,
+    retryDelaySeconds: 30,
+    maxRetries: 5,
+    backoffMultiplier: 1.5,
+    enabled: true,
+  },
 ]
 
 // ── Job status summary ──

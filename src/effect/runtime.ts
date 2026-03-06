@@ -6,8 +6,8 @@ import { AppLive } from "./layers"
 import { CryptoService } from "./services/CryptoService"
 import { Db } from "./services/Db"
 import { ProfileDefaultsEngine } from "./services/ProfileDefaultsEngine"
-import { SchedulerService } from "./services/SchedulerService"
 import { createSchedulerLoop } from "./services/SchedulerLoop"
+import { SchedulerService } from "./services/SchedulerService"
 
 export const AppRuntime = ManagedRuntime.make(AppLive)
 
@@ -26,6 +26,7 @@ const seed = Effect.gen(function* () {
       passwordHash,
     })
 
+    // eslint-disable-next-line no-console -- startup log
     console.log("[arr-hub] admin user seeded")
   }
 
@@ -46,6 +47,7 @@ AppRuntime.runPromise(seed).then(
     )
   },
   (err) => {
+    // eslint-disable-next-line no-console -- startup error handler
     console.error("[arr-hub] seed failed:", err)
   },
 )
@@ -53,6 +55,7 @@ AppRuntime.runPromise(seed).then(
 process.on("beforeExit", () => {
   AppRuntime.dispose().then(
     () => {},
+    // eslint-disable-next-line no-console -- shutdown error handler
     (err) => console.error("[arr-hub] runtime dispose failed:", err),
   )
 })

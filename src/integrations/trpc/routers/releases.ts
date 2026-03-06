@@ -2,6 +2,7 @@ import type { TRPCRouterRecord } from "@trpc/server"
 import { Effect } from "effect"
 import { z } from "zod"
 
+import { Quality, type QualityName } from "#/effect/domain/quality"
 import { ReleasePolicyEngine } from "#/effect/services/ReleasePolicyEngine"
 
 import { authedProcedure, runEffect } from "../init"
@@ -33,7 +34,7 @@ const evaluateInputSchema = z.object({
     mediaType: z.enum(["movie", "episode"]),
     existingFile: z
       .object({
-        qualityName: z.string(),
+        qualityName: z.enum(Object.keys(Quality) as [QualityName, ...ReadonlyArray<QualityName>]),
         qualityRank: z.number().int(),
         formatScore: z.number().int(),
       })

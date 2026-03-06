@@ -30,6 +30,7 @@ const IV_LEN = 12
 function getEncryptionKey(): Buffer {
   const raw = process.env.ENCRYPTION_KEY
   if (!raw) {
+    // eslint-disable-next-line no-console -- startup warning, not in Effect context
     console.warn("[CryptoService] ENCRYPTION_KEY not set — using insecure dev fallback")
     return createHash("sha256").update("arr-hub-dev-key-do-not-use-in-prod").digest()
   }

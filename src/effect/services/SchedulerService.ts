@@ -31,17 +31,20 @@ export class SchedulerService extends Context.Tag("@arr-hub/SchedulerService")<
     ) => Effect.Effect<JobRow | null, SchedulerError | SqlError>
     readonly claimNext: () => Effect.Effect<JobRow | null, SqlError>
     readonly complete: (jobId: number) => Effect.Effect<void, SchedulerError | SqlError>
-    readonly fail: (
-      jobId: number,
-      error: string,
-    ) => Effect.Effect<void, SchedulerError | SqlError>
+    readonly fail: (jobId: number, error: string) => Effect.Effect<void, SchedulerError | SqlError>
     readonly pause: (jobType: SchedulerJobType) => Effect.Effect<void, SchedulerError | SqlError>
     readonly resume: (jobType: SchedulerJobType) => Effect.Effect<void, SchedulerError | SqlError>
     readonly status: () => Effect.Effect<ReadonlyArray<JobTypeSummary>, SqlError>
     readonly getConfig: () => Effect.Effect<ReadonlyArray<ConfigRow>, SqlError>
     readonly updateConfig: (
       jobType: SchedulerJobType,
-      data: { intervalMinutes?: number; retryDelaySeconds?: number; maxRetries?: number; backoffMultiplier?: number; enabled?: boolean },
+      data: {
+        intervalMinutes?: number
+        retryDelaySeconds?: number
+        maxRetries?: number
+        backoffMultiplier?: number
+        enabled?: boolean
+      },
     ) => Effect.Effect<ConfigRow, SchedulerError | SqlError>
     readonly listJobs: (filters?: {
       status?: string
@@ -132,12 +135,7 @@ export const SchedulerServiceLive = Layer.effect(
           const candidates = yield* db
             .select()
             .from(schedulerJobs)
-            .where(
-              and(
-                eq(schedulerJobs.status, "pending"),
-                lte(schedulerJobs.nextRunAt, now),
-              ),
-            )
+            .where(and(eq(schedulerJobs.status, "pending"), lte(schedulerJobs.nextRunAt, now)))
             .orderBy(asc(schedulerJobs.nextRunAt))
             .limit(1)
 
@@ -152,12 +150,7 @@ export const SchedulerServiceLive = Layer.effect(
               attempts: job.attempts + 1,
               startedAt: now,
             })
-            .where(
-              and(
-                eq(schedulerJobs.id, job.id),
-                eq(schedulerJobs.status, "pending"),
-              ),
-            )
+            .where(and(eq(schedulerJobs.id, job.id), eq(schedulerJobs.status, "pending")))
             .returning()
 
           return updated[0] ?? null
@@ -171,12 +164,7 @@ export const SchedulerServiceLive = Layer.effect(
               status: "completed",
               completedAt: new Date(),
             })
-            .where(
-              and(
-                eq(schedulerJobs.id, jobId),
-                eq(schedulerJobs.status, "running"),
-              ),
-            )
+            .where(and(eq(schedulerJobs.id, jobId), eq(schedulerJobs.status, "running")))
             .returning({ id: schedulerJobs.id })
 
           if (rows.length === 0) {
@@ -189,10 +177,7 @@ export const SchedulerServiceLive = Layer.effect(
 
       fail: (jobId, error) =>
         Effect.gen(function* () {
-          const rows = yield* db
-            .select()
-            .from(schedulerJobs)
-            .where(eq(schedulerJobs.id, jobId))
+          const rows = yield* db.select().from(schedulerJobs).where(eq(schedulerJobs.id, jobId))
           const job = rows[0]
           if (!job) {
             return yield* new SchedulerError({
@@ -292,10 +277,7 @@ export const SchedulerServiceLive = Layer.effect(
               .select({ completedAt: schedulerJobs.completedAt })
               .from(schedulerJobs)
               .where(
-                and(
-                  eq(schedulerJobs.jobType, cfg.jobType),
-                  eq(schedulerJobs.status, "completed"),
-                ),
+                and(eq(schedulerJobs.jobType, cfg.jobType), eq(schedulerJobs.status, "completed")),
               )
               .orderBy(desc(schedulerJobs.completedAt))
               .limit(1)
@@ -305,10 +287,7 @@ export const SchedulerServiceLive = Layer.effect(
               .select({ nextRunAt: schedulerJobs.nextRunAt })
               .from(schedulerJobs)
               .where(
-                and(
-                  eq(schedulerJobs.jobType, cfg.jobType),
-                  eq(schedulerJobs.status, "pending"),
-                ),
+                and(eq(schedulerJobs.jobType, cfg.jobType), eq(schedulerJobs.status, "pending")),
               )
               .orderBy(asc(schedulerJobs.nextRunAt))
               .limit(1)
@@ -335,9 +314,11 @@ export const SchedulerServiceLive = Layer.effect(
         Effect.gen(function* () {
           const updateData: Record<string, unknown> = {}
           if (data.intervalMinutes !== undefined) updateData.intervalMinutes = data.intervalMinutes
-          if (data.retryDelaySeconds !== undefined) updateData.retryDelaySeconds = data.retryDelaySeconds
+          if (data.retryDelaySeconds !== undefined)
+            updateData.retryDelaySeconds = data.retryDelaySeconds
           if (data.maxRetries !== undefined) updateData.maxRetries = data.maxRetries
-          if (data.backoffMultiplier !== undefined) updateData.backoffMultiplier = data.backoffMultiplier
+          if (data.backoffMultiplier !== undefined)
+            updateData.backoffMultiplier = data.backoffMultiplier
           if (data.enabled !== undefined) updateData.enabled = data.enabled
 
           const rows = yield* db
@@ -360,10 +341,14 @@ export const SchedulerServiceLive = Layer.effect(
         Effect.gen(function* () {
           const conditions: Array<ReturnType<typeof eq>> = []
           if (filters?.status) {
-            conditions.push(eq(schedulerJobs.status, filters.status as typeof schedulerJobs.status._.data))
+            conditions.push(
+              eq(schedulerJobs.status, filters.status as typeof schedulerJobs.status._.data),
+            )
           }
           if (filters?.jobType) {
-            conditions.push(eq(schedulerJobs.jobType, filters.jobType as typeof schedulerJobs.jobType._.data))
+            conditions.push(
+              eq(schedulerJobs.jobType, filters.jobType as typeof schedulerJobs.jobType._.data),
+            )
           }
 
           const where = conditions.length > 0 ? and(...conditions) : undefined

@@ -104,10 +104,7 @@ export const AcquisitionPipelineLive = Layer.effect(
 
     /** Link queue row to movie after grab. */
     const linkQueueToMovie = (hash: string, movieId: number) =>
-      db
-        .update(downloadQueue)
-        .set({ movieId })
-        .where(eq(downloadQueue.externalId, hash))
+      db.update(downloadQueue).set({ movieId }).where(eq(downloadQueue.externalId, hash))
 
     return {
       searchAndGrab: (movieId) =>
@@ -125,20 +122,24 @@ export const AcquisitionPipelineLive = Layer.effect(
           if (releases.length === 0) return null
 
           // Build evaluation context
-          const existingFile = movie.hasFile && movie.existingQualityName !== null && movie.existingQualityRank !== null
-            ? {
-                qualityName: movie.existingQualityName as import("#/effect/domain/quality").QualityName,
-                qualityRank: movie.existingQualityRank,
-                formatScore: movie.existingFormatScore ?? 0,
-              }
-            : undefined
+          const existingFile =
+            movie.hasFile &&
+            movie.existingQualityName !== null &&
+            movie.existingQualityRank !== null
+              ? {
+                  qualityName:
+                    movie.existingQualityName as import("#/effect/domain/quality").QualityName,
+                  qualityRank: movie.existingQualityRank,
+                  formatScore: movie.existingFormatScore ?? 0,
+                }
+              : undefined
 
           // Evaluate
-          const decisions = yield* policyEngine.evaluate(
-            releases,
-            movie.qualityProfileId,
-            { mediaId: movie.id, mediaType: "movie", existingFile },
-          )
+          const decisions = yield* policyEngine.evaluate(releases, movie.qualityProfileId, {
+            mediaId: movie.id,
+            mediaType: "movie",
+            existingFile,
+          })
 
           // Record decisions
           yield* policyEngine.recordDecisions(decisions, {
@@ -147,9 +148,7 @@ export const AcquisitionPipelineLive = Layer.effect(
           })
 
           // Find first accepted/upgrade
-          const best = decisions.find(
-            (d) => d.decision === "accepted" || d.decision === "upgrade",
-          )
+          const best = decisions.find((d) => d.decision === "accepted" || d.decision === "upgrade")
           if (!best) return null
 
           // Grab
@@ -174,19 +173,23 @@ export const AcquisitionPipelineLive = Layer.effect(
             tmdbId: movie.tmdbId,
           })
 
-          const existingFile = movie.hasFile && movie.existingQualityName !== null && movie.existingQualityRank !== null
-            ? {
-                qualityName: movie.existingQualityName as import("#/effect/domain/quality").QualityName,
-                qualityRank: movie.existingQualityRank,
-                formatScore: movie.existingFormatScore ?? 0,
-              }
-            : undefined
+          const existingFile =
+            movie.hasFile &&
+            movie.existingQualityName !== null &&
+            movie.existingQualityRank !== null
+              ? {
+                  qualityName:
+                    movie.existingQualityName as import("#/effect/domain/quality").QualityName,
+                  qualityRank: movie.existingQualityRank,
+                  formatScore: movie.existingFormatScore ?? 0,
+                }
+              : undefined
 
-          const decisions = yield* policyEngine.evaluate(
-            releases,
-            movie.qualityProfileId,
-            { mediaId: movie.id, mediaType: "movie", existingFile },
-          )
+          const decisions = yield* policyEngine.evaluate(releases, movie.qualityProfileId, {
+            mediaId: movie.id,
+            mediaType: "movie",
+            existingFile,
+          })
 
           yield* policyEngine.recordDecisions(decisions, {
             mediaId: movie.id,
@@ -201,10 +204,7 @@ export const AcquisitionPipelineLive = Layer.effect(
           const movie = yield* loadMovie(movieId)
           const client = yield* pickClient
 
-          const hash = yield* downloadClientService.addDownload(
-            client.id,
-            downloadUrl,
-          )
+          const hash = yield* downloadClientService.addDownload(client.id, downloadUrl)
 
           yield* linkQueueToMovie(hash, movie.id)
 

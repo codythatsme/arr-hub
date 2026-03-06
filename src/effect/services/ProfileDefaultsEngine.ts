@@ -5,7 +5,12 @@ import { Context, Effect, Layer } from "effect"
 import { qualityProfiles, customFormats, customFormatSpecs } from "#/db/schema"
 
 import { BUNDLES, BUNDLE_LIST, type Bundle, type BundleCustomFormat } from "../domain/bundles"
-import { NotFoundError, BundleNotFoundError, BundleVersionConflictError } from "../errors"
+import {
+  NotFoundError,
+  ConflictError,
+  BundleNotFoundError,
+  BundleVersionConflictError,
+} from "../errors"
 import { ConfigService } from "./ConfigService"
 import { Db } from "./Db"
 import {
@@ -21,6 +26,24 @@ interface BundleSnapshot {
   readonly qualityItems: ReadonlyArray<QualityItemInput>
   readonly formatScores: ReadonlyArray<{ readonly formatName: string; readonly score: number }>
 }
+
+const snapshotKey = (profileId: number) => `bundle_snapshot:profile:${profileId}`
+
+/** Build snapshot from bundle data. */
+const buildSnapshot = (bundle: Bundle): BundleSnapshot => ({
+  qualityItems: bundle.qualityItems.map((i) => ({
+    qualityName: i.qualityName,
+    groupName: i.groupName,
+    weight: i.weight,
+    allowed: i.allowed,
+  })),
+  formatScores: bundle.formatScores.map((s) => ({
+    formatName: s.formatName,
+    score: s.score,
+  })),
+})
+
+const snapshotItemKey = (i: QualityItemInput) => `${i.qualityName ?? ""}|${i.groupName ?? ""}`
 
 // ── Service ──
 
@@ -45,7 +68,7 @@ export class ProfileDefaultsEngine extends Context.Tag("@arr-hub/ProfileDefaults
       profileId: number,
       bundleId: string,
     ) => Effect.Effect<ProfileWithDetails, BundleNotFoundError | NotFoundError | SqlError>
-    readonly seedDefaults: () => Effect.Effect<void, SqlError>
+    readonly seedDefaults: () => Effect.Effect<void, NotFoundError | ConflictError | SqlError>
   }
 >() {}
 
@@ -55,8 +78,6 @@ export const ProfileDefaultsEngineLive = Layer.effect(
     const db = yield* Db
     const profileService = yield* ProfileService
     const configService = yield* ConfigService
-
-    const snapshotKey = (profileId: number) => `bundle_snapshot:profile:${profileId}`
 
     /** Resolve bundle or fail. */
     const resolveBundle = (bundleId: string): Effect.Effect<Bundle, BundleNotFoundError> => {
@@ -129,20 +150,6 @@ export const ProfileDefaultsEngineLive = Layer.effect(
       return { qualityItems, formatScores }
     }
 
-    /** Build snapshot from bundle data. */
-    const buildSnapshot = (bundle: Bundle): BundleSnapshot => ({
-      qualityItems: bundle.qualityItems.map((i) => ({
-        qualityName: i.qualityName,
-        groupName: i.groupName,
-        weight: i.weight,
-        allowed: i.allowed,
-      })),
-      formatScores: bundle.formatScores.map((s) => ({
-        formatName: s.formatName,
-        score: s.score,
-      })),
-    })
-
     /** Save snapshot to settings table. */
     const saveSnapshot = (
       profileId: number,
@@ -172,7 +179,6 @@ export const ProfileDefaultsEngineLive = Layer.effect(
       formatScores: ReadonlyArray<FormatScoreInput>
     } => {
       // Build lookup: qualityName+groupName → item from old snapshot
-      const snapshotItemKey = (i: QualityItemInput) => `${i.qualityName ?? ""}|${i.groupName ?? ""}`
       const oldItemMap = new Map(oldSnapshot.qualityItems.map((i) => [snapshotItemKey(i), i]))
 
       // Current items: detect user edits (differ from old snapshot)

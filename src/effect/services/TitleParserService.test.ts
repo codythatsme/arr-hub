@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Layer } from "effect"
+import { Effect } from "effect"
 
 import { TitleParserService, TitleParserServiceLive } from "./TitleParserService"
 

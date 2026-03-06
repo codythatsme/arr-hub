@@ -22,11 +22,7 @@ import type {
   MediaServerWithHealth,
   SyncResult,
 } from "../domain/mediaServer"
-import {
-  MediaServerError,
-  NotFoundError,
-  type EncryptionError,
-} from "../errors"
+import { MediaServerError, NotFoundError, type EncryptionError } from "../errors"
 import { CryptoService } from "./CryptoService"
 import { Db } from "./Db"
 import { createPlexAdapter, type MediaServerAdapter } from "./MediaServerAdapter"
@@ -64,9 +60,7 @@ export class MediaServerService extends Context.Tag("@arr-hub/MediaServerService
       input: MediaServerInput,
     ) => Effect.Effect<MediaServerWithHealth, EncryptionError | SqlError>
     readonly list: () => Effect.Effect<ReadonlyArray<MediaServerWithHealth>, SqlError>
-    readonly getById: (
-      id: number,
-    ) => Effect.Effect<MediaServerWithHealth, NotFoundError | SqlError>
+    readonly getById: (id: number) => Effect.Effect<MediaServerWithHealth, NotFoundError | SqlError>
     readonly update: (
       id: number,
       data: MediaServerUpdate,
@@ -87,18 +81,12 @@ export class MediaServerService extends Context.Tag("@arr-hub/MediaServerService
     readonly syncLibrary: (
       serverId: number,
       libraryId: string,
-    ) => Effect.Effect<
-      SyncResult,
-      NotFoundError | MediaServerError | EncryptionError | SqlError
-    >
+    ) => Effect.Effect<SyncResult, NotFoundError | MediaServerError | EncryptionError | SqlError>
     readonly refreshLibrary: (
       serverId: number,
       libraryId: string,
       path: string,
-    ) => Effect.Effect<
-      void,
-      NotFoundError | MediaServerError | EncryptionError | SqlError
-    >
+    ) => Effect.Effect<void, NotFoundError | MediaServerError | EncryptionError | SqlError>
   }
 >() {}
 
@@ -157,10 +145,7 @@ export const MediaServerServiceLive = Layer.effect(
         const rows = yield* db
           .select()
           .from(mediaServers)
-          .leftJoin(
-            mediaServerHealth,
-            eq(mediaServers.id, mediaServerHealth.mediaServerId),
-          )
+          .leftJoin(mediaServerHealth, eq(mediaServers.id, mediaServerHealth.mediaServerId))
           .where(eq(mediaServers.id, id))
 
         const row = rows[0]
@@ -191,10 +176,7 @@ export const MediaServerServiceLive = Layer.effect(
 
     const loadServerAndAdapter = (id: number) =>
       Effect.gen(function* () {
-        const rows = yield* db
-          .select()
-          .from(mediaServers)
-          .where(eq(mediaServers.id, id))
+        const rows = yield* db.select().from(mediaServers).where(eq(mediaServers.id, id))
         const server = rows[0]
         if (!server) return yield* new NotFoundError({ entity: "media_server", id })
 
@@ -230,15 +212,10 @@ export const MediaServerServiceLive = Layer.effect(
           const rows = yield* db
             .select()
             .from(mediaServers)
-            .leftJoin(
-              mediaServerHealth,
-              eq(mediaServers.id, mediaServerHealth.mediaServerId),
-            )
+            .leftJoin(mediaServerHealth, eq(mediaServers.id, mediaServerHealth.mediaServerId))
             .orderBy(mediaServers.name)
 
-          return rows.map((r) =>
-            toWithHealth(r.media_servers, r.media_server_health ?? undefined),
-          )
+          return rows.map((r) => toWithHealth(r.media_servers, r.media_server_health ?? undefined))
         }),
 
       getById: (id) => loadWithHealth(id),
@@ -416,12 +393,7 @@ export const MediaServerServiceLive = Layer.effect(
               const seasonRows = yield* db
                 .select({ id: seasons.id })
                 .from(seasons)
-                .where(
-                  and(
-                    eq(seasons.seriesId, s.id),
-                    eq(seasons.seasonNumber, seasonNumber),
-                  ),
-                )
+                .where(and(eq(seasons.seriesId, s.id), eq(seasons.seasonNumber, seasonNumber)))
               const season = seasonRows[0]
               if (!season) {
                 unmatched++
@@ -433,10 +405,7 @@ export const MediaServerServiceLive = Layer.effect(
                 .update(episodes)
                 .set({ hasFile: true, filePath })
                 .where(
-                  and(
-                    eq(episodes.seasonId, season.id),
-                    eq(episodes.episodeNumber, episodeNumber),
-                  ),
+                  and(eq(episodes.seasonId, season.id), eq(episodes.episodeNumber, episodeNumber)),
                 )
                 .returning({ id: episodes.id })
 

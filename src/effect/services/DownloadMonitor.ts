@@ -67,12 +67,7 @@ export const DownloadMonitorLive = Layer.effect(
               title: downloadQueue.title,
             })
             .from(downloadQueue)
-            .where(
-              and(
-                eq(downloadQueue.status, "completed"),
-                isNotNull(downloadQueue.movieId),
-              ),
-            )
+            .where(and(eq(downloadQueue.status, "completed"), isNotNull(downloadQueue.movieId)))
 
           const completions: Array<CompletionResult> = []
 
@@ -111,9 +106,7 @@ export const DownloadMonitorLive = Layer.effect(
               .where(eq(movies.id, movieId))
 
             // 5. Remove completed queue row
-            yield* db
-              .delete(downloadQueue)
-              .where(eq(downloadQueue.id, row.id))
+            yield* db.delete(downloadQueue).where(eq(downloadQueue.id, row.id))
 
             completions.push({ movieId, externalId: row.externalId })
           }
@@ -140,11 +133,7 @@ export const DownloadMonitorLive = Layer.effect(
               for (const lib of libs) {
                 yield* mediaServerService
                   .refreshLibrary(server.id, lib.externalId, "/")
-                  .pipe(
-                    Effect.catchAll((e) =>
-                      Effect.logWarning(`plex refresh failed: ${e._tag}`),
-                    ),
-                  )
+                  .pipe(Effect.catchAll((e) => Effect.logWarning(`plex refresh failed: ${e._tag}`)))
               }
             }
           }

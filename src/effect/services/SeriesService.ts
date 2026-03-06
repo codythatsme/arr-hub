@@ -91,11 +91,11 @@ export interface CalendarEpisode {
 export class SeriesService extends Context.Tag("@arr-hub/SeriesService")<
   SeriesService,
   {
-    readonly add: (input: SeriesInput) => Effect.Effect<SeriesWithDetails, ConflictError | SqlError>
+    readonly add: (
+      input: SeriesInput,
+    ) => Effect.Effect<SeriesWithDetails, NotFoundError | ConflictError | SqlError>
     readonly list: (filters?: SeriesFilters) => Effect.Effect<ReadonlyArray<Series>, SqlError>
-    readonly getById: (
-      id: number,
-    ) => Effect.Effect<SeriesWithDetails, NotFoundError | SqlError>
+    readonly getById: (id: number) => Effect.Effect<SeriesWithDetails, NotFoundError | SqlError>
     readonly update: (
       id: number,
       data: SeriesUpdate,
@@ -121,14 +121,9 @@ export const SeriesServiceLive = Layer.effect(
   Effect.gen(function* () {
     const db = yield* Db
 
-    const loadSeasonWithEpisodes = (
-      season: Season,
-    ): Effect.Effect<SeasonWithEpisodes, SqlError> =>
+    const loadSeasonWithEpisodes = (season: Season): Effect.Effect<SeasonWithEpisodes, SqlError> =>
       Effect.gen(function* () {
-        const eps = yield* db
-          .select()
-          .from(episodes)
-          .where(eq(episodes.seasonId, season.id))
+        const eps = yield* db.select().from(episodes).where(eq(episodes.seasonId, season.id))
         return {
           season,
           episodes: eps,
@@ -137,21 +132,17 @@ export const SeriesServiceLive = Layer.effect(
         }
       })
 
-    const loadDetails = (seriesId: number): Effect.Effect<SeriesWithDetails, NotFoundError | SqlError> =>
+    const loadDetails = (
+      seriesId: number,
+    ): Effect.Effect<SeriesWithDetails, NotFoundError | SqlError> =>
       Effect.gen(function* () {
-        const seriesRows = yield* db
-          .select()
-          .from(series)
-          .where(eq(series.id, seriesId))
+        const seriesRows = yield* db.select().from(series).where(eq(series.id, seriesId))
         const s = seriesRows[0]
         if (!s) {
           return yield* new NotFoundError({ entity: "series", id: seriesId })
         }
 
-        const seasonRows = yield* db
-          .select()
-          .from(seasons)
-          .where(eq(seasons.seriesId, seriesId))
+        const seasonRows = yield* db.select().from(seasons).where(eq(seasons.seriesId, seriesId))
 
         const seasonsWithEps = yield* Effect.all(seasonRows.map(loadSeasonWithEpisodes))
 
@@ -197,9 +188,7 @@ export const SeriesServiceLive = Layer.effect(
           // scaffold seasons/episodes
           if (input.seasons) {
             for (const seasonInput of input.seasons) {
-              const seasonMonitored = seriesMonitored
-                ? (seasonInput.monitored ?? true)
-                : false
+              const seasonMonitored = seriesMonitored ? (seasonInput.monitored ?? true) : false
 
               const [seasonRow] = yield* db
                 .insert(seasons)
@@ -212,9 +201,7 @@ export const SeriesServiceLive = Layer.effect(
 
               if (seasonInput.episodes) {
                 for (const epInput of seasonInput.episodes) {
-                  const epMonitored = seasonMonitored
-                    ? (epInput.monitored ?? true)
-                    : false
+                  const epMonitored = seasonMonitored ? (epInput.monitored ?? true) : false
 
                   yield* db.insert(episodes).values({
                     seasonId: seasonRow.id,
@@ -252,11 +239,7 @@ export const SeriesServiceLive = Layer.effect(
 
       update: (id, data) =>
         Effect.gen(function* () {
-          const rows = yield* db
-            .update(series)
-            .set(data)
-            .where(eq(series.id, id))
-            .returning()
+          const rows = yield* db.update(series).set(data).where(eq(series.id, id)).returning()
 
           if (rows.length === 0) {
             return yield* new NotFoundError({ entity: "series", id })
@@ -264,10 +247,7 @@ export const SeriesServiceLive = Layer.effect(
 
           // cascade unmonitor
           if (data.monitored === false) {
-            yield* db
-              .update(seasons)
-              .set({ monitored: false })
-              .where(eq(seasons.seriesId, id))
+            yield* db.update(seasons).set({ monitored: false }).where(eq(seasons.seriesId, id))
 
             const seasonRows = yield* db
               .select({ id: seasons.id })
@@ -318,10 +298,7 @@ export const SeriesServiceLive = Layer.effect(
           }
 
           // cascade to all episodes in this season
-          yield* db
-            .update(episodes)
-            .set({ monitored })
-            .where(eq(episodes.seasonId, seasonId))
+          yield* db.update(episodes).set({ monitored }).where(eq(episodes.seasonId, seasonId))
 
           return yield* loadSeasonWithEpisodes(rows[0])
         }),

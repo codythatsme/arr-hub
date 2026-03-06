@@ -1,12 +1,11 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Layer } from "effect"
 
+import { qualityProfiles } from "#/db/schema"
 import type { ReleaseCandidate } from "#/effect/domain/indexer"
 import type { RankedDecision } from "#/effect/domain/release"
-import { TestDbLive } from "#/effect/test/TestDb"
-
-import { qualityProfiles } from "#/db/schema"
 import { Db } from "#/effect/services/Db"
+import { TestDbLive } from "#/effect/test/TestDb"
 
 import { AcquisitionPipeline, AcquisitionPipelineLive } from "./AcquisitionPipeline"
 import { DownloadClientService } from "./DownloadClientService"
@@ -44,8 +43,7 @@ const MockIndexerService = Layer.succeed(IndexerService, {
   update: () => Effect.die("not implemented"),
   remove: () => Effect.die("not implemented"),
   testConnection: () => Effect.die("not implemented"),
-  search: () =>
-    Effect.succeed({ releases: [mockCandidate], errors: [] }),
+  search: () => Effect.succeed({ releases: [mockCandidate], errors: [] }),
 })
 
 const MockIndexerServiceEmpty = Layer.succeed(IndexerService, {

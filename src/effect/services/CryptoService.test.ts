@@ -54,7 +54,7 @@ describe("CryptoService", () => {
   it.effect("verify fails with correct password against different hash", () =>
     Effect.gen(function* () {
       const crypto = yield* CryptoService
-      const _hash1 = yield* crypto.hashPassword("password1")
+      yield* crypto.hashPassword("password1")
       const hash2 = yield* crypto.hashPassword("password2")
       const valid = yield* crypto.verifyPassword("password1", hash2)
       expect(valid).toBe(false)

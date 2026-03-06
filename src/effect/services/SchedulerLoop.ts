@@ -58,11 +58,13 @@ const tick = Effect.gen(function* () {
         const wantedMovies = yield* movieService.list({ status: "wanted", monitored: true })
         for (const movie of wantedMovies) {
           if (movie.qualityProfileId === null) continue
-          yield* pipeline.searchAndGrab(movie.id).pipe(
-            Effect.catchAll((e) =>
-              Effect.logWarning(`rss_sync movie ${movie.id} failed: ${e._tag}`),
-            ),
-          )
+          yield* pipeline
+            .searchAndGrab(movie.id)
+            .pipe(
+              Effect.catchAll((e) =>
+                Effect.logWarning(`rss_sync movie ${movie.id} failed: ${e._tag}`),
+              ),
+            )
         }
         break
       }
@@ -76,11 +78,13 @@ const tick = Effect.gen(function* () {
         const availableMovies = yield* movieService.list({ status: "available", monitored: true })
         for (const movie of availableMovies) {
           if (!movie.hasFile || movie.qualityProfileId === null) continue
-          yield* pipeline.searchAndGrab(movie.id).pipe(
-            Effect.catchAll((e) =>
-              Effect.logWarning(`search_cutoff movie ${movie.id} failed: ${e._tag}`),
-            ),
-          )
+          yield* pipeline
+            .searchAndGrab(movie.id)
+            .pipe(
+              Effect.catchAll((e) =>
+                Effect.logWarning(`search_cutoff movie ${movie.id} failed: ${e._tag}`),
+              ),
+            )
         }
         break
       }
@@ -96,11 +100,13 @@ const tick = Effect.gen(function* () {
     yield* scheduler.complete(job.id)
   }).pipe(
     Effect.catchAll((e) =>
-      scheduler.fail(job.id, String(e)).pipe(
-        Effect.catchAll((failErr) =>
-          Effect.logError(`scheduler.fail itself errored: ${failErr}`),
+      scheduler
+        .fail(job.id, String(e))
+        .pipe(
+          Effect.catchAll((failErr) =>
+            Effect.logError(`scheduler.fail itself errored: ${failErr}`),
+          ),
         ),
-      ),
     ),
   )
 })

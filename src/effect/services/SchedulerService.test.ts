@@ -23,7 +23,7 @@ describe("SchedulerService", () => {
         const svc = yield* SchedulerService
         const configs = yield* svc.getConfig()
         expect(configs).toHaveLength(4)
-        const types = configs.map((c) => c.jobType).sort()
+        const types = configs.map((c) => c.jobType).toSorted()
         expect(types).toEqual(["download_monitor", "rss_sync", "search_cutoff", "search_missing"])
       }),
     ).pipe(Effect.provide(TestLayer)),

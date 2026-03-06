@@ -8,43 +8,42 @@ import { ParseFailed } from "#/effect/errors"
 
 const SEASON_EPISODE = /S(\d{1,2})E(\d{1,3})/i
 const SEASON_EPISODE_ALT = /(\d{1,2})x(\d{2,3})/i
-const DAILY_EPISODE = /(?:^|[\.\-_ ])(\d{4})[\.\-](\d{2})[\.\-](\d{2})(?=[\.\-_ ]|$)/
 
-const YEAR_RE = /(?:^|[\.\-_ (])((?:19|20)\d{2})(?=[\.\-_ )]|$)/
+const YEAR_RE = /(?:^|[.\-_ (])((?:19|20)\d{2})(?=[.\-_ )]|$)/
 
-const RESOLUTION_RE = /(?:^|[\.\-_ ])(2160|1080|720|480|576)[pi]?(?=[\.\-_ ]|$)/i
+const RESOLUTION_RE = /(?:^|[.\-_ ])(2160|1080|720|480|576)[pi]?(?=[.\-_ ]|$)/i
 
 const SOURCE_PATTERNS: ReadonlyArray<readonly [RegExp, QualitySource]> = [
-  [/(?:^|[\.\-_ ])blu[\-.]?ray(?=[\.\-_ ]|$)/i, "bluray"],
-  [/(?:^|[\.\-_ ])web[\-.]?dl(?=[\.\-_ ]|$)/i, "webdl"],
-  [/(?:^|[\.\-_ ])web[\-.]?rip(?=[\.\-_ ]|$)/i, "webrip"],
-  [/(?:^|[\.\-_ ])web(?![\-.]?(?:dl|rip))(?=[\.\-_ ]|$)/i, "webdl"],
-  [/(?:^|[\.\-_ ])hdtv(?=[\.\-_ ]|$)/i, "tv"],
-  [/(?:^|[\.\-_ ])pdtv(?=[\.\-_ ]|$)/i, "tv"],
-  [/(?:^|[\.\-_ ])dvd(?!scr)(?=[\.\-_ ]|$)/i, "dvd"],
-  [/(?:^|[\.\-_ ])cam(?=[\.\-_ ]|$)/i, "cam"],
-  [/(?:^|[\.\-_ ])(?:telesync|ts(?![\-.]?rip))(?=[\.\-_ ]|$)/i, "telesync"],
-  [/(?:^|[\.\-_ ])telecine(?=[\.\-_ ]|$)/i, "telecine"],
-  [/(?:^|[\.\-_ ])workprint(?=[\.\-_ ]|$)/i, "workprint"],
+  [/(?:^|[.\-_ ])blu[-.]?ray(?=[.\-_ ]|$)/i, "bluray"],
+  [/(?:^|[.\-_ ])web[-.]?dl(?=[.\-_ ]|$)/i, "webdl"],
+  [/(?:^|[.\-_ ])web[-.]?rip(?=[.\-_ ]|$)/i, "webrip"],
+  [/(?:^|[.\-_ ])web(?![-.]?(?:dl|rip))(?=[.\-_ ]|$)/i, "webdl"],
+  [/(?:^|[.\-_ ])hdtv(?=[.\-_ ]|$)/i, "tv"],
+  [/(?:^|[.\-_ ])pdtv(?=[.\-_ ]|$)/i, "tv"],
+  [/(?:^|[.\-_ ])dvd(?!scr)(?=[.\-_ ]|$)/i, "dvd"],
+  [/(?:^|[.\-_ ])cam(?=[.\-_ ]|$)/i, "cam"],
+  [/(?:^|[.\-_ ])(?:telesync|ts(?![-.]?rip))(?=[.\-_ ]|$)/i, "telesync"],
+  [/(?:^|[.\-_ ])telecine(?=[.\-_ ]|$)/i, "telecine"],
+  [/(?:^|[.\-_ ])workprint(?=[.\-_ ]|$)/i, "workprint"],
 ]
 
 const MODIFIER_PATTERNS: ReadonlyArray<readonly [RegExp, QualityModifier]> = [
   [/\bremux\b/i, "remux"],
   [/\b(?:screener|dvdscr)\b/i, "screener"],
-  [/\b(?:brdisk|bd[\-.]?disk)\b/i, "brdisk"],
+  [/\b(?:brdisk|bd[-.]?disk)\b/i, "brdisk"],
   [/\brawhd\b/i, "rawhd"],
 ]
 
 const CODEC_PATTERNS: ReadonlyArray<readonly [RegExp, string]> = [
-  [/\b[xh][\.\-]?264\b/i, "x264"],
-  [/\b(?:[xh][\.\-]?265|hevc)\b/i, "x265"],
+  [/\b[xh][.-]?264\b/i, "x264"],
+  [/\b(?:[xh][.-]?265|hevc)\b/i, "x265"],
   [/\bav1\b/i, "av1"],
   [/\bxvid\b/i, "xvid"],
   [/\bdivx\b/i, "divx"],
 ]
 
 const EDITION_RE =
-  /(?:^|[\.\-_ ])(director'?s?[\.\-_ ]?cut|extended|unrated|theatrical|remastered|imax|criterion)(?=[\.\-_ ]|$)/i
+  /(?:^|[.\-_ ])(director'?s?[.\-_ ]?cut|extended|unrated|theatrical|remastered|imax|criterion)(?=[.\-_ ]|$)/i
 
 const RELEASE_GROUP_RE = /-(\w+)$/
 
@@ -217,9 +216,7 @@ export const TitleParserServiceLive = Layer.succeed(TitleParserService, {
 
       // Edition
       const editionMatch = EDITION_RE.exec(trimmed)
-      const edition = editionMatch
-        ? editionMatch[1].replace(/[._\-]/g, " ").toLowerCase()
-        : null
+      const edition = editionMatch ? editionMatch[1].replace(/[._-]/g, " ").toLowerCase() : null
 
       // Release group — last -WORD before file extension
       const groupMatch = RELEASE_GROUP_RE.exec(withoutExt)
