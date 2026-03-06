@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Layer } from "effect"
 
+import { AdapterRegistryLive } from "#/effect/services/AdapterRegistry"
 import { CryptoServiceLive } from "#/effect/services/CryptoService"
 import { TestDbLive } from "#/effect/test/TestDb"
 
@@ -8,6 +9,7 @@ import { MediaServerService, MediaServerServiceLive } from "./MediaServerService
 
 const TestLayer = MediaServerServiceLive.pipe(
   Layer.provideMerge(CryptoServiceLive),
+  Layer.provideMerge(AdapterRegistryLive),
   Layer.provideMerge(TestDbLive),
 )
 

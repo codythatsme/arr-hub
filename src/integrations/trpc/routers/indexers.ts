@@ -8,7 +8,7 @@ import { authedProcedure, runEffect } from "../init"
 
 const indexerInputSchema = z.object({
   name: z.string(),
-  type: z.enum(["torznab", "newznab"]),
+  type: z.string().min(1),
   baseUrl: z.string().url(),
   apiKey: z.string(),
   enabled: z.boolean().optional(),
@@ -18,7 +18,7 @@ const indexerInputSchema = z.object({
 
 const indexerUpdateSchema = z.object({
   name: z.string().optional(),
-  type: z.enum(["torznab", "newznab"]).optional(),
+  type: z.string().min(1).optional(),
   baseUrl: z.string().url().optional(),
   apiKey: z.string().optional(),
   enabled: z.boolean().optional(),
@@ -100,6 +100,15 @@ export const indexersRouter = {
       Effect.gen(function* () {
         const svc = yield* IndexerService
         return yield* svc.search(input)
+      }),
+    ),
+  ),
+
+  listTypes: authedProcedure.query(() =>
+    runEffect(
+      Effect.gen(function* () {
+        const svc = yield* IndexerService
+        return svc.listTypes()
       }),
     ),
   ),

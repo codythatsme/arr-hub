@@ -1,4 +1,12 @@
-export type MediaServerType = "plex"
+/** Runtime-validated by AdapterRegistry. Not a closed union — plugins can extend. */
+export type MediaServerType = string
+
+/** Adapter metadata for registry display. */
+export interface MediaServerAdapterMetadata {
+  readonly displayName: string
+  readonly defaultPort: number
+  readonly authModel: string
+}
 
 export type MediaServerHealthStatus = "healthy" | "unhealthy" | "unknown"
 

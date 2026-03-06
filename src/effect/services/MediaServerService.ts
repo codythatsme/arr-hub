@@ -13,6 +13,7 @@ import {
 } from "#/db/schema"
 
 import type {
+  MediaServerAdapterMetadata,
   MediaServerConfig,
   MediaServerHealthStatus,
   MediaServerLibraryType,
@@ -22,10 +23,15 @@ import type {
   MediaServerWithHealth,
   SyncResult,
 } from "../domain/mediaServer"
-import { MediaServerError, NotFoundError, type EncryptionError } from "../errors"
+import {
+  MediaServerError,
+  NotFoundError,
+  type EncryptionError,
+  type ValidationError,
+} from "../errors"
+import { AdapterRegistry } from "./AdapterRegistry"
 import { CryptoService } from "./CryptoService"
 import { Db } from "./Db"
-import { createPlexAdapter, type MediaServerAdapter } from "./MediaServerAdapter"
 
 // ── Input types ──
 
@@ -58,35 +64,48 @@ export class MediaServerService extends Context.Tag("@arr-hub/MediaServerService
   {
     readonly add: (
       input: MediaServerInput,
-    ) => Effect.Effect<MediaServerWithHealth, EncryptionError | SqlError>
+    ) => Effect.Effect<MediaServerWithHealth, ValidationError | EncryptionError | SqlError>
     readonly list: () => Effect.Effect<ReadonlyArray<MediaServerWithHealth>, SqlError>
     readonly getById: (id: number) => Effect.Effect<MediaServerWithHealth, NotFoundError | SqlError>
     readonly update: (
       id: number,
       data: MediaServerUpdate,
-    ) => Effect.Effect<MediaServerWithHealth, NotFoundError | EncryptionError | SqlError>
+    ) => Effect.Effect<
+      MediaServerWithHealth,
+      NotFoundError | ValidationError | EncryptionError | SqlError
+    >
     readonly remove: (id: number) => Effect.Effect<void, NotFoundError | SqlError>
     readonly testConnection: (
       id: number,
     ) => Effect.Effect<
       MediaServerWithHealth,
-      NotFoundError | MediaServerError | EncryptionError | SqlError
+      NotFoundError | MediaServerError | ValidationError | EncryptionError | SqlError
     >
     readonly getLibraries: (
       id: number,
     ) => Effect.Effect<
       ReadonlyArray<MediaServerLibraryWithSync>,
-      NotFoundError | MediaServerError | EncryptionError | SqlError
+      NotFoundError | MediaServerError | ValidationError | EncryptionError | SqlError
     >
     readonly syncLibrary: (
       serverId: number,
       libraryId: string,
-    ) => Effect.Effect<SyncResult, NotFoundError | MediaServerError | EncryptionError | SqlError>
+    ) => Effect.Effect<
+      SyncResult,
+      NotFoundError | MediaServerError | ValidationError | EncryptionError | SqlError
+    >
     readonly refreshLibrary: (
       serverId: number,
       libraryId: string,
       path: string,
-    ) => Effect.Effect<void, NotFoundError | MediaServerError | EncryptionError | SqlError>
+    ) => Effect.Effect<
+      void,
+      NotFoundError | MediaServerError | ValidationError | EncryptionError | SqlError
+    >
+    readonly listTypes: () => ReadonlyArray<{
+      readonly type: MediaServerType
+      readonly metadata: MediaServerAdapterMetadata
+    }>
   }
 >() {}
 
@@ -99,7 +118,7 @@ function toWithHealth(
   return {
     id: row.id,
     name: row.name,
-    type: row.type as MediaServerType,
+    type: row.type,
     host: row.host,
     port: row.port,
     useSsl: row.useSsl,
@@ -139,6 +158,7 @@ export const MediaServerServiceLive = Layer.effect(
   Effect.gen(function* () {
     const db = yield* Db
     const crypto = yield* CryptoService
+    const registry = yield* AdapterRegistry
 
     const loadWithHealth = (id: number) =>
       Effect.gen(function* () {
@@ -159,7 +179,7 @@ export const MediaServerServiceLive = Layer.effect(
     ): MediaServerConfig => ({
       id: row.id,
       name: row.name,
-      type: row.type as MediaServerType,
+      type: row.type,
       host: row.host,
       port: row.port,
       token,
@@ -167,12 +187,11 @@ export const MediaServerServiceLive = Layer.effect(
       settings: row.settings,
     })
 
-    const makeAdapter = (config: MediaServerConfig): MediaServerAdapter => {
-      switch (config.type) {
-        case "plex":
-          return createPlexAdapter(config)
-      }
-    }
+    const makeAdapter = (config: MediaServerConfig) =>
+      Effect.gen(function* () {
+        const factory = yield* registry.getMediaServerFactory(config.type)
+        return factory(config)
+      })
 
     const loadServerAndAdapter = (id: number) =>
       Effect.gen(function* () {
@@ -182,13 +201,14 @@ export const MediaServerServiceLive = Layer.effect(
 
         const token = yield* crypto.decrypt(server.tokenEncrypted)
         const config = buildConfig(server, token)
-        const adapter = makeAdapter(config)
+        const adapter = yield* makeAdapter(config)
         return { server, adapter }
       })
 
     return {
       add: (input) =>
         Effect.gen(function* () {
+          yield* registry.getMediaServerFactory(input.type)
           const encrypted = yield* crypto.encrypt(input.token)
           const inserted = yield* db
             .insert(mediaServers)
@@ -222,6 +242,9 @@ export const MediaServerServiceLive = Layer.effect(
 
       update: (id, data) =>
         Effect.gen(function* () {
+          if (data.type !== undefined) {
+            yield* registry.getMediaServerFactory(data.type)
+          }
           const updateData: Record<string, unknown> = {}
           if (data.name !== undefined) updateData.name = data.name
           if (data.type !== undefined) updateData.type = data.type
@@ -428,6 +451,8 @@ export const MediaServerServiceLive = Layer.effect(
           const { adapter } = yield* loadServerAndAdapter(serverId)
           yield* adapter.refreshLibrary(libraryId, path)
         }),
+
+      listTypes: () => registry.listMediaServerTypes(),
     }
   }),
 )

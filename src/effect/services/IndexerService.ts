@@ -5,6 +5,7 @@ import { Context, Effect, Either, Layer } from "effect"
 import { indexers, indexerHealth } from "#/db/schema"
 
 import type {
+  IndexerAdapterMetadata,
   IndexerConfig,
   IndexerWithHealth,
   IndexerHealthStatus,
@@ -13,10 +14,10 @@ import type {
   SearchResult,
   IndexerType,
 } from "../domain/indexer"
-import { NotFoundError, IndexerError, type EncryptionError } from "../errors"
+import { NotFoundError, IndexerError, type EncryptionError, type ValidationError } from "../errors"
+import { AdapterRegistry } from "./AdapterRegistry"
 import { CryptoService } from "./CryptoService"
 import { Db } from "./Db"
-import { createAdapter } from "./IndexerAdapter"
 
 // ── Input types ──
 
@@ -47,18 +48,30 @@ export class IndexerService extends Context.Tag("@arr-hub/IndexerService")<
   {
     readonly add: (
       input: IndexerInput,
-    ) => Effect.Effect<IndexerWithHealth, EncryptionError | SqlError>
+    ) => Effect.Effect<IndexerWithHealth, ValidationError | EncryptionError | SqlError>
     readonly list: () => Effect.Effect<ReadonlyArray<IndexerWithHealth>, SqlError>
     readonly getById: (id: number) => Effect.Effect<IndexerWithHealth, NotFoundError | SqlError>
     readonly update: (
       id: number,
       data: IndexerUpdate,
-    ) => Effect.Effect<IndexerWithHealth, NotFoundError | EncryptionError | SqlError>
+    ) => Effect.Effect<
+      IndexerWithHealth,
+      NotFoundError | ValidationError | EncryptionError | SqlError
+    >
     readonly remove: (id: number) => Effect.Effect<void, NotFoundError | SqlError>
     readonly testConnection: (
       id: number,
-    ) => Effect.Effect<IndexerWithHealth, NotFoundError | IndexerError | EncryptionError | SqlError>
-    readonly search: (query: SearchQuery) => Effect.Effect<SearchResult, EncryptionError | SqlError>
+    ) => Effect.Effect<
+      IndexerWithHealth,
+      NotFoundError | IndexerError | ValidationError | EncryptionError | SqlError
+    >
+    readonly search: (
+      query: SearchQuery,
+    ) => Effect.Effect<SearchResult, ValidationError | EncryptionError | SqlError>
+    readonly listTypes: () => ReadonlyArray<{
+      readonly type: IndexerType
+      readonly metadata: IndexerAdapterMetadata
+    }>
   }
 >() {}
 
@@ -71,7 +84,7 @@ function toWithHealth(
   return {
     id: row.id,
     name: row.name,
-    type: row.type as IndexerType,
+    type: row.type,
     baseUrl: row.baseUrl,
     enabled: row.enabled,
     priority: row.priority,
@@ -96,6 +109,12 @@ export const IndexerServiceLive = Layer.effect(
   Effect.gen(function* () {
     const db = yield* Db
     const crypto = yield* CryptoService
+    const registry = yield* AdapterRegistry
+
+    const lookupProtocol = (type: string) => {
+      const entry = registry.listIndexerTypes().find((e) => e.type === type)
+      return entry?.metadata.protocolAffinity ?? ("torrent" as const)
+    }
 
     const loadWithHealth = (id: number) =>
       Effect.gen(function* () {
@@ -113,6 +132,7 @@ export const IndexerServiceLive = Layer.effect(
     return {
       add: (input) =>
         Effect.gen(function* () {
+          yield* registry.getIndexerFactory(input.type)
           const encrypted = yield* crypto.encrypt(input.apiKey)
           const inserted = yield* db
             .insert(indexers)
@@ -145,6 +165,9 @@ export const IndexerServiceLive = Layer.effect(
 
       update: (id, data) =>
         Effect.gen(function* () {
+          if (data.type !== undefined) {
+            yield* registry.getIndexerFactory(data.type)
+          }
           const updateData: Record<string, unknown> = {}
           if (data.name !== undefined) updateData.name = data.name
           if (data.type !== undefined) updateData.type = data.type
@@ -183,17 +206,19 @@ export const IndexerServiceLive = Layer.effect(
           if (!indexer) return yield* new NotFoundError({ entity: "indexer", id })
 
           const apiKey = yield* crypto.decrypt(indexer.apiKeyEncrypted)
+          const factory = yield* registry.getIndexerFactory(indexer.type)
           const config: IndexerConfig = {
             id: indexer.id,
             name: indexer.name,
-            type: indexer.type as IndexerType,
+            type: indexer.type,
             baseUrl: indexer.baseUrl,
             apiKey,
             priority: indexer.priority,
             categories: indexer.categories,
+            protocol: lookupProtocol(indexer.type),
           }
 
-          const adapter = createAdapter(config)
+          const adapter = factory(config)
           const start = Date.now()
 
           yield* adapter.testConnection().pipe(
@@ -253,16 +278,18 @@ export const IndexerServiceLive = Layer.effect(
             (indexer) =>
               Effect.gen(function* () {
                 const apiKey = yield* crypto.decrypt(indexer.apiKeyEncrypted)
+                const factory = yield* registry.getIndexerFactory(indexer.type)
                 const config: IndexerConfig = {
                   id: indexer.id,
                   name: indexer.name,
-                  type: indexer.type as IndexerType,
+                  type: indexer.type,
                   baseUrl: indexer.baseUrl,
                   apiKey,
                   priority: indexer.priority,
                   categories: indexer.categories,
+                  protocol: lookupProtocol(indexer.type),
                 }
-                const adapter = createAdapter(config)
+                const adapter = factory(config)
                 return yield* adapter.search(query)
               }).pipe(Effect.either),
             { concurrency: "unbounded" },
@@ -293,6 +320,8 @@ export const IndexerServiceLive = Layer.effect(
 
           return { releases, errors } satisfies SearchResult
         }),
+
+      listTypes: () => registry.listIndexerTypes(),
     }
   }),
 )
