@@ -193,7 +193,7 @@ export const settings = sqliteTable("settings", {
 export const indexers = sqliteTable("indexers", {
   id: integer().primaryKey({ autoIncrement: true }),
   name: text().notNull(),
-  type: text({ enum: ["torznab", "newznab"] }).notNull(),
+  type: text().notNull(),
   baseUrl: text("base_url").notNull(),
   apiKeyEncrypted: text("api_key_encrypted").notNull(),
   enabled: integer({ mode: "boolean" }).notNull().default(true),
@@ -294,7 +294,7 @@ export const downloadQueue = sqliteTable("download_queue", {
 export const mediaServers = sqliteTable("media_servers", {
   id: integer().primaryKey({ autoIncrement: true }),
   name: text().notNull(),
-  type: text({ enum: ["plex"] }).notNull(),
+  type: text().notNull(),
   host: text().notNull(),
   port: integer().notNull(),
   tokenEncrypted: text("token_encrypted").notNull(),

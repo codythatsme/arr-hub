@@ -1,8 +1,16 @@
 import type { IndexerError } from "../errors"
 
-export type IndexerType = "torznab" | "newznab"
+/** Runtime-validated by AdapterRegistry. Not a closed union — plugins can extend. */
+export type IndexerType = string
 export type IndexerProtocol = "torrent" | "usenet"
 export type IndexerHealthStatus = "healthy" | "unhealthy" | "unknown"
+
+/** Adapter metadata for registry display + protocol selection. */
+export interface IndexerAdapterMetadata {
+  readonly displayName: string
+  readonly protocolAffinity: IndexerProtocol
+  readonly authModel: string
+}
 
 export interface ReleaseCandidate {
   readonly title: string
@@ -56,6 +64,7 @@ export interface IndexerConfig {
   readonly apiKey: string
   readonly priority: number
   readonly categories: ReadonlyArray<number>
+  readonly protocol: IndexerProtocol
 }
 
 /** Public-facing indexer shape — never exposes raw or encrypted API keys. */

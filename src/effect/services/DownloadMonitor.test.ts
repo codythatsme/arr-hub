@@ -35,6 +35,7 @@ const MockMediaServerService = Layer.succeed(MediaServerService, {
   getLibraries: () => Effect.die("not implemented"),
   syncLibrary: () => Effect.die("not implemented"),
   refreshLibrary: () => Effect.void,
+  listTypes: () => [],
 })
 
 const BaseLayer = Layer.mergeAll(MockDownloadClientService, MockMediaServerService).pipe(

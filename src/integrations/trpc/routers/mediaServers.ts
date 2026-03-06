@@ -8,7 +8,7 @@ import { authedProcedure, runEffect } from "../init"
 
 const mediaServerInputSchema = z.object({
   name: z.string(),
-  type: z.enum(["plex"]),
+  type: z.string().min(1),
   host: z.string(),
   port: z.number().int().min(1).max(65535),
   token: z.string(),
@@ -19,7 +19,7 @@ const mediaServerInputSchema = z.object({
 
 const mediaServerUpdateSchema = z.object({
   name: z.string().optional(),
-  type: z.enum(["plex"]).optional(),
+  type: z.string().min(1).optional(),
   host: z.string().optional(),
   port: z.number().int().min(1).max(65535).optional(),
   token: z.string().optional(),
@@ -115,4 +115,13 @@ export const mediaServersRouter = {
         }),
       ),
     ),
+
+  listTypes: authedProcedure.query(() =>
+    runEffect(
+      Effect.gen(function* () {
+        const svc = yield* MediaServerService
+        return svc.listTypes()
+      }),
+    ),
+  ),
 } satisfies TRPCRouterRecord

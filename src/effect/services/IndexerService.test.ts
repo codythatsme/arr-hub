@@ -3,11 +3,13 @@ import { Effect, Layer } from "effect"
 
 import { TestDbLive } from "#/effect/test/TestDb"
 
+import { AdapterRegistryLive } from "./AdapterRegistry"
 import { CryptoServiceLive } from "./CryptoService"
 import { IndexerService, IndexerServiceLive } from "./IndexerService"
 
 const TestLayer = IndexerServiceLive.pipe(
   Layer.provideMerge(CryptoServiceLive),
+  Layer.provideMerge(AdapterRegistryLive),
   Layer.provideMerge(TestDbLive),
 )
 

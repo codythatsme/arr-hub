@@ -45,6 +45,7 @@ const MockIndexerService = Layer.succeed(IndexerService, {
   remove: () => Effect.die("not implemented"),
   testConnection: () => Effect.die("not implemented"),
   search: () => Effect.succeed({ releases: [mockCandidate], errors: [] }),
+  listTypes: () => [],
 })
 
 const MockIndexerServiceEmpty = Layer.succeed(IndexerService, {
@@ -55,6 +56,7 @@ const MockIndexerServiceEmpty = Layer.succeed(IndexerService, {
   remove: () => Effect.die("not implemented"),
   testConnection: () => Effect.die("not implemented"),
   search: () => Effect.succeed({ releases: [], errors: [] }),
+  listTypes: () => [],
 })
 
 const MockDownloadClientService = Layer.succeed(DownloadClientService, {
