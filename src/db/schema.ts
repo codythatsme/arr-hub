@@ -229,7 +229,7 @@ export const indexerHealth = sqliteTable("indexer_health", {
 export const downloadClients = sqliteTable("download_clients", {
   id: integer().primaryKey({ autoIncrement: true }),
   name: text().notNull(),
-  type: text({ enum: ["qbittorrent"] }).notNull(),
+  type: text().notNull(),
   host: text().notNull(),
   port: integer().notNull(),
   username: text().notNull(),

@@ -1,4 +1,9 @@
-export type DownloadClientType = "qbittorrent"
+import type { IndexerProtocol } from "./indexer"
+
+export type DownloadProtocol = IndexerProtocol
+
+/** Runtime-validated by AdapterRegistry. Not a closed union — plugins can extend. */
+export type DownloadClientType = string
 
 export type NormalizedDownloadStatus =
   | "queued"
@@ -48,6 +53,14 @@ export interface DownloadClientHealth {
 export interface AddDownloadOptions {
   readonly category?: string
   readonly savePath?: string
+}
+
+/** Adapter metadata for registry display + protocol selection. */
+export interface AdapterMetadata {
+  readonly displayName: string
+  readonly protocolAffinity: DownloadProtocol | "any"
+  readonly defaultPort: number
+  readonly authModel: string
 }
 
 /** Public-facing shape — never exposes password. */

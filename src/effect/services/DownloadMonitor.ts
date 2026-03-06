@@ -14,6 +14,7 @@ import type {
   EncryptionError,
   MediaServerError,
   NotFoundError,
+  ValidationError,
 } from "#/effect/errors"
 
 import { Db } from "./Db"
@@ -29,6 +30,7 @@ export interface CompletionResult {
 
 type MonitorError =
   | NotFoundError
+  | ValidationError
   | DownloadClientError
   | MediaServerError
   | EncryptionError

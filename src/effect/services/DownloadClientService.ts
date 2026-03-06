@@ -14,10 +14,15 @@ import type {
   DownloadStatus,
   NormalizedDownloadStatus,
 } from "../domain/downloadClient"
-import { DownloadClientError, NotFoundError, type EncryptionError } from "../errors"
+import {
+  DownloadClientError,
+  NotFoundError,
+  type EncryptionError,
+  type ValidationError,
+} from "../errors"
+import { AdapterRegistry } from "./AdapterRegistry"
 import { CryptoService } from "./CryptoService"
 import { Db } from "./Db"
-import { createQBittorrentAdapter } from "./DownloadClientAdapter"
 
 // ── Input types ──
 
@@ -56,7 +61,7 @@ export class DownloadClientService extends Context.Tag("@arr-hub/DownloadClientS
   {
     readonly add: (
       input: DownloadClientInput,
-    ) => Effect.Effect<DownloadClientWithHealth, EncryptionError | SqlError>
+    ) => Effect.Effect<DownloadClientWithHealth, ValidationError | EncryptionError | SqlError>
     readonly list: () => Effect.Effect<ReadonlyArray<DownloadClientWithHealth>, SqlError>
     readonly getById: (
       id: number,
@@ -64,30 +69,43 @@ export class DownloadClientService extends Context.Tag("@arr-hub/DownloadClientS
     readonly update: (
       id: number,
       data: DownloadClientUpdate,
-    ) => Effect.Effect<DownloadClientWithHealth, NotFoundError | EncryptionError | SqlError>
+    ) => Effect.Effect<
+      DownloadClientWithHealth,
+      NotFoundError | ValidationError | EncryptionError | SqlError
+    >
     readonly remove: (id: number) => Effect.Effect<void, NotFoundError | SqlError>
     readonly testConnection: (
       id: number,
     ) => Effect.Effect<
       DownloadClientWithHealth,
-      NotFoundError | DownloadClientError | EncryptionError | SqlError
+      NotFoundError | DownloadClientError | ValidationError | EncryptionError | SqlError
     >
     readonly addDownload: (
       clientId: number,
       url: string,
       options?: AddDownloadOptions,
-    ) => Effect.Effect<string, NotFoundError | DownloadClientError | EncryptionError | SqlError>
+    ) => Effect.Effect<
+      string,
+      NotFoundError | DownloadClientError | ValidationError | EncryptionError | SqlError
+    >
     readonly getQueue: (
       clientId?: number,
     ) => Effect.Effect<
       ReadonlyArray<DownloadStatus>,
-      NotFoundError | DownloadClientError | EncryptionError | SqlError
+      NotFoundError | DownloadClientError | ValidationError | EncryptionError | SqlError
     >
     readonly removeDownload: (
       clientId: number,
       externalId: string,
       deleteFiles: boolean,
-    ) => Effect.Effect<void, NotFoundError | DownloadClientError | EncryptionError | SqlError>
+    ) => Effect.Effect<
+      void,
+      NotFoundError | DownloadClientError | ValidationError | EncryptionError | SqlError
+    >
+    readonly listTypes: () => ReadonlyArray<{
+      readonly type: DownloadClientType
+      readonly metadata: import("../domain/downloadClient").AdapterMetadata
+    }>
   }
 >() {}
 
@@ -100,7 +118,7 @@ function toWithHealth(
   return {
     id: row.id,
     name: row.name,
-    type: row.type as DownloadClientType,
+    type: row.type,
     host: row.host,
     port: row.port,
     username: row.username,
@@ -122,6 +140,24 @@ function toWithHealth(
   }
 }
 
+function buildConfig(
+  row: typeof downloadClients.$inferSelect,
+  password: string,
+): DownloadClientConfig {
+  return {
+    id: row.id,
+    name: row.name,
+    type: row.type,
+    host: row.host,
+    port: row.port,
+    username: row.username,
+    password,
+    useSsl: row.useSsl,
+    category: row.category,
+    settings: row.settings,
+  }
+}
+
 // ── Live implementation ──
 
 export const DownloadClientServiceLive = Layer.effect(
@@ -129,6 +165,7 @@ export const DownloadClientServiceLive = Layer.effect(
   Effect.gen(function* () {
     const db = yield* Db
     const crypto = yield* CryptoService
+    const registry = yield* AdapterRegistry
 
     const loadWithHealth = (id: number) =>
       Effect.gen(function* () {
@@ -146,32 +183,18 @@ export const DownloadClientServiceLive = Layer.effect(
         return toWithHealth(row.download_clients, row.download_client_health ?? undefined)
       })
 
-    const buildConfig = (
-      row: typeof downloadClients.$inferSelect,
-      password: string,
-    ): DownloadClientConfig => ({
-      id: row.id,
-      name: row.name,
-      type: row.type as DownloadClientType,
-      host: row.host,
-      port: row.port,
-      username: row.username,
-      password,
-      useSsl: row.useSsl,
-      category: row.category,
-      settings: row.settings,
-    })
-
-    const makeAdapter = (config: DownloadClientConfig) => {
-      switch (config.type) {
-        case "qbittorrent":
-          return createQBittorrentAdapter(config)
-      }
-    }
+    const makeAdapter = (config: DownloadClientConfig) =>
+      Effect.gen(function* () {
+        const factory = yield* registry.getDownloadClientFactory(config.type)
+        return factory(config)
+      })
 
     return {
       add: (input) =>
         Effect.gen(function* () {
+          // Validate type is registered before persisting
+          yield* registry.getDownloadClientFactory(input.type)
+
           const encrypted = yield* crypto.encrypt(input.password)
           const inserted = yield* db
             .insert(downloadClients)
@@ -213,6 +236,11 @@ export const DownloadClientServiceLive = Layer.effect(
 
       update: (id, data) =>
         Effect.gen(function* () {
+          // Validate type if being changed
+          if (data.type !== undefined) {
+            yield* registry.getDownloadClientFactory(data.type)
+          }
+
           const updateData: Record<string, unknown> = {}
           if (data.name !== undefined) updateData.name = data.name
           if (data.type !== undefined) updateData.type = data.type
@@ -256,7 +284,7 @@ export const DownloadClientServiceLive = Layer.effect(
 
           const password = yield* crypto.decrypt(client.passwordEncrypted)
           const config = buildConfig(client, password)
-          const adapter = makeAdapter(config)
+          const adapter = yield* makeAdapter(config)
           const start = Date.now()
 
           yield* adapter.testConnection().pipe(
@@ -314,7 +342,7 @@ export const DownloadClientServiceLive = Layer.effect(
 
           const password = yield* crypto.decrypt(client.passwordEncrypted)
           const config = buildConfig(client, password)
-          const adapter = makeAdapter(config)
+          const adapter = yield* makeAdapter(config)
 
           const hash = yield* adapter.addDownload(url, options)
 
@@ -347,7 +375,7 @@ export const DownloadClientServiceLive = Layer.effect(
               Effect.gen(function* () {
                 const password = yield* crypto.decrypt(client.passwordEncrypted)
                 const config = buildConfig(client, password)
-                const adapter = makeAdapter(config)
+                const adapter = yield* makeAdapter(config)
                 const statuses = yield* adapter.getQueue()
 
                 // Upsert queue rows
@@ -397,12 +425,14 @@ export const DownloadClientServiceLive = Layer.effect(
 
           const password = yield* crypto.decrypt(client.passwordEncrypted)
           const config = buildConfig(client, password)
-          const adapter = makeAdapter(config)
+          const adapter = yield* makeAdapter(config)
 
           yield* adapter.removeDownload(externalId, deleteFiles)
 
           yield* db.delete(downloadQueue).where(eq(downloadQueue.externalId, externalId))
         }),
+
+      listTypes: () => registry.listDownloadClientTypes(),
     }
   }),
 )

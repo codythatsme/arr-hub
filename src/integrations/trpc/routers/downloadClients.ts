@@ -8,7 +8,7 @@ import { authedProcedure, runEffect } from "../init"
 
 const downloadClientInputSchema = z.object({
   name: z.string(),
-  type: z.enum(["qbittorrent"]),
+  type: z.string().min(1),
   host: z.string(),
   port: z.number().int().min(1).max(65535),
   username: z.string(),
@@ -22,7 +22,7 @@ const downloadClientInputSchema = z.object({
 
 const downloadClientUpdateSchema = z.object({
   name: z.string().optional(),
-  type: z.enum(["qbittorrent"]).optional(),
+  type: z.string().min(1).optional(),
   host: z.string().optional(),
   port: z.number().int().min(1).max(65535).optional(),
   username: z.string().optional(),
@@ -87,6 +87,15 @@ export const downloadClientsRouter = {
       Effect.gen(function* () {
         const svc = yield* DownloadClientService
         return yield* svc.testConnection(input.id)
+      }),
+    ),
+  ),
+
+  listTypes: authedProcedure.query(() =>
+    runEffect(
+      Effect.gen(function* () {
+        const svc = yield* DownloadClientService
+        return svc.listTypes()
       }),
     ),
   ),
