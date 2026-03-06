@@ -46,9 +46,10 @@ export const formatsRouter = {
         const formats = yield* db.select().from(customFormats)
         const specs = yield* db.select().from(customFormatSpecs)
 
-        return formats.map((f) =>
-          Object.assign(f, { specs: specs.filter((s) => s.customFormatId === f.id) }),
-        )
+        return formats.map((f) => ({
+          ...f,
+          specs: specs.filter((s) => s.customFormatId === f.id),
+        }))
       }),
     ),
   ),
