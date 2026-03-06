@@ -1,6 +1,7 @@
 import { Layer } from "effect"
 
 import { AcquisitionPipelineLive } from "./services/AcquisitionPipeline"
+import { AdapterRegistryLive } from "./services/AdapterRegistry"
 import { AuthServiceLive } from "./services/AuthService"
 import { ConfigServiceLive } from "./services/ConfigService"
 import { CryptoServiceLive } from "./services/CryptoService"
@@ -38,6 +39,7 @@ export const AppLive = Layer.mergeAll(
   Layer.provideMerge(ProfileDefaultsEngineLive),
   Layer.provideMerge(ConfigServiceLive),
   Layer.provideMerge(ProfileServiceLive),
+  Layer.provideMerge(AdapterRegistryLive),
   Layer.provideMerge(CryptoServiceLive),
   Layer.provideMerge(DbLive),
 )

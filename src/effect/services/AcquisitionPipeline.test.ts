@@ -8,6 +8,7 @@ import { Db } from "#/effect/services/Db"
 import { TestDbLive } from "#/effect/test/TestDb"
 
 import { AcquisitionPipeline, AcquisitionPipelineLive } from "./AcquisitionPipeline"
+import { AdapterRegistryLive } from "./AdapterRegistry"
 import { DownloadClientService } from "./DownloadClientService"
 import { IndexerService } from "./IndexerService"
 import { MovieService, MovieServiceLive } from "./MovieService"
@@ -84,6 +85,7 @@ const MockDownloadClientService = Layer.succeed(DownloadClientService, {
   addDownload: () => Effect.succeed("hash_abc123"),
   getQueue: () => Effect.die("not implemented"),
   removeDownload: () => Effect.die("not implemented"),
+  listTypes: () => [],
 })
 
 const MockReleasePolicyEngine = Layer.succeed(ReleasePolicyEngine, {
@@ -129,6 +131,7 @@ const BaseLayer = Layer.mergeAll(
   MockReleasePolicyEngine,
   MockIndexerService,
   MovieServiceLive,
+  AdapterRegistryLive,
 ).pipe(Layer.provideMerge(TestDbLive))
 
 const TestLayer = AcquisitionPipelineLive.pipe(Layer.provideMerge(BaseLayer))
@@ -140,6 +143,7 @@ const EmptySearchLayer = AcquisitionPipelineLive.pipe(
       MockReleasePolicyEngine,
       MockIndexerServiceEmpty,
       MovieServiceLive,
+      AdapterRegistryLive,
     ).pipe(Layer.provideMerge(TestDbLive)),
   ),
 )
@@ -151,6 +155,7 @@ const RejectedLayer = AcquisitionPipelineLive.pipe(
       MockReleasePolicyEngineRejected,
       MockIndexerService,
       MovieServiceLive,
+      AdapterRegistryLive,
     ).pipe(Layer.provideMerge(TestDbLive)),
   ),
 )

@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm"
 import { Context, Effect, Layer } from "effect"
 
 import { downloadQueue } from "#/db/schema"
+import type { IndexerProtocol } from "#/effect/domain/indexer"
 import type { RankedDecision } from "#/effect/domain/release"
 import {
   AcquisitionError,
@@ -14,6 +15,7 @@ import {
   ValidationError,
 } from "#/effect/errors"
 
+import { AdapterRegistry } from "./AdapterRegistry"
 import { Db } from "./Db"
 import { DownloadClientService } from "./DownloadClientService"
 import { IndexerService } from "./IndexerService"
@@ -67,16 +69,37 @@ export const AcquisitionPipelineLive = Layer.effect(
     const indexerService = yield* IndexerService
     const policyEngine = yield* ReleasePolicyEngine
     const downloadClientService = yield* DownloadClientService
+    const adapterRegistry = yield* AdapterRegistry
 
-    /** Find first enabled download client. */
-    const pickClient = Effect.gen(function* () {
-      const clients = yield* downloadClientService.list()
-      const enabled = clients.filter((c) => c.enabled)
-      if (enabled.length === 0) {
-        return yield* new ValidationError({ message: "no enabled download client" })
-      }
-      return enabled[0]
-    })
+    /**
+     * Pick best enabled download client for the given protocol.
+     * Prefers clients whose adapter has matching protocolAffinity, falls back to any enabled.
+     */
+    const pickClient = (protocol?: IndexerProtocol) =>
+      Effect.gen(function* () {
+        const clients = yield* downloadClientService.list()
+        const enabled = clients.filter((c) => c.enabled)
+        if (enabled.length === 0) {
+          return yield* new ValidationError({ message: "no enabled download client" })
+        }
+
+        if (protocol) {
+          const registeredTypes = adapterRegistry.listDownloadClientTypes()
+          const affinityMap = new Map(
+            registeredTypes.map((r) => [r.type, r.metadata.protocolAffinity]),
+          )
+
+          const matching = enabled.filter((c) => {
+            const affinity = affinityMap.get(c.type)
+            return affinity === protocol || affinity === "any"
+          })
+
+          if (matching.length > 0) return matching[0]
+        }
+
+        // Fallback: return first enabled client regardless of protocol
+        return enabled[0]
+      })
 
     /** Load movie and guard monitored + has quality profile. Returns movie with guaranteed profileId. */
     const loadMovie = (movieId: number) =>
@@ -110,7 +133,6 @@ export const AcquisitionPipelineLive = Layer.effect(
       searchAndGrab: (movieId) =>
         Effect.gen(function* () {
           const movie = yield* loadMovie(movieId)
-          const client = yield* pickClient
 
           // Search
           const { releases } = yield* indexerService.search({
@@ -150,6 +172,9 @@ export const AcquisitionPipelineLive = Layer.effect(
           // Find first accepted/upgrade
           const best = decisions.find((d) => d.decision === "accepted" || d.decision === "upgrade")
           if (!best) return null
+
+          // Pick client matching the release protocol
+          const client = yield* pickClient(best.candidate.protocol)
 
           // Grab
           const hash = yield* downloadClientService.addDownload(
@@ -202,7 +227,8 @@ export const AcquisitionPipelineLive = Layer.effect(
       grab: (movieId, downloadUrl, candidateTitle) =>
         Effect.gen(function* () {
           const movie = yield* loadMovie(movieId)
-          const client = yield* pickClient
+          // No protocol hint for manual grabs — use first enabled client
+          const client = yield* pickClient()
 
           const hash = yield* downloadClientService.addDownload(client.id, downloadUrl)
 

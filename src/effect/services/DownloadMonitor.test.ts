@@ -22,6 +22,7 @@ const MockDownloadClientService = Layer.succeed(DownloadClientService, {
   // getQueue polls clients — mock returns empty (we pre-populate downloadQueue)
   getQueue: () => Effect.succeed([]),
   removeDownload: () => Effect.die("not implemented"),
+  listTypes: () => [],
 })
 
 const MockMediaServerService = Layer.succeed(MediaServerService, {
