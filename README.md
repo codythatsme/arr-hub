@@ -1,205 +1,83 @@
-Welcome to your new TanStack Start app!
+# ARR Hub
 
-# Getting Started
+ARR Hub is a unified, self-hosted media automation app inspired by the arr ecosystem, built as a single application with shared policy/scheduler/runtime modules.
 
-To run this application:
+## Current Focus
+
+- Adapter-driven integrations (download clients, indexers, media servers)
+- Shared release policy engine + scheduler pipelines
+- Functional operator UI slice for integrations, movies, security, and queue validation
+
+See [ISSUE_VALIDATION_PLAN_2026-03-06.md](./ISSUE_VALIDATION_PLAN_2026-03-06.md) for detailed roadmap status.
+
+## Tech Stack
+
+- Bun + TypeScript
+- TanStack Start + TanStack Router + TanStack Query
+- tRPC
+- Effect (service architecture + typed errors)
+- Drizzle ORM + SQLite
+
+## Quick Start
 
 ```bash
 bun install
-bun --bun run dev
+bun run dev
 ```
 
-# Building For Production
+App runs at `http://localhost:3000`.
 
-To build this application for production:
+## Environment
+
+### Required in production
+
+- `ENCRYPTION_KEY`
+- `INITIAL_ADMIN_PASSWORD` (for first-run bootstrap only, when no users exist)
+
+### Optional
+
+- `DATABASE_PATH` (default: `data/arr-hub.db`)
+- `PORT` (default: `3000`)
+
+### Development defaults
+
+- If `ENCRYPTION_KEY` is missing outside production, a dev-only fallback key is used.
+- If `INITIAL_ADMIN_PASSWORD` is missing outside production and no users exist, default admin password is `admin`.
+
+## Auth + UI Session
+
+1. Open **Settings → Security**.
+2. Sign in with local admin credentials.
+3. Session token is stored locally and used automatically for tRPC requests.
+
+## Available UI Validation Surfaces
+
+- **Settings → Indexers**: list/add/test indexers
+- **Settings → Download Clients**: list/add/test download clients
+- **Settings → Media Servers**: list/add/test media servers
+- **Settings → Security**: login + API key list/create/revoke
+- **Movies**: add/list/evaluate/search+grab/manual grab
+- **Activity → Queue**: live queue polling + remove
+
+## Scripts
 
 ```bash
-bun --bun run build
+bun run dev
+bun run build
+bun run preview
+bun run test
+bun run typecheck
+bun run lint
+bun run fmt:check
 ```
 
-## Testing
+## Database
 
-This project uses [Vitest](https://vitest.dev/) for testing. You can run the tests with:
+- Drizzle schema: `src/db/schema.ts`
+- Migration config: `drizzle.config.ts`
 
-```bash
-bun --bun run test
-```
+## Architecture Notes
 
-## Styling
-
-This project uses [Tailwind CSS](https://tailwindcss.com/) for styling.
-
-### Removing Tailwind CSS
-
-If you prefer not to use Tailwind CSS:
-
-1. Remove the demo pages in `src/routes/demo/`
-2. Replace the Tailwind import in `src/styles.css` with your own styles
-3. Remove `tailwindcss()` from the plugins array in `vite.config.ts`
-4. Uninstall the packages: `bun install @tailwindcss/vite tailwindcss -D`
-
-## T3Env
-
-- You can use T3Env to add type safety to your environment variables.
-- Add Environment variables to the `src/env.mjs` file.
-- Use the environment variables in your code.
-
-### Usage
-
-```ts
-import { env } from "#/env"
-
-console.log(env.VITE_APP_TITLE)
-```
-
-## Routing
-
-This project uses [TanStack Router](https://tanstack.com/router) with file-based routing. Routes are managed as files in `src/routes`.
-
-### Adding A Route
-
-To add a new route to your application just add a new file in the `./src/routes` directory.
-
-TanStack will automatically generate the content of the route file for you.
-
-Now that you have two routes you can use a `Link` component to navigate between them.
-
-### Adding Links
-
-To use SPA (Single Page Application) navigation you will need to import the `Link` component from `@tanstack/react-router`.
-
-```tsx
-import { Link } from "@tanstack/react-router"
-```
-
-Then anywhere in your JSX you can use it like so:
-
-```tsx
-<Link to="/about">About</Link>
-```
-
-This will create a link that will navigate to the `/about` route.
-
-More information on the `Link` component can be found in the [Link documentation](https://tanstack.com/router/v1/docs/framework/react/api/router/linkComponent).
-
-### Using A Layout
-
-In the File Based Routing setup the layout is located in `src/routes/__root.tsx`. Anything you add to the root route will appear in all the routes. The route content will appear in the JSX where you render `{children}` in the `shellComponent`.
-
-Here is an example layout that includes a header:
-
-```tsx
-import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router"
-
-export const Route = createRootRoute({
-  head: () => ({
-    meta: [
-      { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "My App" },
-    ],
-  }),
-  shellComponent: ({ children }) => (
-    <html lang="en">
-      <head>
-        <HeadContent />
-      </head>
-      <body>
-        <header>
-          <nav>
-            <Link to="/">Home</Link>
-            <Link to="/about">About</Link>
-          </nav>
-        </header>
-        {children}
-        <Scripts />
-      </body>
-    </html>
-  ),
-})
-```
-
-More information on layouts can be found in the [Layouts documentation](https://tanstack.com/router/latest/docs/framework/react/guide/routing-concepts#layouts).
-
-## Server Functions
-
-TanStack Start provides server functions that allow you to write server-side code that seamlessly integrates with your client components.
-
-```tsx
-import { createServerFn } from "@tanstack/react-start"
-
-const getServerTime = createServerFn({
-  method: "GET",
-}).handler(async () => {
-  return new Date().toISOString()
-})
-
-// Use in a component
-function MyComponent() {
-  const [time, setTime] = useState("")
-
-  useEffect(() => {
-    getServerTime().then(setTime)
-  }, [])
-
-  return <div>Server time: {time}</div>
-}
-```
-
-## API Routes
-
-You can create API routes by using the `server` property in your route definitions:
-
-```tsx
-import { createFileRoute } from "@tanstack/react-router"
-import { json } from "@tanstack/react-start"
-
-export const Route = createFileRoute("/api/hello")({
-  server: {
-    handlers: {
-      GET: () => json({ message: "Hello, World!" }),
-    },
-  },
-})
-```
-
-## Data Fetching
-
-There are multiple ways to fetch data in your application. You can use TanStack Query to fetch data from a server. But you can also use the `loader` functionality built into TanStack Router to load the data for a route before it's rendered.
-
-For example:
-
-```tsx
-import { createFileRoute } from "@tanstack/react-router"
-
-export const Route = createFileRoute("/people")({
-  loader: async () => {
-    const response = await fetch("https://swapi.dev/api/people")
-    return response.json()
-  },
-  component: PeopleComponent,
-})
-
-function PeopleComponent() {
-  const data = Route.useLoaderData()
-  return (
-    <ul>
-      {data.results.map((person) => (
-        <li key={person.name}>{person.name}</li>
-      ))}
-    </ul>
-  )
-}
-```
-
-Loaders simplify your data fetching logic dramatically. Check out more information in the [Loader documentation](https://tanstack.com/router/latest/docs/framework/react/guide/data-loading#loader-parameters).
-
-# Demo files
-
-Files prefixed with `demo` can be safely deleted. They are there to provide a starting point for you to play around with the features you've installed.
-
-# Learn More
-
-You can learn more about all of the offerings from TanStack in the [TanStack documentation](https://tanstack.com).
-
-For TanStack Start specific documentation, visit [TanStack Start](https://tanstack.com/start).
+- Integrations are resolved via `AdapterRegistry` (download/indexer/media server).
+- Core services are Effect `Context.Tag`s provided via Layers (`src/effect/layers.ts`).
+- tRPC procedures bridge through `runEffect()` (`src/integrations/trpc/init.ts`).
