@@ -83,4 +83,31 @@ export const schedulerRouter = {
       }),
     ),
   ),
+
+  pauseAll: authedProcedure.mutation(() =>
+    runEffect(
+      Effect.gen(function* () {
+        const svc = yield* SchedulerService
+        yield* svc.pauseAll()
+      }),
+    ),
+  ),
+
+  resumeAll: authedProcedure.mutation(() =>
+    runEffect(
+      Effect.gen(function* () {
+        const svc = yield* SchedulerService
+        yield* svc.resumeAll()
+      }),
+    ),
+  ),
+
+  retryJob: authedProcedure.input(z.object({ id: z.number() })).mutation(({ input }) =>
+    runEffect(
+      Effect.gen(function* () {
+        const svc = yield* SchedulerService
+        return yield* svc.retryJob(input.id)
+      }),
+    ),
+  ),
 } satisfies TRPCRouterRecord

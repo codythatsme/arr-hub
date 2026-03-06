@@ -1,5 +1,5 @@
 import { SqlError } from "@effect/sql/SqlError"
-import { eq, and, isNull } from "drizzle-orm"
+import { and, desc, eq, isNull } from "drizzle-orm"
 import { Context, Effect, Layer } from "effect"
 
 import { users, apiKeys } from "#/db/schema"
@@ -24,6 +24,16 @@ interface ValidatedUser {
   readonly kind: "session" | "api_key"
 }
 
+interface ApiKeySummary {
+  readonly id: number
+  readonly kind: "session" | "api_key"
+  readonly name: string
+  readonly lastUsedAt: Date | null
+  readonly expiresAt: Date | null
+  readonly revokedAt: Date | null
+  readonly createdAt: Date
+}
+
 export class AuthService extends Context.Tag("AuthService")<
   AuthService,
   {
@@ -34,6 +44,7 @@ export class AuthService extends Context.Tag("AuthService")<
     readonly validateToken: (token: string) => Effect.Effect<ValidatedUser, AuthError | SqlError>
     readonly createApiKey: (userId: number, name: string) => Effect.Effect<ApiKeyResult, SqlError>
     readonly revokeApiKey: (id: number) => Effect.Effect<void, SqlError>
+    readonly listApiKeys: (userId: number) => Effect.Effect<ReadonlyArray<ApiKeySummary>, SqlError>
   }
 >() {}
 
@@ -119,6 +130,23 @@ export const AuthServiceLive = Layer.effect(
       revokeApiKey: (id) =>
         Effect.gen(function* () {
           yield* db.update(apiKeys).set({ revokedAt: new Date() }).where(eq(apiKeys.id, id))
+        }),
+
+      listApiKeys: (userId) =>
+        Effect.gen(function* () {
+          return yield* db
+            .select({
+              id: apiKeys.id,
+              kind: apiKeys.kind,
+              name: apiKeys.name,
+              lastUsedAt: apiKeys.lastUsedAt,
+              expiresAt: apiKeys.expiresAt,
+              revokedAt: apiKeys.revokedAt,
+              createdAt: apiKeys.createdAt,
+            })
+            .from(apiKeys)
+            .where(eq(apiKeys.userId, userId))
+            .orderBy(desc(apiKeys.createdAt))
         }),
     }
   }),

@@ -32,8 +32,11 @@ export class SchedulerService extends Context.Tag("@arr-hub/SchedulerService")<
     readonly claimNext: () => Effect.Effect<JobRow | null, SqlError>
     readonly complete: (jobId: number) => Effect.Effect<void, SchedulerError | SqlError>
     readonly fail: (jobId: number, error: string) => Effect.Effect<void, SchedulerError | SqlError>
+    readonly retryJob: (jobId: number) => Effect.Effect<JobRow, SchedulerError | SqlError>
     readonly pause: (jobType: SchedulerJobType) => Effect.Effect<void, SchedulerError | SqlError>
     readonly resume: (jobType: SchedulerJobType) => Effect.Effect<void, SchedulerError | SqlError>
+    readonly pauseAll: () => Effect.Effect<void, SqlError>
+    readonly resumeAll: () => Effect.Effect<void, SqlError>
     readonly status: () => Effect.Effect<ReadonlyArray<JobTypeSummary>, SqlError>
     readonly getConfig: () => Effect.Effect<ReadonlyArray<ConfigRow>, SqlError>
     readonly updateConfig: (
@@ -222,6 +225,47 @@ export const SchedulerServiceLive = Layer.effect(
           }
         }),
 
+      retryJob: (jobId) =>
+        Effect.gen(function* () {
+          const rows = yield* db.select().from(schedulerJobs).where(eq(schedulerJobs.id, jobId))
+          const job = rows[0]
+          if (!job) {
+            return yield* new SchedulerError({
+              reason: "invalid_transition",
+              message: `job ${jobId} not found`,
+            })
+          }
+
+          if (job.status === "pending" || job.status === "running") {
+            return yield* new SchedulerError({
+              reason: "invalid_transition",
+              message: `job ${jobId} cannot be retried from status ${job.status}`,
+            })
+          }
+
+          const updated = yield* db
+            .update(schedulerJobs)
+            .set({
+              status: "pending",
+              attempts: 0,
+              nextRunAt: new Date(),
+              startedAt: null,
+              completedAt: null,
+              errorMessage: null,
+            })
+            .where(eq(schedulerJobs.id, jobId))
+            .returning()
+
+          if (updated.length === 0) {
+            return yield* new SchedulerError({
+              reason: "invalid_transition",
+              message: `job ${jobId} not found`,
+            })
+          }
+
+          return updated[0]
+        }),
+
       pause: (jobType) =>
         Effect.gen(function* () {
           const rows = yield* db
@@ -252,6 +296,16 @@ export const SchedulerServiceLive = Layer.effect(
               message: `config for ${jobType} not found`,
             })
           }
+        }),
+
+      pauseAll: () =>
+        Effect.gen(function* () {
+          yield* db.update(schedulerConfig).set({ enabled: false })
+        }),
+
+      resumeAll: () =>
+        Effect.gen(function* () {
+          yield* db.update(schedulerConfig).set({ enabled: true })
         }),
 
       status: () =>

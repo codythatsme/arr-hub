@@ -2,6 +2,7 @@ import { Effect, ManagedRuntime } from "effect"
 
 import { users } from "#/db/schema"
 
+import { resolveInitialAdminPassword } from "./bootstrap"
 import { AppLive } from "./layers"
 import { CryptoService } from "./services/CryptoService"
 import { Db } from "./services/Db"
@@ -18,7 +19,7 @@ const seed = Effect.gen(function* () {
 
   const existing = yield* db.select({ id: users.id }).from(users).limit(1)
   if (existing.length === 0) {
-    const password = process.env.INITIAL_ADMIN_PASSWORD ?? "admin"
+    const password = resolveInitialAdminPassword(process.env)
     const passwordHash = yield* crypto.hashPassword(password)
 
     yield* db.insert(users).values({

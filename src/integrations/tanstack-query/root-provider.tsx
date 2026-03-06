@@ -6,6 +6,7 @@ import superjson, { deserialize, serialize } from "superjson"
 
 import { TRPCProvider } from "#/integrations/trpc/react"
 import type { TRPCRouter } from "#/integrations/trpc/router"
+import { getAuthToken } from "#/lib/auth-token"
 
 function getUrl() {
   const base = (() => {
@@ -20,6 +21,11 @@ export const trpcClient = createTRPCClient<TRPCRouter>({
     httpBatchStreamLink({
       transformer: superjson,
       url: getUrl(),
+      headers() {
+        const token = getAuthToken()
+        if (!token) return {}
+        return { authorization: `Bearer ${token}` }
+      },
     }),
   ],
 })

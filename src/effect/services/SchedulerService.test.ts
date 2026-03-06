@@ -188,6 +188,63 @@ describe("SchedulerService", () => {
     ).pipe(Effect.provide(TestLayer)),
   )
 
+  it.effect("pauseAll/resumeAll toggles all configs", () =>
+    withSeed(
+      Effect.gen(function* () {
+        const svc = yield* SchedulerService
+        yield* svc.pauseAll()
+
+        const paused = yield* svc.getConfig()
+        expect(paused.every((c) => c.enabled === false)).toBe(true)
+
+        yield* svc.resumeAll()
+        const resumed = yield* svc.getConfig()
+        expect(resumed.every((c) => c.enabled === true)).toBe(true)
+      }),
+    ).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("retryJob resets a dead job to pending", () =>
+    withSeed(
+      Effect.gen(function* () {
+        const svc = yield* SchedulerService
+        yield* svc.updateConfig("rss_sync", { retryDelaySeconds: 0 })
+        yield* svc.enqueue({ _tag: "rss_sync" })
+
+        // Exhaust retries to dead-letter
+        for (let i = 0; i < 4; i++) {
+          const claimed = yield* svc.claimNext()
+          if (!claimed) break
+          yield* svc.fail(claimed.id, `error ${i}`)
+        }
+
+        const deadJobs = yield* svc.listJobs({ jobType: "rss_sync" })
+        expect(deadJobs).toHaveLength(1)
+        expect(deadJobs[0].status).toBe("dead")
+
+        const retried = yield* svc.retryJob(deadJobs[0].id)
+        expect(retried.status).toBe("pending")
+        expect(retried.attempts).toBe(0)
+        expect(retried.errorMessage).toBeNull()
+      }),
+    ).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("retryJob rejects running jobs", () =>
+    withSeed(
+      Effect.gen(function* () {
+        const svc = yield* SchedulerService
+        yield* svc.enqueue({ _tag: "rss_sync" })
+        const running = yield* svc.claimNext()
+        const error = yield* Effect.flip(svc.retryJob(running!.id))
+        expect(error._tag).toBe("SchedulerError")
+        if (error._tag === "SchedulerError") {
+          expect(error.reason).toBe("invalid_transition")
+        }
+      }),
+    ).pipe(Effect.provide(TestLayer)),
+  )
+
   it.effect("status returns per-type summary", () =>
     withSeed(
       Effect.gen(function* () {

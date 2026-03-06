@@ -35,4 +35,13 @@ export const authRouter = {
       }),
     ),
   ),
+
+  listApiKeys: authedProcedure.query(({ ctx }) =>
+    runEffect(
+      Effect.gen(function* () {
+        const auth = yield* AuthService
+        return yield* auth.listApiKeys(ctx.userId)
+      }),
+    ),
+  ),
 } satisfies TRPCRouterRecord

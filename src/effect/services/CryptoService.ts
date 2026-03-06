@@ -26,13 +26,24 @@ export class CryptoService extends Context.Tag("CryptoService")<
 const SCRYPT_KEYLEN = 64
 const SALT_LEN = 16
 const IV_LEN = 12
+const DEV_FALLBACK_KEY = "arr-hub-dev-key-do-not-use-in-prod"
+
+let hasWarnedDevFallback = false
 
 function getEncryptionKey(): Buffer {
   const raw = process.env.ENCRYPTION_KEY
   if (!raw) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("ENCRYPTION_KEY is required in production")
+    }
+
     // eslint-disable-next-line no-console -- startup warning, not in Effect context
-    console.warn("[CryptoService] ENCRYPTION_KEY not set — using insecure dev fallback")
-    return createHash("sha256").update("arr-hub-dev-key-do-not-use-in-prod").digest()
+    if (!hasWarnedDevFallback) {
+      // eslint-disable-next-line no-console -- one-time startup warning for local development
+      console.warn("[CryptoService] ENCRYPTION_KEY not set — using insecure dev fallback")
+      hasWarnedDevFallback = true
+    }
+    return createHash("sha256").update(DEV_FALLBACK_KEY).digest()
   }
   return createHash("sha256").update(raw).digest()
 }

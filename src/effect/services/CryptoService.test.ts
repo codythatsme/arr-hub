@@ -99,4 +99,46 @@ describe("CryptoService", () => {
       expect(error._tag).toBe("EncryptionError")
     }).pipe(Effect.provide(TestLayer)),
   )
+
+  it.effect("encrypt fails in production when ENCRYPTION_KEY is missing", () =>
+    Effect.gen(function* () {
+      const previousNodeEnv = process.env.NODE_ENV
+      const previousKey = process.env.ENCRYPTION_KEY
+      process.env.NODE_ENV = "production"
+      delete process.env.ENCRYPTION_KEY
+
+      try {
+        const crypto = yield* CryptoService
+        const error = yield* Effect.flip(crypto.encrypt("prod-secret"))
+        expect(error._tag).toBe("EncryptionError")
+        if (error._tag === "EncryptionError") {
+          expect(error.message).toContain("ENCRYPTION_KEY is required in production")
+        }
+      } finally {
+        process.env.NODE_ENV = previousNodeEnv
+        if (previousKey === undefined) delete process.env.ENCRYPTION_KEY
+        else process.env.ENCRYPTION_KEY = previousKey
+      }
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("encrypt works in production when ENCRYPTION_KEY is set", () =>
+    Effect.gen(function* () {
+      const previousNodeEnv = process.env.NODE_ENV
+      const previousKey = process.env.ENCRYPTION_KEY
+      process.env.NODE_ENV = "production"
+      process.env.ENCRYPTION_KEY = "unit-test-production-key"
+
+      try {
+        const crypto = yield* CryptoService
+        const encrypted = yield* crypto.encrypt("prod-secret")
+        const decrypted = yield* crypto.decrypt(encrypted)
+        expect(decrypted).toBe("prod-secret")
+      } finally {
+        process.env.NODE_ENV = previousNodeEnv
+        if (previousKey === undefined) delete process.env.ENCRYPTION_KEY
+        else process.env.ENCRYPTION_KEY = previousKey
+      }
+    }).pipe(Effect.provide(TestLayer)),
+  )
 })

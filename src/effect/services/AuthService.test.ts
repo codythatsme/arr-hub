@@ -134,4 +134,19 @@ describe("AuthService", () => {
       expect(validated.userId).toBe(userId)
     }).pipe(Effect.provide(TestLayer)),
   )
+
+  it.effect("listApiKeys returns both session and API keys for a user", () =>
+    Effect.gen(function* () {
+      const userId = yield* seedUser("henry", "pass")
+      const auth = yield* AuthService
+
+      yield* auth.login("henry", "pass")
+      yield* auth.createApiKey(userId, "automation")
+
+      const keys = yield* auth.listApiKeys(userId)
+      expect(keys.length).toBeGreaterThanOrEqual(2)
+      expect(keys.some((k) => k.kind === "session")).toBe(true)
+      expect(keys.some((k) => k.kind === "api_key" && k.name === "automation")).toBe(true)
+    }).pipe(Effect.provide(TestLayer)),
+  )
 })
