@@ -4,7 +4,8 @@ import { Context, Effect, Layer } from "effect"
 
 import { downloadQueue } from "#/db/schema"
 import type { IndexerProtocol } from "#/effect/domain/indexer"
-import type { RankedDecision } from "#/effect/domain/release"
+import { parseQualityName } from "#/effect/domain/quality"
+import type { ExistingFile, RankedDecision } from "#/effect/domain/release"
 import {
   AcquisitionError,
   type DownloadClientError,
@@ -129,6 +130,28 @@ export const AcquisitionPipelineLive = Layer.effect(
     const linkQueueToMovie = (hash: string, movieId: number) =>
       db.update(downloadQueue).set({ movieId }).where(eq(downloadQueue.externalId, hash))
 
+    /** Parse existing file info from movie row, validating quality name at boundary. */
+    const existingFileFromMovie = (movie: {
+      hasFile: boolean
+      existingQualityName: string | null
+      existingQualityRank: number | null
+      existingFormatScore: number | null
+    }): ExistingFile | undefined => {
+      if (
+        !movie.hasFile ||
+        movie.existingQualityName === null ||
+        movie.existingQualityRank === null
+      )
+        return undefined
+      const qualityName = parseQualityName(movie.existingQualityName)
+      if (!qualityName) return undefined
+      return {
+        qualityName,
+        qualityRank: movie.existingQualityRank,
+        formatScore: movie.existingFormatScore ?? 0,
+      }
+    }
+
     return {
       searchAndGrab: (movieId) =>
         Effect.gen(function* () {
@@ -143,24 +166,11 @@ export const AcquisitionPipelineLive = Layer.effect(
 
           if (releases.length === 0) return null
 
-          // Build evaluation context
-          const existingFile =
-            movie.hasFile &&
-            movie.existingQualityName !== null &&
-            movie.existingQualityRank !== null
-              ? {
-                  qualityName:
-                    movie.existingQualityName as import("#/effect/domain/quality").QualityName,
-                  qualityRank: movie.existingQualityRank,
-                  formatScore: movie.existingFormatScore ?? 0,
-                }
-              : undefined
-
           // Evaluate
           const decisions = yield* policyEngine.evaluate(releases, movie.qualityProfileId, {
             mediaId: movie.id,
             mediaType: "movie",
-            existingFile,
+            existingFile: existingFileFromMovie(movie),
           })
 
           // Record decisions
@@ -198,22 +208,10 @@ export const AcquisitionPipelineLive = Layer.effect(
             tmdbId: movie.tmdbId,
           })
 
-          const existingFile =
-            movie.hasFile &&
-            movie.existingQualityName !== null &&
-            movie.existingQualityRank !== null
-              ? {
-                  qualityName:
-                    movie.existingQualityName as import("#/effect/domain/quality").QualityName,
-                  qualityRank: movie.existingQualityRank,
-                  formatScore: movie.existingFormatScore ?? 0,
-                }
-              : undefined
-
           const decisions = yield* policyEngine.evaluate(releases, movie.qualityProfileId, {
             mediaId: movie.id,
             mediaType: "movie",
-            existingFile,
+            existingFile: existingFileFromMovie(movie),
           })
 
           yield* policyEngine.recordDecisions(decisions, {

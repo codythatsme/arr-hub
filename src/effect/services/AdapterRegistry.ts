@@ -14,6 +14,7 @@ import type {
 import { ValidationError } from "../errors"
 import type { DownloadClientAdapter } from "./DownloadClientAdapter"
 import type { IndexerAdapter } from "./IndexerAdapter"
+import { createJellyfinAdapter, jellyfinMetadata } from "./JellyfinAdapter"
 import type { MediaServerAdapter } from "./MediaServerAdapter"
 import { createPlexAdapter, plexMetadata } from "./PlexAdapter"
 import { createQBittorrentAdapter, qbittorrentMetadata } from "./QBittorrentAdapter"
@@ -155,6 +156,7 @@ export const AdapterRegistryLive = Layer.sync(AdapterRegistry, () => {
   registry.registerIndexer("torznab", torznabMetadata, createTorznabAdapter)
   registry.registerIndexer("newznab", newznabMetadata, createTorznabAdapter)
   registry.registerMediaServer("plex", plexMetadata, createPlexAdapter)
+  registry.registerMediaServer("jellyfin", jellyfinMetadata, createJellyfinAdapter)
 
   return registry
 })

@@ -89,6 +89,7 @@ function toWithHealth(
     enabled: row.enabled,
     priority: row.priority,
     categories: row.categories,
+    capabilities: row.capabilities ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     health: health
@@ -223,24 +224,27 @@ export const IndexerServiceLive = Layer.effect(
 
           yield* adapter.testConnection().pipe(
             Effect.tapBoth({
-              onSuccess: () =>
-                db
-                  .insert(indexerHealth)
-                  .values({
-                    indexerId: id,
-                    status: "healthy",
-                    responseTimeMs: Date.now() - start,
-                    errorMessage: null,
-                  })
-                  .onConflictDoUpdate({
-                    target: indexerHealth.indexerId,
-                    set: {
+              onSuccess: (caps) =>
+                Effect.all([
+                  db
+                    .insert(indexerHealth)
+                    .values({
+                      indexerId: id,
                       status: "healthy",
                       responseTimeMs: Date.now() - start,
                       errorMessage: null,
-                      lastCheck: new Date(),
-                    },
-                  }),
+                    })
+                    .onConflictDoUpdate({
+                      target: indexerHealth.indexerId,
+                      set: {
+                        status: "healthy",
+                        responseTimeMs: Date.now() - start,
+                        errorMessage: null,
+                        lastCheck: new Date(),
+                      },
+                    }),
+                  db.update(indexers).set({ capabilities: caps }).where(eq(indexers.id, id)),
+                ]),
               onFailure: (err) =>
                 db
                   .insert(indexerHealth)

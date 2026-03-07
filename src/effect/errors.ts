@@ -107,3 +107,16 @@ export class AcquisitionError extends Data.TaggedError("AcquisitionError")<{
   readonly stage: AcquisitionStage
   readonly message: string
 }> {}
+
+export type MetadataErrorReason =
+  | "api_key_missing"
+  | "not_found"
+  | "rate_limited"
+  | "request_failed"
+
+export class MetadataError extends Data.TaggedError("MetadataError")<{
+  readonly provider: string
+  readonly reason: MetadataErrorReason
+  readonly message: string
+  readonly retryable: boolean
+}> {}

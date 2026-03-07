@@ -13,6 +13,7 @@ import type {
   EncryptionError,
   IndexerError,
   MediaServerError,
+  MetadataError,
   NotFoundError,
   ParseFailed,
   ProfileInUseError,
@@ -57,6 +58,7 @@ type DomainError =
   | ParseFailed
   | SchedulerError
   | AcquisitionError
+  | MetadataError
 
 export function domainToTRPC(error: DomainError): TRPCError {
   switch (error._tag) {
@@ -144,6 +146,18 @@ export function domainToTRPC(error: DomainError): TRPCError {
         code: "BAD_REQUEST",
         message: `[movie:${error.movieId}] ${error.stage}: ${error.message}`,
       })
+    case "MetadataError": {
+      const codeMap: Record<string, TRPCError["code"]> = {
+        api_key_missing: "UNAUTHORIZED",
+        not_found: "NOT_FOUND",
+        rate_limited: "TOO_MANY_REQUESTS",
+        request_failed: "BAD_GATEWAY",
+      }
+      return new TRPCError({
+        code: codeMap[error.reason] ?? "BAD_GATEWAY",
+        message: `[${error.provider}] ${error.message}`,
+      })
+    }
   }
 }
 
