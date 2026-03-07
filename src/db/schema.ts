@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm"
 import { integer, real, sqliteTable, text, unique } from "drizzle-orm/sqlite-core"
 
 import type { DownloadClientSettings } from "#/effect/domain/downloadClient"
+import type { IndexerCapabilities } from "#/effect/domain/indexer"
 import type { MediaServerSettings } from "#/effect/domain/mediaServer"
 import type { DecisionReason, MediaType, ReleaseDecision } from "#/effect/domain/release"
 import type {
@@ -190,6 +191,16 @@ export const settings = sqliteTable("settings", {
     .default(sql`(unixepoch())`),
 })
 
+export const rootFolders = sqliteTable("root_folders", {
+  id: integer().primaryKey({ autoIncrement: true }),
+  path: text().notNull().unique(),
+  freeSpaceBytes: integer("free_space_bytes"),
+  totalSpaceBytes: integer("total_space_bytes"),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+})
+
 export const indexers = sqliteTable("indexers", {
   id: integer().primaryKey({ autoIncrement: true }),
   name: text().notNull(),
@@ -202,6 +213,9 @@ export const indexers = sqliteTable("indexers", {
     .$type<ReadonlyArray<number>>()
     .notNull()
     .default(sql`'[]'`),
+  capabilities: text({ mode: "json" })
+    .$type<IndexerCapabilities | null>()
+    .default(sql`'null'`),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),

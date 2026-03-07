@@ -131,6 +131,14 @@ export const DEFAULT_QUALITY_ORDER: ReadonlyArray<QualityName> = [
   "RAWHD",
 ]
 
+/** Set of valid quality names for O(1) lookup. */
+const QUALITY_NAMES: ReadonlySet<string> = new Set(Object.keys(Quality))
+
+/** Parse a string into a QualityName, returning null if invalid. */
+export function parseQualityName(s: string): QualityName | null {
+  return QUALITY_NAMES.has(s) ? (s as QualityName) : null
+}
+
 /** Fields available for custom format spec matching. */
 export type SpecField =
   | "releaseTitle"

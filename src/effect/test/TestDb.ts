@@ -143,6 +143,14 @@ const runDdl = Effect.gen(function* () {
     updated_at INTEGER NOT NULL DEFAULT (unixepoch())
   )`
 
+  yield* sql`CREATE TABLE root_folders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    path TEXT NOT NULL UNIQUE,
+    free_space_bytes INTEGER,
+    total_space_bytes INTEGER,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch())
+  )`
+
   yield* sql`CREATE TABLE indexers (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
@@ -152,6 +160,7 @@ const runDdl = Effect.gen(function* () {
     enabled INTEGER NOT NULL DEFAULT 1,
     priority INTEGER NOT NULL DEFAULT 50,
     categories TEXT NOT NULL DEFAULT '[]',
+    capabilities TEXT DEFAULT 'null',
     created_at INTEGER NOT NULL DEFAULT (unixepoch()),
     updated_at INTEGER NOT NULL DEFAULT (unixepoch())
   )`

@@ -76,6 +76,7 @@ export interface IndexerWithHealth {
   readonly enabled: boolean
   readonly priority: number
   readonly categories: ReadonlyArray<number>
+  readonly capabilities: IndexerCapabilities | null
   readonly createdAt: Date
   readonly updatedAt: Date
   readonly health: {

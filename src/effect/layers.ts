@@ -14,9 +14,11 @@ import { MovieServiceLive } from "./services/MovieService"
 import { ProfileDefaultsEngineLive } from "./services/ProfileDefaultsEngine"
 import { ProfileServiceLive } from "./services/ProfileService"
 import { ReleasePolicyEngineLive } from "./services/ReleasePolicyEngine"
+import { RootFolderServiceLive } from "./services/RootFolderService"
 import { SchedulerServiceLive } from "./services/SchedulerService"
 import { SeriesServiceLive } from "./services/SeriesService"
 import { TitleParserServiceLive } from "./services/TitleParserService"
+import { TmdbClientLive } from "./services/TmdbClient"
 
 /** All application services, fully wired. Db + CryptoService also exposed for direct use. */
 export const AppLive = Layer.mergeAll(
@@ -38,8 +40,10 @@ export const AppLive = Layer.mergeAll(
   Layer.provideMerge(TitleParserServiceLive),
   Layer.provideMerge(ProfileDefaultsEngineLive),
   Layer.provideMerge(ConfigServiceLive),
+  Layer.provideMerge(RootFolderServiceLive),
   Layer.provideMerge(ProfileServiceLive),
   Layer.provideMerge(AdapterRegistryLive),
   Layer.provideMerge(CryptoServiceLive),
+  Layer.provideMerge(TmdbClientLive),
   Layer.provideMerge(DbLive),
 )
