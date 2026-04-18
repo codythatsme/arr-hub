@@ -18,12 +18,8 @@ function OnboardingLanding() {
     }
   }, [status.data?.completed, navigate])
 
-  // If a wizard is already in progress, resume it.
-  useEffect(() => {
-    if (status.data?.started && status.data.path === "wizard" && !status.data.completed) {
-      void navigate({ to: "/onboarding/wizard" })
-    }
-  }, [status.data, navigate])
+  const resumeWizard =
+    status.data?.started && status.data.path === "wizard" && !status.data.completed
 
   return (
     <div className="bg-background flex min-h-screen items-center justify-center p-6">
@@ -50,7 +46,7 @@ function OnboardingLanding() {
             description="Step through each decision: capabilities, profiles, indexers, download client, media server, and root folders."
             action={
               <Button asChild variant="outline">
-                <Link to="/onboarding/wizard">Configure</Link>
+                <Link to="/onboarding/wizard">{resumeWizard ? "Resume" : "Configure"}</Link>
               </Button>
             }
           />

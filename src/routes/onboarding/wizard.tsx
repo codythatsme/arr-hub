@@ -26,28 +26,13 @@ type StepKey = (typeof STEPS)[number]["key"]
 function Wizard() {
   const trpc = useTRPC()
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
   const status = useQuery(trpc.onboarding.status.queryOptions())
-
-  const startWizard = useMutation(
-    trpc.onboarding.startWizard.mutationOptions({
-      onSuccess: () =>
-        queryClient.invalidateQueries({ queryKey: trpc.onboarding.status.queryKey() }),
-    }),
-  )
 
   useEffect(() => {
     if (status.data?.completed) {
       void navigate({ to: "/" })
     }
   }, [status.data?.completed, navigate])
-
-  useEffect(() => {
-    // Initialize wizard state on first visit (if not yet started as wizard)
-    if (status.data && !status.data.started && !startWizard.isPending && !startWizard.isSuccess) {
-      startWizard.mutate()
-    }
-  }, [status.data, startWizard])
 
   if (status.isLoading || !status.data) {
     return (
