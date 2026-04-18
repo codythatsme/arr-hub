@@ -15,6 +15,7 @@ import type {
   MediaServerError,
   MetadataError,
   NotFoundError,
+  OnboardingError,
   ParseFailed,
   ProfileInUseError,
   SchedulerError,
@@ -59,6 +60,7 @@ type DomainError =
   | SchedulerError
   | AcquisitionError
   | MetadataError
+  | OnboardingError
 
 export function domainToTRPC(error: DomainError): TRPCError {
   switch (error._tag) {
@@ -156,6 +158,20 @@ export function domainToTRPC(error: DomainError): TRPCError {
       return new TRPCError({
         code: codeMap[error.reason] ?? "BAD_GATEWAY",
         message: `[${error.provider}] ${error.message}`,
+      })
+    }
+    case "OnboardingError": {
+      const codeMap: Record<string, TRPCError["code"]> = {
+        already_complete: "CONFLICT",
+        not_started: "PRECONDITION_FAILED",
+        invalid_step: "BAD_REQUEST",
+        step_out_of_order: "PRECONDITION_FAILED",
+        integration_test_failed: "BAD_GATEWAY",
+        admin_already_exists: "CONFLICT",
+      }
+      return new TRPCError({
+        code: codeMap[error.reason] ?? "BAD_REQUEST",
+        message: error.message,
       })
     }
   }

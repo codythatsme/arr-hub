@@ -11,6 +11,7 @@ import { DownloadMonitorLive } from "./services/DownloadMonitor"
 import { IndexerServiceLive } from "./services/IndexerService"
 import { MediaServerServiceLive } from "./services/MediaServerService"
 import { MovieServiceLive } from "./services/MovieService"
+import { OnboardingServiceLive } from "./services/OnboardingService"
 import { PlexSessionMonitorLive } from "./services/PlexSessionMonitor"
 import { ProfileDefaultsEngineLive } from "./services/ProfileDefaultsEngine"
 import { ProfileServiceLive } from "./services/ProfileService"
@@ -24,12 +25,13 @@ import { TmdbClientLive } from "./services/TmdbClient"
 
 /** All application services, fully wired. Db + CryptoService also exposed for direct use. */
 export const AppLive = Layer.mergeAll(
-  AuthServiceLive,
   SchedulerServiceLive,
   AcquisitionPipelineLive,
   DownloadMonitorLive,
   PlexSessionMonitorLive,
+  OnboardingServiceLive,
 ).pipe(
+  Layer.provideMerge(AuthServiceLive),
   Layer.provideMerge(
     Layer.mergeAll(
       MovieServiceLive,
