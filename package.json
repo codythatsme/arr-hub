@@ -13,6 +13,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
+    "db:reset": "rm -f data/arr-hub.db data/arr-hub.db-shm data/arr-hub.db-wal && drizzle-kit push",
     "db:pull": "drizzle-kit pull",
     "db:studio": "drizzle-kit studio",
     "ui:add": "bunx shadcn@latest add --yes",
