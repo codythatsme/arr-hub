@@ -154,6 +154,7 @@ interface PlexSessionMetadata {
   readonly viewOffset?: number
   readonly duration?: number
   readonly addedAt?: number
+  readonly Guid?: ReadonlyArray<PlexGuid>
   readonly User?: PlexSessionUser
   readonly Player?: PlexSessionPlayer
   readonly Session?: PlexSessionSession
@@ -202,6 +203,7 @@ function mapPlexSession(
   const duration = m.duration ?? 0
   const viewOffset = m.viewOffset ?? 0
   const startedAt = m.addedAt ? new Date(m.addedAt * 1000) : now
+  const guids = parseGuids(m.Guid ?? [])
 
   return {
     mediaServerId: serverId,
@@ -231,6 +233,8 @@ function mapPlexSession(
     isLocal: m.Player?.local ?? false,
     startedAt,
     updatedAt: now,
+    tmdbId: guids.tmdbId,
+    tvdbId: guids.tvdbId,
   }
 }
 

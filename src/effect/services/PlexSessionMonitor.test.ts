@@ -5,6 +5,7 @@ import type { MediaServerSession } from "#/effect/domain/mediaServer"
 import { AdapterRegistryLive } from "#/effect/services/AdapterRegistry"
 import { CryptoServiceLive } from "#/effect/services/CryptoService"
 import { MediaServerService, MediaServerServiceLive } from "#/effect/services/MediaServerService"
+import { SessionHistoryServiceLive } from "#/effect/services/SessionHistoryService"
 import { TestDbLive } from "#/effect/test/TestDb"
 
 import {
@@ -46,6 +47,8 @@ const mkSession = (sessionKey: string, serverId = 1): MediaServerSession => ({
   isLocal: true,
   startedAt: new Date(0),
   updatedAt: new Date(0),
+  tmdbId: null,
+  tvdbId: null,
 })
 
 describe("reconcileSessions", () => {
@@ -157,6 +160,7 @@ describe("isPlayingNotification", () => {
 
 const TestLayer = PlexSessionMonitorLive.pipe(
   Layer.provideMerge(MediaServerServiceLive),
+  Layer.provideMerge(SessionHistoryServiceLive),
   Layer.provideMerge(CryptoServiceLive),
   Layer.provideMerge(AdapterRegistryLive),
   Layer.provideMerge(TestDbLive),

@@ -142,6 +142,9 @@ export interface MediaServerSession {
   readonly isLocal: boolean
   readonly startedAt: Date
   readonly updatedAt: Date
+  /** Parsed from media-server metadata (Plex Guid / Jellyfin ProviderIds); used to FK-link history rows. */
+  readonly tmdbId: number | null
+  readonly tvdbId: number | null
 }
 
 export interface MediaServerLibraryWithSync {
