@@ -102,8 +102,11 @@ export class SchedulerError extends Data.TaggedError("SchedulerError")<{
 
 export type AcquisitionStage = "search" | "evaluate" | "grab"
 
+export type AcquisitionMediaKind = "movie" | "series" | "season" | "episode"
+
 export class AcquisitionError extends Data.TaggedError("AcquisitionError")<{
-  readonly movieId: number
+  readonly mediaKind: AcquisitionMediaKind
+  readonly mediaId: number
   readonly stage: AcquisitionStage
   readonly message: string
 }> {}

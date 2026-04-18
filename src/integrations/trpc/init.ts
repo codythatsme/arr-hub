@@ -144,7 +144,7 @@ export function domainToTRPC(error: DomainError): TRPCError {
     case "AcquisitionError":
       return new TRPCError({
         code: "BAD_REQUEST",
-        message: `[movie:${error.movieId}] ${error.stage}: ${error.message}`,
+        message: `[${error.mediaKind}:${error.mediaId}] ${error.stage}: ${error.message}`,
       })
     case "MetadataError": {
       const codeMap: Record<string, TRPCError["code"]> = {

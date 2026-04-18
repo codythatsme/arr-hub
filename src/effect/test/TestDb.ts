@@ -134,6 +134,9 @@ const runDdl = Effect.gen(function* () {
     has_file INTEGER NOT NULL DEFAULT 0,
     file_path TEXT,
     monitored INTEGER NOT NULL DEFAULT 1,
+    existing_quality_name TEXT,
+    existing_quality_rank INTEGER,
+    existing_format_score INTEGER,
     UNIQUE(season_id, episode_number)
   )`
 
@@ -204,6 +207,8 @@ const runDdl = Effect.gen(function* () {
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     download_client_id INTEGER NOT NULL REFERENCES download_clients(id) ON DELETE CASCADE,
     movie_id INTEGER REFERENCES movies(id) ON DELETE SET NULL,
+    series_id INTEGER REFERENCES series(id) ON DELETE SET NULL,
+    episode_ids TEXT,
     external_id TEXT NOT NULL UNIQUE,
     status TEXT NOT NULL DEFAULT 'queued',
     title TEXT NOT NULL,

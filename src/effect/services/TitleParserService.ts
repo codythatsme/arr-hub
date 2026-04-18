@@ -8,6 +8,7 @@ import { ParseFailed } from "#/effect/errors"
 
 const SEASON_EPISODE = /S(\d{1,2})E(\d{1,3})/i
 const SEASON_EPISODE_ALT = /(\d{1,2})x(\d{2,3})/i
+const SEASON_ONLY = /(?:^|[.\-_ ])(?:Season[.\-_ ]?(\d{1,2})|S(\d{1,2}))(?![.\-_ ]?E?\d)/i
 
 const YEAR_RE = /(?:^|[.\-_ (])((?:19|20)\d{2})(?=[.\-_ )]|$)/
 
@@ -63,6 +64,7 @@ function findFirstQualityTokenIndex(raw: string): number {
     EDITION_RE,
     SEASON_EPISODE,
     SEASON_EPISODE_ALT,
+    SEASON_ONLY,
   ]
 
   let earliest = raw.length
@@ -184,6 +186,13 @@ export const TitleParserServiceLive = Layer.succeed(TitleParserService, {
         if (altMatch) {
           season = parseInt(altMatch[1], 10)
           episode = parseInt(altMatch[2], 10)
+        } else {
+          // Season pack: "Series.S01" or "Series Season 1"
+          const packMatch = SEASON_ONLY.exec(trimmed)
+          if (packMatch) {
+            const num = packMatch[1] ?? packMatch[2]
+            if (num) season = parseInt(num, 10)
+          }
         }
       }
 
