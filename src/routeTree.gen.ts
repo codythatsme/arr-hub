@@ -29,6 +29,7 @@ import { Route as SettingsGeneralRouteImport } from './routes/settings/general'
 import { Route as SettingsDownloadClientsRouteImport } from './routes/settings/download-clients'
 import { Route as OnboardingWizardRouteImport } from './routes/onboarding/wizard'
 import { Route as OnboardingQuickstartRouteImport } from './routes/onboarding/quickstart'
+import { Route as ActivityUsersRouteImport } from './routes/activity/users'
 import { Route as ActivityQueueRouteImport } from './routes/activity/queue'
 import { Route as ActivityHistoryRouteImport } from './routes/activity/history'
 import { Route as ApiTrpcSplatRouteImport } from './routes/api.trpc.$'
@@ -133,6 +134,11 @@ const OnboardingQuickstartRoute = OnboardingQuickstartRouteImport.update({
   path: '/onboarding/quickstart',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ActivityUsersRoute = ActivityUsersRouteImport.update({
+  id: '/activity/users',
+  path: '/activity/users',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ActivityQueueRoute = ActivityQueueRouteImport.update({
   id: '/activity/queue',
   path: '/activity/queue',
@@ -155,6 +161,7 @@ export interface FileRoutesByFullPath {
   '/system': typeof SystemRoute
   '/activity/history': typeof ActivityHistoryRoute
   '/activity/queue': typeof ActivityQueueRoute
+  '/activity/users': typeof ActivityUsersRoute
   '/onboarding/quickstart': typeof OnboardingQuickstartRoute
   '/onboarding/wizard': typeof OnboardingWizardRoute
   '/settings/download-clients': typeof SettingsDownloadClientsRoute
@@ -180,6 +187,7 @@ export interface FileRoutesByTo {
   '/system': typeof SystemRoute
   '/activity/history': typeof ActivityHistoryRoute
   '/activity/queue': typeof ActivityQueueRoute
+  '/activity/users': typeof ActivityUsersRoute
   '/onboarding/quickstart': typeof OnboardingQuickstartRoute
   '/onboarding/wizard': typeof OnboardingWizardRoute
   '/settings/download-clients': typeof SettingsDownloadClientsRoute
@@ -206,6 +214,7 @@ export interface FileRoutesById {
   '/system': typeof SystemRoute
   '/activity/history': typeof ActivityHistoryRoute
   '/activity/queue': typeof ActivityQueueRoute
+  '/activity/users': typeof ActivityUsersRoute
   '/onboarding/quickstart': typeof OnboardingQuickstartRoute
   '/onboarding/wizard': typeof OnboardingWizardRoute
   '/settings/download-clients': typeof SettingsDownloadClientsRoute
@@ -233,6 +242,7 @@ export interface FileRouteTypes {
     | '/system'
     | '/activity/history'
     | '/activity/queue'
+    | '/activity/users'
     | '/onboarding/quickstart'
     | '/onboarding/wizard'
     | '/settings/download-clients'
@@ -258,6 +268,7 @@ export interface FileRouteTypes {
     | '/system'
     | '/activity/history'
     | '/activity/queue'
+    | '/activity/users'
     | '/onboarding/quickstart'
     | '/onboarding/wizard'
     | '/settings/download-clients'
@@ -283,6 +294,7 @@ export interface FileRouteTypes {
     | '/system'
     | '/activity/history'
     | '/activity/queue'
+    | '/activity/users'
     | '/onboarding/quickstart'
     | '/onboarding/wizard'
     | '/settings/download-clients'
@@ -309,6 +321,7 @@ export interface RootRouteChildren {
   SystemRoute: typeof SystemRoute
   ActivityHistoryRoute: typeof ActivityHistoryRoute
   ActivityQueueRoute: typeof ActivityQueueRoute
+  ActivityUsersRoute: typeof ActivityUsersRoute
   OnboardingQuickstartRoute: typeof OnboardingQuickstartRoute
   OnboardingWizardRoute: typeof OnboardingWizardRoute
   SettingsDownloadClientsRoute: typeof SettingsDownloadClientsRoute
@@ -471,6 +484,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OnboardingQuickstartRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/activity/users': {
+      id: '/activity/users'
+      path: '/activity/users'
+      fullPath: '/activity/users'
+      preLoaderRoute: typeof ActivityUsersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/activity/queue': {
       id: '/activity/queue'
       path: '/activity/queue'
@@ -501,6 +521,7 @@ const rootRouteChildren: RootRouteChildren = {
   SystemRoute: SystemRoute,
   ActivityHistoryRoute: ActivityHistoryRoute,
   ActivityQueueRoute: ActivityQueueRoute,
+  ActivityUsersRoute: ActivityUsersRoute,
   OnboardingQuickstartRoute: OnboardingQuickstartRoute,
   OnboardingWizardRoute: OnboardingWizardRoute,
   SettingsDownloadClientsRoute: SettingsDownloadClientsRoute,

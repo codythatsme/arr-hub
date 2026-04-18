@@ -17,6 +17,7 @@ import {
   Server,
   Settings,
   Tv,
+  Users,
 } from "lucide-react"
 
 import type { FileRoutesByTo } from "@/routeTree.gen"
@@ -52,6 +53,7 @@ const collapsibleGroups = [
     items: [
       { title: "Queue", to: "/activity/queue", icon: ListOrdered },
       { title: "History", to: "/activity/history", icon: History },
+      { title: "Users", to: "/activity/users", icon: Users },
     ],
   },
   {

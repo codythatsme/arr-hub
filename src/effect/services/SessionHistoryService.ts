@@ -1,8 +1,8 @@
 import { SqlError } from "@effect/sql/SqlError"
-import { and, between, desc, eq, lt, type SQL } from "drizzle-orm"
+import { and, between, desc, eq, lt, sql, type SQL } from "drizzle-orm"
 import { Context, Effect, Layer } from "effect"
 
-import { episodes, movies, sessionHistory } from "#/db/schema"
+import { episodes, movies, plexUsers, sessionHistory } from "#/db/schema"
 
 import type { MediaServerSession, SessionMediaType } from "../domain/mediaServer"
 import { Db } from "./Db"
@@ -136,6 +136,22 @@ export const SessionHistoryServiceLive = Layer.effect(
               })
               .returning()
             out.push(row)
+
+            // Bump cached counters on plex_users. No-op if user row hasn't been synced yet.
+            const watchedSec = Math.round(s.viewOffset / 1000)
+            yield* db
+              .update(plexUsers)
+              .set({
+                lastSeenAt: stoppedAt,
+                totalPlayCount: sql`${plexUsers.totalPlayCount} + 1`,
+                totalWatchTimeSec: sql`${plexUsers.totalWatchTimeSec} + ${watchedSec}`,
+              })
+              .where(
+                and(
+                  eq(plexUsers.mediaServerId, s.mediaServerId),
+                  eq(plexUsers.plexUserId, s.userId),
+                ),
+              )
           }
 
           return out

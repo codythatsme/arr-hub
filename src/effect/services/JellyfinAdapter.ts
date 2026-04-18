@@ -274,6 +274,8 @@ export function createJellyfinAdapter(config: MediaServerConfig): MediaServerAda
     getActiveSessions: (): Effect.Effect<ReadonlyArray<MediaServerSession>, MediaServerError> =>
       Effect.succeed([]),
 
+    getSharedUsers: () => Effect.succeed([]),
+
     getHealth: (): Effect.Effect<MediaServerHealth, MediaServerError> =>
       Effect.gen(function* () {
         const infoResult = yield* jellyfinJson<JellyfinSystemInfo>("/System/Info").pipe(

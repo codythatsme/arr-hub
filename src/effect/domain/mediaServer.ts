@@ -147,6 +147,17 @@ export interface MediaServerSession {
   readonly tvdbId: number | null
 }
 
+// ── Shared users (Plex /accounts; Jellyfin returns []) ──
+
+export interface MediaServerSharedUser {
+  readonly plexUserId: string
+  readonly username: string
+  readonly friendlyName: string
+  readonly email: string | null
+  readonly thumb: string | null
+  readonly isAdmin: boolean
+}
+
 export interface MediaServerLibraryWithSync {
   readonly id: number
   readonly mediaServerId: number
