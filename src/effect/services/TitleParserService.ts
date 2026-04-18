@@ -8,7 +8,7 @@ import { ParseFailed } from "#/effect/errors"
 
 const SEASON_EPISODE = /S(\d{1,2})E(\d{1,3})/i
 const SEASON_EPISODE_ALT = /(\d{1,2})x(\d{2,3})/i
-const SEASON_ONLY = /(?:^|[.\-_ ])(?:Season[.\-_ ]?(\d{1,2})|S(\d{1,2}))(?![.\-_ ]?E?\d)/i
+const SEASON_ONLY = /(?:^|[.\-_ ])(?:Season[.\-_ ]?(\d{1,2})|S(\d{1,2}))(?![.\-_ ]?[Ex]\d)/i
 
 const YEAR_RE = /(?:^|[.\-_ (])((?:19|20)\d{2})(?=[.\-_ )]|$)/
 
