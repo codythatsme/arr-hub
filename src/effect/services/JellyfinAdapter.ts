@@ -7,6 +7,7 @@ import type {
   MediaServerHealth,
   MediaServerLibrary,
   MediaServerLibraryType,
+  MediaServerSession,
   SyncedItem,
 } from "../domain/mediaServer"
 import { MediaServerError, type MediaServerErrorReason } from "../errors"
@@ -269,6 +270,9 @@ export function createJellyfinAdapter(config: MediaServerConfig): MediaServerAda
       Effect.gen(function* () {
         yield* jellyfinFetch("/Library/Refresh", "POST")
       }),
+
+    getActiveSessions: (): Effect.Effect<ReadonlyArray<MediaServerSession>, MediaServerError> =>
+      Effect.succeed([]),
 
     getHealth: (): Effect.Effect<MediaServerHealth, MediaServerError> =>
       Effect.gen(function* () {

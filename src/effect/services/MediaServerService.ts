@@ -220,7 +220,7 @@ export const MediaServerServiceLive = Layer.effect(
               tokenEncrypted: encrypted,
               useSsl: input.useSsl ?? false,
               enabled: input.enabled ?? true,
-              settings: input.settings ?? { syncIntervalMs: 3600000 },
+              settings: input.settings ?? { syncIntervalMs: 3600000, monitoringEnabled: true },
             })
             .returning()
 

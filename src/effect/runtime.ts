@@ -6,6 +6,7 @@ import { resolveInitialAdminPassword } from "./bootstrap"
 import { AppLive } from "./layers"
 import { CryptoService } from "./services/CryptoService"
 import { Db } from "./services/Db"
+import { PlexSessionMonitor } from "./services/PlexSessionMonitor"
 import { ProfileDefaultsEngine } from "./services/ProfileDefaultsEngine"
 import { createSchedulerLoop } from "./services/SchedulerLoop"
 import { SchedulerService } from "./services/SchedulerService"
@@ -36,6 +37,9 @@ const seed = Effect.gen(function* () {
 
   const scheduler = yield* SchedulerService
   yield* scheduler.seedConfig()
+
+  const sessionMonitor = yield* PlexSessionMonitor
+  yield* sessionMonitor.startAllEnabled()
 })
 
 AppRuntime.runPromise(seed).then(

@@ -7,7 +7,11 @@ import type {
   MediaServerHealth,
   MediaServerLibrary,
   MediaServerLibraryType,
+  MediaServerSession,
+  SessionMediaType,
+  SessionState,
   SyncedItem,
+  TranscodeDecision,
 } from "../domain/mediaServer"
 import { MediaServerError, type MediaServerErrorReason } from "../errors"
 import type { MediaServerAdapter } from "./MediaServerAdapter"
@@ -93,6 +97,140 @@ interface PlexMetadata {
 interface PlexLibraryItems {
   readonly MediaContainer: {
     readonly Metadata?: ReadonlyArray<PlexMetadata>
+  }
+}
+
+// ── /status/sessions ──
+
+interface PlexSessionUser {
+  readonly id?: string
+  readonly title?: string
+  readonly thumb?: string
+}
+
+interface PlexSessionPlayer {
+  readonly state?: string
+  readonly title?: string
+  readonly platform?: string
+  readonly product?: string
+  readonly address?: string
+  readonly local?: boolean
+}
+
+interface PlexSessionSession {
+  readonly id?: string
+  readonly bandwidth?: number
+}
+
+interface PlexSessionStream {
+  readonly streamType: number
+  readonly codec?: string
+}
+
+interface PlexSessionMediaPart {
+  readonly Stream?: ReadonlyArray<PlexSessionStream>
+}
+
+interface PlexSessionMedia {
+  readonly videoResolution?: string
+  readonly audioCodec?: string
+  readonly Part?: ReadonlyArray<PlexSessionMediaPart>
+}
+
+interface PlexSessionTranscode {
+  readonly videoDecision?: string
+  readonly audioDecision?: string
+}
+
+interface PlexSessionMetadata {
+  readonly sessionKey: string
+  readonly ratingKey: string
+  readonly type: string
+  readonly title: string
+  readonly parentTitle?: string
+  readonly grandparentTitle?: string
+  readonly year?: number
+  readonly thumb?: string
+  readonly viewOffset?: number
+  readonly duration?: number
+  readonly addedAt?: number
+  readonly User?: PlexSessionUser
+  readonly Player?: PlexSessionPlayer
+  readonly Session?: PlexSessionSession
+  readonly Media?: ReadonlyArray<PlexSessionMedia>
+  readonly TranscodeSession?: PlexSessionTranscode
+}
+
+interface PlexStatusSessions {
+  readonly MediaContainer: {
+    readonly Metadata?: ReadonlyArray<PlexSessionMetadata>
+  }
+}
+
+const SESSION_STATE_MAP: Record<string, SessionState> = {
+  playing: "playing",
+  paused: "paused",
+  buffering: "buffering",
+}
+
+const SESSION_TYPE_MAP: Record<string, SessionMediaType> = {
+  movie: "movie",
+  episode: "episode",
+}
+
+function mapTranscodeDecision(transcode: PlexSessionTranscode | undefined): TranscodeDecision {
+  if (!transcode) return "direct_play"
+  const isTranscoded =
+    transcode.videoDecision === "transcode" || transcode.audioDecision === "transcode"
+  if (isTranscoded) return "transcode"
+  const isCopied = transcode.videoDecision === "copy" || transcode.audioDecision === "copy"
+  if (isCopied) return "direct_stream"
+  return "direct_play"
+}
+
+function mapPlexSession(
+  serverId: number,
+  m: PlexSessionMetadata,
+  now: Date,
+): MediaServerSession | null {
+  const state = SESSION_STATE_MAP[m.Player?.state ?? "playing"]
+  const mediaType = SESSION_TYPE_MAP[m.type]
+  if (!state || !mediaType) return null
+
+  const media = m.Media?.[0]
+  const audioStream = media?.Part?.[0]?.Stream?.find((s) => s.streamType === 2)
+  const duration = m.duration ?? 0
+  const viewOffset = m.viewOffset ?? 0
+  const startedAt = m.addedAt ? new Date(m.addedAt * 1000) : now
+
+  return {
+    mediaServerId: serverId,
+    sessionKey: m.sessionKey,
+    ratingKey: m.ratingKey,
+    userId: m.User?.id ?? "",
+    username: m.User?.title ?? "",
+    userThumb: m.User?.thumb ?? null,
+    state,
+    mediaType,
+    title: m.title,
+    parentTitle: m.parentTitle ?? null,
+    grandparentTitle: m.grandparentTitle ?? null,
+    year: m.year ?? null,
+    thumb: m.thumb ?? null,
+    viewOffset,
+    duration,
+    progressPercent: duration > 0 ? Math.min(100, (viewOffset / duration) * 100) : 0,
+    transcodeDecision: mapTranscodeDecision(m.TranscodeSession),
+    videoResolution: media?.videoResolution ?? null,
+    audioCodec: media?.audioCodec ?? audioStream?.codec ?? null,
+    player: m.Player?.title ?? "",
+    platform: m.Player?.platform ?? "",
+    product: m.Player?.product ?? null,
+    ipAddress: m.Player?.address ?? null,
+    bandwidth: m.Session?.bandwidth ?? null,
+    isLocal: m.Player?.local ?? false,
+    startedAt,
+    updatedAt: now,
   }
 }
 
@@ -256,6 +394,17 @@ export function createPlexAdapter(config: MediaServerConfig): MediaServerAdapter
     refreshLibrary: (libraryId, path) =>
       Effect.gen(function* () {
         yield* plexFetch(`/library/sections/${libraryId}/refresh?path=${encodeURIComponent(path)}`)
+      }),
+
+    getActiveSessions: (): Effect.Effect<ReadonlyArray<MediaServerSession>, MediaServerError> =>
+      Effect.gen(function* () {
+        const sessions = yield* plexJson<PlexStatusSessions>("/status/sessions")
+        const metadata = sessions.MediaContainer.Metadata ?? []
+        const now = new Date()
+        return metadata.flatMap((m): ReadonlyArray<MediaServerSession> => {
+          const mapped = mapPlexSession(config.id, m, now)
+          return mapped ? [mapped] : []
+        })
       }),
 
     getHealth: (): Effect.Effect<MediaServerHealth, MediaServerError> =>

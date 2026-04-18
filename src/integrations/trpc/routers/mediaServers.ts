@@ -3,8 +3,14 @@ import { Effect } from "effect"
 import { z } from "zod"
 
 import { MediaServerService } from "#/effect/services/MediaServerService"
+import { PlexSessionMonitor } from "#/effect/services/PlexSessionMonitor"
 
 import { authedProcedure, runEffect } from "../init"
+
+const settingsSchema = z.object({
+  syncIntervalMs: z.number().int().min(60000),
+  monitoringEnabled: z.boolean(),
+})
 
 const mediaServerInputSchema = z.object({
   name: z.string(),
@@ -14,7 +20,7 @@ const mediaServerInputSchema = z.object({
   token: z.string(),
   useSsl: z.boolean().optional(),
   enabled: z.boolean().optional(),
-  settings: z.object({ syncIntervalMs: z.number().int().min(60000) }).optional(),
+  settings: settingsSchema.optional(),
 })
 
 const mediaServerUpdateSchema = z.object({
@@ -25,7 +31,7 @@ const mediaServerUpdateSchema = z.object({
   token: z.string().optional(),
   useSsl: z.boolean().optional(),
   enabled: z.boolean().optional(),
-  settings: z.object({ syncIntervalMs: z.number().int().min(60000) }).optional(),
+  settings: settingsSchema.optional(),
 })
 
 export const mediaServersRouter = {
@@ -124,4 +130,17 @@ export const mediaServersRouter = {
       }),
     ),
   ),
+
+  activeSessions: authedProcedure
+    .input(z.object({ serverId: z.number().optional() }).optional())
+    .query(({ input }) =>
+      runEffect(
+        Effect.gen(function* () {
+          const monitor = yield* PlexSessionMonitor
+          return input?.serverId
+            ? yield* monitor.getActiveForServer(input.serverId)
+            : yield* monitor.getActive()
+        }),
+      ),
+    ),
 } satisfies TRPCRouterRecord
