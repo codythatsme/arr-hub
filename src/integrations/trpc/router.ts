@@ -8,6 +8,7 @@ import { indexersRouter } from "./routers/indexers"
 import { mediaServersRouter } from "./routers/mediaServers"
 import { moviesRouter } from "./routers/movies"
 import { onboardingRouter } from "./routers/onboarding"
+import { plexUsersRouter } from "./routers/plexUsers"
 import { profilesRouter } from "./routers/profiles"
 import { releasesRouter } from "./routers/releases"
 import { rootFoldersRouter } from "./routers/rootFolders"
@@ -25,6 +26,7 @@ export const trpcRouter = createTRPCRouter({
   indexers: indexersRouter,
   downloadClients: downloadClientsRouter,
   mediaServers: mediaServersRouter,
+  plexUsers: plexUsersRouter,
   history: historyRouter,
   import: importRouter,
   releases: releasesRouter,

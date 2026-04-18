@@ -5,6 +5,7 @@ import type {
   MediaServerHealth,
   MediaServerLibrary,
   MediaServerSession,
+  MediaServerSharedUser,
   ParsedGuid,
   SyncedItem,
 } from "../domain/mediaServer"
@@ -26,6 +27,11 @@ export interface MediaServerAdapter {
   /** Snapshot of currently-active streams. Adapters without monitoring support return []. */
   readonly getActiveSessions: () => Effect.Effect<
     ReadonlyArray<MediaServerSession>,
+    MediaServerError
+  >
+  /** Users that have access to this server. Adapters without user enumeration return []. */
+  readonly getSharedUsers: () => Effect.Effect<
+    ReadonlyArray<MediaServerSharedUser>,
     MediaServerError
   >
 }

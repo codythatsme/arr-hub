@@ -363,6 +363,33 @@ export const mediaServerLibraries = sqliteTable(
   (t) => [unique().on(t.mediaServerId, t.externalId)],
 )
 
+export const plexUsers = sqliteTable(
+  "plex_users",
+  {
+    id: integer().primaryKey({ autoIncrement: true }),
+    mediaServerId: integer("media_server_id")
+      .notNull()
+      .references(() => mediaServers.id, { onDelete: "cascade" }),
+    plexUserId: text("plex_user_id").notNull(),
+    username: text().notNull(),
+    friendlyName: text("friendly_name").notNull(),
+    email: text(),
+    thumb: text(),
+    isAdmin: integer("is_admin", { mode: "boolean" }).notNull().default(false),
+    isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+    lastSeenAt: integer("last_seen_at", { mode: "timestamp" }),
+    totalPlayCount: integer("total_play_count").notNull().default(0),
+    totalWatchTimeSec: integer("total_watch_time_sec").notNull().default(0),
+    syncedAt: integer("synced_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (t) => [unique().on(t.mediaServerId, t.plexUserId)],
+)
+
 export const sessionHistory = sqliteTable("session_history", {
   id: integer().primaryKey({ autoIncrement: true }),
   mediaServerId: integer("media_server_id")

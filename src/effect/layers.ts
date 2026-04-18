@@ -14,6 +14,7 @@ import { MediaServerServiceLive } from "./services/MediaServerService"
 import { MovieServiceLive } from "./services/MovieService"
 import { OnboardingServiceLive } from "./services/OnboardingService"
 import { PlexSessionMonitorLive } from "./services/PlexSessionMonitor"
+import { PlexUserServiceLive } from "./services/PlexUserService"
 import { ProfileDefaultsEngineLive } from "./services/ProfileDefaultsEngine"
 import { ProfileServiceLive } from "./services/ProfileService"
 import { ReleasePolicyEngineLive } from "./services/ReleasePolicyEngine"
@@ -43,6 +44,7 @@ export const AppLive = Layer.mergeAll(
       MediaServerServiceLive,
       ReleasePolicyEngineLive,
       SessionHistoryServiceLive,
+      PlexUserServiceLive,
     ),
   ),
   Layer.provideMerge(TitleParserServiceLive),

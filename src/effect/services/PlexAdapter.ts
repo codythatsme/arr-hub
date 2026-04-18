@@ -8,6 +8,7 @@ import type {
   MediaServerLibrary,
   MediaServerLibraryType,
   MediaServerSession,
+  MediaServerSharedUser,
   SessionMediaType,
   SessionState,
   SyncedItem,
@@ -165,6 +166,25 @@ interface PlexSessionMetadata {
 interface PlexStatusSessions {
   readonly MediaContainer: {
     readonly Metadata?: ReadonlyArray<PlexSessionMetadata>
+  }
+}
+
+// ── /accounts ──
+
+interface PlexAccount {
+  readonly id: number
+  readonly key?: string
+  readonly name?: string
+  readonly defaultAudioLanguage?: string
+  readonly autoSelectAudio?: boolean
+  readonly defaultSubtitleLanguage?: string
+  readonly subtitleMode?: number
+  readonly thumb?: string
+}
+
+interface PlexAccounts {
+  readonly MediaContainer: {
+    readonly Account?: ReadonlyArray<PlexAccount>
   }
 }
 
@@ -408,6 +428,28 @@ export function createPlexAdapter(config: MediaServerConfig): MediaServerAdapter
         return metadata.flatMap((m): ReadonlyArray<MediaServerSession> => {
           const mapped = mapPlexSession(config.id, m, now)
           return mapped ? [mapped] : []
+        })
+      }),
+
+    getSharedUsers: (): Effect.Effect<ReadonlyArray<MediaServerSharedUser>, MediaServerError> =>
+      Effect.gen(function* () {
+        const accounts = yield* plexJson<PlexAccounts>("/accounts")
+        const list = accounts.MediaContainer.Account ?? []
+        return list.flatMap((a): ReadonlyArray<MediaServerSharedUser> => {
+          // id=0 is the "Local" anonymous pseudo-account — skip.
+          if (a.id === 0) return []
+          const name = a.name ?? `user-${a.id}`
+          return [
+            {
+              plexUserId: String(a.id),
+              username: name,
+              friendlyName: name,
+              email: null,
+              thumb: a.thumb ?? null,
+              // id=1 is the server owner in Plex.
+              isAdmin: a.id === 1,
+            },
+          ]
         })
       }),
 
