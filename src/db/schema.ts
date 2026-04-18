@@ -322,7 +322,7 @@ export const mediaServers = sqliteTable("media_servers", {
   settings: text({ mode: "json" })
     .$type<MediaServerSettings>()
     .notNull()
-    .default(sql`'{"syncIntervalMs":3600000}'`),
+    .default(sql`'{"syncIntervalMs":3600000,"monitoringEnabled":true}'`),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),

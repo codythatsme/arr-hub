@@ -14,6 +14,7 @@ export type MediaServerLibraryType = "movie" | "show"
 
 export interface MediaServerSettings {
   readonly syncIntervalMs: number
+  readonly monitoringEnabled: boolean
 }
 
 /** Config shape used by the adapter factory — no DB concerns. */
@@ -99,6 +100,50 @@ export interface MediaServerWithHealth {
   } | null
 }
 
+export interface SyncResult {
+  readonly matched: number
+  readonly unmatched: number
+  readonly libraryId: string
+}
+
+// ── Active sessions (Plex-shaped today; Jellyfin returns []) ──
+
+export type SessionState = "playing" | "paused" | "buffering"
+
+export type SessionMediaType = "movie" | "episode"
+
+export type TranscodeDecision = "direct_play" | "direct_stream" | "transcode"
+
+export interface MediaServerSession {
+  readonly mediaServerId: number
+  readonly sessionKey: string
+  readonly ratingKey: string
+  readonly userId: string
+  readonly username: string
+  readonly userThumb: string | null
+  readonly state: SessionState
+  readonly mediaType: SessionMediaType
+  readonly title: string
+  readonly parentTitle: string | null
+  readonly grandparentTitle: string | null
+  readonly year: number | null
+  readonly thumb: string | null
+  readonly viewOffset: number
+  readonly duration: number
+  readonly progressPercent: number
+  readonly transcodeDecision: TranscodeDecision
+  readonly videoResolution: string | null
+  readonly audioCodec: string | null
+  readonly player: string
+  readonly platform: string
+  readonly product: string | null
+  readonly ipAddress: string | null
+  readonly bandwidth: number | null
+  readonly isLocal: boolean
+  readonly startedAt: Date
+  readonly updatedAt: Date
+}
+
 export interface MediaServerLibraryWithSync {
   readonly id: number
   readonly mediaServerId: number
@@ -107,10 +152,4 @@ export interface MediaServerLibraryWithSync {
   readonly type: MediaServerLibraryType
   readonly enabled: boolean
   readonly lastSynced: Date | null
-}
-
-export interface SyncResult {
-  readonly matched: number
-  readonly unmatched: number
-  readonly libraryId: string
 }

@@ -229,7 +229,7 @@ const runDdl = Effect.gen(function* () {
     token_encrypted TEXT NOT NULL,
     use_ssl INTEGER NOT NULL DEFAULT 0,
     enabled INTEGER NOT NULL DEFAULT 1,
-    settings TEXT NOT NULL DEFAULT '{"syncIntervalMs":3600000}',
+    settings TEXT NOT NULL DEFAULT '{"syncIntervalMs":3600000,"monitoringEnabled":true}',
     created_at INTEGER NOT NULL DEFAULT (unixepoch()),
     updated_at INTEGER NOT NULL DEFAULT (unixepoch())
   )`

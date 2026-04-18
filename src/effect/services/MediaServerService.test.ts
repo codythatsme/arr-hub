@@ -46,11 +46,12 @@ describe("MediaServerService", () => {
         ...validInput,
         useSsl: true,
         enabled: false,
-        settings: { syncIntervalMs: 7200000 },
+        settings: { syncIntervalMs: 7200000, monitoringEnabled: false },
       })
       expect(server.useSsl).toBe(true)
       expect(server.enabled).toBe(false)
       expect(server.settings.syncIntervalMs).toBe(7200000)
+      expect(server.settings.monitoringEnabled).toBe(false)
     }).pipe(Effect.provide(TestLayer)),
   )
 

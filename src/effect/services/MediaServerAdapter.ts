@@ -4,6 +4,7 @@ import type {
   MediaServerConnectionInfo,
   MediaServerHealth,
   MediaServerLibrary,
+  MediaServerSession,
   ParsedGuid,
   SyncedItem,
 } from "../domain/mediaServer"
@@ -22,6 +23,11 @@ export interface MediaServerAdapter {
     path: string,
   ) => Effect.Effect<void, MediaServerError>
   readonly getHealth: () => Effect.Effect<MediaServerHealth, MediaServerError>
+  /** Snapshot of currently-active streams. Adapters without monitoring support return []. */
+  readonly getActiveSessions: () => Effect.Effect<
+    ReadonlyArray<MediaServerSession>,
+    MediaServerError
+  >
 }
 
 // ── GUID extraction (from Sonarr/Radarr PlexParser.cs pattern) ──

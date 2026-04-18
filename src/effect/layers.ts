@@ -11,6 +11,7 @@ import { DownloadMonitorLive } from "./services/DownloadMonitor"
 import { IndexerServiceLive } from "./services/IndexerService"
 import { MediaServerServiceLive } from "./services/MediaServerService"
 import { MovieServiceLive } from "./services/MovieService"
+import { PlexSessionMonitorLive } from "./services/PlexSessionMonitor"
 import { ProfileDefaultsEngineLive } from "./services/ProfileDefaultsEngine"
 import { ProfileServiceLive } from "./services/ProfileService"
 import { ReleasePolicyEngineLive } from "./services/ReleasePolicyEngine"
@@ -26,6 +27,7 @@ export const AppLive = Layer.mergeAll(
   SchedulerServiceLive,
   AcquisitionPipelineLive,
   DownloadMonitorLive,
+  PlexSessionMonitorLive,
 ).pipe(
   Layer.provideMerge(
     Layer.mergeAll(
