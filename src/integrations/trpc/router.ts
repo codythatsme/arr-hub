@@ -2,6 +2,7 @@ import { createTRPCRouter } from "./init"
 import { authRouter } from "./routers/auth"
 import { downloadClientsRouter } from "./routers/downloadClients"
 import { formatsRouter } from "./routers/formats"
+import { historyRouter } from "./routers/history"
 import { indexersRouter } from "./routers/indexers"
 import { mediaServersRouter } from "./routers/mediaServers"
 import { moviesRouter } from "./routers/movies"
@@ -21,6 +22,7 @@ export const trpcRouter = createTRPCRouter({
   indexers: indexersRouter,
   downloadClients: downloadClientsRouter,
   mediaServers: mediaServersRouter,
+  history: historyRouter,
   releases: releasesRouter,
   rootFolders: rootFoldersRouter,
   scheduler: schedulerRouter,

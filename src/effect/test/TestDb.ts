@@ -254,6 +254,36 @@ const runDdl = Effect.gen(function* () {
     UNIQUE(media_server_id, external_id)
   )`
 
+  yield* sql`CREATE TABLE session_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    media_server_id INTEGER NOT NULL REFERENCES media_servers(id) ON DELETE CASCADE,
+    plex_user_id TEXT NOT NULL,
+    plex_username TEXT NOT NULL,
+    rating_key TEXT NOT NULL,
+    media_type TEXT NOT NULL,
+    title TEXT NOT NULL,
+    parent_title TEXT,
+    grandparent_title TEXT,
+    year INTEGER,
+    thumb TEXT,
+    started_at INTEGER NOT NULL,
+    stopped_at INTEGER NOT NULL,
+    duration INTEGER NOT NULL,
+    view_offset INTEGER NOT NULL,
+    paused_duration_sec INTEGER NOT NULL DEFAULT 0,
+    transcode_decision TEXT NOT NULL,
+    video_resolution TEXT,
+    audio_codec TEXT,
+    player TEXT NOT NULL,
+    platform TEXT NOT NULL,
+    product TEXT,
+    ip_address TEXT,
+    bandwidth INTEGER,
+    is_local INTEGER NOT NULL,
+    movie_id INTEGER REFERENCES movies(id) ON DELETE SET NULL,
+    episode_id INTEGER REFERENCES episodes(id) ON DELETE SET NULL
+  )`
+
   yield* sql`CREATE TABLE release_decisions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     media_id INTEGER NOT NULL,

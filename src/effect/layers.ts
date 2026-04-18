@@ -18,6 +18,7 @@ import { ReleasePolicyEngineLive } from "./services/ReleasePolicyEngine"
 import { RootFolderServiceLive } from "./services/RootFolderService"
 import { SchedulerServiceLive } from "./services/SchedulerService"
 import { SeriesServiceLive } from "./services/SeriesService"
+import { SessionHistoryServiceLive } from "./services/SessionHistoryService"
 import { TitleParserServiceLive } from "./services/TitleParserService"
 import { TmdbClientLive } from "./services/TmdbClient"
 
@@ -37,6 +38,7 @@ export const AppLive = Layer.mergeAll(
       DownloadClientServiceLive,
       MediaServerServiceLive,
       ReleasePolicyEngineLive,
+      SessionHistoryServiceLive,
     ),
   ),
   Layer.provideMerge(TitleParserServiceLive),

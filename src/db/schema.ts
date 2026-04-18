@@ -363,6 +363,40 @@ export const mediaServerLibraries = sqliteTable(
   (t) => [unique().on(t.mediaServerId, t.externalId)],
 )
 
+export const sessionHistory = sqliteTable("session_history", {
+  id: integer().primaryKey({ autoIncrement: true }),
+  mediaServerId: integer("media_server_id")
+    .notNull()
+    .references(() => mediaServers.id, { onDelete: "cascade" }),
+  plexUserId: text("plex_user_id").notNull(),
+  plexUsername: text("plex_username").notNull(),
+  ratingKey: text("rating_key").notNull(),
+  mediaType: text("media_type", { enum: ["movie", "episode"] }).notNull(),
+  title: text().notNull(),
+  parentTitle: text("parent_title"),
+  grandparentTitle: text("grandparent_title"),
+  year: integer(),
+  thumb: text(),
+  startedAt: integer("started_at", { mode: "timestamp" }).notNull(),
+  stoppedAt: integer("stopped_at", { mode: "timestamp" }).notNull(),
+  duration: integer().notNull(),
+  viewOffset: integer("view_offset").notNull(),
+  pausedDurationSec: integer("paused_duration_sec").notNull().default(0),
+  transcodeDecision: text("transcode_decision", {
+    enum: ["direct_play", "direct_stream", "transcode"],
+  }).notNull(),
+  videoResolution: text("video_resolution"),
+  audioCodec: text("audio_codec"),
+  player: text().notNull(),
+  platform: text().notNull(),
+  product: text(),
+  ipAddress: text("ip_address"),
+  bandwidth: integer(),
+  isLocal: integer("is_local", { mode: "boolean" }).notNull(),
+  movieId: integer("movie_id").references(() => movies.id, { onDelete: "set null" }),
+  episodeId: integer("episode_id").references(() => episodes.id, { onDelete: "set null" }),
+})
+
 // ── Release Decisions ──
 
 export const releaseDecisions = sqliteTable("release_decisions", {

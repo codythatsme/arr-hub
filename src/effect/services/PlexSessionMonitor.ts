@@ -15,6 +15,7 @@ import { AdapterRegistry } from "./AdapterRegistry"
 import { CryptoService } from "./CryptoService"
 import { Db } from "./Db"
 import type { MediaServerAdapter } from "./MediaServerAdapter"
+import { SessionHistoryService } from "./SessionHistoryService"
 
 // ── Notification payload (Plex `/:/websockets/notifications`) ──
 
@@ -116,6 +117,7 @@ export const PlexSessionMonitorLive = Layer.scoped(
     const db = yield* Db
     const crypto = yield* CryptoService
     const registry = yield* AdapterRegistry
+    const history = yield* SessionHistoryService
 
     const sessionsRef = yield* Ref.make<SessionMap>(new Map())
     const fibersRef = yield* Ref.make<FiberMap>(new Map())
@@ -130,9 +132,15 @@ export const PlexSessionMonitorLive = Layer.scoped(
           const result = reconcileSessions(prev, serverId, sessions)
           return [result.stopped, result.map]
         })
-        // Integration point for #23 (Playback Session History): write `stopped` to history.
         if (stopped.length > 0) {
           yield* Effect.log(`[plex-monitor] server=${serverId} sessions ended: ${stopped.length}`)
+          yield* history
+            .writeHistory(stopped)
+            .pipe(
+              Effect.catchAll((e) =>
+                Effect.logWarning(`[plex-monitor] history write failed: ${String(e)}`),
+              ),
+            )
         }
       })
 
