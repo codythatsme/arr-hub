@@ -188,6 +188,21 @@ describe("SessionHistoryService", () => {
     }).pipe(Effect.provide(TestLayer)),
   )
 
+  it.effect("countSince counts only rows stopped after the cutoff", () =>
+    Effect.gen(function* () {
+      yield* seedMediaServer
+      const svc = yield* SessionHistoryService
+      yield* svc.writeHistory([baseSession({ sessionKey: "old" })])
+
+      const cutoff = new Date(Date.now() - 60_000)
+      const total = yield* svc.countSince(cutoff)
+      expect(total).toBe(1)
+
+      const future = yield* svc.countSince(new Date(Date.now() + 60_000))
+      expect(future).toBe(0)
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
   it.effect("getHistoryForMedia returns watch events for an episode", () =>
     Effect.gen(function* () {
       yield* seedMediaServer

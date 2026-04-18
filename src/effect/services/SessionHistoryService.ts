@@ -1,5 +1,5 @@
 import { SqlError } from "@effect/sql/SqlError"
-import { and, between, desc, eq, lt, sql, type SQL } from "drizzle-orm"
+import { and, between, count, desc, eq, gte, lt, sql, type SQL } from "drizzle-orm"
 import { Context, Effect, Layer } from "effect"
 
 import { episodes, movies, plexUsers, sessionHistory } from "#/db/schema"
@@ -50,6 +50,8 @@ export class SessionHistoryService extends Context.Tag("@arr-hub/SessionHistoryS
     readonly getHistoryForMedia: (
       ref: MediaRef,
     ) => Effect.Effect<ReadonlyArray<SessionHistoryRow>, SqlError>
+    /** Count history rows whose `stoppedAt` falls within `[since, now]`. */
+    readonly countSince: (since: Date) => Effect.Effect<number, SqlError>
   }
 >() {}
 
@@ -201,6 +203,15 @@ export const SessionHistoryServiceLive = Layer.effect(
             .from(sessionHistory)
             .where(where)
             .orderBy(desc(sessionHistory.stoppedAt))
+        }),
+
+      countSince: (since) =>
+        Effect.gen(function* () {
+          const rows = yield* db
+            .select({ n: count() })
+            .from(sessionHistory)
+            .where(gte(sessionHistory.stoppedAt, since))
+          return rows[0]?.n ?? 0
         }),
     }
   }),

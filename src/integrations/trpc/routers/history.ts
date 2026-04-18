@@ -45,4 +45,13 @@ export const historyRouter = {
       }),
     ),
   ),
+
+  countSince: authedProcedure.input(z.object({ since: z.date() })).query(({ input }) =>
+    runEffect(
+      Effect.gen(function* () {
+        const svc = yield* SessionHistoryService
+        return yield* svc.countSince(input.since)
+      }),
+    ),
+  ),
 } satisfies TRPCRouterRecord
