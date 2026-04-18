@@ -41,7 +41,7 @@ export interface RankedDecision {
 
 // ── Evaluation Context ──
 
-export type MediaType = "movie" | "episode"
+export type MediaType = "movie" | "episode" | "season"
 
 export interface ExistingFile {
   readonly qualityName: QualityName
@@ -53,4 +53,9 @@ export interface EvaluationContext {
   readonly mediaId: number
   readonly mediaType: MediaType
   readonly existingFile?: ExistingFile
+}
+
+/** Classify a parsed title: did it look like a season pack (season present, episode absent)? */
+export function isSeasonPack(parsed: ParsedTitle): boolean {
+  return parsed.season !== null && parsed.episode === null
 }

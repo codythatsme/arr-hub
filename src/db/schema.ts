@@ -179,6 +179,9 @@ export const episodes = sqliteTable(
     hasFile: integer("has_file", { mode: "boolean" }).notNull().default(false),
     filePath: text("file_path"),
     monitored: integer({ mode: "boolean" }).notNull().default(true),
+    existingQualityName: text("existing_quality_name"),
+    existingQualityRank: integer("existing_quality_rank"),
+    existingFormatScore: integer("existing_format_score"),
   },
   (t) => [unique().on(t.seasonId, t.episodeNumber)],
 )
@@ -286,6 +289,8 @@ export const downloadQueue = sqliteTable("download_queue", {
     .notNull()
     .references(() => downloadClients.id, { onDelete: "cascade" }),
   movieId: integer("movie_id").references(() => movies.id, { onDelete: "set null" }),
+  seriesId: integer("series_id").references(() => series.id, { onDelete: "set null" }),
+  episodeIds: text("episode_ids", { mode: "json" }).$type<ReadonlyArray<number> | null>(),
   externalId: text("external_id").notNull().unique(),
   status: text({ enum: ["queued", "downloading", "importing", "completed", "failed"] })
     .notNull()

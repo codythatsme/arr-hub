@@ -1,8 +1,12 @@
-import { desc, eq } from "drizzle-orm"
+import { and, desc, eq, isNotNull, isNull, lte, or } from "drizzle-orm"
 import { Effect, Schedule } from "effect"
 
-import { schedulerConfig, schedulerJobs } from "#/db/schema"
-import type { SchedulerJobPayload, SchedulerJobType } from "#/effect/domain/scheduler"
+import { episodes, schedulerConfig, schedulerJobs, seasons, series } from "#/db/schema"
+import {
+  DEFAULT_AIR_DATE_DELAY_MINUTES,
+  type SchedulerJobPayload,
+  type SchedulerJobType,
+} from "#/effect/domain/scheduler"
 
 import { AcquisitionPipeline } from "./AcquisitionPipeline"
 import { Db } from "./Db"
@@ -95,6 +99,73 @@ const tick = Effect.gen(function* () {
         }
         break
       }
+      case "tv_rss_sync": {
+        // For each monitored, wanted episode whose air_date is sufficiently past, search.
+        const airCutoff = new Date(Date.now() - DEFAULT_AIR_DATE_DELAY_MINUTES * 60_000)
+        const wantedEpisodes = yield* db
+          .select({ id: episodes.id })
+          .from(episodes)
+          .innerJoin(seasons, eq(episodes.seasonId, seasons.id))
+          .innerJoin(series, eq(seasons.seriesId, series.id))
+          .where(
+            and(
+              eq(episodes.hasFile, false),
+              eq(episodes.monitored, true),
+              eq(seasons.monitored, true),
+              eq(series.monitored, true),
+              isNotNull(series.qualityProfileId),
+              or(isNull(episodes.airDate), lte(episodes.airDate, airCutoff)),
+            ),
+          )
+        for (const row of wantedEpisodes) {
+          yield* pipeline
+            .searchAndGrabEpisode(row.id)
+            .pipe(
+              Effect.catchAll((e) =>
+                Effect.logWarning(`tv_rss_sync episode ${row.id} failed: ${e._tag}`),
+              ),
+            )
+        }
+        break
+      }
+      case "tv_search_cutoff": {
+        const availableEps = yield* db
+          .select({ id: episodes.id })
+          .from(episodes)
+          .innerJoin(seasons, eq(episodes.seasonId, seasons.id))
+          .innerJoin(series, eq(seasons.seriesId, series.id))
+          .where(
+            and(
+              eq(episodes.hasFile, true),
+              eq(episodes.monitored, true),
+              eq(seasons.monitored, true),
+              eq(series.monitored, true),
+              isNotNull(series.qualityProfileId),
+            ),
+          )
+        for (const row of availableEps) {
+          yield* pipeline
+            .searchAndGrabEpisode(row.id)
+            .pipe(
+              Effect.catchAll((e) =>
+                Effect.logWarning(`tv_search_cutoff episode ${row.id} failed: ${e._tag}`),
+              ),
+            )
+        }
+        break
+      }
+      case "tv_search_series": {
+        yield* pipeline.searchAndGrabSeries(payload.seriesId)
+        break
+      }
+      case "tv_search_season": {
+        yield* pipeline.searchAndGrabSeason(payload.seasonId)
+        break
+      }
+      case "tv_search_episode": {
+        yield* pipeline.searchAndGrabEpisode(payload.episodeId)
+        break
+      }
     }
 
     yield* scheduler.complete(job.id)
@@ -121,6 +192,14 @@ function payloadForType(jobType: SchedulerJobType): SchedulerJobPayload | null {
       return { _tag: "search_cutoff" }
     case "search_missing":
       // Manual-only — don't auto-enqueue
+      return null
+    case "tv_rss_sync":
+      return { _tag: "tv_rss_sync" }
+    case "tv_search_cutoff":
+      return { _tag: "tv_search_cutoff" }
+    case "tv_search_series":
+    case "tv_search_season":
+    case "tv_search_episode":
       return null
   }
 }

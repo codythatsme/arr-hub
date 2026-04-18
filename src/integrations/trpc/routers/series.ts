@@ -2,6 +2,7 @@ import type { TRPCRouterRecord } from "@trpc/server"
 import { Effect } from "effect"
 import { z } from "zod"
 
+import { AcquisitionPipeline } from "#/effect/services/AcquisitionPipeline"
 import { SeriesService } from "#/effect/services/SeriesService"
 
 import { authedProcedure, runEffect } from "../init"
@@ -145,4 +146,65 @@ export const seriesRouter = {
       }),
     ),
   ),
+
+  // ── Acquisition ──
+
+  searchSeries: authedProcedure.input(z.object({ id: z.number() })).mutation(({ input }) =>
+    runEffect(
+      Effect.gen(function* () {
+        const pipeline = yield* AcquisitionPipeline
+        return yield* pipeline.searchAndGrabSeries(input.id)
+      }),
+    ),
+  ),
+
+  searchSeason: authedProcedure.input(z.object({ seasonId: z.number() })).mutation(({ input }) =>
+    runEffect(
+      Effect.gen(function* () {
+        const pipeline = yield* AcquisitionPipeline
+        return yield* pipeline.searchAndGrabSeason(input.seasonId)
+      }),
+    ),
+  ),
+
+  searchEpisode: authedProcedure.input(z.object({ episodeId: z.number() })).mutation(({ input }) =>
+    runEffect(
+      Effect.gen(function* () {
+        const pipeline = yield* AcquisitionPipeline
+        return yield* pipeline.searchAndGrabEpisode(input.episodeId)
+      }),
+    ),
+  ),
+
+  evaluateEpisode: authedProcedure
+    .input(z.object({ episodeId: z.number() }))
+    .mutation(({ input }) =>
+      runEffect(
+        Effect.gen(function* () {
+          const pipeline = yield* AcquisitionPipeline
+          return yield* pipeline.searchAndEvaluateEpisode(input.episodeId)
+        }),
+      ),
+    ),
+
+  grabEpisode: authedProcedure
+    .input(
+      z.object({
+        episodeId: z.number(),
+        downloadUrl: z.string(),
+        candidateTitle: z.string(),
+      }),
+    )
+    .mutation(({ input }) =>
+      runEffect(
+        Effect.gen(function* () {
+          const pipeline = yield* AcquisitionPipeline
+          return yield* pipeline.grabEpisode(
+            input.episodeId,
+            input.downloadUrl,
+            input.candidateTitle,
+          )
+        }),
+      ),
+    ),
 } satisfies TRPCRouterRecord

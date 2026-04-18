@@ -8,6 +8,13 @@
       "when": 1772241801884,
       "tag": "0000_ambitious_veda",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1776486454140,
+      "tag": "0001_wise_violations",
+      "breakpoints": true
     }
   ]
 }

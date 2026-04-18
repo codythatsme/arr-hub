@@ -202,6 +202,50 @@ describe("TitleParserService", () => {
     }).pipe(Effect.provide(TestLayer)),
   )
 
+  // ── Season packs ──
+
+  it.effect("parses season pack: Show.S01 (season only, no episode)", () =>
+    Effect.gen(function* () {
+      const svc = yield* TitleParserService
+      const p = yield* svc.parse("Test.Show.S01.1080p.BluRay.x264-GROUP")
+      expect(p.title).toBe("Test Show")
+      expect(p.season).toBe(1)
+      expect(p.episode).toBeNull()
+      expect(p.resolution).toBe(1080)
+      expect(p.qualityName).toBe("Bluray1080p")
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("parses season pack: 'Season 1' verbose form", () =>
+    Effect.gen(function* () {
+      const svc = yield* TitleParserService
+      const p = yield* svc.parse("Test.Show.Season.1.1080p.WEB-DL-GRP")
+      expect(p.title).toBe("Test Show")
+      expect(p.season).toBe(1)
+      expect(p.episode).toBeNull()
+      expect(p.qualityName).toBe("WEBDL1080p")
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("does NOT match season pack when S##E## present", () =>
+    Effect.gen(function* () {
+      const svc = yield* TitleParserService
+      const p = yield* svc.parse("Show.S02E05.1080p.WEB-DL-GRP")
+      expect(p.season).toBe(2)
+      expect(p.episode).toBe(5)
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("title boundary respects S## season-only token", () =>
+    Effect.gen(function* () {
+      const svc = yield* TitleParserService
+      const p = yield* svc.parse("My.Long.Show.Name.S03.720p.HDTV-GRP")
+      expect(p.title).toBe("My Long Show Name")
+      expect(p.season).toBe(3)
+      expect(p.episode).toBeNull()
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
   // ── Error ──
 
   it.effect("rejects empty title", () =>
