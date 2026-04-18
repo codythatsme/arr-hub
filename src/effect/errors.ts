@@ -123,3 +123,16 @@ export class MetadataError extends Data.TaggedError("MetadataError")<{
   readonly message: string
   readonly retryable: boolean
 }> {}
+
+export type OnboardingErrorReason =
+  | "already_complete"
+  | "not_started"
+  | "invalid_step"
+  | "step_out_of_order"
+  | "integration_test_failed"
+  | "admin_already_exists"
+
+export class OnboardingError extends Data.TaggedError("OnboardingError")<{
+  readonly reason: OnboardingErrorReason
+  readonly message: string
+}> {}

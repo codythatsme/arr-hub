@@ -6,6 +6,7 @@ import { historyRouter } from "./routers/history"
 import { indexersRouter } from "./routers/indexers"
 import { mediaServersRouter } from "./routers/mediaServers"
 import { moviesRouter } from "./routers/movies"
+import { onboardingRouter } from "./routers/onboarding"
 import { profilesRouter } from "./routers/profiles"
 import { releasesRouter } from "./routers/releases"
 import { rootFoldersRouter } from "./routers/rootFolders"
@@ -15,6 +16,7 @@ import { tmdbRouter } from "./routers/tmdb"
 
 export const trpcRouter = createTRPCRouter({
   auth: authRouter,
+  onboarding: onboardingRouter,
   movies: moviesRouter,
   series: seriesRouter,
   profiles: profilesRouter,

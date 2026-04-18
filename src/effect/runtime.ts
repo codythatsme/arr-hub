@@ -7,19 +7,24 @@ import { AppLive } from "./layers"
 import { CryptoService } from "./services/CryptoService"
 import { Db } from "./services/Db"
 import { PlexSessionMonitor } from "./services/PlexSessionMonitor"
-import { ProfileDefaultsEngine } from "./services/ProfileDefaultsEngine"
 import { createSchedulerLoop } from "./services/SchedulerLoop"
 import { SchedulerService } from "./services/SchedulerService"
 
 export const AppRuntime = ManagedRuntime.make(AppLive)
 
-/** Seed admin user + default quality profile + scheduler config if tables are empty. */
+/**
+ * Seed scheduler config + start background services.
+ *
+ * Admin user and quality profile defaults are no longer created here — onboarding
+ * (OnboardingService) drives those on first launch. As an escape hatch, an admin is
+ * still seeded iff INITIAL_ADMIN_PASSWORD is explicitly set (e.g. headless docker).
+ */
 const seed = Effect.gen(function* () {
   const db = yield* Db
   const crypto = yield* CryptoService
 
   const existing = yield* db.select({ id: users.id }).from(users).limit(1)
-  if (existing.length === 0) {
+  if (existing.length === 0 && process.env.INITIAL_ADMIN_PASSWORD?.trim()) {
     const password = resolveInitialAdminPassword(process.env)
     const passwordHash = yield* crypto.hashPassword(password)
 
@@ -29,11 +34,8 @@ const seed = Effect.gen(function* () {
     })
 
     // eslint-disable-next-line no-console -- startup log
-    console.log("[arr-hub] admin user seeded")
+    console.log("[arr-hub] admin user seeded from INITIAL_ADMIN_PASSWORD")
   }
-
-  const engine = yield* ProfileDefaultsEngine
-  yield* engine.seedDefaults()
 
   const scheduler = yield* SchedulerService
   yield* scheduler.seedConfig()

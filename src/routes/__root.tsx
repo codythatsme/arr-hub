@@ -6,6 +6,7 @@ import type { TRPCOptionsProxy } from "@trpc/tanstack-react-query"
 
 import type { TRPCRouter } from "#/integrations/trpc/router"
 
+import { AuthGuard, useHideShell } from "../components/auth-guard"
 import { AppSidebar } from "../components/sidebar/app-sidebar"
 import { Separator } from "../components/ui/separator"
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "../components/ui/sidebar"
@@ -61,20 +62,34 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         <TanStackQueryProvider>
-          <SidebarProvider>
-            <AppSidebar />
-            <SidebarInset>
-              <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
-                <SidebarTrigger className="-ml-1" />
-                <Separator orientation="vertical" className="mr-2 h-4" />
-              </header>
-              <div className="flex-1">{children}</div>
-            </SidebarInset>
-          </SidebarProvider>
+          <AuthGuard>
+            <Shell>{children}</Shell>
+          </AuthGuard>
           <TanStackDevtools config={devtoolsConfig} plugins={devtoolsPlugins} />
         </TanStackQueryProvider>
         <Scripts />
       </body>
     </html>
+  )
+}
+
+function Shell({ children }: { children: React.ReactNode }) {
+  const hideShell = useHideShell()
+
+  if (hideShell) {
+    return <>{children}</>
+  }
+
+  return (
+    <SidebarProvider>
+      <AppSidebar />
+      <SidebarInset>
+        <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="mr-2 h-4" />
+        </header>
+        <div className="flex-1">{children}</div>
+      </SidebarInset>
+    </SidebarProvider>
   )
 }

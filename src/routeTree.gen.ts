@@ -10,9 +10,11 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SystemRouteImport } from './routes/system'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TvIndexRouteImport } from './routes/tv/index'
 import { Route as SettingsIndexRouteImport } from './routes/settings/index'
+import { Route as OnboardingIndexRouteImport } from './routes/onboarding/index'
 import { Route as MoviesIndexRouteImport } from './routes/movies/index'
 import { Route as ActivityIndexRouteImport } from './routes/activity/index'
 import { Route as SettingsSecurityRouteImport } from './routes/settings/security'
@@ -25,6 +27,8 @@ import { Route as SettingsMediaManagementRouteImport } from './routes/settings/m
 import { Route as SettingsIndexersRouteImport } from './routes/settings/indexers'
 import { Route as SettingsGeneralRouteImport } from './routes/settings/general'
 import { Route as SettingsDownloadClientsRouteImport } from './routes/settings/download-clients'
+import { Route as OnboardingWizardRouteImport } from './routes/onboarding/wizard'
+import { Route as OnboardingQuickstartRouteImport } from './routes/onboarding/quickstart'
 import { Route as ActivityQueueRouteImport } from './routes/activity/queue'
 import { Route as ActivityHistoryRouteImport } from './routes/activity/history'
 import { Route as ApiTrpcSplatRouteImport } from './routes/api.trpc.$'
@@ -32,6 +36,11 @@ import { Route as ApiTrpcSplatRouteImport } from './routes/api.trpc.$'
 const SystemRoute = SystemRouteImport.update({
   id: '/system',
   path: '/system',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -47,6 +56,11 @@ const TvIndexRoute = TvIndexRouteImport.update({
 const SettingsIndexRoute = SettingsIndexRouteImport.update({
   id: '/settings/',
   path: '/settings/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OnboardingIndexRoute = OnboardingIndexRouteImport.update({
+  id: '/onboarding/',
+  path: '/onboarding/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MoviesIndexRoute = MoviesIndexRouteImport.update({
@@ -109,6 +123,16 @@ const SettingsDownloadClientsRoute = SettingsDownloadClientsRouteImport.update({
   path: '/settings/download-clients',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OnboardingWizardRoute = OnboardingWizardRouteImport.update({
+  id: '/onboarding/wizard',
+  path: '/onboarding/wizard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OnboardingQuickstartRoute = OnboardingQuickstartRouteImport.update({
+  id: '/onboarding/quickstart',
+  path: '/onboarding/quickstart',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ActivityQueueRoute = ActivityQueueRouteImport.update({
   id: '/activity/queue',
   path: '/activity/queue',
@@ -127,9 +151,12 @@ const ApiTrpcSplatRoute = ApiTrpcSplatRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
   '/system': typeof SystemRoute
   '/activity/history': typeof ActivityHistoryRoute
   '/activity/queue': typeof ActivityQueueRoute
+  '/onboarding/quickstart': typeof OnboardingQuickstartRoute
+  '/onboarding/wizard': typeof OnboardingWizardRoute
   '/settings/download-clients': typeof SettingsDownloadClientsRoute
   '/settings/general': typeof SettingsGeneralRoute
   '/settings/indexers': typeof SettingsIndexersRoute
@@ -142,15 +169,19 @@ export interface FileRoutesByFullPath {
   '/settings/security': typeof SettingsSecurityRoute
   '/activity/': typeof ActivityIndexRoute
   '/movies/': typeof MoviesIndexRoute
+  '/onboarding/': typeof OnboardingIndexRoute
   '/settings/': typeof SettingsIndexRoute
   '/tv/': typeof TvIndexRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
   '/system': typeof SystemRoute
   '/activity/history': typeof ActivityHistoryRoute
   '/activity/queue': typeof ActivityQueueRoute
+  '/onboarding/quickstart': typeof OnboardingQuickstartRoute
+  '/onboarding/wizard': typeof OnboardingWizardRoute
   '/settings/download-clients': typeof SettingsDownloadClientsRoute
   '/settings/general': typeof SettingsGeneralRoute
   '/settings/indexers': typeof SettingsIndexersRoute
@@ -163,6 +194,7 @@ export interface FileRoutesByTo {
   '/settings/security': typeof SettingsSecurityRoute
   '/activity': typeof ActivityIndexRoute
   '/movies': typeof MoviesIndexRoute
+  '/onboarding': typeof OnboardingIndexRoute
   '/settings': typeof SettingsIndexRoute
   '/tv': typeof TvIndexRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
@@ -170,9 +202,12 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
   '/system': typeof SystemRoute
   '/activity/history': typeof ActivityHistoryRoute
   '/activity/queue': typeof ActivityQueueRoute
+  '/onboarding/quickstart': typeof OnboardingQuickstartRoute
+  '/onboarding/wizard': typeof OnboardingWizardRoute
   '/settings/download-clients': typeof SettingsDownloadClientsRoute
   '/settings/general': typeof SettingsGeneralRoute
   '/settings/indexers': typeof SettingsIndexersRoute
@@ -185,6 +220,7 @@ export interface FileRoutesById {
   '/settings/security': typeof SettingsSecurityRoute
   '/activity/': typeof ActivityIndexRoute
   '/movies/': typeof MoviesIndexRoute
+  '/onboarding/': typeof OnboardingIndexRoute
   '/settings/': typeof SettingsIndexRoute
   '/tv/': typeof TvIndexRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
@@ -193,9 +229,12 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/login'
     | '/system'
     | '/activity/history'
     | '/activity/queue'
+    | '/onboarding/quickstart'
+    | '/onboarding/wizard'
     | '/settings/download-clients'
     | '/settings/general'
     | '/settings/indexers'
@@ -208,15 +247,19 @@ export interface FileRouteTypes {
     | '/settings/security'
     | '/activity/'
     | '/movies/'
+    | '/onboarding/'
     | '/settings/'
     | '/tv/'
     | '/api/trpc/$'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/login'
     | '/system'
     | '/activity/history'
     | '/activity/queue'
+    | '/onboarding/quickstart'
+    | '/onboarding/wizard'
     | '/settings/download-clients'
     | '/settings/general'
     | '/settings/indexers'
@@ -229,15 +272,19 @@ export interface FileRouteTypes {
     | '/settings/security'
     | '/activity'
     | '/movies'
+    | '/onboarding'
     | '/settings'
     | '/tv'
     | '/api/trpc/$'
   id:
     | '__root__'
     | '/'
+    | '/login'
     | '/system'
     | '/activity/history'
     | '/activity/queue'
+    | '/onboarding/quickstart'
+    | '/onboarding/wizard'
     | '/settings/download-clients'
     | '/settings/general'
     | '/settings/indexers'
@@ -250,6 +297,7 @@ export interface FileRouteTypes {
     | '/settings/security'
     | '/activity/'
     | '/movies/'
+    | '/onboarding/'
     | '/settings/'
     | '/tv/'
     | '/api/trpc/$'
@@ -257,9 +305,12 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  LoginRoute: typeof LoginRoute
   SystemRoute: typeof SystemRoute
   ActivityHistoryRoute: typeof ActivityHistoryRoute
   ActivityQueueRoute: typeof ActivityQueueRoute
+  OnboardingQuickstartRoute: typeof OnboardingQuickstartRoute
+  OnboardingWizardRoute: typeof OnboardingWizardRoute
   SettingsDownloadClientsRoute: typeof SettingsDownloadClientsRoute
   SettingsGeneralRoute: typeof SettingsGeneralRoute
   SettingsIndexersRoute: typeof SettingsIndexersRoute
@@ -272,6 +323,7 @@ export interface RootRouteChildren {
   SettingsSecurityRoute: typeof SettingsSecurityRoute
   ActivityIndexRoute: typeof ActivityIndexRoute
   MoviesIndexRoute: typeof MoviesIndexRoute
+  OnboardingIndexRoute: typeof OnboardingIndexRoute
   SettingsIndexRoute: typeof SettingsIndexRoute
   TvIndexRoute: typeof TvIndexRoute
   ApiTrpcSplatRoute: typeof ApiTrpcSplatRoute
@@ -284,6 +336,13 @@ declare module '@tanstack/react-router' {
       path: '/system'
       fullPath: '/system'
       preLoaderRoute: typeof SystemRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -305,6 +364,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings/'
       preLoaderRoute: typeof SettingsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/onboarding/': {
+      id: '/onboarding/'
+      path: '/onboarding'
+      fullPath: '/onboarding/'
+      preLoaderRoute: typeof OnboardingIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/movies/': {
@@ -391,6 +457,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsDownloadClientsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/onboarding/wizard': {
+      id: '/onboarding/wizard'
+      path: '/onboarding/wizard'
+      fullPath: '/onboarding/wizard'
+      preLoaderRoute: typeof OnboardingWizardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/onboarding/quickstart': {
+      id: '/onboarding/quickstart'
+      path: '/onboarding/quickstart'
+      fullPath: '/onboarding/quickstart'
+      preLoaderRoute: typeof OnboardingQuickstartRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/activity/queue': {
       id: '/activity/queue'
       path: '/activity/queue'
@@ -417,9 +497,12 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  LoginRoute: LoginRoute,
   SystemRoute: SystemRoute,
   ActivityHistoryRoute: ActivityHistoryRoute,
   ActivityQueueRoute: ActivityQueueRoute,
+  OnboardingQuickstartRoute: OnboardingQuickstartRoute,
+  OnboardingWizardRoute: OnboardingWizardRoute,
   SettingsDownloadClientsRoute: SettingsDownloadClientsRoute,
   SettingsGeneralRoute: SettingsGeneralRoute,
   SettingsIndexersRoute: SettingsIndexersRoute,
@@ -432,6 +515,7 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsSecurityRoute: SettingsSecurityRoute,
   ActivityIndexRoute: ActivityIndexRoute,
   MoviesIndexRoute: MoviesIndexRoute,
+  OnboardingIndexRoute: OnboardingIndexRoute,
   SettingsIndexRoute: SettingsIndexRoute,
   TvIndexRoute: TvIndexRoute,
   ApiTrpcSplatRoute: ApiTrpcSplatRoute,

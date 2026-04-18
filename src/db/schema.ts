@@ -430,6 +430,39 @@ export const schedulerConfig = sqliteTable("scheduler_config", {
   enabled: integer({ mode: "boolean" }).notNull().default(true),
 })
 
+// ── Onboarding ──
+
+export const setupState = sqliteTable("setup_state", {
+  id: integer().primaryKey({ autoIncrement: true }),
+  path: text({ enum: ["quickstart", "wizard"] }),
+  currentStep: text("current_step"),
+  completedSteps: text("completed_steps", { mode: "json" })
+    .$type<ReadonlyArray<string>>()
+    .notNull()
+    .default(sql`'[]'`),
+  capabilities: text({ mode: "json" })
+    .$type<{ readonly movies: boolean; readonly tv: boolean }>()
+    .notNull()
+    .default(sql`'{"movies":true,"tv":true}'`),
+  startedAt: integer("started_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  completedAt: integer("completed_at", { mode: "timestamp" }),
+})
+
+export const setupLog = sqliteTable("setup_log", {
+  id: integer().primaryKey({ autoIncrement: true }),
+  stepName: text("step_name").notNull(),
+  action: text().notNull(),
+  result: text({ enum: ["success", "failure", "skipped"] }).notNull(),
+  message: text(),
+  reversible: integer({ mode: "boolean" }).notNull().default(false),
+  rolledBack: integer("rolled_back", { mode: "boolean" }).notNull().default(false),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+})
+
 export const schedulerJobs = sqliteTable("scheduler_jobs", {
   id: integer().primaryKey({ autoIncrement: true }),
   jobType: text("job_type").$type<SchedulerJobType>().notNull(),
