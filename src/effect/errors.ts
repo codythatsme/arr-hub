@@ -136,3 +136,15 @@ export class OnboardingError extends Data.TaggedError("OnboardingError")<{
   readonly reason: OnboardingErrorReason
   readonly message: string
 }> {}
+
+export type ImportErrorReason =
+  | "connection_failed"
+  | "invalid_response"
+  | "transaction_failed"
+  | "setup_not_active"
+
+export class ImportError extends Data.TaggedError("ImportError")<{
+  readonly source: "radarr" | "sonarr"
+  readonly reason: ImportErrorReason
+  readonly message: string
+}> {}
