@@ -8,6 +8,7 @@ import { CryptoServiceLive } from "./services/CryptoService"
 import { DbLive } from "./services/Db"
 import { DownloadClientServiceLive } from "./services/DownloadClientService"
 import { DownloadMonitorLive } from "./services/DownloadMonitor"
+import { ImportServiceLive } from "./services/ImportService"
 import { IndexerServiceLive } from "./services/IndexerService"
 import { MediaServerServiceLive } from "./services/MediaServerService"
 import { MovieServiceLive } from "./services/MovieService"
@@ -29,8 +30,9 @@ export const AppLive = Layer.mergeAll(
   AcquisitionPipelineLive,
   DownloadMonitorLive,
   PlexSessionMonitorLive,
-  OnboardingServiceLive,
+  ImportServiceLive,
 ).pipe(
+  Layer.provideMerge(OnboardingServiceLive),
   Layer.provideMerge(AuthServiceLive),
   Layer.provideMerge(
     Layer.mergeAll(

@@ -11,6 +11,7 @@ import type {
   ConflictError,
   DownloadClientError,
   EncryptionError,
+  ImportError,
   IndexerError,
   MediaServerError,
   MetadataError,
@@ -61,6 +62,7 @@ type DomainError =
   | AcquisitionError
   | MetadataError
   | OnboardingError
+  | ImportError
 
 export function domainToTRPC(error: DomainError): TRPCError {
   switch (error._tag) {
@@ -172,6 +174,18 @@ export function domainToTRPC(error: DomainError): TRPCError {
       return new TRPCError({
         code: codeMap[error.reason] ?? "BAD_REQUEST",
         message: error.message,
+      })
+    }
+    case "ImportError": {
+      const codeMap: Record<string, TRPCError["code"]> = {
+        connection_failed: "BAD_GATEWAY",
+        invalid_response: "BAD_GATEWAY",
+        transaction_failed: "INTERNAL_SERVER_ERROR",
+        setup_not_active: "PRECONDITION_FAILED",
+      }
+      return new TRPCError({
+        code: codeMap[error.reason] ?? "BAD_REQUEST",
+        message: `[${error.source}] ${error.message}`,
       })
     }
   }

@@ -134,13 +134,8 @@ function StepPanel({
         />
       )
     case "import":
-      return (
-        <SkippableStep
-          stepKey="import"
-          title="Library import"
-          description="Radarr/Sonarr import is not yet available. Skip for now — tracked as a separate feature."
-        />
-      )
+      return <ImportStep capabilities={capabilities} />
+
     case "review":
       return <ReviewStep />
   }
@@ -441,6 +436,149 @@ function SkippableStep({
         error={error}
       />
     </section>
+  )
+}
+
+function ImportStep({
+  capabilities,
+}: {
+  capabilities: { readonly movies: boolean; readonly tv: boolean }
+}) {
+  const trpc = useTRPC()
+  const queryClient = useQueryClient()
+  const [error, setError] = useState<string | null>(null)
+
+  const skip = useMutation(
+    trpc.onboarding.skip.mutationOptions({
+      onSuccess: () =>
+        queryClient.invalidateQueries({ queryKey: trpc.onboarding.status.queryKey() }),
+      onError: (e) => setError(e.message),
+    }),
+  )
+
+  const onContinue = () => {
+    setError(null)
+    skip.mutate({ step: "import" })
+  }
+
+  return (
+    <section className="space-y-6">
+      <div>
+        <h2 className="text-xl font-semibold">Import from Radarr / Sonarr</h2>
+        <p className="text-muted-foreground text-sm">
+          Optional — pull your existing library. Credentials are only used for this import and never
+          stored.
+        </p>
+      </div>
+
+      {capabilities.movies && <ImportCard source="radarr" title="Radarr (Movies)" />}
+      {capabilities.tv && <ImportCard source="sonarr" title="Sonarr (TV)" />}
+
+      <StepControls
+        onNext={onContinue}
+        nextLabel="Continue"
+        pending={skip.isPending}
+        error={error}
+      />
+    </section>
+  )
+}
+
+function ImportCard({ source, title }: { source: "radarr" | "sonarr"; title: string }) {
+  const trpc = useTRPC()
+  const [url, setUrl] = useState("")
+  const [apiKey, setApiKey] = useState("")
+  const [testResult, setTestResult] = useState<
+    { ok: true; version: string } | { ok: false; message: string } | null
+  >(null)
+  const [importResult, setImportResult] = useState<{ imported: number; skipped: number } | null>(
+    null,
+  )
+
+  const testMutation = useMutation(
+    source === "radarr"
+      ? trpc.import.testRadarr.mutationOptions({
+          onSuccess: (data) => setTestResult({ ok: true, version: data.version }),
+          onError: (e) => setTestResult({ ok: false, message: e.message }),
+        })
+      : trpc.import.testSonarr.mutationOptions({
+          onSuccess: (data) => setTestResult({ ok: true, version: data.version }),
+          onError: (e) => setTestResult({ ok: false, message: e.message }),
+        }),
+  )
+
+  const importMutation = useMutation(
+    source === "radarr"
+      ? trpc.import.executeRadarr.mutationOptions({
+          onSuccess: (data) => setImportResult(data),
+          onError: (e) => setTestResult({ ok: false, message: e.message }),
+        })
+      : trpc.import.executeSonarr.mutationOptions({
+          onSuccess: (data) => setImportResult(data),
+          onError: (e) => setTestResult({ ok: false, message: e.message }),
+        }),
+  )
+
+  const canTest = url.trim().length > 0 && apiKey.trim().length > 0
+  const canImport = testResult?.ok === true && !importMutation.isPending && importResult === null
+
+  return (
+    <div className="space-y-3 rounded-lg border p-4">
+      <div className="font-medium">{title}</div>
+      <Field label="URL">
+        <Input
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder="http://localhost:7878"
+          autoComplete="off"
+        />
+      </Field>
+      <Field label="API key">
+        <Input
+          type="password"
+          value={apiKey}
+          onChange={(e) => setApiKey(e.target.value)}
+          autoComplete="off"
+        />
+      </Field>
+
+      <div className="flex items-center gap-3">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            setTestResult(null)
+            setImportResult(null)
+            testMutation.mutate({ url: url.trim(), apiKey: apiKey.trim() })
+          }}
+          disabled={!canTest || testMutation.isPending}
+        >
+          {testMutation.isPending ? "Testing…" : "Test connection"}
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          onClick={() => {
+            setImportResult(null)
+            importMutation.mutate({ url: url.trim(), apiKey: apiKey.trim() })
+          }}
+          disabled={!canImport}
+        >
+          {importMutation.isPending ? "Importing…" : "Import now"}
+        </Button>
+      </div>
+
+      {testResult?.ok === true && importResult === null && (
+        <p className="text-sm text-green-600">Connected — v{testResult.version}</p>
+      )}
+      {testResult?.ok === false && <p className="text-destructive text-sm">{testResult.message}</p>}
+      {importResult && (
+        <p className="text-sm text-green-600">
+          Imported {importResult.imported} · Skipped {importResult.skipped}
+        </p>
+      )}
+    </div>
   )
 }
 
