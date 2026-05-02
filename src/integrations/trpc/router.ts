@@ -14,6 +14,7 @@ import { releasesRouter } from "./routers/releases"
 import { rootFoldersRouter } from "./routers/rootFolders"
 import { schedulerRouter } from "./routers/scheduler"
 import { seriesRouter } from "./routers/series"
+import { statsRouter } from "./routers/stats"
 import { tmdbRouter } from "./routers/tmdb"
 
 export const trpcRouter = createTRPCRouter({
@@ -32,6 +33,7 @@ export const trpcRouter = createTRPCRouter({
   releases: releasesRouter,
   rootFolders: rootFoldersRouter,
   scheduler: schedulerRouter,
+  stats: statsRouter,
   tmdb: tmdbRouter,
 })
 
