@@ -424,6 +424,27 @@ export const sessionHistory = sqliteTable("session_history", {
   episodeId: integer("episode_id").references(() => episodes.id, { onDelete: "set null" }),
 })
 
+// ── Local Plugins ──
+
+export type PluginCapability = "download_client" | "indexer" | "media_server"
+
+export const plugins = sqliteTable("plugins", {
+  id: integer().primaryKey({ autoIncrement: true }),
+  name: text().notNull().unique(),
+  path: text().notNull(),
+  version: text().notNull(),
+  enabled: integer({ mode: "boolean" }).notNull().default(false),
+  capabilities: text({ mode: "json" }).$type<ReadonlyArray<PluginCapability>>().notNull(),
+  loadedAt: integer("loaded_at", { mode: "timestamp" }),
+  errorMessage: text("error_message"),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+})
+
 // ── Release Decisions ──
 
 export const releaseDecisions = sqliteTable("release_decisions", {

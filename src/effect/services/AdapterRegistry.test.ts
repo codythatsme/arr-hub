@@ -50,4 +50,27 @@ describe("AdapterRegistry", () => {
       expect(mediaError._tag).toBe("ValidationError")
     }).pipe(Effect.provide(AdapterRegistryLive)),
   )
+
+  it.effect("unregisters adapter types", () =>
+    Effect.gen(function* () {
+      const registry = yield* AdapterRegistry
+      registry.registerDownloadClient(
+        "temp-download",
+        {
+          displayName: "Temp",
+          protocolAffinity: "any",
+          defaultPort: 1,
+          authModel: "none",
+        },
+        () => ({}) as never,
+      )
+      expect(
+        registry.listDownloadClientTypes().some((entry) => entry.type === "temp-download"),
+      ).toBe(true)
+
+      registry.unregisterDownloadClient("temp-download")
+      const error = yield* Effect.flip(registry.getDownloadClientFactory("temp-download"))
+      expect(error._tag).toBe("ValidationError")
+    }).pipe(Effect.provide(AdapterRegistryLive)),
+  )
 })

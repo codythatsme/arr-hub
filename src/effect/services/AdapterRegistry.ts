@@ -53,6 +53,7 @@ export class AdapterRegistry extends Context.Tag("@arr-hub/AdapterRegistry")<
       metadata: AdapterMetadata,
       factory: AdapterFactory,
     ) => void
+    readonly unregisterDownloadClient: (type: DownloadClientType) => void
     readonly getDownloadClientFactory: (
       type: DownloadClientType,
     ) => Effect.Effect<AdapterFactory, ValidationError>
@@ -67,6 +68,7 @@ export class AdapterRegistry extends Context.Tag("@arr-hub/AdapterRegistry")<
       metadata: IndexerAdapterMetadata,
       factory: IndexerAdapterFactory,
     ) => void
+    readonly unregisterIndexer: (type: IndexerType) => void
     readonly getIndexerFactory: (
       type: IndexerType,
     ) => Effect.Effect<IndexerAdapterFactory, ValidationError>
@@ -81,6 +83,7 @@ export class AdapterRegistry extends Context.Tag("@arr-hub/AdapterRegistry")<
       metadata: MediaServerAdapterMetadata,
       factory: MediaServerAdapterFactory,
     ) => void
+    readonly unregisterMediaServer: (type: MediaServerType) => void
     readonly getMediaServerFactory: (
       type: MediaServerType,
     ) => Effect.Effect<MediaServerAdapterFactory, ValidationError>
@@ -103,6 +106,9 @@ export const AdapterRegistryLive = Layer.sync(AdapterRegistry, () => {
     registerDownloadClient: (type, metadata, factory) => {
       downloadAdapters.set(type, { metadata, factory })
     },
+    unregisterDownloadClient: (type) => {
+      downloadAdapters.delete(type)
+    },
 
     getDownloadClientFactory: (type) => {
       const entry = downloadAdapters.get(type)
@@ -121,6 +127,9 @@ export const AdapterRegistryLive = Layer.sync(AdapterRegistry, () => {
     registerIndexer: (type, metadata, factory) => {
       indexerAdapters.set(type, { metadata, factory })
     },
+    unregisterIndexer: (type) => {
+      indexerAdapters.delete(type)
+    },
 
     getIndexerFactory: (type) => {
       const entry = indexerAdapters.get(type)
@@ -136,6 +145,9 @@ export const AdapterRegistryLive = Layer.sync(AdapterRegistry, () => {
     // Media servers
     registerMediaServer: (type, metadata, factory) => {
       mediaServerAdapters.set(type, { metadata, factory })
+    },
+    unregisterMediaServer: (type) => {
+      mediaServerAdapters.delete(type)
     },
 
     getMediaServerFactory: (type) => {
