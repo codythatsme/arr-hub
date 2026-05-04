@@ -29,11 +29,19 @@ import { Route as SettingsGeneralRouteImport } from './routes/settings/general'
 import { Route as SettingsDownloadClientsRouteImport } from './routes/settings/download-clients'
 import { Route as OnboardingWizardRouteImport } from './routes/onboarding/wizard'
 import { Route as OnboardingQuickstartRouteImport } from './routes/onboarding/quickstart'
+import { Route as ApiQueueRouteImport } from './routes/api.queue'
 import { Route as ActivityUsersRouteImport } from './routes/activity/users'
 import { Route as ActivityStatsRouteImport } from './routes/activity/stats'
 import { Route as ActivityQueueRouteImport } from './routes/activity/queue'
 import { Route as ActivityHistoryRouteImport } from './routes/activity/history'
 import { Route as ApiTrpcSplatRouteImport } from './routes/api.trpc.$'
+import { Route as ApiSystemTasksRouteImport } from './routes/api.system.tasks'
+import { Route as ApiSystemStatusRouteImport } from './routes/api.system.status'
+import { Route as ApiSystemLogsRouteImport } from './routes/api.system.logs'
+import { Route as ApiSystemHealthRouteImport } from './routes/api.system.health'
+import { Route as ApiQueueIdRetryRouteImport } from './routes/api.queue.$id.retry'
+import { Route as ApiQueueIdRemoveRouteImport } from './routes/api.queue.$id.remove'
+import { Route as ApiQueueIdBlocklistRouteImport } from './routes/api.queue.$id.blocklist'
 
 const SystemRoute = SystemRouteImport.update({
   id: '/system',
@@ -135,6 +143,11 @@ const OnboardingQuickstartRoute = OnboardingQuickstartRouteImport.update({
   path: '/onboarding/quickstart',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiQueueRoute = ApiQueueRouteImport.update({
+  id: '/api/queue',
+  path: '/api/queue',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ActivityUsersRoute = ActivityUsersRouteImport.update({
   id: '/activity/users',
   path: '/activity/users',
@@ -160,6 +173,41 @@ const ApiTrpcSplatRoute = ApiTrpcSplatRouteImport.update({
   path: '/api/trpc/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiSystemTasksRoute = ApiSystemTasksRouteImport.update({
+  id: '/api/system/tasks',
+  path: '/api/system/tasks',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiSystemStatusRoute = ApiSystemStatusRouteImport.update({
+  id: '/api/system/status',
+  path: '/api/system/status',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiSystemLogsRoute = ApiSystemLogsRouteImport.update({
+  id: '/api/system/logs',
+  path: '/api/system/logs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiSystemHealthRoute = ApiSystemHealthRouteImport.update({
+  id: '/api/system/health',
+  path: '/api/system/health',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiQueueIdRetryRoute = ApiQueueIdRetryRouteImport.update({
+  id: '/$id/retry',
+  path: '/$id/retry',
+  getParentRoute: () => ApiQueueRoute,
+} as any)
+const ApiQueueIdRemoveRoute = ApiQueueIdRemoveRouteImport.update({
+  id: '/$id/remove',
+  path: '/$id/remove',
+  getParentRoute: () => ApiQueueRoute,
+} as any)
+const ApiQueueIdBlocklistRoute = ApiQueueIdBlocklistRouteImport.update({
+  id: '/$id/blocklist',
+  path: '/$id/blocklist',
+  getParentRoute: () => ApiQueueRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -169,6 +217,7 @@ export interface FileRoutesByFullPath {
   '/activity/queue': typeof ActivityQueueRoute
   '/activity/stats': typeof ActivityStatsRoute
   '/activity/users': typeof ActivityUsersRoute
+  '/api/queue': typeof ApiQueueRouteWithChildren
   '/onboarding/quickstart': typeof OnboardingQuickstartRoute
   '/onboarding/wizard': typeof OnboardingWizardRoute
   '/settings/download-clients': typeof SettingsDownloadClientsRoute
@@ -186,7 +235,14 @@ export interface FileRoutesByFullPath {
   '/onboarding/': typeof OnboardingIndexRoute
   '/settings/': typeof SettingsIndexRoute
   '/tv/': typeof TvIndexRoute
+  '/api/system/health': typeof ApiSystemHealthRoute
+  '/api/system/logs': typeof ApiSystemLogsRoute
+  '/api/system/status': typeof ApiSystemStatusRoute
+  '/api/system/tasks': typeof ApiSystemTasksRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
+  '/api/queue/$id/blocklist': typeof ApiQueueIdBlocklistRoute
+  '/api/queue/$id/remove': typeof ApiQueueIdRemoveRoute
+  '/api/queue/$id/retry': typeof ApiQueueIdRetryRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -196,6 +252,7 @@ export interface FileRoutesByTo {
   '/activity/queue': typeof ActivityQueueRoute
   '/activity/stats': typeof ActivityStatsRoute
   '/activity/users': typeof ActivityUsersRoute
+  '/api/queue': typeof ApiQueueRouteWithChildren
   '/onboarding/quickstart': typeof OnboardingQuickstartRoute
   '/onboarding/wizard': typeof OnboardingWizardRoute
   '/settings/download-clients': typeof SettingsDownloadClientsRoute
@@ -213,7 +270,14 @@ export interface FileRoutesByTo {
   '/onboarding': typeof OnboardingIndexRoute
   '/settings': typeof SettingsIndexRoute
   '/tv': typeof TvIndexRoute
+  '/api/system/health': typeof ApiSystemHealthRoute
+  '/api/system/logs': typeof ApiSystemLogsRoute
+  '/api/system/status': typeof ApiSystemStatusRoute
+  '/api/system/tasks': typeof ApiSystemTasksRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
+  '/api/queue/$id/blocklist': typeof ApiQueueIdBlocklistRoute
+  '/api/queue/$id/remove': typeof ApiQueueIdRemoveRoute
+  '/api/queue/$id/retry': typeof ApiQueueIdRetryRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -224,6 +288,7 @@ export interface FileRoutesById {
   '/activity/queue': typeof ActivityQueueRoute
   '/activity/stats': typeof ActivityStatsRoute
   '/activity/users': typeof ActivityUsersRoute
+  '/api/queue': typeof ApiQueueRouteWithChildren
   '/onboarding/quickstart': typeof OnboardingQuickstartRoute
   '/onboarding/wizard': typeof OnboardingWizardRoute
   '/settings/download-clients': typeof SettingsDownloadClientsRoute
@@ -241,7 +306,14 @@ export interface FileRoutesById {
   '/onboarding/': typeof OnboardingIndexRoute
   '/settings/': typeof SettingsIndexRoute
   '/tv/': typeof TvIndexRoute
+  '/api/system/health': typeof ApiSystemHealthRoute
+  '/api/system/logs': typeof ApiSystemLogsRoute
+  '/api/system/status': typeof ApiSystemStatusRoute
+  '/api/system/tasks': typeof ApiSystemTasksRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
+  '/api/queue/$id/blocklist': typeof ApiQueueIdBlocklistRoute
+  '/api/queue/$id/remove': typeof ApiQueueIdRemoveRoute
+  '/api/queue/$id/retry': typeof ApiQueueIdRetryRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -253,6 +325,7 @@ export interface FileRouteTypes {
     | '/activity/queue'
     | '/activity/stats'
     | '/activity/users'
+    | '/api/queue'
     | '/onboarding/quickstart'
     | '/onboarding/wizard'
     | '/settings/download-clients'
@@ -270,7 +343,14 @@ export interface FileRouteTypes {
     | '/onboarding/'
     | '/settings/'
     | '/tv/'
+    | '/api/system/health'
+    | '/api/system/logs'
+    | '/api/system/status'
+    | '/api/system/tasks'
     | '/api/trpc/$'
+    | '/api/queue/$id/blocklist'
+    | '/api/queue/$id/remove'
+    | '/api/queue/$id/retry'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -280,6 +360,7 @@ export interface FileRouteTypes {
     | '/activity/queue'
     | '/activity/stats'
     | '/activity/users'
+    | '/api/queue'
     | '/onboarding/quickstart'
     | '/onboarding/wizard'
     | '/settings/download-clients'
@@ -297,7 +378,14 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/settings'
     | '/tv'
+    | '/api/system/health'
+    | '/api/system/logs'
+    | '/api/system/status'
+    | '/api/system/tasks'
     | '/api/trpc/$'
+    | '/api/queue/$id/blocklist'
+    | '/api/queue/$id/remove'
+    | '/api/queue/$id/retry'
   id:
     | '__root__'
     | '/'
@@ -307,6 +395,7 @@ export interface FileRouteTypes {
     | '/activity/queue'
     | '/activity/stats'
     | '/activity/users'
+    | '/api/queue'
     | '/onboarding/quickstart'
     | '/onboarding/wizard'
     | '/settings/download-clients'
@@ -324,7 +413,14 @@ export interface FileRouteTypes {
     | '/onboarding/'
     | '/settings/'
     | '/tv/'
+    | '/api/system/health'
+    | '/api/system/logs'
+    | '/api/system/status'
+    | '/api/system/tasks'
     | '/api/trpc/$'
+    | '/api/queue/$id/blocklist'
+    | '/api/queue/$id/remove'
+    | '/api/queue/$id/retry'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -335,6 +431,7 @@ export interface RootRouteChildren {
   ActivityQueueRoute: typeof ActivityQueueRoute
   ActivityStatsRoute: typeof ActivityStatsRoute
   ActivityUsersRoute: typeof ActivityUsersRoute
+  ApiQueueRoute: typeof ApiQueueRouteWithChildren
   OnboardingQuickstartRoute: typeof OnboardingQuickstartRoute
   OnboardingWizardRoute: typeof OnboardingWizardRoute
   SettingsDownloadClientsRoute: typeof SettingsDownloadClientsRoute
@@ -352,6 +449,10 @@ export interface RootRouteChildren {
   OnboardingIndexRoute: typeof OnboardingIndexRoute
   SettingsIndexRoute: typeof SettingsIndexRoute
   TvIndexRoute: typeof TvIndexRoute
+  ApiSystemHealthRoute: typeof ApiSystemHealthRoute
+  ApiSystemLogsRoute: typeof ApiSystemLogsRoute
+  ApiSystemStatusRoute: typeof ApiSystemStatusRoute
+  ApiSystemTasksRoute: typeof ApiSystemTasksRoute
   ApiTrpcSplatRoute: typeof ApiTrpcSplatRoute
 }
 
@@ -497,6 +598,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OnboardingQuickstartRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/queue': {
+      id: '/api/queue'
+      path: '/api/queue'
+      fullPath: '/api/queue'
+      preLoaderRoute: typeof ApiQueueRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/activity/users': {
       id: '/activity/users'
       path: '/activity/users'
@@ -532,8 +640,73 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiTrpcSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/system/tasks': {
+      id: '/api/system/tasks'
+      path: '/api/system/tasks'
+      fullPath: '/api/system/tasks'
+      preLoaderRoute: typeof ApiSystemTasksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/system/status': {
+      id: '/api/system/status'
+      path: '/api/system/status'
+      fullPath: '/api/system/status'
+      preLoaderRoute: typeof ApiSystemStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/system/logs': {
+      id: '/api/system/logs'
+      path: '/api/system/logs'
+      fullPath: '/api/system/logs'
+      preLoaderRoute: typeof ApiSystemLogsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/system/health': {
+      id: '/api/system/health'
+      path: '/api/system/health'
+      fullPath: '/api/system/health'
+      preLoaderRoute: typeof ApiSystemHealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/queue/$id/retry': {
+      id: '/api/queue/$id/retry'
+      path: '/$id/retry'
+      fullPath: '/api/queue/$id/retry'
+      preLoaderRoute: typeof ApiQueueIdRetryRouteImport
+      parentRoute: typeof ApiQueueRoute
+    }
+    '/api/queue/$id/remove': {
+      id: '/api/queue/$id/remove'
+      path: '/$id/remove'
+      fullPath: '/api/queue/$id/remove'
+      preLoaderRoute: typeof ApiQueueIdRemoveRouteImport
+      parentRoute: typeof ApiQueueRoute
+    }
+    '/api/queue/$id/blocklist': {
+      id: '/api/queue/$id/blocklist'
+      path: '/$id/blocklist'
+      fullPath: '/api/queue/$id/blocklist'
+      preLoaderRoute: typeof ApiQueueIdBlocklistRouteImport
+      parentRoute: typeof ApiQueueRoute
+    }
   }
 }
+
+interface ApiQueueRouteChildren {
+  ApiQueueIdBlocklistRoute: typeof ApiQueueIdBlocklistRoute
+  ApiQueueIdRemoveRoute: typeof ApiQueueIdRemoveRoute
+  ApiQueueIdRetryRoute: typeof ApiQueueIdRetryRoute
+}
+
+const ApiQueueRouteChildren: ApiQueueRouteChildren = {
+  ApiQueueIdBlocklistRoute: ApiQueueIdBlocklistRoute,
+  ApiQueueIdRemoveRoute: ApiQueueIdRemoveRoute,
+  ApiQueueIdRetryRoute: ApiQueueIdRetryRoute,
+}
+
+const ApiQueueRouteWithChildren = ApiQueueRoute._addFileChildren(
+  ApiQueueRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -543,6 +716,7 @@ const rootRouteChildren: RootRouteChildren = {
   ActivityQueueRoute: ActivityQueueRoute,
   ActivityStatsRoute: ActivityStatsRoute,
   ActivityUsersRoute: ActivityUsersRoute,
+  ApiQueueRoute: ApiQueueRouteWithChildren,
   OnboardingQuickstartRoute: OnboardingQuickstartRoute,
   OnboardingWizardRoute: OnboardingWizardRoute,
   SettingsDownloadClientsRoute: SettingsDownloadClientsRoute,
@@ -560,6 +734,10 @@ const rootRouteChildren: RootRouteChildren = {
   OnboardingIndexRoute: OnboardingIndexRoute,
   SettingsIndexRoute: SettingsIndexRoute,
   TvIndexRoute: TvIndexRoute,
+  ApiSystemHealthRoute: ApiSystemHealthRoute,
+  ApiSystemLogsRoute: ApiSystemLogsRoute,
+  ApiSystemStatusRoute: ApiSystemStatusRoute,
+  ApiSystemTasksRoute: ApiSystemTasksRoute,
   ApiTrpcSplatRoute: ApiTrpcSplatRoute,
 }
 export const routeTree = rootRouteImport

@@ -6,7 +6,17 @@ import { SchedulerService } from "#/effect/services/SchedulerService"
 
 import { authedProcedure, runEffect } from "../init"
 
-const jobTypeSchema = z.enum(["rss_sync", "search_missing", "search_cutoff", "download_monitor"])
+const jobTypeSchema = z.enum([
+  "rss_sync",
+  "search_missing",
+  "search_cutoff",
+  "download_monitor",
+  "tv_rss_sync",
+  "tv_search_cutoff",
+  "tv_search_series",
+  "tv_search_season",
+  "tv_search_episode",
+])
 
 export const schedulerRouter = {
   jobs: authedProcedure

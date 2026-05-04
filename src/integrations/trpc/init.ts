@@ -9,6 +9,7 @@ import type {
   BundleNotFoundError,
   BundleVersionConflictError,
   ConflictError,
+  DiagnosticsError,
   DownloadClientError,
   EncryptionError,
   ImportError,
@@ -20,6 +21,7 @@ import type {
   ParseFailed,
   ProfileInUseError,
   SchedulerError,
+  SettingsError,
   ValidationError,
 } from "#/effect/errors"
 import { AppRuntime } from "#/effect/runtime"
@@ -45,7 +47,7 @@ export const createTRPCRouter = t.router
 
 export const publicProcedure = t.procedure
 
-type DomainError =
+export type DomainError =
   | NotFoundError
   | ValidationError
   | ConflictError
@@ -59,6 +61,8 @@ type DomainError =
   | EncryptionError
   | ParseFailed
   | SchedulerError
+  | DiagnosticsError
+  | SettingsError
   | AcquisitionError
   | MetadataError
   | OnboardingError
@@ -145,6 +149,10 @@ export function domainToTRPC(error: DomainError): TRPCError {
         message: error.message,
       })
     }
+    case "DiagnosticsError":
+      return new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message })
+    case "SettingsError":
+      return new TRPCError({ code: "BAD_REQUEST", message: error.message })
     case "AcquisitionError":
       return new TRPCError({
         code: "BAD_REQUEST",
