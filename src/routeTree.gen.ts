@@ -30,6 +30,7 @@ import { Route as SettingsDownloadClientsRouteImport } from './routes/settings/d
 import { Route as OnboardingWizardRouteImport } from './routes/onboarding/wizard'
 import { Route as OnboardingQuickstartRouteImport } from './routes/onboarding/quickstart'
 import { Route as ActivityUsersRouteImport } from './routes/activity/users'
+import { Route as ActivityStatsRouteImport } from './routes/activity/stats'
 import { Route as ActivityQueueRouteImport } from './routes/activity/queue'
 import { Route as ActivityHistoryRouteImport } from './routes/activity/history'
 import { Route as ApiTrpcSplatRouteImport } from './routes/api.trpc.$'
@@ -139,6 +140,11 @@ const ActivityUsersRoute = ActivityUsersRouteImport.update({
   path: '/activity/users',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ActivityStatsRoute = ActivityStatsRouteImport.update({
+  id: '/activity/stats',
+  path: '/activity/stats',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ActivityQueueRoute = ActivityQueueRouteImport.update({
   id: '/activity/queue',
   path: '/activity/queue',
@@ -161,6 +167,7 @@ export interface FileRoutesByFullPath {
   '/system': typeof SystemRoute
   '/activity/history': typeof ActivityHistoryRoute
   '/activity/queue': typeof ActivityQueueRoute
+  '/activity/stats': typeof ActivityStatsRoute
   '/activity/users': typeof ActivityUsersRoute
   '/onboarding/quickstart': typeof OnboardingQuickstartRoute
   '/onboarding/wizard': typeof OnboardingWizardRoute
@@ -187,6 +194,7 @@ export interface FileRoutesByTo {
   '/system': typeof SystemRoute
   '/activity/history': typeof ActivityHistoryRoute
   '/activity/queue': typeof ActivityQueueRoute
+  '/activity/stats': typeof ActivityStatsRoute
   '/activity/users': typeof ActivityUsersRoute
   '/onboarding/quickstart': typeof OnboardingQuickstartRoute
   '/onboarding/wizard': typeof OnboardingWizardRoute
@@ -214,6 +222,7 @@ export interface FileRoutesById {
   '/system': typeof SystemRoute
   '/activity/history': typeof ActivityHistoryRoute
   '/activity/queue': typeof ActivityQueueRoute
+  '/activity/stats': typeof ActivityStatsRoute
   '/activity/users': typeof ActivityUsersRoute
   '/onboarding/quickstart': typeof OnboardingQuickstartRoute
   '/onboarding/wizard': typeof OnboardingWizardRoute
@@ -242,6 +251,7 @@ export interface FileRouteTypes {
     | '/system'
     | '/activity/history'
     | '/activity/queue'
+    | '/activity/stats'
     | '/activity/users'
     | '/onboarding/quickstart'
     | '/onboarding/wizard'
@@ -268,6 +278,7 @@ export interface FileRouteTypes {
     | '/system'
     | '/activity/history'
     | '/activity/queue'
+    | '/activity/stats'
     | '/activity/users'
     | '/onboarding/quickstart'
     | '/onboarding/wizard'
@@ -294,6 +305,7 @@ export interface FileRouteTypes {
     | '/system'
     | '/activity/history'
     | '/activity/queue'
+    | '/activity/stats'
     | '/activity/users'
     | '/onboarding/quickstart'
     | '/onboarding/wizard'
@@ -321,6 +333,7 @@ export interface RootRouteChildren {
   SystemRoute: typeof SystemRoute
   ActivityHistoryRoute: typeof ActivityHistoryRoute
   ActivityQueueRoute: typeof ActivityQueueRoute
+  ActivityStatsRoute: typeof ActivityStatsRoute
   ActivityUsersRoute: typeof ActivityUsersRoute
   OnboardingQuickstartRoute: typeof OnboardingQuickstartRoute
   OnboardingWizardRoute: typeof OnboardingWizardRoute
@@ -491,6 +504,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ActivityUsersRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/activity/stats': {
+      id: '/activity/stats'
+      path: '/activity/stats'
+      fullPath: '/activity/stats'
+      preLoaderRoute: typeof ActivityStatsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/activity/queue': {
       id: '/activity/queue'
       path: '/activity/queue'
@@ -521,6 +541,7 @@ const rootRouteChildren: RootRouteChildren = {
   SystemRoute: SystemRoute,
   ActivityHistoryRoute: ActivityHistoryRoute,
   ActivityQueueRoute: ActivityQueueRoute,
+  ActivityStatsRoute: ActivityStatsRoute,
   ActivityUsersRoute: ActivityUsersRoute,
   OnboardingQuickstartRoute: OnboardingQuickstartRoute,
   OnboardingWizardRoute: OnboardingWizardRoute,

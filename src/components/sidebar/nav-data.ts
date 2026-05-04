@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react"
 import {
   Activity,
+  BarChart3,
   Bell,
   Calendar,
   Clapperboard,
@@ -54,6 +55,7 @@ const collapsibleGroups = [
       { title: "Queue", to: "/activity/queue", icon: ListOrdered },
       { title: "History", to: "/activity/history", icon: History },
       { title: "Users", to: "/activity/users", icon: Users },
+      { title: "Stats", to: "/activity/stats", icon: BarChart3 },
     ],
   },
   {

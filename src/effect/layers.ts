@@ -22,6 +22,7 @@ import { RootFolderServiceLive } from "./services/RootFolderService"
 import { SchedulerServiceLive } from "./services/SchedulerService"
 import { SeriesServiceLive } from "./services/SeriesService"
 import { SessionHistoryServiceLive } from "./services/SessionHistoryService"
+import { StatsServiceLive } from "./services/StatsService"
 import { TitleParserServiceLive } from "./services/TitleParserService"
 import { TmdbClientLive } from "./services/TmdbClient"
 
@@ -45,6 +46,7 @@ export const AppLive = Layer.mergeAll(
       ReleasePolicyEngineLive,
       SessionHistoryServiceLive,
       PlexUserServiceLive,
+      StatsServiceLive,
     ),
   ),
   Layer.provideMerge(TitleParserServiceLive),
