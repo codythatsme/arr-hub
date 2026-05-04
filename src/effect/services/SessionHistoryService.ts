@@ -6,6 +6,7 @@ import { episodes, movies, plexUsers, sessionHistory } from "#/db/schema"
 
 import type { MediaServerSession, SessionMediaType } from "../domain/mediaServer"
 import { Db } from "./Db"
+import { MonitoringTriggerBus } from "./MonitoringTriggerBus"
 
 // ── Types ──
 
@@ -59,10 +60,16 @@ export class SessionHistoryService extends Context.Tag("@arr-hub/SessionHistoryS
 
 /** Below this watched fraction we drop the row — likely a quick scrub or accidental open. */
 const MIN_WATCHED_FRACTION = 0.01
+const WATCHED_TRIGGER_FRACTION = 0.8
 
 function shouldRecord(session: MediaServerSession): boolean {
   if (session.duration <= 0) return false
   return session.viewOffset / session.duration >= MIN_WATCHED_FRACTION
+}
+
+export function isWatchedSession(session: MediaServerSession): boolean {
+  if (session.duration <= 0) return false
+  return session.viewOffset / session.duration > WATCHED_TRIGGER_FRACTION
 }
 
 // ── Live ──
@@ -71,6 +78,7 @@ export const SessionHistoryServiceLive = Layer.effect(
   SessionHistoryService,
   Effect.gen(function* () {
     const db = yield* Db
+    const triggers = yield* MonitoringTriggerBus
 
     const resolveMovieId = (tmdbId: number | null): Effect.Effect<number | null, SqlError> =>
       tmdbId === null
@@ -154,6 +162,10 @@ export const SessionHistoryServiceLive = Layer.effect(
                   eq(plexUsers.plexUserId, s.userId),
                 ),
               )
+
+            if (isWatchedSession(s)) {
+              yield* triggers.emit({ kind: "media_watched", session: s })
+            }
           }
 
           return out

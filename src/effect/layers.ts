@@ -11,6 +11,7 @@ import { DownloadMonitorLive } from "./services/DownloadMonitor"
 import { ImportServiceLive } from "./services/ImportService"
 import { IndexerServiceLive } from "./services/IndexerService"
 import { MediaServerServiceLive } from "./services/MediaServerService"
+import { MonitoringTriggerBusLive } from "./services/MonitoringTriggerBus"
 import { MovieServiceLive } from "./services/MovieService"
 import { OnboardingServiceLive } from "./services/OnboardingService"
 import { PlexSessionMonitorLive } from "./services/PlexSessionMonitor"
@@ -54,6 +55,7 @@ export const AppLive = Layer.mergeAll(
   Layer.provideMerge(ConfigServiceLive),
   Layer.provideMerge(RootFolderServiceLive),
   Layer.provideMerge(ProfileServiceLive),
+  Layer.provideMerge(MonitoringTriggerBusLive),
   Layer.provideMerge(AdapterRegistryLive),
   Layer.provideMerge(CryptoServiceLive),
   Layer.provideMerge(TmdbClientLive),

@@ -5,16 +5,20 @@ import type { MediaServerSession } from "#/effect/domain/mediaServer"
 import { AdapterRegistryLive } from "#/effect/services/AdapterRegistry"
 import { CryptoServiceLive } from "#/effect/services/CryptoService"
 import { MediaServerService, MediaServerServiceLive } from "#/effect/services/MediaServerService"
+import { MonitoringTriggerBusLive } from "#/effect/services/MonitoringTriggerBus"
 import { SessionHistoryServiceLive } from "#/effect/services/SessionHistoryService"
 import { TestDbLive } from "#/effect/test/TestDb"
 
 import {
   buildWsUrl,
   isPlayingNotification,
+  parseNewContentTriggers,
   PlexSessionMonitor,
   PlexSessionMonitorLive,
   reconcileSessions,
+  sessionLifecycleTriggers,
   snapshotSessions,
+  watchedPercent,
 } from "./PlexSessionMonitor"
 
 // ── Pure helper unit tests ──
@@ -53,7 +57,11 @@ const mkSession = (sessionKey: string, serverId = 1): MediaServerSession => ({
 
 describe("reconcileSessions", () => {
   it("seeds sessions when prev is empty", () => {
-    const { map, stopped } = reconcileSessions(new Map(), 1, [mkSession("a"), mkSession("b")])
+    const { map, started, stopped } = reconcileSessions(new Map(), 1, [
+      mkSession("a"),
+      mkSession("b"),
+    ])
+    expect(started.map((s) => s.sessionKey)).toEqual(["a", "b"])
     expect(stopped).toEqual([])
     expect(map.get(1)?.size).toBe(2)
   })
@@ -68,7 +76,8 @@ describe("reconcileSessions", () => {
         ]),
       ],
     ])
-    const { stopped } = reconcileSessions(prev, 1, [mkSession("a")])
+    const { started, stopped } = reconcileSessions(prev, 1, [mkSession("a")])
+    expect(started).toEqual([])
     expect(stopped.map((s) => s.sessionKey)).toEqual(["b"])
   })
 
@@ -77,7 +86,8 @@ describe("reconcileSessions", () => {
       [1, new Map([["a", mkSession("a", 1)]])],
       [2, new Map([["x", mkSession("x", 2)]])],
     ])
-    const { map, stopped } = reconcileSessions(prev, 1, [])
+    const { map, started, stopped } = reconcileSessions(prev, 1, [])
+    expect(started).toEqual([])
     expect(stopped.map((s) => s.sessionKey)).toEqual(["a"])
     expect(map.get(2)?.size).toBe(1)
     expect(map.get(1)?.size).toBe(0)
@@ -86,7 +96,8 @@ describe("reconcileSessions", () => {
   it("upserts existing keys with new state", () => {
     const prev = new Map([[1, new Map([["a", { ...mkSession("a"), state: "playing" as const }]])]])
     const updated: MediaServerSession = { ...mkSession("a"), state: "paused" }
-    const { map, stopped } = reconcileSessions(prev, 1, [updated])
+    const { map, started, stopped } = reconcileSessions(prev, 1, [updated])
+    expect(started).toEqual([])
     expect(stopped).toEqual([])
     expect(map.get(1)?.get("a")?.state).toBe("paused")
   })
@@ -156,11 +167,75 @@ describe("isPlayingNotification", () => {
   })
 })
 
+describe("parseNewContentTriggers", () => {
+  it("extracts created movie and episode timeline events", () => {
+    const raw = JSON.stringify({
+      NotificationContainer: {
+        type: "timeline",
+        TimelineEntry: [
+          {
+            type: "movie",
+            title: "Movie A",
+            sectionTitle: "Movies",
+            metadataState: "created",
+          },
+          {
+            type: "episode",
+            title: "Episode B",
+            libraryName: "TV",
+            metadata_state: "created",
+          },
+        ],
+      },
+    })
+
+    expect(parseNewContentTriggers(raw)).toEqual([
+      { kind: "new_content", mediaType: "movie", title: "Movie A", libraryName: "Movies" },
+      { kind: "new_content", mediaType: "episode", title: "Episode B", libraryName: "TV" },
+    ])
+  })
+
+  it("ignores non-created timeline entries and unsupported media types", () => {
+    const raw = JSON.stringify({
+      NotificationContainer: {
+        type: "timeline",
+        TimelineEntry: [
+          { type: "movie", title: "Deleted", sectionTitle: "Movies", metadataState: "deleted" },
+          { type: "album", title: "Music", sectionTitle: "Music", metadataState: "created" },
+        ],
+      },
+    })
+
+    expect(parseNewContentTriggers(raw)).toEqual([])
+  })
+})
+
+describe("watchedPercent", () => {
+  it("calculates bounded playback progress", () => {
+    expect(watchedPercent(mkSession("a", 1))).toBe(0)
+    expect(watchedPercent({ ...mkSession("b", 1), viewOffset: 90, duration: 100 })).toBe(90)
+    expect(watchedPercent({ ...mkSession("c", 1), viewOffset: 150, duration: 100 })).toBe(100)
+  })
+})
+
+describe("sessionLifecycleTriggers", () => {
+  it("builds session_start and session_stop triggers with watched percentage", () => {
+    const triggers = sessionLifecycleTriggers({
+      started: [mkSession("a")],
+      stopped: [{ ...mkSession("b"), viewOffset: 75, duration: 100 }],
+    })
+
+    expect(triggers.map((t) => t.kind)).toEqual(["session_start", "session_stop"])
+    expect(triggers[1]).toMatchObject({ kind: "session_stop", watchedPercent: 75 })
+  })
+})
+
 // ── Service lifecycle tests ──
 
 const TestLayer = PlexSessionMonitorLive.pipe(
   Layer.provideMerge(MediaServerServiceLive),
   Layer.provideMerge(SessionHistoryServiceLive),
+  Layer.provideMerge(MonitoringTriggerBusLive),
   Layer.provideMerge(CryptoServiceLive),
   Layer.provideMerge(AdapterRegistryLive),
   Layer.provideMerge(TestDbLive),

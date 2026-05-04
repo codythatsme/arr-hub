@@ -10,6 +10,7 @@ import type {
 import { AdapterRegistry, AdapterRegistryLive } from "#/effect/services/AdapterRegistry"
 import { CryptoService, CryptoServiceLive } from "#/effect/services/CryptoService"
 import type { MediaServerAdapter } from "#/effect/services/MediaServerAdapter"
+import { MonitoringTriggerBusLive } from "#/effect/services/MonitoringTriggerBus"
 import {
   SessionHistoryService,
   SessionHistoryServiceLive,
@@ -20,6 +21,7 @@ import { PlexUserService, PlexUserServiceLive } from "./PlexUserService"
 
 const TestLayer = PlexUserServiceLive.pipe(
   Layer.provideMerge(SessionHistoryServiceLive),
+  Layer.provideMerge(MonitoringTriggerBusLive),
   Layer.provideMerge(CryptoServiceLive),
   Layer.provideMerge(AdapterRegistryLive),
   Layer.provideMerge(TestDbLive),

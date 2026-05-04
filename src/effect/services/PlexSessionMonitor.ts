@@ -15,6 +15,7 @@ import { AdapterRegistry } from "./AdapterRegistry"
 import { CryptoService } from "./CryptoService"
 import { Db } from "./Db"
 import type { MediaServerAdapter } from "./MediaServerAdapter"
+import { MonitoringTriggerBus, type MonitoringTrigger } from "./MonitoringTriggerBus"
 import { SessionHistoryService } from "./SessionHistoryService"
 
 // ── Notification payload (Plex `/:/websockets/notifications`) ──
@@ -24,9 +25,20 @@ interface PlaySessionStateNotification {
   readonly state?: string
 }
 
+interface TimelineEntry {
+  readonly type?: string
+  readonly title?: string
+  readonly sectionTitle?: string
+  readonly libraryName?: string
+  readonly librarySectionTitle?: string
+  readonly metadataState?: string
+  readonly metadata_state?: string
+}
+
 interface NotificationContainer {
   readonly type?: string
   readonly PlaySessionStateNotification?: ReadonlyArray<PlaySessionStateNotification>
+  readonly TimelineEntry?: ReadonlyArray<TimelineEntry>
 }
 
 interface NotificationEnvelope {
@@ -74,10 +86,19 @@ export function reconcileSessions(
   prev: SessionMap,
   serverId: number,
   next: ReadonlyArray<MediaServerSession>,
-): { readonly map: SessionMap; readonly stopped: ReadonlyArray<MediaServerSession> } {
+): {
+  readonly map: SessionMap
+  readonly started: ReadonlyArray<MediaServerSession>
+  readonly stopped: ReadonlyArray<MediaServerSession>
+} {
   const prevForServer = prev.get(serverId) ?? new Map<string, MediaServerSession>()
   const nextForServer = new Map<string, MediaServerSession>()
   for (const s of next) nextForServer.set(s.sessionKey, s)
+
+  const started: Array<MediaServerSession> = []
+  for (const [key, session] of nextForServer) {
+    if (!prevForServer.has(key)) started.push(session)
+  }
 
   const stopped: Array<MediaServerSession> = []
   for (const [key, session] of prevForServer) {
@@ -86,7 +107,7 @@ export function reconcileSessions(
 
   const map = new Map(prev)
   map.set(serverId, nextForServer)
-  return { map, stopped }
+  return { map, started, stopped }
 }
 
 export function snapshotSessions(state: SessionMap): ReadonlyArray<MediaServerSession> {
@@ -109,6 +130,55 @@ export function isPlayingNotification(raw: string): boolean {
   return container?.type === "playing" && (container.PlaySessionStateNotification?.length ?? 0) > 0
 }
 
+export function watchedPercent(session: MediaServerSession): number {
+  if (session.duration <= 0) return 0
+  return Math.min(100, Math.max(0, (session.viewOffset / session.duration) * 100))
+}
+
+export function sessionLifecycleTriggers(changes: {
+  readonly started: ReadonlyArray<MediaServerSession>
+  readonly stopped: ReadonlyArray<MediaServerSession>
+}): ReadonlyArray<MonitoringTrigger> {
+  return [
+    ...changes.started.map((session) => ({ kind: "session_start" as const, session })),
+    ...changes.stopped.map((session) => ({
+      kind: "session_stop" as const,
+      session,
+      watchedPercent: watchedPercent(session),
+    })),
+  ]
+}
+
+export function parseNewContentTriggers(raw: string): ReadonlyArray<MonitoringTrigger> {
+  let envelope: NotificationEnvelope
+  try {
+    envelope = JSON.parse(raw) as NotificationEnvelope
+  } catch {
+    return []
+  }
+
+  const container = envelope.NotificationContainer
+  if (container?.type !== "timeline") return []
+
+  const entries = container.TimelineEntry ?? []
+  const triggers: Array<MonitoringTrigger> = []
+  for (const entry of entries) {
+    const metadataState = entry.metadataState ?? entry.metadata_state
+    if (metadataState !== "created") continue
+    if (entry.type !== "movie" && entry.type !== "episode") continue
+    if (!entry.title) continue
+
+    triggers.push({
+      kind: "new_content",
+      mediaType: entry.type,
+      title: entry.title,
+      libraryName:
+        entry.libraryName ?? entry.librarySectionTitle ?? entry.sectionTitle ?? "Unknown",
+    })
+  }
+  return triggers
+}
+
 // ── Live implementation ──
 
 export const PlexSessionMonitorLive = Layer.scoped(
@@ -118,6 +188,7 @@ export const PlexSessionMonitorLive = Layer.scoped(
     const crypto = yield* CryptoService
     const registry = yield* AdapterRegistry
     const history = yield* SessionHistoryService
+    const triggers = yield* MonitoringTriggerBus
 
     const sessionsRef = yield* Ref.make<SessionMap>(new Map())
     const fibersRef = yield* Ref.make<FiberMap>(new Map())
@@ -128,14 +199,19 @@ export const PlexSessionMonitorLive = Layer.scoped(
     ): Effect.Effect<void, MediaServerError> =>
       Effect.gen(function* () {
         const sessions = yield* adapter.getActiveSessions()
-        const stopped = yield* Ref.modify(sessionsRef, (prev) => {
+        const changes = yield* Ref.modify(sessionsRef, (prev) => {
           const result = reconcileSessions(prev, serverId, sessions)
-          return [result.stopped, result.map]
+          return [{ started: result.started, stopped: result.stopped }, result.map]
         })
-        if (stopped.length > 0) {
-          yield* Effect.log(`[plex-monitor] server=${serverId} sessions ended: ${stopped.length}`)
+        for (const trigger of sessionLifecycleTriggers(changes)) {
+          yield* triggers.emit(trigger)
+        }
+        if (changes.stopped.length > 0) {
+          yield* Effect.log(
+            `[plex-monitor] server=${serverId} sessions ended: ${changes.stopped.length}`,
+          )
           yield* history
-            .writeHistory(stopped)
+            .writeHistory(changes.stopped)
             .pipe(
               Effect.catchAll((e) =>
                 Effect.logWarning(`[plex-monitor] history write failed: ${String(e)}`),
@@ -150,6 +226,9 @@ export const PlexSessionMonitorLive = Layer.scoped(
       raw: string,
     ): Effect.Effect<void, never> =>
       Effect.gen(function* () {
+        for (const trigger of parseNewContentTriggers(raw)) {
+          yield* triggers.emit(trigger)
+        }
         if (!isPlayingNotification(raw)) return
         yield* refreshFromAdapter(serverId, adapter).pipe(
           Effect.catchAll((e) =>
@@ -208,10 +287,29 @@ export const PlexSessionMonitorLive = Layer.scoped(
           resolved = true
           resume(effect)
         }
+        let serverDownEmitted = false
+        const emitServerDown = () => {
+          if (serverDownEmitted) return
+          serverDownEmitted = true
+          Runtime.runFork(runtime)(
+            triggers.emit({
+              kind: "server_down",
+              serverId: config.id,
+              serverName: config.name,
+            }),
+          )
+        }
 
         ws.addEventListener("open", () => {
           Runtime.runFork(runtime)(
-            Effect.log(`[plex-monitor] WS open server=${config.id} (${config.name})`),
+            Effect.gen(function* () {
+              yield* triggers.emit({
+                kind: "server_up",
+                serverId: config.id,
+                serverName: config.name,
+              })
+              yield* Effect.log(`[plex-monitor] WS open server=${config.id} (${config.name})`)
+            }),
           )
           // Cold-start reconcile on connect.
           Runtime.runFork(runtime)(
@@ -234,6 +332,7 @@ export const PlexSessionMonitorLive = Layer.scoped(
         })
 
         ws.addEventListener("error", () => {
+          emitServerDown()
           finish(
             Effect.fail(
               new MediaServerError({
@@ -248,6 +347,7 @@ export const PlexSessionMonitorLive = Layer.scoped(
         })
 
         ws.addEventListener("close", () => {
+          emitServerDown()
           finish(
             Effect.fail(
               new MediaServerError({
