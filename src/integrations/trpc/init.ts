@@ -18,6 +18,7 @@ import type {
   NotFoundError,
   OnboardingError,
   ParseFailed,
+  PluginError,
   ProfileInUseError,
   SchedulerError,
   ValidationError,
@@ -63,6 +64,7 @@ type DomainError =
   | MetadataError
   | OnboardingError
   | ImportError
+  | PluginError
 
 export function domainToTRPC(error: DomainError): TRPCError {
   switch (error._tag) {
@@ -186,6 +188,19 @@ export function domainToTRPC(error: DomainError): TRPCError {
       return new TRPCError({
         code: codeMap[error.reason] ?? "BAD_REQUEST",
         message: `[${error.source}] ${error.message}`,
+      })
+    }
+    case "PluginError": {
+      const codeMap: Record<string, TRPCError["code"]> = {
+        manifest_invalid: "BAD_REQUEST",
+        contract_violation: "BAD_REQUEST",
+        load_failed: "BAD_GATEWAY",
+        plugin_already_registered: "CONFLICT",
+        plugin_not_found: "NOT_FOUND",
+      }
+      return new TRPCError({
+        code: codeMap[error.reason] ?? "BAD_REQUEST",
+        message: `[${error.pluginName}] ${error.message}`,
       })
     }
   }

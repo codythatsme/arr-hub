@@ -148,3 +148,16 @@ export class ImportError extends Data.TaggedError("ImportError")<{
   readonly reason: ImportErrorReason
   readonly message: string
 }> {}
+
+export type PluginErrorReason =
+  | "manifest_invalid"
+  | "contract_violation"
+  | "load_failed"
+  | "plugin_already_registered"
+  | "plugin_not_found"
+
+export class PluginError extends Data.TaggedError("PluginError")<{
+  readonly reason: PluginErrorReason
+  readonly pluginName: string
+  readonly message: string
+}> {}

@@ -302,6 +302,19 @@ const runDdl = Effect.gen(function* () {
     episode_id INTEGER REFERENCES episodes(id) ON DELETE SET NULL
   )`
 
+  yield* sql`CREATE TABLE plugins (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    path TEXT NOT NULL,
+    version TEXT NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 0,
+    capabilities TEXT NOT NULL,
+    loaded_at INTEGER,
+    error_message TEXT,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+  )`
+
   yield* sql`CREATE TABLE release_decisions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     media_id INTEGER NOT NULL,

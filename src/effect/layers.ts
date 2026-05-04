@@ -15,6 +15,7 @@ import { MovieServiceLive } from "./services/MovieService"
 import { OnboardingServiceLive } from "./services/OnboardingService"
 import { PlexSessionMonitorLive } from "./services/PlexSessionMonitor"
 import { PlexUserServiceLive } from "./services/PlexUserService"
+import { PluginLoaderLive } from "./services/PluginLoader"
 import { ProfileDefaultsEngineLive } from "./services/ProfileDefaultsEngine"
 import { ProfileServiceLive } from "./services/ProfileService"
 import { ReleasePolicyEngineLive } from "./services/ReleasePolicyEngine"
@@ -31,6 +32,7 @@ export const AppLive = Layer.mergeAll(
   AcquisitionPipelineLive,
   DownloadMonitorLive,
   PlexSessionMonitorLive,
+  PluginLoaderLive,
   ImportServiceLive,
 ).pipe(
   Layer.provideMerge(OnboardingServiceLive),
