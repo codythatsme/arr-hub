@@ -1,17 +1,23 @@
 import { SqlClient } from "@effect/sql"
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Layer } from "effect"
+import { Effect, Layer, Queue } from "effect"
 
 import type { MediaServerSession } from "#/effect/domain/mediaServer"
 import { SeriesService, SeriesServiceLive } from "#/effect/services/SeriesService"
 import { TestDbLive } from "#/effect/test/TestDb"
 
+import { MonitoringTriggerBus, MonitoringTriggerBusLive } from "./MonitoringTriggerBus"
 import { MovieService, MovieServiceLive } from "./MovieService"
-import { SessionHistoryService, SessionHistoryServiceLive } from "./SessionHistoryService"
+import {
+  isWatchedSession,
+  SessionHistoryService,
+  SessionHistoryServiceLive,
+} from "./SessionHistoryService"
 
 const TestLayer = SessionHistoryServiceLive.pipe(
   Layer.provideMerge(MovieServiceLive),
   Layer.provideMerge(SeriesServiceLive),
+  Layer.provideMerge(MonitoringTriggerBusLive),
   Layer.provideMerge(TestDbLive),
 )
 
@@ -56,6 +62,11 @@ const baseSession = (overrides: Partial<MediaServerSession> = {}): MediaServerSe
 })
 
 describe("SessionHistoryService", () => {
+  it("isWatchedSession requires more than 80% progress", () => {
+    expect(isWatchedSession(baseSession({ viewOffset: 80_000, duration: 100_000 }))).toBe(false)
+    expect(isWatchedSession(baseSession({ viewOffset: 80_001, duration: 100_000 }))).toBe(true)
+  })
+
   it.effect("writeHistory persists a row with no FK match when GUIDs are null", () =>
     Effect.gen(function* () {
       yield* seedMediaServer
@@ -121,6 +132,23 @@ describe("SessionHistoryService", () => {
       const svc = yield* SessionHistoryService
       const rows = yield* svc.writeHistory([baseSession({ duration: 0 })])
       expect(rows).toHaveLength(0)
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.scoped("writeHistory emits media_watched when watch progress exceeds 80%", () =>
+    Effect.gen(function* () {
+      yield* seedMediaServer
+      const bus = yield* MonitoringTriggerBus
+      const subscription = yield* bus.subscribe()
+      const svc = yield* SessionHistoryService
+
+      yield* svc.writeHistory([baseSession({ viewOffset: 81_000, duration: 100_000 })])
+
+      const trigger = yield* Queue.take(subscription)
+      expect(trigger.kind).toBe("media_watched")
+      if (trigger.kind === "media_watched") {
+        expect(trigger.session.title).toBe("The Movie")
+      }
     }).pipe(Effect.provide(TestLayer)),
   )
 
