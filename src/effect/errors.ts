@@ -100,6 +100,20 @@ export class SchedulerError extends Data.TaggedError("SchedulerError")<{
   readonly message: string
 }> {}
 
+export type DiagnosticsErrorReason = "log_access_failed"
+
+export class DiagnosticsError extends Data.TaggedError("DiagnosticsError")<{
+  readonly reason: DiagnosticsErrorReason
+  readonly message: string
+}> {}
+
+export type SettingsErrorReason = "invalid_key" | "invalid_value"
+
+export class SettingsError extends Data.TaggedError("SettingsError")<{
+  readonly reason: SettingsErrorReason
+  readonly message: string
+}> {}
+
 export type AcquisitionStage = "search" | "evaluate" | "grab"
 
 export type AcquisitionMediaKind = "movie" | "series" | "season" | "episode"
