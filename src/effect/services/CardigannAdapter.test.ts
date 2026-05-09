@@ -467,6 +467,45 @@ const HTML_DIRECT_CHILD_SELECTOR_RESULTS = `<!doctype html>
   </body>
 </html>`
 
+const HTML_VOID_STATE_SELECTOR_RESULTS = `<!doctype html>
+<html>
+  <body>
+    <table class="results">
+      <tbody>
+        <tr class="torrent">
+          <td class="name">
+            <img class="category-icon" alt="Movies" src="/icons/movies.png">
+            <a class="title" href="/details/void-state">Void State Movie 2026 1080p WEB-DL</a>
+          </td>
+          <td class="actions">
+            <input class="download-control" type="radio" value="/download/unchecked">
+            <input class="download-control" type="radio" checked value="/download/void-state">
+          </td>
+        </tr>
+        <tr class="torrent">
+          <td class="name">
+            <img class="category-icon" alt="Movies" src="/icons/movies.png">
+            <a class="title" href="/details/unchecked">Wrong Unchecked Movie 2026 1080p WEB-DL</a>
+          </td>
+          <td class="actions">
+            <input class="download-control" type="radio" value="/download/unchecked-row">
+          </td>
+        </tr>
+        <tr class="torrent">
+          <td class="name">
+            <img class="category-icon" alt="Movies" src="/icons/movies.png">
+            <a class="title" href="/details/disabled">Wrong Disabled Movie 2026 1080p WEB-DL</a>
+          </td>
+          <td class="actions">
+            <input class="download-control" type="radio" checked value="/download/disabled-row">
+            <input class="dead" type="checkbox" disabled>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </body>
+</html>`
+
 const HTML_NESTED_RESULTS = `<!doctype html>
 <html>
   <body>
@@ -2491,6 +2530,71 @@ search:
       title: "Direct Child Movie 2026 1080p WEB-DL",
       infoUrl: "https://tracker.example/details/direct-child",
       downloadUrl: "https://tracker.example/download/direct-child",
+      category: "2000",
+    })
+  })
+
+  it("matches Cardigann HTML void elements and state pseudo classes", async () => {
+    const fetchMock = vi.fn(
+      async () => new Response(HTML_VOID_STATE_SELECTOR_RESULTS, { status: 200 }),
+    )
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 73,
+      name: "HTML Void State Selector Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "html-void-state-selector-cardigann",
+      definitionYaml: `
+id: html-void-state-selector-cardigann
+name: HTML Void State Selector Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+      newznab: 2000
+  modes:
+    search: [q]
+search:
+  paths:
+    - path: /browse
+      response:
+        type: html
+  rows:
+    selector: tr.torrent:has(input.download-control:checked):not(input.dead:disabled)
+  fields:
+    title:
+      selector: a.title
+    details:
+      selector: a.title
+      attribute: href
+    download:
+      selector: input.download-control:checked
+      attribute: value
+    category:
+      selector: img.category-icon
+      attribute: alt
+`,
+      baseUrl: "https://tracker.example",
+      apiKey: "",
+      priority: 35,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Void State", type: "general", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "Void State Movie 2026 1080p WEB-DL",
+      infoUrl: "https://tracker.example/details/void-state",
+      downloadUrl: "https://tracker.example/download/void-state",
       category: "2000",
     })
   })

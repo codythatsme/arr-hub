@@ -1793,6 +1793,24 @@ function htmlSelectorFiltersMatch(
         return findHtmlElements(element.innerHtml, filter.selector).length > 0
       case "not":
         return !htmlSelectorExists(element, filter.selector)
+      case "checked":
+        return Object.hasOwn(element.attributes, "checked")
+      case "selected":
+        return Object.hasOwn(element.attributes, "selected")
+      case "disabled":
+        return Object.hasOwn(element.attributes, "disabled")
+      case "enabled":
+        return !Object.hasOwn(element.attributes, "disabled")
+      case "empty":
+        return (
+          htmlTextContent(element.innerHtml).length === 0 &&
+          !/<[A-Za-z][\w:-]*/.test(element.innerHtml)
+        )
+      case "parent":
+        return (
+          htmlTextContent(element.innerHtml).length > 0 ||
+          /<[A-Za-z][\w:-]*/.test(element.innerHtml)
+        )
       default:
         return true
     }
@@ -1856,22 +1874,26 @@ function findHtmlElementsForToken(
   const tagPattern = selector.tag ? escapeRegExp(selector.tag) : "[A-Za-z][\\w:-]*"
   const elementPattern = new RegExp(`<(${tagPattern})\\b([^>]*)>([\\s\\S]*?)<\\/\\1>`, "gi")
   const matches: Array<HtmlElementMatch> = []
-  for (const match of html.matchAll(elementPattern)) {
+  const pushMatch = (
+    match: RegExpMatchArray,
+    tagName: string,
+    innerHtml: string,
+    outerHtml: string,
+  ) => {
     const matchIndex = match.index ?? 0
-    if (direct && !isDirectHtmlChildAt(html, matchIndex)) continue
+    if (direct && !isDirectHtmlChildAt(html, matchIndex)) return
 
-    const tagName = (match[1] ?? "").toLowerCase()
-    if (selector.tag !== null && tagName !== selector.tag) continue
+    if (selector.tag !== null && tagName !== selector.tag) return
 
     const attributes = parseHtmlAttributes(match[2] ?? "")
     const sourceIndex = baseIndex + matchIndex
     const element = {
       tagName,
       attributes,
-      innerHtml: match[3] ?? "",
-      outerHtml: match[0],
+      innerHtml,
+      outerHtml,
       sourceIndex,
-      innerHtmlStartIndex: sourceIndex + match[0].indexOf(">") + 1,
+      innerHtmlStartIndex: sourceIndex + outerHtml.indexOf(">") + 1,
     }
     if (
       htmlAttributeMatches(attributes, selector) &&
@@ -1880,7 +1902,23 @@ function findHtmlElementsForToken(
       matches.push(element)
     }
   }
-  return applyHtmlPositionalSelectorFilters(matches, selector.filters)
+
+  for (const match of html.matchAll(elementPattern)) {
+    pushMatch(match, (match[1] ?? "").toLowerCase(), match[3] ?? "", match[0])
+  }
+
+  const voidElementPattern = new RegExp(`<(${tagPattern})\\b([^>]*)\\/?>`, "gi")
+  for (const match of html.matchAll(voidElementPattern)) {
+    const tagName = (match[1] ?? "").toLowerCase()
+    const outerHtml = match[0]
+    if (!HTML_VOID_ELEMENTS.has(tagName) && !outerHtml.endsWith("/>")) continue
+    pushMatch(match, tagName, "", outerHtml)
+  }
+
+  const orderedMatches = uniqueHtmlElementMatches(
+    matches.toSorted((left, right) => htmlElementSourceIndex(left) - htmlElementSourceIndex(right)),
+  )
+  return applyHtmlPositionalSelectorFilters(orderedMatches, selector.filters)
 }
 
 function uniqueHtmlElementMatches(
