@@ -728,6 +728,66 @@ search:
     })
   })
 
+  it("parses Cardigann form selector login runtime metadata", () => {
+    const runtime = parseCardigannRuntimeDefinitionYaml(`
+id: form-selector-login-cardigann
+name: Form Selector Login Cardigann
+links:
+  - https://tracker.example
+settings:
+  - name: username
+    label: Username
+  - name: password
+    label: Password
+    type: password
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+login:
+  method: form
+  path: /login
+  selectors: true
+  inputs:
+    "#username-field": "{{ .Config.Username }}"
+    "#password-field": "{{ .Config.Password }}"
+  selectorinputs:
+    csrf:
+      selector: span.csrf
+  getselectorinputs:
+    ticket:
+      selector: input#ticket-field
+      attribute: value
+search:
+  paths:
+    - path: /api
+`)
+
+    expect(runtime.login).toMatchObject({
+      method: "form",
+      selectors: true,
+      inputs: {
+        "#username-field": "{{ .Config.Username }}",
+        "#password-field": "{{ .Config.Password }}",
+      },
+      selectorInputs: {
+        csrf: {
+          selector: "span.csrf",
+          optional: false,
+          filters: [],
+        },
+      },
+      getSelectorInputs: {
+        ticket: {
+          selector: "input#ticket-field",
+          attribute: "value",
+          optional: false,
+          filters: [],
+        },
+      },
+    })
+  })
+
   it("exposes built-in runtime definitions by key", () => {
     const runtime = getBuiltInCardigannRuntimeDefinition("public-domain-movie-torrents")
     expect(runtime?.search.paths[0]).toMatchObject({

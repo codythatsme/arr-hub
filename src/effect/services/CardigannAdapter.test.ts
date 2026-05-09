@@ -1007,6 +1007,114 @@ search:
     expect(releases[0]?.title).toBe("Example Movie 2026 1080p WEB-DL")
   })
 
+  it("executes Cardigann form login selector inputs", async () => {
+    const requests: Array<{ url: string; init: RequestInit | undefined }> = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      requests.push({ url, init })
+      const pathname = new URL(url).pathname
+      if (pathname === "/login") {
+        return new Response(
+          `<html><body>
+            <span class="csrf">csrf-token</span>
+            <input id="ticket-field" value="ticket-123">
+            <form id="signin" action="/session?existing=1">
+              <input id="username-field" type="text" name="user" value="landing-user">
+              <input id="password-field" type="password" name="pass" value="">
+            </form>
+          </body></html>`,
+          { status: 200 },
+        )
+      }
+      if (pathname === "/session") {
+        return new Response("ok", {
+          status: 200,
+          headers: { "set-cookie": "selector=session; Path=/; HttpOnly" },
+        })
+      }
+      return new Response(RSS_XML, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 29,
+      name: "Form Selector Login Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "form-selector-login-cardigann",
+      definitionYaml: `
+id: form-selector-login-cardigann
+name: Form Selector Login Cardigann
+links:
+  - https://tracker.example
+settings:
+  - name: username
+    label: Username
+  - name: password
+    label: Password
+    type: password
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+  modes:
+    movie-search: [q]
+login:
+  path: /login
+  method: form
+  form: form#signin
+  selectors: true
+  inputs:
+    "#username-field": "{{ .Config.Username }}"
+    "#password-field": "{{ .Config.Password }}"
+  selectorinputs:
+    csrf:
+      selector: span.csrf
+  getselectorinputs:
+    ticket:
+      selector: input#ticket-field
+      attribute: value
+search:
+  paths:
+    - path: /api
+      response:
+        type: torznab
+      inputs:
+        q: "{{ .Keywords }}"
+`,
+      baseUrl: "https://tracker.example/root",
+      apiKey: "",
+      configValues: {
+        username: "alice",
+        password: "secret",
+      },
+      priority: 15,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Selector Movie", type: "movie", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    const submitUrl = new URL(requests[1]?.url ?? "")
+    expect(submitUrl.pathname).toBe("/session")
+    expect(submitUrl.searchParams.get("existing")).toBe("1")
+    expect(submitUrl.searchParams.get("ticket")).toBe("ticket-123")
+
+    const submitBody = new URLSearchParams(String(requests[1]?.init?.body ?? ""))
+    expect(submitBody.get("user")).toBe("alice")
+    expect(submitBody.get("pass")).toBe("secret")
+    expect(submitBody.get("csrf")).toBe("csrf-token")
+    expect(submitBody.has("#username-field")).toBe(false)
+
+    const searchHeaders = new Headers(requests[2]?.init?.headers)
+    expect(searchHeaders.get("cookie")).toBe("selector=session")
+    expect(new URL(requests[2]?.url ?? "").searchParams.get("q")).toBe("Selector Movie")
+    expect(releases[0]?.title).toBe("Example Movie 2026 1080p WEB-DL")
+  })
+
   it("fails Cardigann login when a configured error selector matches", async () => {
     const fetchMock = vi.fn(
       async () =>
@@ -1017,7 +1125,7 @@ search:
     vi.stubGlobal("fetch", fetchMock)
 
     const adapter = createCardigannYamlAdapter({
-      id: 29,
+      id: 30,
       name: "Login Error Cardigann",
       type: "cardigann_yaml",
       definitionKey: "login-error-cardigann",

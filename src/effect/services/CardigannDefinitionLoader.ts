@@ -74,6 +74,9 @@ export interface CardigannLoginRuntime {
   readonly cookies: ReadonlyArray<string>
   readonly errors: ReadonlyArray<CardigannLoginError>
   readonly paths: ReadonlyArray<CardigannLoginPath>
+  readonly selectors?: boolean
+  readonly selectorInputs?: Readonly<Record<string, CardigannFieldSelector>>
+  readonly getSelectorInputs?: Readonly<Record<string, CardigannFieldSelector>>
   readonly form?: string
   readonly submitPath?: string
 }
@@ -492,6 +495,15 @@ function parseLoginRuntime(value: unknown): CardigannLoginRuntime | null {
   const method = parseLoginMethod(optionalString(login, "method") ?? "get")
   const form = optionalString(login, "form")
   const submitPath = optionalString(login, "submitpath") ?? optionalString(login, "submitPath")
+  const selectors = optionalBoolean(login, "selectors") === true
+  const selectorInputs = parseSelectorInputMap(
+    login.selectorinputs ?? login.selectorInputs,
+    "login selector inputs",
+  )
+  const getSelectorInputs = parseSelectorInputMap(
+    login.getselectorinputs ?? login.getSelectorInputs,
+    "login get selector inputs",
+  )
   return {
     method,
     inputs: parseInputMap(login.inputs),
@@ -506,6 +518,9 @@ function parseLoginRuntime(value: unknown): CardigannLoginRuntime | null {
             login,
             method === "oneurl" || method === "form" ? "get" : null,
           ),
+    ...(selectors ? { selectors } : {}),
+    ...(Object.keys(selectorInputs).length > 0 ? { selectorInputs } : {}),
+    ...(Object.keys(getSelectorInputs).length > 0 ? { getSelectorInputs } : {}),
     ...(form !== null ? { form } : {}),
     ...(submitPath !== null ? { submitPath } : {}),
   }
@@ -554,6 +569,19 @@ function parseFields(value: unknown): Readonly<Record<string, CardigannFieldSele
   for (const [fieldName, fieldValue] of Object.entries(record)) {
     const field = expectRecord(fieldValue, `field ${fieldName}`)
     fields[fieldName] = parseFieldSelector(field)
+  }
+  return fields
+}
+
+function parseSelectorInputMap(
+  value: unknown,
+  label: string,
+): Readonly<Record<string, CardigannFieldSelector>> {
+  if (value === undefined) return {}
+  const record = expectRecord(value, label)
+  const fields: Record<string, CardigannFieldSelector> = {}
+  for (const [fieldName, fieldValue] of Object.entries(record)) {
+    fields[fieldName] = parseFieldSelector(expectRecord(fieldValue, `${label} ${fieldName}`))
   }
   return fields
 }

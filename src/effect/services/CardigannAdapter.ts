@@ -72,6 +72,11 @@ interface SimpleHtmlSelector {
   }>
 }
 
+interface FormLoginParams {
+  readonly params: URLSearchParams
+  readonly queryParams: URLSearchParams
+}
+
 function loadRuntimeDefinition(
   config: IndexerConfig,
 ): Effect.Effect<CardigannRuntimeDefinition, IndexerError> {
@@ -781,6 +786,28 @@ function findHtmlInputElements(html: string): ReadonlyArray<HtmlElementMatch> {
   }))
 }
 
+function findHtmlInputElement(
+  form: HtmlElementMatch,
+  selectorText: string,
+): HtmlElementMatch | undefined {
+  const tokens = simpleSelectorTokens(selectorText)
+  if (tokens.length === 0) return undefined
+  if (tokens.length === 1) {
+    return findHtmlInputElements(form.innerHtml).find((input) =>
+      htmlElementSelfMatches(input, tokens[0] ?? ""),
+    )
+  }
+
+  const containerSelector = tokens.slice(0, -1).join(" ")
+  const container = selectHtmlFieldElement(form, containerSelector)
+  if (container === undefined) return undefined
+
+  const inputSelector = tokens[tokens.length - 1] ?? ""
+  return findHtmlInputElements(container.innerHtml).find((input) =>
+    htmlElementSelfMatches(input, inputSelector),
+  )
+}
+
 function htmlAttributeMatches(
   attributes: Readonly<Record<string, string>>,
   selector: SimpleHtmlSelector,
@@ -906,7 +933,11 @@ function selectHtmlFieldElement(
   row: HtmlElementMatch,
   selector: string,
 ): HtmlElementMatch | undefined {
-  return htmlElementSelfMatches(row, selector) ? row : findHtmlElements(row.innerHtml, selector)[0]
+  if (htmlElementSelfMatches(row, selector)) return row
+  return (
+    findHtmlElements(row.innerHtml, selector)[0] ??
+    findHtmlInputElements(row.innerHtml).find((input) => htmlElementSelfMatches(input, selector))
+  )
 }
 
 function htmlTextContent(value: string): string {
@@ -1217,24 +1248,6 @@ function resolveLoginRequests(
   return requests
 }
 
-function setInputs(
-  params: URLSearchParams,
-  inputs: Readonly<Record<string, string>>,
-  variables: Record<string, TemplateValue>,
-  allowEmptyInputs: boolean,
-): void {
-  for (const [key, template] of Object.entries(inputs)) {
-    const value = renderTemplate(template, variables)
-    if (value.length === 0 && !allowEmptyInputs) continue
-
-    if (key === "$raw") {
-      appendRawParams(params, value)
-    } else {
-      params.set(key, normalizeUrlSearchParamValue(value))
-    }
-  }
-}
-
 function loginHeaders(
   login: CardigannLoginRuntime,
   path: CardigannLoginRuntime["paths"][number],
@@ -1246,11 +1259,37 @@ function loginHeaders(
   return headers
 }
 
+function selectorInputValue(
+  document: HtmlElementMatch,
+  inputName: string,
+  field: CardigannFieldSelector,
+  variables: Record<string, TemplateValue>,
+): { readonly value?: string; readonly error?: string } {
+  const value = htmlFieldValue(document, field, variables)
+  if (value.length > 0 || field.defaultValue !== undefined) return { value }
+  if (field.optional) return {}
+
+  return { error: `Cardigann login failed: selector input not found: ${inputName}` }
+}
+
+function resolveConfiguredFormInputName(
+  form: HtmlElementMatch,
+  login: CardigannLoginRuntime,
+  key: string,
+): string | null {
+  if (key === "$raw") return key
+  if (login.selectors !== true) return key
+
+  const input = findHtmlInputElement(form, key)
+  return input?.attributes.name ?? null
+}
+
 function formParamsFromHtml(
+  document: HtmlElementMatch,
   form: HtmlElementMatch,
   login: CardigannLoginRuntime,
   variables: Record<string, TemplateValue>,
-): URLSearchParams {
+): FormLoginParams | string {
   const params = new URLSearchParams()
   for (const input of findHtmlInputElements(form.innerHtml)) {
     const name = input.attributes.name
@@ -1264,8 +1303,34 @@ function formParamsFromHtml(
     params.set(name, input.attributes.value ?? "")
   }
 
-  setInputs(params, login.inputs, variables, false)
-  return params
+  for (const [key, template] of Object.entries(login.inputs)) {
+    const value = renderTemplate(template, variables)
+    if (value.length === 0) continue
+
+    const inputName = resolveConfiguredFormInputName(form, login, key)
+    if (inputName === null) return `Cardigann login failed: form input selector not found: ${key}`
+
+    if (inputName === "$raw") {
+      appendRawParams(params, value)
+    } else {
+      params.set(inputName, normalizeUrlSearchParamValue(value))
+    }
+  }
+
+  for (const [key, field] of Object.entries(login.selectorInputs ?? {})) {
+    const result = selectorInputValue(document, key, field, variables)
+    if (result.error !== undefined) return result.error
+    if (result.value !== undefined) params.set(key, result.value)
+  }
+
+  const queryParams = new URLSearchParams()
+  for (const [key, field] of Object.entries(login.getSelectorInputs ?? {})) {
+    const result = selectorInputValue(document, key, field, variables)
+    if (result.error !== undefined) return result.error
+    if (result.value !== undefined) queryParams.set(key, result.value)
+  }
+
+  return { params, queryParams }
 }
 
 function resolveFormSubmitUrl(
@@ -1318,7 +1383,27 @@ function executeFormLoginRequests(
       }
 
       const submitUrl = resolveFormSubmitUrl(landingUrl, form, login, variables)
-      const body = formParamsFromHtml(form, login, variables)
+      const formParams = formParamsFromHtml(
+        htmlDocumentMatch(landingResponse.text),
+        form,
+        login,
+        variables,
+      )
+      if (typeof formParams === "string") {
+        return yield* Effect.fail(
+          new IndexerError({
+            indexerId: config.id,
+            indexerName: config.name,
+            reason: "auth_failed",
+            message: formParams,
+            retryable: false,
+          }),
+        )
+      }
+      for (const [key, value] of formParams.queryParams) {
+        submitUrl.searchParams.set(key, value)
+      }
+      const body = formParams.params
       const submitHeaders = loginHeaders(login, path, variables)
       if (!submitHeaders.has("content-type")) {
         submitHeaders.set("content-type", "application/x-www-form-urlencoded")
