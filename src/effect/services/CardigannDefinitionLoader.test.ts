@@ -170,6 +170,33 @@ caps:
     })
   })
 
+  it("parses Cardigann caps category dictionaries with standard category names", () => {
+    const definition = parseCardigannDefinitionYaml(`
+id: caps-category-dictionary
+name: Caps Category Dictionary
+links:
+  - https://tracker.example
+caps:
+  categories:
+    1: Movies/BluRay
+    tv-hd: TV/HD
+    anime: TV/Anime
+  modes:
+    search: [q]
+`)
+
+    expect(definition.categories).toEqual([
+      { trackerCategory: "1", trackerCategoryDesc: "Movies/BluRay", newznabCategory: 2050 },
+      { trackerCategory: "tv-hd", trackerCategoryDesc: "TV/HD", newznabCategory: 5040 },
+      { trackerCategory: "anime", trackerCategoryDesc: "TV/Anime", newznabCategory: 5070 },
+    ])
+    expect(definition.capabilities.categories).toEqual([
+      { id: 2050, name: "Movies/BluRay" },
+      { id: 5040, name: "TV/HD" },
+      { id: 5070, name: "TV/Anime" },
+    ])
+  })
+
   it("parses first-pass Cardigann search runtime metadata", () => {
     const runtime = parseCardigannRuntimeDefinitionYaml(`
 id: runtime-cardigann

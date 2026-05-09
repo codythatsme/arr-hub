@@ -1,5 +1,6 @@
 import { load } from "js-yaml"
 
+import { CATEGORIES } from "../domain/categories"
 import type {
   IndexerAuthField,
   IndexerAuthFieldOption,
@@ -305,7 +306,7 @@ search:
         limit: "{{ .Query.Limit }}"
 `
 
-const CATEGORY_NAME_TO_NEWZNAB: Readonly<Record<string, number>> = {
+const CATEGORY_NAME_ALIASES: Readonly<Record<string, number>> = {
   anime: 5070,
   audio: 3000,
   book: 7020,
@@ -321,6 +322,13 @@ const CATEGORY_NAME_TO_NEWZNAB: Readonly<Record<string, number>> = {
   other: 8000,
   xxx: 6000,
 }
+
+const CATEGORY_NAME_TO_NEWZNAB: ReadonlyMap<string, number> = new Map([
+  ...CATEGORIES.map((category) => [normalizeCategoryName(category.name), category.id] as const),
+  ...Object.entries(CATEGORY_NAME_ALIASES).map(
+    ([name, category]) => [normalizeCategoryName(name), category] as const,
+  ),
+])
 
 const BUILT_IN_CARDIGANN_SOURCES = [
   PUBLIC_DOMAIN_MOVIE_TORRENTS,
@@ -357,7 +365,7 @@ export function parseCardigannDefinitionYaml(source: string): IndexerDefinitionS
     optionalString(root, "privacy") ?? optionalString(root, "type") ?? "private",
   )
   const caps = expectRecord(root.caps ?? {}, "caps")
-  const categories = parseCategories(root.categories ?? caps.categorymappings)
+  const categories = parseCategories(root.categories ?? caps.categorymappings ?? caps.categories)
   const searchTypes = parseSearchTypes(caps)
 
   return {
@@ -519,6 +527,29 @@ function parseAuthFieldOptions(value: unknown): ReadonlyArray<IndexerAuthFieldOp
 }
 
 function parseCategories(value: unknown): ReadonlyArray<IndexerCategoryMapping> {
+  if (isRecord(value)) {
+    return Object.entries(value).map(([trackerCategory, category]) => {
+      const trackerCategoryDesc = inputScalarToString(
+        category,
+        `category ${trackerCategory}`,
+      ).trim()
+      if (trackerCategory.trim().length === 0 || trackerCategoryDesc.length === 0) {
+        throw new Error("categories must contain non-empty strings")
+      }
+
+      const newznabCategory = newznabFromCategoryName(trackerCategoryDesc)
+      if (newznabCategory === null) {
+        throw new Error("category must include a known cat or newznab category")
+      }
+
+      return {
+        trackerCategory: trackerCategory.trim(),
+        trackerCategoryDesc,
+        newznabCategory,
+      }
+    })
+  }
+
   if (!Array.isArray(value)) throw new Error("categories must be a list")
   return value.map((item) => {
     const category = expectRecord(item, "category")
@@ -553,7 +584,15 @@ function newznabFromCategoryName(value: unknown): number | null {
 
   const trimmed = value.trim()
   if (/^\d+$/.test(trimmed)) return Number(trimmed)
-  return CATEGORY_NAME_TO_NEWZNAB[trimmed.toLowerCase()] ?? null
+  return CATEGORY_NAME_TO_NEWZNAB.get(normalizeCategoryName(trimmed)) ?? null
+}
+
+function normalizeCategoryName(value: string): string {
+  return value
+    .trim()
+    .replaceAll(/\s*\/\s*/g, "/")
+    .replaceAll(/\s+/g, " ")
+    .toLowerCase()
 }
 
 function parseStringArray(value: unknown): ReadonlyArray<string> {
