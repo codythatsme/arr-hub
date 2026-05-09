@@ -171,6 +171,32 @@ const SPEEDAPP_JSON_RESULTS = JSON.stringify([
   },
 ])
 
+const BEYONDHD_JSON_RESULTS = JSON.stringify({
+  status_code: 1,
+  status_message: "OK",
+  results: [
+    {
+      name: "BeyondHD Movie 2026 1080p WEB-DL",
+      info_hash: "abcdef1234567890",
+      category: "Movies",
+      type: "1080p",
+      size: 5_678_000_000,
+      times_completed: 12,
+      seeders: 42,
+      leechers: 4,
+      created_at: "2026-05-10T07:45:00+00:00",
+      download_url: "https://beyond-hd.me/download/9001",
+      url: "https://beyond-hd.me/torrents/9001",
+      imdb_id: "tt1357911",
+      tmdb_id: "movie/9876",
+      freeleech: true,
+      limited: false,
+      exclusive: true,
+      internal: true,
+    },
+  ],
+})
+
 const JSON_SELECTOR_FILTER_RESULTS = JSON.stringify({
   data: {
     results: [
@@ -2561,6 +2587,74 @@ search:
       uploadFactor: 2,
     })
     expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-10T06:15:00.000Z")
+  })
+
+  it("parses BeyondHD JSON POST results with API and RSS keys", async () => {
+    const requests: Array<{ url: string; init: RequestInit | undefined }> = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      requests.push({ url: String(input), init })
+      return new Response(BEYONDHD_JSON_RESULTS, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 95,
+      name: "BeyondHD",
+      type: "cardigann_yaml",
+      definitionKey: "beyond-hd",
+      baseUrl: "https://beyond-hd.me/",
+      apiKey: "bhd-api-key",
+      configValues: {
+        rssKey: "bhd-rss-key",
+        freeleechOnly: "true",
+        limitedOnly: "false",
+        refundOnly: "false",
+        rewindOnly: "false",
+      },
+      priority: 31,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({
+        term: "BeyondHD Movie",
+        type: "movie",
+        categories: [2000],
+        imdbId: "tt1357911",
+      }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const request = requests[0]
+    expect(request?.url).toBe("https://beyond-hd.me/api/torrents/bhd-api-key")
+    expect(request?.init?.method).toBe("POST")
+    expect(new Headers(request?.init?.headers).get("content-type")).toBe("application/json")
+    expect(JSON.parse(String(request?.init?.body))).toEqual({
+      action: "search",
+      rsskey: "bhd-rss-key",
+      freeleech: 1,
+      imdb_id: "tt1357911",
+      search: "BeyondHD Movie",
+      categories: [1],
+    })
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "BeyondHD Movie 2026 1080p WEB-DL",
+      downloadUrl: "https://beyond-hd.me/download/9001",
+      infoUrl: "https://beyond-hd.me/torrents/9001",
+      category: "2000",
+      size: 5_678_000_000,
+      seeders: 42,
+      leechers: 4,
+      indexerId: 95,
+      indexerName: "BeyondHD",
+      indexerPriority: 31,
+      infohash: "abcdef1234567890",
+      downloadFactor: 0,
+      uploadFactor: 1,
+    })
+    expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-10T07:45:00.000Z")
   })
 
   it("parses first-pass Cardigann HTML selector results", async () => {

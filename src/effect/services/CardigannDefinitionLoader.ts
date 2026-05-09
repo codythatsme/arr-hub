@@ -1839,6 +1839,129 @@ search:
       selector: upload_volume_factor
 `
 
+const BEYOND_HD = `
+id: beyond-hd
+name: BeyondHD
+description: Private HD movie and TV tracker exposed through a first-pass JSON POST Cardigann definition.
+type: private
+links:
+  - https://beyond-hd.me/
+version: builtin-cardigann-1
+rss: false
+tags:
+  - private
+  - movies
+  - tv
+  - json
+settings:
+  - name: apiKey
+    label: API key
+    type: password
+    required: true
+    helpText: BeyondHD API key.
+  - name: rssKey
+    label: RSS key
+    type: password
+    required: true
+    helpText: BeyondHD RSS key.
+  - name: freeleechOnly
+    label: Freeleech only
+    type: checkbox
+    default: false
+    helpText: Search freeleech torrents only.
+  - name: limitedOnly
+    label: Limited only
+    type: checkbox
+    default: false
+    helpText: Search limited torrents only.
+  - name: refundOnly
+    label: Refund only
+    type: checkbox
+    default: false
+    helpText: Search refund torrents only.
+  - name: rewindOnly
+    label: Rewind only
+    type: checkbox
+    default: false
+    helpText: Search rewind torrents only.
+caps:
+  categorymappings:
+    - id: "1"
+      cat: Movies
+      desc: Movies
+      newznab: 2000
+    - id: "1"
+      cat: Movies/UHD
+      desc: Movies
+      newznab: 2045
+    - id: "1"
+      cat: Movies/HD
+      desc: Movies
+      newznab: 2040
+    - id: "1"
+      cat: Movies/SD
+      desc: Movies
+      newznab: 2030
+    - id: "2"
+      cat: TV
+      desc: TV
+      newznab: 5000
+    - id: "2"
+      cat: TV/UHD
+      desc: TV
+      newznab: 5045
+    - id: "2"
+      cat: TV/HD
+      desc: TV
+      newznab: 5040
+    - id: "2"
+      cat: TV/SD
+      desc: TV
+      newznab: 5030
+  modes:
+    search: [q]
+    movie-search: [q, imdbid, tmdbid]
+    tv-search: [q, season, ep, imdbid]
+search:
+  paths:
+    - path: 'api/torrents/{{ .Config.APIKey }}'
+      method: post
+      response:
+        type: json
+      headers:
+        content-type: application/json
+      body: |
+        {"action":"search","rsskey":"{{ .Config.RssKey | jsonescape }}"{{ if .Config.FreeleechOnly }},"freeleech":1{{ end }}{{ if .Config.LimitedOnly }},"limited":1{{ end }}{{ if .Config.RefundOnly }},"refund":1{{ end }}{{ if .Config.RewindOnly }},"rewind":1{{ end }}{{ if .Query.IMDBID }},"imdb_id":"{{ .Query.IMDBID | jsonescape }}"{{ end }}{{ if .Query.TMDBID }},"tmdb_id":"movie/{{ .Query.TMDBID }}"{{ end }}{{ if .Keywords }},"search":"{{ .Keywords | jsonescape }}"{{ end }}{{ if .Categories }},"categories":[{{ .Categories | join "," }}]{{ end }}}
+  rows:
+    selector: $.results
+  fields:
+    title:
+      selector: name
+    details:
+      selector: url
+    download:
+      selector: download_url
+    infohash:
+      selector: info_hash
+    categorydesc:
+      selector: category
+    size:
+      selector: size
+    seeders:
+      selector: seeders
+    leechers:
+      selector: leechers
+    date:
+      selector: created_at
+    downloadvolumefactor:
+      selector: freeleech
+      default: "1"
+      case:
+        true: "0"
+    uploadvolumefactor:
+      text: "1"
+`
+
 const MORE_THAN_TV = `
 id: morethantv
 name: MoreThanTV
@@ -2045,6 +2168,7 @@ const BUILT_IN_CARDIGANN_SOURCES = [
   IP_TORRENTS,
   RETRO_FLIX,
   SPEED_APP,
+  BEYOND_HD,
   MORE_THAN_TV,
   HDACCESS,
   TORRENT_NETWORK,

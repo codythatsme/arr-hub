@@ -87,6 +87,7 @@ caps:
       "iptorrents",
       "retroflix",
       "speedapp",
+      "beyond-hd",
       "morethantv",
       "hdaccess",
       "torrent-network",
@@ -280,6 +281,30 @@ caps:
           { id: 4050, name: "Games: PC-ISO" },
           { id: 7020, name: "E-books" },
           { id: 8010, name: "Miscellaneous" },
+        ]),
+      },
+    })
+    expect(
+      BUILT_IN_CARDIGANN_DEFINITIONS.find((definition) => definition.definitionKey === "beyond-hd"),
+    ).toMatchObject({
+      displayName: "BeyondHD",
+      baseUrl: "https://beyond-hd.me/",
+      privacy: "private",
+      supportsRss: false,
+      supportsSearch: true,
+      tags: ["private", "movies", "tv", "json"],
+      authFields: expect.arrayContaining([
+        expect.objectContaining({ name: "apiKey", type: "password", required: true }),
+        expect.objectContaining({ name: "rssKey", type: "password", required: true }),
+        expect.objectContaining({ name: "freeleechOnly", type: "checkbox", defaultValue: "false" }),
+      ]),
+      capabilities: {
+        searchTypes: ["search", "movie", "tvsearch"],
+        categories: expect.arrayContaining([
+          { id: 2000, name: "Movies" },
+          { id: 2045, name: "Movies" },
+          { id: 5000, name: "TV" },
+          { id: 5040, name: "TV" },
         ]),
       },
     })

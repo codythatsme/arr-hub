@@ -119,8 +119,8 @@ describe("IndexerService", () => {
       const second = yield* svc.refreshDefinitions()
 
       expect(first).toMatchObject({
-        total: 17,
-        created: 17,
+        total: 18,
+        created: 18,
         updated: 0,
         unchanged: 0,
       })
@@ -142,12 +142,13 @@ describe("IndexerService", () => {
         "created",
         "created",
         "created",
+        "created",
       ])
       expect(second).toMatchObject({
-        total: 17,
+        total: 18,
         created: 0,
         updated: 0,
-        unchanged: 17,
+        unchanged: 18,
       })
       expect(second.definitions.every((definition) => definition.previousVersion !== null)).toBe(
         true,
@@ -419,6 +420,7 @@ describe("IndexerService", () => {
       expect(definitions.map((definition) => definition.definitionKey).toSorted()).toEqual([
         "anidex",
         "animetosho",
+        "beyond-hd",
         "generic-newznab",
         "generic-torznab",
         "hdaccess",
@@ -537,6 +539,17 @@ describe("IndexerService", () => {
         privacy: "private",
         supportsRss: false,
         tags: ["private", "general", "movies", "tv", "json"],
+      })
+      expect(
+        definitions.find((definition) => definition.definitionKey === "beyond-hd"),
+      ).toMatchObject({
+        displayName: "BeyondHD",
+        protocol: "torrent",
+        implementation: "cardigann_yaml",
+        baseUrl: "https://beyond-hd.me/",
+        privacy: "private",
+        supportsRss: false,
+        tags: ["private", "movies", "tv", "json"],
       })
       expect(
         definitions.find((definition) => definition.definitionKey === "open-tv-torrents"),
