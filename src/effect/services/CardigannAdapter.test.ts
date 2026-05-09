@@ -150,6 +150,27 @@ const RETROFLIX_JSON_RESULTS = JSON.stringify([
   },
 ])
 
+const SPEEDAPP_JSON_RESULTS = JSON.stringify([
+  {
+    download_volume_factor: 1,
+    upload_volume_factor: 2,
+    url: "https://speedapp.io/torrent/812",
+    id: 812,
+    name: "SpeedApp Movie 2026 1080p WEB-DL",
+    description: "Romanian HD release",
+    category: {
+      id: 8,
+      name: "Movies: HD",
+    },
+    size: 4_321_000_000,
+    created_at: "2026-05-10T06:15:00+00:00",
+    times_completed: 21,
+    leechers: 7,
+    seeders: 35,
+    imdb_id: "tt2468135",
+  },
+])
+
 const JSON_SELECTOR_FILTER_RESULTS = JSON.stringify({
   data: {
     results: [
@@ -2487,6 +2508,59 @@ search:
       uploadFactor: 1,
     })
     expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-09T08:30:00.000Z")
+  })
+
+  it("parses SpeedApp JSON results with bearer auth and category fan-out", async () => {
+    const requests: Array<{ url: string; init: RequestInit | undefined }> = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      requests.push({ url: String(input), init })
+      return new Response(SPEEDAPP_JSON_RESULTS, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 94,
+      name: "SpeedApp.io",
+      type: "cardigann_yaml",
+      definitionKey: "speedapp",
+      baseUrl: "https://speedapp.io/",
+      apiKey: "speed-token",
+      priority: 30,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({
+        term: "SpeedApp Movie",
+        type: "movie",
+        categories: [2040],
+        imdbId: "tt2468135",
+      }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const request = requests[0]
+    expect(request?.url).toBe(
+      "https://speedapp.io/api/torrent?itemsPerPage=100&sort=torrent.createdAt&direction=desc&imdbId=tt2468135&categories[]=8&categories[]=29",
+    )
+    expect(new Headers(request?.init?.headers).get("authorization")).toBe("Bearer speed-token")
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "SpeedApp Movie 2026 1080p WEB-DL",
+      downloadUrl: "https://speedapp.io/api/torrent/812/download",
+      infoUrl: "https://speedapp.io/torrent/812",
+      category: "2040",
+      size: 4_321_000_000,
+      seeders: 35,
+      leechers: 7,
+      indexerId: 94,
+      indexerName: "SpeedApp.io",
+      indexerPriority: 30,
+      downloadFactor: 1,
+      uploadFactor: 2,
+    })
+    expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-10T06:15:00.000Z")
   })
 
   it("parses first-pass Cardigann HTML selector results", async () => {

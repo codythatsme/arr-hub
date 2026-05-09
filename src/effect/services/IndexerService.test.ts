@@ -119,8 +119,8 @@ describe("IndexerService", () => {
       const second = yield* svc.refreshDefinitions()
 
       expect(first).toMatchObject({
-        total: 16,
-        created: 16,
+        total: 17,
+        created: 17,
         updated: 0,
         unchanged: 0,
       })
@@ -141,12 +141,13 @@ describe("IndexerService", () => {
         "created",
         "created",
         "created",
+        "created",
       ])
       expect(second).toMatchObject({
-        total: 16,
+        total: 17,
         created: 0,
         updated: 0,
-        unchanged: 16,
+        unchanged: 17,
       })
       expect(second.definitions.every((definition) => definition.previousVersion !== null)).toBe(
         true,
@@ -428,6 +429,7 @@ describe("IndexerService", () => {
         "open-tv-torrents",
         "public-domain-movie-torrents",
         "retroflix",
+        "speedapp",
         "subsplease",
         "torrent-network",
         "torrentday",
@@ -524,6 +526,17 @@ describe("IndexerService", () => {
         privacy: "private",
         supportsRss: false,
         tags: ["private", "movies", "tv", "json"],
+      })
+      expect(
+        definitions.find((definition) => definition.definitionKey === "speedapp"),
+      ).toMatchObject({
+        displayName: "SpeedApp.io",
+        protocol: "torrent",
+        implementation: "cardigann_yaml",
+        baseUrl: "https://speedapp.io/",
+        privacy: "private",
+        supportsRss: false,
+        tags: ["private", "general", "movies", "tv", "json"],
       })
       expect(
         definitions.find((definition) => definition.definitionKey === "open-tv-torrents"),

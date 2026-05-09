@@ -86,6 +86,7 @@ caps:
       "torrentday",
       "iptorrents",
       "retroflix",
+      "speedapp",
       "morethantv",
       "hdaccess",
       "torrent-network",
@@ -254,6 +255,31 @@ caps:
           { id: 5000, name: "TV Series" },
           { id: 3020, name: "Music Videos" },
           { id: 7000, name: "Books" },
+        ]),
+      },
+    })
+    expect(
+      BUILT_IN_CARDIGANN_DEFINITIONS.find((definition) => definition.definitionKey === "speedapp"),
+    ).toMatchObject({
+      displayName: "SpeedApp.io",
+      baseUrl: "https://speedapp.io/",
+      privacy: "private",
+      supportsRss: false,
+      supportsSearch: true,
+      tags: ["private", "general", "movies", "tv", "json"],
+      authFields: expect.arrayContaining([
+        expect.objectContaining({ name: "apiKey", type: "password", required: true }),
+      ]),
+      capabilities: {
+        searchTypes: ["search", "movie", "tvsearch"],
+        categories: expect.arrayContaining([
+          { id: 2000, name: "Movie Packs" },
+          { id: 2040, name: "Movies: HD" },
+          { id: 2045, name: "Movies: 4K (2160p)" },
+          { id: 5000, name: "TV Packs" },
+          { id: 4050, name: "Games: PC-ISO" },
+          { id: 7020, name: "E-books" },
+          { id: 8010, name: "Miscellaneous" },
         ]),
       },
     })

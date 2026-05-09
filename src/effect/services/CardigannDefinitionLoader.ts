@@ -1604,6 +1604,241 @@ search:
       selector: upload_volume_factor
 `
 
+const SPEED_APP = `
+id: speedapp
+name: SpeedApp.io
+description: Romanian private movie, TV, and general tracker exposed through a first-pass SpeedApp JSON Cardigann definition.
+type: private
+links:
+  - https://speedapp.io/
+version: builtin-cardigann-1
+rss: false
+tags:
+  - private
+  - general
+  - movies
+  - tv
+  - json
+settings:
+  - name: apiKey
+    label: API token
+    type: password
+    required: true
+    helpText: SpeedApp bearer token.
+caps:
+  categorymappings:
+    - id: "38"
+      cat: Movies
+      desc: Movie Packs
+      newznab: 2000
+    - id: "10"
+      cat: Movies/SD
+      desc: "Movies: SD"
+      newznab: 2030
+    - id: "35"
+      cat: Movies/SD
+      desc: "Movies: SD Ro"
+      newznab: 2030
+    - id: "8"
+      cat: Movies/HD
+      desc: "Movies: HD"
+      newznab: 2040
+    - id: "29"
+      cat: Movies/HD
+      desc: "Movies: HD Ro"
+      newznab: 2040
+    - id: "7"
+      cat: Movies/DVD
+      desc: "Movies: DVD"
+      newznab: 2070
+    - id: "2"
+      cat: Movies/DVD
+      desc: "Movies: DVD Ro"
+      newznab: 2070
+    - id: "17"
+      cat: Movies/BluRay
+      desc: "Movies: BluRay"
+      newznab: 2050
+    - id: "24"
+      cat: Movies/BluRay
+      desc: "Movies: BluRay Ro"
+      newznab: 2050
+    - id: "59"
+      cat: Movies
+      desc: "Movies: Ro"
+      newznab: 2000
+    - id: "57"
+      cat: Movies/UHD
+      desc: "Movies: 4K (2160p) Ro"
+      newznab: 2045
+    - id: "61"
+      cat: Movies/UHD
+      desc: "Movies: 4K (2160p)"
+      newznab: 2045
+    - id: "41"
+      cat: TV
+      desc: TV Packs
+      newznab: 5000
+    - id: "66"
+      cat: TV
+      desc: TV Packs Ro
+      newznab: 5000
+    - id: "45"
+      cat: TV/SD
+      desc: TV Episodes
+      newznab: 5030
+    - id: "46"
+      cat: TV/SD
+      desc: TV Episodes Ro
+      newznab: 5030
+    - id: "43"
+      cat: TV/HD
+      desc: TV Episodes HD
+      newznab: 5040
+    - id: "44"
+      cat: TV/HD
+      desc: TV Episodes HD Ro
+      newznab: 5040
+    - id: "60"
+      cat: TV
+      desc: TV Ro
+      newznab: 5000
+    - id: "11"
+      cat: PC/Games
+      desc: "Games: PC-ISO"
+      newznab: 4050
+    - id: "52"
+      cat: Console
+      desc: "Games: Console"
+      newznab: 1000
+    - id: "1"
+      cat: PC/0day
+      desc: Applications
+      newznab: 4010
+    - id: "14"
+      cat: PC
+      desc: "Applications: Linux"
+      newznab: 4000
+    - id: "37"
+      cat: PC/Mac
+      desc: "Applications: Mac"
+      newznab: 4030
+    - id: "19"
+      cat: PC/Phone-Other
+      desc: "Applications: Mobile"
+      newznab: 4040
+    - id: "62"
+      cat: TV
+      desc: TV Cartoons
+      newznab: 5000
+    - id: "3"
+      cat: TV/Anime
+      desc: TV Anime / Hentai
+      newznab: 5070
+    - id: "6"
+      cat: Books/EBook
+      desc: E-books
+      newznab: 7020
+    - id: "5"
+      cat: Audio
+      desc: Music
+      newznab: 3000
+    - id: "64"
+      cat: Audio/Video
+      desc: Music Video
+      newznab: 3020
+    - id: "18"
+      cat: Other
+      desc: Images
+      newznab: 8000
+    - id: "22"
+      cat: TV/Sport
+      desc: TV Sports
+      newznab: 5060
+    - id: "58"
+      cat: TV/Sport
+      desc: TV Sports Ro
+      newznab: 5060
+    - id: "9"
+      cat: TV/Documentary
+      desc: TV Documentary
+      newznab: 5080
+    - id: "63"
+      cat: TV/Documentary
+      desc: TV Documentary Ro
+      newznab: 5080
+    - id: "65"
+      cat: Other
+      desc: Tutorial
+      newznab: 8000
+    - id: "67"
+      cat: Other/Misc
+      desc: Miscellaneous
+      newznab: 8010
+    - id: "15"
+      cat: XXX
+      desc: XXX Movies
+      newznab: 6000
+    - id: "47"
+      cat: XXX
+      desc: XXX DVD
+      newznab: 6000
+    - id: "48"
+      cat: XXX
+      desc: XXX HD
+      newznab: 6000
+    - id: "49"
+      cat: XXX/ImageSet
+      desc: XXX Images
+      newznab: 6060
+    - id: "50"
+      cat: XXX
+      desc: XXX Packs
+      newznab: 6000
+    - id: "51"
+      cat: XXX
+      desc: XXX SD
+      newznab: 6000
+  modes:
+    search: [q]
+    movie-search: [q, imdbid]
+    tv-search: [q, season, ep, imdbid]
+    music-search: [q]
+    book-search: [q]
+search:
+  paths:
+    - path: 'api/torrent?itemsPerPage=100&sort=torrent.createdAt&direction=desc{{ if .Query.IMDBID }}&imdbId={{ .Query.IMDBID | urlencode }}{{ else }}&search={{ .Keywords | urlencode }}{{ end }}{{ if .Query.Season }}&season={{ .Query.Season }}{{ end }}{{ if .Query.Ep }}&episode={{ .Query.Ep }}{{ end }}{{ if .Categories }}&categories[]={{ .Categories | join "&categories[]=" }}{{ end }}'
+      response:
+        type: json
+      headers:
+        Authorization: "Bearer {{ .Config.APIKey }}"
+  rows:
+    selector: $
+  fields:
+    id:
+      selector: id
+    title:
+      selector: name
+    details:
+      selector: url
+    download:
+      text: "/api/torrent/{{ .Result.id }}/download"
+    category:
+      selector: category.id
+    size:
+      selector: size
+    seeders:
+      selector: seeders
+    leechers:
+      selector: leechers
+    date:
+      selector: created_at
+    downloadvolumefactor:
+      selector: download_volume_factor
+    uploadvolumefactor:
+      selector: upload_volume_factor
+`
+
 const MORE_THAN_TV = `
 id: morethantv
 name: MoreThanTV
@@ -1809,6 +2044,7 @@ const BUILT_IN_CARDIGANN_SOURCES = [
   TORRENT_DAY,
   IP_TORRENTS,
   RETRO_FLIX,
+  SPEED_APP,
   MORE_THAN_TV,
   HDACCESS,
   TORRENT_NETWORK,
