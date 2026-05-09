@@ -443,6 +443,30 @@ const HTML_SELECTOR_LIST_RESULTS = `<!doctype html>
   </body>
 </html>`
 
+const HTML_DIRECT_CHILD_SELECTOR_RESULTS = `<!doctype html>
+<html>
+  <body>
+    <table class="results">
+      <tr class="torrent">
+        <td class="name">
+          <span><a class="title">Wrong Nested Field Movie 2026 1080p WEB-DL</a></span>
+          <a class="title" href="/details/direct-child">Direct Child Movie 2026 1080p WEB-DL</a>
+        </td>
+        <td class="actions">
+          <span><a class="download" href="/download/wrong-nested-field">Nested Download</a></span>
+          <a class="download" href="/download/direct-child">Download</a>
+        </td>
+      </tr>
+      <tbody>
+        <tr class="torrent">
+          <td class="name"><a class="title">Wrong Nested Row Movie 2026 1080p WEB-DL</a></td>
+          <td class="actions"><a class="download" href="/download/wrong-nested-row">Download</a></td>
+        </tr>
+      </tbody>
+    </table>
+  </body>
+</html>`
+
 const HTML_NESTED_RESULTS = `<!doctype html>
 <html>
   <body>
@@ -2405,6 +2429,70 @@ search:
       "https://tracker.example/download/comma-first",
       "magnet:?xt=urn:btih:abcdefabcdefabcd&dn=Comma+Second",
     ])
+  })
+
+  it("matches Cardigann HTML direct-child selectors", async () => {
+    const fetchMock = vi.fn(
+      async () => new Response(HTML_DIRECT_CHILD_SELECTOR_RESULTS, { status: 200 }),
+    )
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 72,
+      name: "HTML Direct Child Selector Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "html-direct-child-selector-cardigann",
+      definitionYaml: `
+id: html-direct-child-selector-cardigann
+name: HTML Direct Child Selector Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+      newznab: 2000
+  modes:
+    search: [q]
+search:
+  paths:
+    - path: /browse
+      response:
+        type: html
+  rows:
+    selector: table.results > tr.torrent
+  fields:
+    title:
+      selector: td.name > a.title
+    details:
+      selector: td.name > a.title
+      attribute: href
+    download:
+      selector: td.actions > a.download
+      attribute: href
+    category:
+      text: Movies
+`,
+      baseUrl: "https://tracker.example",
+      apiKey: "",
+      priority: 35,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Direct Child", type: "general", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "Direct Child Movie 2026 1080p WEB-DL",
+      infoUrl: "https://tracker.example/details/direct-child",
+      downloadUrl: "https://tracker.example/download/direct-child",
+      category: "2000",
+    })
   })
 
   it("resolves nested Cardigann HTML descendant selectors within their parent matches", async () => {

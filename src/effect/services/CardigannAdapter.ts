@@ -76,6 +76,11 @@ interface SimpleHtmlSelector {
   readonly filters: ReadonlyArray<JsonSelectorFilter>
 }
 
+interface HtmlSelectorStep {
+  readonly token: string
+  readonly direct: boolean
+}
+
 interface FormLoginParams {
   readonly params: URLSearchParams
   readonly queryParams: URLSearchParams
@@ -1500,12 +1505,28 @@ function matchesNoResultsMessage(text: string, noResultsMessage: string | undefi
   return noResultsMessage.length > 0 ? text.includes(noResultsMessage) : text.trim().length === 0
 }
 
-function simpleSelectorTokens(selector: string): ReadonlyArray<string> {
-  const tokens: Array<string> = []
+function stripUnsupportedHtmlSelectorPseudos(token: string): string {
+  return token.replace(/:(?:first|last)-child\b/g, "")
+}
+
+function htmlSelectorSteps(selector: string): ReadonlyArray<HtmlSelectorStep> {
+  const steps: Array<HtmlSelectorStep> = []
   let current = ""
   let bracketDepth = 0
   let parenDepth = 0
   let quote: string | null = null
+  let nextDirect = false
+
+  const pushStep = () => {
+    const token = current.trim()
+    current = ""
+    if (token.length === 0) return
+    steps.push({
+      token: stripUnsupportedHtmlSelectorPseudos(token),
+      direct: nextDirect,
+    })
+    nextDirect = false
+  }
 
   for (const char of selector.trim()) {
     if ((char === `"` || char === `'`) && (bracketDepth > 0 || parenDepth > 0)) {
@@ -1520,23 +1541,22 @@ function simpleSelectorTokens(selector: string): ReadonlyArray<string> {
       parenDepth = Math.max(0, parenDepth - 1)
     }
 
-    if (
-      quote === null &&
-      bracketDepth === 0 &&
-      parenDepth === 0 &&
-      (char === ">" || /\s/.test(char))
-    ) {
-      const token = current.trim()
-      if (token.length > 0) tokens.push(token.replace(/:(?:first|last)-child\b/g, ""))
-      current = ""
+    if (quote === null && bracketDepth === 0 && parenDepth === 0 && char === ">") {
+      pushStep()
+      nextDirect = true
+    } else if (quote === null && bracketDepth === 0 && parenDepth === 0 && /\s/.test(char)) {
+      pushStep()
     } else {
       current += char
     }
   }
 
-  const token = current.trim()
-  if (token.length > 0) tokens.push(token.replace(/:(?:first|last)-child\b/g, ""))
-  return tokens
+  pushStep()
+  return steps
+}
+
+function simpleSelectorTokens(selector: string): ReadonlyArray<string> {
+  return htmlSelectorSteps(selector).map((step) => step.token)
 }
 
 function splitHtmlSelectorList(selector: string): ReadonlyArray<string> {
@@ -1779,10 +1799,56 @@ function htmlSelectorFiltersMatch(
   })
 }
 
+const HTML_VOID_ELEMENTS = new Set([
+  "area",
+  "base",
+  "br",
+  "col",
+  "embed",
+  "hr",
+  "img",
+  "input",
+  "link",
+  "meta",
+  "param",
+  "source",
+  "track",
+  "wbr",
+])
+
+function isDirectHtmlChildAt(html: string, index: number): boolean {
+  const stack: Array<string> = []
+  for (const match of html.slice(0, index).matchAll(/<\/?([A-Za-z][\w:-]*)([^>]*)>/g)) {
+    const raw = match[0]
+    const tagName = (match[1] ?? "").toLowerCase()
+    if (tagName.length === 0) continue
+
+    if (raw.startsWith("</")) {
+      const openIndex = stack.lastIndexOf(tagName)
+      if (openIndex >= 0) stack.splice(openIndex)
+      continue
+    }
+
+    const attributes = match[2] ?? ""
+    if (
+      raw.endsWith("/>") ||
+      attributes.trimEnd().endsWith("/") ||
+      HTML_VOID_ELEMENTS.has(tagName)
+    ) {
+      continue
+    }
+
+    stack.push(tagName)
+  }
+
+  return stack.length === 0
+}
+
 function findHtmlElementsForToken(
   html: string,
   selectorText: string,
   baseIndex = 0,
+  direct = false,
 ): ReadonlyArray<HtmlElementMatch> {
   const selector = parseSimpleHtmlSelectorToken(selectorText)
   if (selector === null) return []
@@ -1791,11 +1857,14 @@ function findHtmlElementsForToken(
   const elementPattern = new RegExp(`<(${tagPattern})\\b([^>]*)>([\\s\\S]*?)<\\/\\1>`, "gi")
   const matches: Array<HtmlElementMatch> = []
   for (const match of html.matchAll(elementPattern)) {
+    const matchIndex = match.index ?? 0
+    if (direct && !isDirectHtmlChildAt(html, matchIndex)) continue
+
     const tagName = (match[1] ?? "").toLowerCase()
     if (selector.tag !== null && tagName !== selector.tag) continue
 
     const attributes = parseHtmlAttributes(match[2] ?? "")
-    const sourceIndex = baseIndex + (match.index ?? 0)
+    const sourceIndex = baseIndex + matchIndex
     const element = {
       tagName,
       attributes,
@@ -1836,15 +1905,20 @@ function findHtmlElementsForSelector(
   html: string,
   selectorText: string,
 ): ReadonlyArray<HtmlElementMatch> {
-  const tokens = simpleSelectorTokens(selectorText)
-  if (tokens.length === 0) return []
+  const steps = htmlSelectorSteps(selectorText)
+  if (steps.length === 0) return []
 
   let matches: ReadonlyArray<HtmlElementMatch> = [
     { tagName: null, attributes: {}, innerHtml: html, outerHtml: html },
   ]
-  for (const token of tokens) {
+  for (const step of steps) {
     matches = matches.flatMap((match) =>
-      findHtmlElementsForToken(match.innerHtml, token, match.innerHtmlStartIndex ?? 0),
+      findHtmlElementsForToken(
+        match.innerHtml,
+        step.token,
+        match.innerHtmlStartIndex ?? 0,
+        step.direct,
+      ),
     )
     if (matches.length === 0) return []
   }
@@ -2056,10 +2130,10 @@ function htmlElementSelfMatches(element: HtmlElementMatch, selectorText: string)
     return selectors.some((selector) => htmlElementSelfMatches(element, selector))
   }
 
-  const tokens = simpleSelectorTokens(selectorText)
-  if (tokens.length !== 1) return false
+  const steps = htmlSelectorSteps(selectorText)
+  if (steps.length !== 1 || steps[0]?.direct === true) return false
 
-  const selector = parseSimpleHtmlSelectorToken(tokens[0] ?? "")
+  const selector = parseSimpleHtmlSelectorToken(steps[0]?.token ?? "")
   if (selector === null) return false
   if (selector.filters.some(isHtmlPositionalSelectorFilter)) return false
   if (selector.tag !== null && element.tagName !== selector.tag) return false
