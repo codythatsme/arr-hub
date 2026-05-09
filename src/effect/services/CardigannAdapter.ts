@@ -128,20 +128,113 @@ function templateVariables(
   }
 }
 
+function splitTemplatePipeline(expression: string): ReadonlyArray<string> {
+  const parts: Array<string> = []
+  let current = ""
+  let quote: string | null = null
+
+  for (const char of expression) {
+    if ((char === `"` || char === `'`) && quote === null) {
+      quote = char
+    } else if (char === quote) {
+      quote = null
+    }
+
+    if (char === "|" && quote === null) {
+      parts.push(current.trim())
+      current = ""
+    } else {
+      current += char
+    }
+  }
+
+  if (current.trim().length > 0) parts.push(current.trim())
+  return parts
+}
+
+function parseFilterCall(expression: string): {
+  readonly name: string
+  readonly args: ReadonlyArray<string>
+} {
+  const tokens = Array.from(expression.matchAll(/"([^"]*)"|'([^']*)'|(\S+)/g)).map(
+    (match) => match[1] ?? match[2] ?? match[3] ?? "",
+  )
+  const [name = "", ...args] = tokens
+  return { name: name.toLowerCase(), args }
+}
+
+function templateValueToString(value: TemplateValue | undefined): string {
+  if (typeof value === "string") return value
+  return value ? value.join(",") : ""
+}
+
+function applyTemplateFilter(
+  value: TemplateValue | undefined,
+  filter: string,
+  args: ReadonlyArray<string>,
+): TemplateValue {
+  if (filter === "join") {
+    const separator = args[0] ?? ","
+    return Array.isArray(value) ? value.join(separator) : templateValueToString(value)
+  }
+
+  const text = templateValueToString(value)
+  switch (filter) {
+    case "append":
+      return `${text}${args[0] ?? ""}`
+    case "default":
+      return text.length > 0 ? text : (args[0] ?? "")
+    case "lower":
+    case "lowercase":
+    case "tolower":
+      return text.toLowerCase()
+    case "prepend":
+      return `${args[0] ?? ""}${text}`
+    case "replace":
+      return args.length >= 2 ? text.split(args[0]).join(args[1]) : text
+    case "trim":
+      return text.trim()
+    case "upper":
+    case "uppercase":
+    case "toupper":
+      return text.toUpperCase()
+    case "queryescape":
+    case "urlencode":
+    case "urlencodecomponent":
+      return encodeURIComponent(text)
+    default:
+      return text
+  }
+}
+
 function renderTemplate(template: string, variables: Record<string, TemplateValue>): string {
   return template.replace(/\{\{\s*([^}]+?)\s*\}\}/g, (_match, expression: string) => {
-    const key = expression.split("|", 1)[0].trim()
-    const value = variables[key]
-    if (typeof value === "string") return value
-    return value ? value.join(",") : ""
+    const [key = "", ...filters] = splitTemplatePipeline(expression)
+    let value = variables[key.trim()]
+    for (const filterExpression of filters) {
+      const filter = parseFilterCall(filterExpression)
+      value = applyTemplateFilter(value, filter.name, filter.args)
+    }
+    return templateValueToString(value)
   })
+}
+
+function normalizeUrlSearchParamValue(value: string): string {
+  if (!/%[\dA-Fa-f]{2}/.test(value)) return value
+  try {
+    return decodeURIComponent(value)
+  } catch {
+    return value
+  }
 }
 
 function appendRawParams(params: URLSearchParams, raw: string): void {
   for (const part of raw.split("&")) {
     if (part.length === 0) continue
     const [key, value = ""] = part.split("=", 2)
-    if (key.length > 0) params.append(key, value)
+    if (key.length > 0) {
+      params.append(normalizeUrlSearchParamValue(key), normalizeUrlSearchParamValue(value))
+    }
   }
 }
 
@@ -158,7 +251,7 @@ function appendInputs(
     if (key === "$raw") {
       appendRawParams(params, value)
     } else {
-      params.append(key, value)
+      params.append(key, normalizeUrlSearchParamValue(value))
     }
   }
 }

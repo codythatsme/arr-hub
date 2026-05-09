@@ -200,6 +200,70 @@ search:
     expect(releases[0]?.title).toBe("Example Movie 2026 1080p WEB-DL")
   })
 
+  it("applies Cardigann template filters to paths, raw params, and headers", async () => {
+    let requestUrl: string | undefined
+    let requestInit: RequestInit | undefined
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      requestUrl = String(input)
+      requestInit = init
+      return new Response(RSS_XML, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 12,
+      name: "Filtered Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "filtered-cardigann",
+      definitionYaml: `
+id: filtered-cardigann
+name: Filtered Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+  modes:
+    movie-search: [q, imdbid]
+search:
+  paths:
+    - path: /search/{{ .Keywords | trim | urlencode }}
+      response:
+        type: torznab
+      headers:
+        X-Query-Slug: '{{ .Keywords | trim | lowercase | replace " " "-" }}'
+      inputs:
+        $raw: 'q={{ .Keywords | trim | urlencode }}&imdb={{ .Query.IMDBIDShort | prepend "tt" }}&cat={{ .Categories | join "," }}'
+`,
+      baseUrl: "https://tracker.example/root",
+      apiKey: "api-key",
+      priority: 15,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    await Effect.runPromise(
+      adapter.search({
+        term: " Example Movie ",
+        type: "movie",
+        categories: [2000],
+        imdbId: "tt1234567",
+      }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const url = new URL(requestUrl ?? "")
+    expect(url.pathname).toBe("/search/Example%20Movie")
+    expect(url.searchParams.get("q")).toBe("Example Movie")
+    expect(url.searchParams.get("imdb")).toBe("tt1234567")
+    expect(url.searchParams.get("cat")).toBe("movies")
+
+    const headers = new Headers(requestInit?.headers)
+    expect(headers.get("x-query-slug")).toBe("example-movie")
+  })
+
   it("fails when the configured definition key is unknown", async () => {
     const adapter = createCardigannYamlAdapter({
       id: 9,
