@@ -211,10 +211,12 @@ const runDdl = Effect.gen(function* () {
     name TEXT NOT NULL,
     url TEXT NOT NULL UNIQUE,
     enabled INTEGER NOT NULL DEFAULT 1,
+    pinned_sha256 TEXT,
     last_checked_at INTEGER,
     last_error TEXT,
     last_definition_key TEXT,
     last_version TEXT,
+    last_sha256 TEXT,
     created_at INTEGER NOT NULL DEFAULT (unixepoch()),
     updated_at INTEGER NOT NULL DEFAULT (unixepoch())
   )`

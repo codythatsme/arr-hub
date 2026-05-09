@@ -194,6 +194,7 @@ export class IndexerApplicationError extends Data.TaggedError("IndexerApplicatio
 export type IndexerDefinitionSourceErrorReason =
   | "connection_failed"
   | "invalid_response"
+  | "checksum_mismatch"
   | "sync_failed"
 
 export class IndexerDefinitionSourceError extends Data.TaggedError("IndexerDefinitionSourceError")<{

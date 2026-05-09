@@ -218,6 +218,7 @@ export function domainToTRPC(error: DomainError): TRPCError {
     }
     case "IndexerDefinitionSourceError": {
       const codeMap: Record<string, TRPCError["code"]> = {
+        checksum_mismatch: "PRECONDITION_FAILED",
         connection_failed: "BAD_GATEWAY",
         invalid_response: "BAD_GATEWAY",
         sync_failed: "BAD_GATEWAY",

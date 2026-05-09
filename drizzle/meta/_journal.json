@@ -106,6 +106,13 @@
       "when": 1778312898812,
       "tag": "0014_fixed_union_jack",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "6",
+      "when": 1778314202746,
+      "tag": "0015_milky_thunderbolts",
+      "breakpoints": true
     }
   ]
 }

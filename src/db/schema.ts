@@ -334,10 +334,12 @@ export const indexerDefinitionSources = sqliteTable("indexer_definition_sources"
   name: text().notNull(),
   url: text().notNull().unique(),
   enabled: integer({ mode: "boolean" }).notNull().default(true),
+  pinnedSha256: text("pinned_sha256"),
   lastCheckedAt: integer("last_checked_at", { mode: "timestamp" }),
   lastError: text("last_error"),
   lastDefinitionKey: text("last_definition_key"),
   lastVersion: text("last_version"),
+  lastSha256: text("last_sha256"),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),

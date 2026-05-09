@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto"
+
 import { SqlError } from "@effect/sql/SqlError"
 import { eq } from "drizzle-orm"
 import { Context, Effect, Layer } from "effect"
@@ -19,12 +21,14 @@ interface IndexerDefinitionSourceInput {
   readonly name: string
   readonly url: string
   readonly enabled?: boolean
+  readonly pinnedSha256?: string | null
 }
 
 interface IndexerDefinitionSourceUpdate {
   readonly name?: string
   readonly url?: string
   readonly enabled?: boolean
+  readonly pinnedSha256?: string | null
 }
 
 export class IndexerDefinitionSourceService extends Context.Tag(
@@ -55,6 +59,7 @@ export class IndexerDefinitionSourceService extends Context.Tag(
 >() {}
 
 const TIMEOUT_MS = 30_000
+const SHA256_PATTERN = /^[\da-f]{64}$/i
 
 class RemoteDefinitionHttpError extends Error {
   constructor(
@@ -86,13 +91,35 @@ function toSource(row: typeof indexerDefinitionSources.$inferSelect): IndexerDef
     name: row.name,
     url: row.url,
     enabled: row.enabled,
+    pinnedSha256: row.pinnedSha256,
     lastCheckedAt: row.lastCheckedAt,
     lastError: row.lastError,
     lastDefinitionKey: row.lastDefinitionKey,
     lastVersion: row.lastVersion,
+    lastSha256: row.lastSha256,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   }
+}
+
+function sha256Hex(value: string): string {
+  return createHash("sha256").update(value, "utf8").digest("hex")
+}
+
+function normalizeSha256(value: string | null | undefined): string | null | undefined {
+  if (value === undefined || value === null) return value
+  const trimmed = value.trim()
+  return trimmed === "" ? null : trimmed.toLowerCase()
+}
+
+function sourceErrorTagged(error: unknown): error is IndexerDefinitionSourceError {
+  return (
+    error instanceof IndexerDefinitionSourceError ||
+    (typeof error === "object" &&
+      error !== null &&
+      "_tag" in error &&
+      error._tag === "IndexerDefinitionSourceError")
+  )
 }
 
 function sameJson(left: unknown, right: unknown): boolean {
@@ -124,6 +151,10 @@ function toSourceError(
   source: typeof indexerDefinitionSources.$inferSelect,
   error: unknown,
 ): IndexerDefinitionSourceError {
+  if (sourceErrorTagged(error)) {
+    return error
+  }
+
   if (error instanceof RemoteDefinitionHttpError) {
     return new IndexerDefinitionSourceError({
       sourceId: source.id,
@@ -160,14 +191,8 @@ function toRefreshFailure(
   source: typeof indexerDefinitionSources.$inferSelect,
   error: unknown,
 ): IndexerDefinitionSourceRefreshFailure {
-  if (
-    error instanceof IndexerDefinitionSourceError ||
-    (typeof error === "object" &&
-      error !== null &&
-      "_tag" in error &&
-      error._tag === "IndexerDefinitionSourceError")
-  ) {
-    const sourceError = error as IndexerDefinitionSourceError
+  if (sourceErrorTagged(error)) {
+    const sourceError = error
     return {
       sourceId: sourceError.sourceId,
       sourceName: sourceError.sourceName,
@@ -233,6 +258,27 @@ export const IndexerDefinitionSourceServiceLive = Layer.effect(
           try: () => fetchDefinitionYaml(source.url),
           catch: (error) => toSourceError(source, error),
         })
+        const sourceSha256 = sha256Hex(sourceYaml)
+        const pinnedSha256 = normalizeSha256(source.pinnedSha256)
+        if (pinnedSha256 && !SHA256_PATTERN.test(pinnedSha256)) {
+          return yield* new IndexerDefinitionSourceError({
+            sourceId: source.id,
+            sourceName: source.name,
+            reason: "checksum_mismatch",
+            message: "pinned SHA-256 checksum is invalid",
+            retryable: false,
+          })
+        }
+        if (pinnedSha256 && pinnedSha256 !== sourceSha256) {
+          return yield* new IndexerDefinitionSourceError({
+            sourceId: source.id,
+            sourceName: source.name,
+            reason: "checksum_mismatch",
+            message: `SHA-256 checksum mismatch: expected ${pinnedSha256}, got ${sourceSha256}`,
+            retryable: false,
+          })
+        }
+
         const definition = yield* Effect.try({
           try: () => ({
             ...parseCardigannDefinitionYaml(sourceYaml),
@@ -265,6 +311,7 @@ export const IndexerDefinitionSourceServiceLive = Layer.effect(
             lastError: null,
             lastDefinitionKey: definition.definitionKey,
             lastVersion: definition.version,
+            lastSha256: sourceSha256,
             updatedAt: refreshedAt,
           })
           .where(eq(indexerDefinitionSources.id, source.id))
@@ -276,6 +323,7 @@ export const IndexerDefinitionSourceServiceLive = Layer.effect(
           displayName: definition.displayName,
           previousVersion: existing?.version ?? null,
           version: definition.version,
+          sourceSha256,
           action,
         } satisfies IndexerDefinitionSourceRefreshResult
       })
@@ -305,6 +353,7 @@ export const IndexerDefinitionSourceServiceLive = Layer.effect(
               name: input.name,
               url: input.url,
               enabled: input.enabled ?? true,
+              pinnedSha256: normalizeSha256(input.pinnedSha256) ?? null,
             })
             .returning()
           return toSource(rows[0])
@@ -330,6 +379,9 @@ export const IndexerDefinitionSourceServiceLive = Layer.effect(
           if (data.name !== undefined) updateData.name = data.name
           if (data.url !== undefined) updateData.url = data.url
           if (data.enabled !== undefined) updateData.enabled = data.enabled
+          if (data.pinnedSha256 !== undefined) {
+            updateData.pinnedSha256 = normalizeSha256(data.pinnedSha256)
+          }
 
           const rows = yield* db
             .update(indexerDefinitionSources)

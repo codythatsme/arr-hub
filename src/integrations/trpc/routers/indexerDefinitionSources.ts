@@ -10,12 +10,22 @@ const sourceInputSchema = z.object({
   name: z.string().min(1),
   url: z.string().url(),
   enabled: z.boolean().optional(),
+  pinnedSha256: z
+    .string()
+    .regex(/^[\da-f]{64}$/i)
+    .nullable()
+    .optional(),
 })
 
 const sourceUpdateSchema = z.object({
   name: z.string().min(1).optional(),
   url: z.string().url().optional(),
   enabled: z.boolean().optional(),
+  pinnedSha256: z
+    .string()
+    .regex(/^[\da-f]{64}$/i)
+    .nullable()
+    .optional(),
 })
 
 export const indexerDefinitionSourcesRouter = {
