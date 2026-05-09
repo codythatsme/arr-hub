@@ -3306,6 +3306,10 @@ function isMultipartForm(form: HtmlElementMatch): boolean {
   )
 }
 
+function htmlFormSubmitMethod(form: HtmlElementMatch): "GET" | "POST" {
+  return (form.attributes.method ?? "").trim().toLowerCase() === "get" ? "GET" : "POST"
+}
+
 function resolveFormSubmitUrl(
   landingUrl: URL,
   form: HtmlElementMatch,
@@ -3426,16 +3430,28 @@ function executeFormLoginRequests(
         body.set("captchaSelection", selection)
         body.set("submitme", "X")
       }
-      const submitBody = isMultipartForm(form) ? multipartFormBody(body) : null
-      if (submitBody !== null) {
-        submitHeaders.set("content-type", submitBody.contentType)
-      } else if (!submitHeaders.has("content-type")) {
-        submitHeaders.set("content-type", "application/x-www-form-urlencoded")
-      }
-      const submitInit: RequestInit = {
-        method: "POST",
-        body: submitBody?.body ?? body,
-        headers: submitHeaders,
+      const submitMethod = htmlFormSubmitMethod(form)
+      let submitInit: RequestInit
+      if (submitMethod === "GET") {
+        for (const [key, value] of body) {
+          submitUrl.searchParams.append(key, value)
+        }
+        submitInit = {
+          method: submitMethod,
+          headers: submitHeaders,
+        }
+      } else {
+        const submitBody = isMultipartForm(form) ? multipartFormBody(body) : null
+        if (submitBody !== null) {
+          submitHeaders.set("content-type", submitBody.contentType)
+        } else if (!submitHeaders.has("content-type")) {
+          submitHeaders.set("content-type", "application/x-www-form-urlencoded")
+        }
+        submitInit = {
+          method: submitMethod,
+          body: submitBody?.body ?? body,
+          headers: submitHeaders,
+        }
       }
 
       const submitResponse = yield* fetchIndexerResponseText(
