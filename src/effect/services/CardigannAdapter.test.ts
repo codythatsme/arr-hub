@@ -1246,6 +1246,67 @@ search:
     })
   })
 
+  it("maps Cardigann categorydesc fields through tracker category descriptions", async () => {
+    const fetchMock = vi.fn(async () => new Response(HTML_RESULTS, { status: 200 }))
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 68,
+      name: "Category Description HTML Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "category-desc-html-cardigann",
+      definitionYaml: `
+id: category-desc-html-cardigann
+name: Category Description HTML Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movie-hd
+      cat: movies-hd
+      desc: Movies
+      newznab: 2000
+  modes:
+    search: [q]
+search:
+  paths:
+    - path: /browse
+      response:
+        type: html
+  rows:
+    selector: tr.torrent
+  fields:
+    title:
+      selector: a.short-title
+    download:
+      selector: a.download
+      attribute: href
+    categorydesc:
+      selector: a.category
+    seeders:
+      selector: td.seeders
+`,
+      baseUrl: "https://tracker.example",
+      apiKey: "",
+      priority: 35,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Fallback Movie", type: "general", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "Fallback Movie 2026 1080p WEB-DL",
+      downloadUrl: "https://tracker.example/download/1",
+      category: "2000",
+      seeders: 1234,
+    })
+  })
+
   it("normalizes Cardigann field-name modifiers in HTML selector results", async () => {
     const fetchMock = vi.fn(async () => new Response(HTML_FIELD_MODIFIER_RESULTS, { status: 200 }))
     vi.stubGlobal("fetch", fetchMock)

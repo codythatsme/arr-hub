@@ -1935,7 +1935,7 @@ function releaseFromResultFields(
     age: ageDays,
     downloadUrl,
     infoUrl: infoUrl.length > 0 ? absoluteUrl(infoUrl, request.url) : null,
-    category: releaseCategory(definition, fieldByName(resultFields, ["category"])),
+    category: releaseCategory(definition, fieldByName(resultFields, ["category", "categorydesc"])),
     protocol: definition.protocol,
     publishedAt,
     infohash: fieldByName(resultFields, ["infohash"]).trim() || null,
