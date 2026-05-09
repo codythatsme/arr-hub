@@ -859,6 +859,62 @@ const ALPHA_RATIO_JSON_RESULTS = JSON.stringify({
   },
 })
 
+const BROKENSTONES_JSON_RESULTS = JSON.stringify({
+  status: "success",
+  response: {
+    results: [
+      {
+        groupId: "991",
+        groupName: "BrokenStones Audio Pack",
+        groupYear: "2026",
+        torrents: [
+          {
+            torrentId: 9911,
+            format: "FLAC",
+            encoding: "Lossless",
+            media: "WEB",
+            hasCue: true,
+            time: "2026-05-10T10:40:00.000Z",
+            size: "912345600",
+            fileCount: 14,
+            snatches: 8,
+            seeders: "19",
+            leechers: "1",
+            category: "Audio",
+            isFreeLeech: true,
+            isNeutralLeech: false,
+            isPersonalFreeLeech: false,
+          },
+        ],
+      },
+      {
+        groupId: "992",
+        groupName: "BrokenStones Mac App",
+        groupYear: "2026",
+        torrents: [
+          {
+            torrentId: 9912,
+            format: "DMG",
+            encoding: "Universal",
+            media: "WEB",
+            hasCue: false,
+            time: "2026-05-09T12:05:00.000Z",
+            size: "1512345600",
+            fileCount: 1,
+            snatches: 6,
+            seeders: "11",
+            leechers: "2",
+            category: "MacOS Apps",
+            isFreeLeech: false,
+            isNeutralLeech: true,
+            isPersonalFreeLeech: false,
+          },
+        ],
+      },
+    ],
+  },
+})
+
 const REVOLUTIONTT_HTML_RESULTS = `
 <html><body>
   <table id="torrents-table">
@@ -4702,6 +4758,89 @@ search:
     expect(releases[1]).toMatchObject({
       title: "AlphaRatio Series (2026) [H.265 2160p] [WEB] [Cue]",
       category: "5045",
+      downloadFactor: 0,
+      uploadFactor: 0,
+    })
+  })
+
+  it("parses BrokenStones Gazelle JSON results after POST login", async () => {
+    const requests: Array<{ url: string; init: RequestInit | undefined }> = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(String(input))
+      requests.push({ url: String(input), init })
+      if (url.pathname === "/login.php") {
+        return new Response(JSON.stringify({ status: "success" }), {
+          status: 200,
+          headers: { "set-cookie": "bs_session=abc; Path=/" },
+        })
+      }
+      return new Response(BROKENSTONES_JSON_RESULTS, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 111,
+      name: "BrokenStones",
+      type: "cardigann_yaml",
+      definitionKey: "brokenstones",
+      baseUrl: "https://brokenstones.is/",
+      apiKey: "",
+      configValues: {
+        username: "alice",
+        password: "secret",
+        useFreeleechToken: "1",
+      },
+      priority: 47,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({
+        term: "BrokenStones Audio",
+        type: "general",
+        categories: [3000],
+      }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    const loginRequest = requests[0]
+    expect(loginRequest?.url).toBe("https://brokenstones.is/login.php")
+    expect(loginRequest?.init?.method).toBe("POST")
+    const loginBody = new URLSearchParams(String(loginRequest?.init?.body ?? ""))
+    expect(loginBody.get("username")).toBe("alice")
+    expect(loginBody.get("password")).toBe("secret")
+    expect(loginBody.get("keeplogged")).toBe("1")
+
+    const searchRequest = requests[1]
+    const searchUrl = new URL(searchRequest?.url ?? "")
+    expect(searchUrl.origin).toBe("https://brokenstones.is")
+    expect(searchUrl.pathname).toBe("/ajax.php")
+    expect(searchUrl.searchParams.get("action")).toBe("browse")
+    expect(searchUrl.searchParams.get("order_by")).toBe("time")
+    expect(searchUrl.searchParams.get("order_way")).toBe("desc")
+    expect(searchUrl.searchParams.get("searchstr")).toBe("BrokenStones Audio")
+    expect(searchUrl.searchParams.get("filter_cat[6]")).toBe("1")
+    expect(new Headers(searchRequest?.init?.headers).get("cookie")).toBe("bs_session=abc")
+    expect(releases).toHaveLength(2)
+    expect(releases[0]).toMatchObject({
+      title: "BrokenStones Audio Pack (2026) [FLAC Lossless] [WEB] [Cue]",
+      downloadUrl: "https://brokenstones.is/torrents.php?action=download&id=9911&usetoken=1",
+      infoUrl: "https://brokenstones.is/torrents.php?id=991&torrentid=9911",
+      category: "3000",
+      size: 912_345_600,
+      seeders: 19,
+      leechers: 1,
+      indexerId: 111,
+      indexerName: "BrokenStones",
+      indexerPriority: 47,
+      downloadFactor: 0,
+      uploadFactor: 1,
+    })
+    expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-10T10:40:00.000Z")
+    expect(releases[1]).toMatchObject({
+      title: "BrokenStones Mac App (2026) [DMG Universal] [WEB]",
+      category: "4020",
       downloadFactor: 0,
       uploadFactor: 0,
     })

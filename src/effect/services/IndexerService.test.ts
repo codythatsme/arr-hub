@@ -119,19 +119,19 @@ describe("IndexerService", () => {
       const second = yield* svc.refreshDefinitions()
 
       expect(first).toMatchObject({
-        total: 41,
-        created: 41,
+        total: 42,
+        created: 42,
         updated: 0,
         unchanged: 0,
       })
       expect(first.definitions.map((definition) => definition.action)).toEqual(
-        Array(41).fill("created"),
+        Array(42).fill("created"),
       )
       expect(second).toMatchObject({
-        total: 41,
+        total: 42,
         created: 0,
         updated: 0,
-        unchanged: 41,
+        unchanged: 42,
       })
       expect(second.definitions.every((definition) => definition.previousVersion !== null)).toBe(
         true,
@@ -408,6 +408,7 @@ describe("IndexerService", () => {
         "bakabt",
         "beyond-hd",
         "bit-hdtv",
+        "brokenstones",
         "filelist",
         "funfile",
         "generic-newznab",
@@ -795,6 +796,17 @@ describe("IndexerService", () => {
           "json",
           "gazelle",
         ],
+      })
+      expect(
+        definitions.find((definition) => definition.definitionKey === "brokenstones"),
+      ).toMatchObject({
+        displayName: "BrokenStones",
+        protocol: "torrent",
+        implementation: "cardigann_yaml",
+        baseUrl: "https://brokenstones.is/",
+        privacy: "private",
+        supportsRss: false,
+        tags: ["private", "apps", "games", "music", "json", "gazelle"],
       })
       expect(
         definitions.find((definition) => definition.definitionKey === "revolutiontt"),

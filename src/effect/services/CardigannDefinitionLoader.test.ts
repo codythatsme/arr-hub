@@ -109,6 +109,7 @@ caps:
       "secret-cinema",
       "filelist",
       "alpharatio",
+      "brokenstones",
       "revolutiontt",
       "pretome",
       "morethantv",
@@ -923,6 +924,36 @@ caps:
           { id: 4050, name: "GamesPC" },
           { id: 3030, name: "AudioBook" },
           { id: 8000, name: "Misc" },
+        ]),
+      },
+    })
+    expect(
+      BUILT_IN_CARDIGANN_DEFINITIONS.find(
+        (definition) => definition.definitionKey === "brokenstones",
+      ),
+    ).toMatchObject({
+      displayName: "BrokenStones",
+      baseUrl: "https://brokenstones.is/",
+      privacy: "private",
+      supportsRss: false,
+      supportsSearch: true,
+      tags: ["private", "apps", "games", "music", "json", "gazelle"],
+      authFields: expect.arrayContaining([
+        expect.objectContaining({ name: "username", type: "text", required: true }),
+        expect.objectContaining({ name: "password", type: "password", required: true }),
+        expect.objectContaining({
+          name: "useFreeleechToken",
+          type: "select",
+          defaultValue: "0",
+        }),
+      ]),
+      capabilities: {
+        searchTypes: ["search"],
+        categories: expect.arrayContaining([
+          { id: 4020, name: "MacOS Apps" },
+          { id: 4040, name: "iOS Apps" },
+          { id: 3000, name: "Audio" },
+          { id: 8000, name: "Tutorials" },
         ]),
       },
     })
