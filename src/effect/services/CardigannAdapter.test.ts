@@ -424,6 +424,31 @@ const HTML_ESCAPED_SELECTOR_RESULTS = `<!doctype html>
   </body>
 </html>`
 
+const HTML_MATCHING_PSEUDO_SELECTOR_RESULTS = `<!doctype html>
+<html>
+  <body>
+    <table>
+      <tbody>
+        <tr class="torrent secondary" data-status="alive">
+          <td><a class="title fallback-title" href="/details/wrong-grouping">Wrong Grouping Movie 2026 1080p WEB-DL</a></td>
+          <td><a class="download magnet-link" href="/download/wrong-grouping">Download</a></td>
+          <td><span class="category hd">Movies</span></td>
+        </tr>
+        <tr class="torrent primary" data-status="dead">
+          <td><a class="title primary-title" href="/details/dead-grouping">Dead Grouping Movie 2026 1080p WEB-DL</a></td>
+          <td><a class="download magnet-link" href="/download/dead-grouping">Download</a></td>
+          <td><span class="category hd">Movies</span></td>
+        </tr>
+        <tr class="torrent primary" data-status="alive">
+          <td><a class="title primary-title" href="/details/grouping-pseudo">Grouping Pseudo Movie 2026 1080p WEB-DL</a></td>
+          <td><a class="download magnet-link" href="/download/grouping-pseudo">Download</a></td>
+          <td><span class="category hd">Movies</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </body>
+</html>`
+
 const HTML_SELECTOR_POSITION_RESULTS = `<!doctype html>
 <html>
   <body>
@@ -2795,6 +2820,70 @@ search:
       title: "Escaped Selector Movie 2026 1080p WEB-DL",
       infoUrl: "https://tracker.example/details/escaped-selector",
       downloadUrl: "https://tracker.example/download/escaped-selector",
+      category: "2000",
+    })
+  })
+
+  it("matches Cardigann HTML selectors with matching pseudo classes", async () => {
+    const fetchMock = vi.fn(
+      async () => new Response(HTML_MATCHING_PSEUDO_SELECTOR_RESULTS, { status: 200 }),
+    )
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 89,
+      name: "HTML Matching Pseudo Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "html-matching-pseudo-cardigann",
+      definitionYaml: `
+id: html-matching-pseudo-cardigann
+name: HTML Matching Pseudo Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+      newznab: 2000
+  modes:
+    search: [q]
+search:
+  paths:
+    - path: /browse
+      response:
+        type: html
+  rows:
+    selector: tr.torrent:is(.primary, .featured):where([data-status="alive"], .backup)
+  fields:
+    title:
+      selector: a:is(.primary-title, .fallback-title)
+    details:
+      selector: a:is(.primary-title, .fallback-title)
+      attribute: href
+    download:
+      selector: a:matches(.download, .magnet-link)
+      attribute: href
+    category:
+      selector: span.category:where(.hd, .uhd)
+`,
+      baseUrl: "https://tracker.example",
+      apiKey: "",
+      priority: 35,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Grouping Pseudo Movie", type: "general", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "Grouping Pseudo Movie 2026 1080p WEB-DL",
+      infoUrl: "https://tracker.example/details/grouping-pseudo",
+      downloadUrl: "https://tracker.example/download/grouping-pseudo",
       category: "2000",
     })
   })

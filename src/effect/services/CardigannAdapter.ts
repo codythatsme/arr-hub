@@ -1624,11 +1624,13 @@ const HTML_SELECTOR_FILTER_NAMES = new Set([
   "hidden",
   "image",
   "input",
+  "is",
   "lang",
   "last",
   "last-child",
   "last-of-type",
   "lt",
+  "matches",
   "not",
   "nth-child",
   "nth-last-child",
@@ -1646,6 +1648,7 @@ const HTML_SELECTOR_FILTER_NAMES = new Set([
   "submit",
   "text",
   "visible",
+  "where",
 ])
 
 function htmlSelectorFilterStart(text: string): number {
@@ -1800,6 +1803,12 @@ function htmlSelectorExists(element: HtmlElementMatch, selectorText: string): bo
   return (
     htmlElementSelfMatches(element, selectorText) ||
     findHtmlElements(element.innerHtml, selectorText).length > 0
+  )
+}
+
+function htmlSelectorSelfMatchesAny(element: HtmlElementMatch, selectorText: string): boolean {
+  return splitHtmlSelectorList(selectorText).some((selector) =>
+    htmlElementSelfMatches(element, selector),
   )
 }
 
@@ -1981,6 +1990,10 @@ function htmlSelectorFiltersMatch(
         return findHtmlElements(element.innerHtml, filter.selector).length > 0
       case "not":
         return !htmlSelectorExists(element, filter.selector)
+      case "is":
+      case "where":
+      case "matches":
+        return htmlSelectorSelfMatchesAny(element, filter.selector)
       case "checked":
         return Object.hasOwn(element.attributes, "checked")
       case "selected":
