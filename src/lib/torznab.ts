@@ -49,6 +49,8 @@ export function parseAggregateIndexerRequest(url: URL, protocol: IndexerProtocol
         type,
         categories: parseCategories(url.searchParams.get("cat")),
         limit: parsePositiveInt(url.searchParams.get("limit")),
+        offset: parseNonNegativeInt(url.searchParams.get("offset")),
+        extended: normalizeExternalId(url.searchParams.get("extended")),
         imdbId: normalizeExternalId(url.searchParams.get("imdbid")),
         tmdbId: parsePositiveInt(url.searchParams.get("tmdbid")),
         tvdbId: parsePositiveInt(url.searchParams.get("tvdbid")),
@@ -72,9 +74,9 @@ export function buildCapsXml(capabilities: IndexerCapabilities, protocol: Indexe
   <limits max="100" default="100" />
   <registration available="no" open="no" />
   <searching>
-    <search available="${yesNo(searchTypes.has("search"))}" supportedParams="q" />
-    <movie-search available="${yesNo(searchTypes.has("movie"))}" supportedParams="q,imdbid,tmdbid" />
-    <tv-search available="${yesNo(searchTypes.has("tvsearch"))}" supportedParams="q,tvdbid,season,ep" />
+    <search available="${yesNo(searchTypes.has("search"))}" supportedParams="q,cat,limit,offset,extended" />
+    <movie-search available="${yesNo(searchTypes.has("movie"))}" supportedParams="q,cat,limit,offset,extended,imdbid,tmdbid" />
+    <tv-search available="${yesNo(searchTypes.has("tvsearch"))}" supportedParams="q,cat,limit,offset,extended,tvdbid,season,ep" />
   </searching>
   <categories>
 ${categoryXml}
@@ -168,6 +170,12 @@ function parsePositiveInt(value: string | null): number | undefined {
   if (!value) return undefined
   const parsed = Number(value)
   return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined
+}
+
+function parseNonNegativeInt(value: string | null): number | undefined {
+  if (!value) return undefined
+  const parsed = Number(value)
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : undefined
 }
 
 function normalizeExternalId(value: string | null): string | undefined {

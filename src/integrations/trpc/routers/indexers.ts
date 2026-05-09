@@ -56,6 +56,8 @@ const searchInputSchema = z.object({
   type: z.enum(["movie", "tv", "general"]),
   categories: z.array(z.number().int()).optional(),
   limit: z.number().int().positive().optional(),
+  offset: z.number().int().min(0).optional(),
+  extended: z.string().optional(),
   imdbId: z.string().optional(),
   tmdbId: z.number().int().optional(),
   tvdbId: z.number().int().optional(),

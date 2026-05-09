@@ -109,4 +109,42 @@ describe("TorznabAdapter proxy transport", () => {
     expect((requestBody as { readonly url: string }).url).toContain("/api?apikey=api-key")
     expect(releases[0].title).toBe("Example Movie 2026 1080p WEB-DL")
   })
+
+  it("forwards pagination and extended search parameters", async () => {
+    let requestUrl: string | undefined
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      requestUrl = String(input)
+      return new Response(RSS_XML, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createTorznabAdapter({
+      id: 2,
+      name: "Pagination Test",
+      type: "torznab",
+      baseUrl: "https://tracker.example",
+      apiKey: "api-key",
+      priority: 25,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    await Effect.runPromise(
+      adapter.search({
+        term: "example",
+        type: "tv",
+        categories: [5000],
+        limit: 100,
+        offset: 50,
+        extended: "1",
+      }),
+    )
+
+    const url = new URL(requestUrl ?? "")
+    expect(url.searchParams.get("t")).toBe("tvsearch")
+    expect(url.searchParams.get("limit")).toBe("100")
+    expect(url.searchParams.get("offset")).toBe("50")
+    expect(url.searchParams.get("extended")).toBe("1")
+    expect(url.searchParams.get("cat")).toBe("5000")
+  })
 })

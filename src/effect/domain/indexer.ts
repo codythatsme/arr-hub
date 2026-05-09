@@ -166,6 +166,8 @@ export interface SearchQuery {
   readonly type: SearchType
   readonly categories?: ReadonlyArray<number>
   readonly limit?: number
+  readonly offset?: number
+  readonly extended?: string
   readonly imdbId?: string
   readonly tmdbId?: number
   readonly tvdbId?: number

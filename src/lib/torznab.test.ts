@@ -26,7 +26,7 @@ describe("torznab aggregate helpers", () => {
 
     const search = parseAggregateIndexerRequest(
       new URL(
-        "http://arr/api/indexers/aggregate/torznab?t=tvsearch&q=Show&cat=5000,5070&tvdbid=123&season=2&ep=4&limit=25",
+        "http://arr/api/indexers/aggregate/torznab?t=tvsearch&q=Show&cat=5000,5070&tvdbid=123&season=2&ep=4&limit=25&offset=50&extended=1",
       ),
       "torrent",
     )
@@ -42,6 +42,8 @@ describe("torznab aggregate helpers", () => {
         season: 2,
         episode: 4,
         limit: 25,
+        offset: 50,
+        extended: "1",
         protocol: "torrent",
       },
     })
@@ -62,6 +64,7 @@ describe("torznab aggregate helpers", () => {
     expect(xml).toContain("<caps>")
     expect(xml).toContain('protocol="torrent"')
     expect(xml).toContain('<movie-search available="yes"')
+    expect(xml).toContain('supportedParams="q,cat,limit,offset,extended,imdbid,tmdbid"')
     expect(xml).toContain('<category id="5000" name="TV" />')
   })
 

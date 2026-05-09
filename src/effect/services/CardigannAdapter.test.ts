@@ -379,6 +379,8 @@ search:
         site: "{{ .Config.sitelink }}"
         truthy: "{{ .True }}"
         falseFallback: '{{ .False | default "fallback" }}'
+        offset: "{{ .Query.Offset }}"
+        extended: "{{ .Query.Extended }}"
 `,
       baseUrl: "https://tracker.example/root",
       apiKey: "",
@@ -387,7 +389,9 @@ search:
       protocol: "torrent",
     })
 
-    await Effect.runPromise(adapter.search({ term: "Base Vars", type: "general" }))
+    await Effect.runPromise(
+      adapter.search({ term: "Base Vars", type: "general", offset: 25, extended: "1" }),
+    )
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
     const url = new URL(requestUrl ?? "")
@@ -395,6 +399,8 @@ search:
     expect(url.searchParams.get("site")).toBe("https://tracker.example/root")
     expect(url.searchParams.get("truthy")).toBe("True")
     expect(url.searchParams.get("falseFallback")).toBe("fallback")
+    expect(url.searchParams.get("offset")).toBe("25")
+    expect(url.searchParams.get("extended")).toBe("1")
   })
 
   it("renders Cardigann conditional and function templates", async () => {

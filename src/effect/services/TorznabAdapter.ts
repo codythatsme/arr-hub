@@ -399,6 +399,8 @@ export function createTorznabAdapter(config: IndexerConfig): IndexerAdapter {
           t: SEARCH_TYPE_MAP[query.type] ?? "search",
           q: query.term || undefined,
           limit: query.limit,
+          offset: query.offset,
+          extended: query.extended,
           cat: query.categories?.join(","),
           imdbid: query.imdbId,
           tmdbid: query.tmdbId,

@@ -218,6 +218,8 @@ function templateVariables(
     ".Query.Keywords": term,
     ".Query.Categories": categoryStrings,
     ".Query.Limit": query.limit ? String(query.limit) : "",
+    ".Query.Offset": query.offset !== undefined ? String(query.offset) : "",
+    ".Query.Extended": query.extended ?? "",
     ".Query.IMDBID": query.imdbId ?? "",
     ".Query.IMDBIDShort": query.imdbId?.replace(/^tt/, "") ?? "",
     ".Query.TMDBID": query.tmdbId ? String(query.tmdbId) : "",
