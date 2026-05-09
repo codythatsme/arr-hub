@@ -529,6 +529,34 @@ const HTML_CHILD_PSEUDO_SELECTOR_RESULTS = `<!doctype html>
   </body>
 </html>`
 
+const HTML_NTH_CHILD_SELECTOR_RESULTS = `<!doctype html>
+<html>
+  <body>
+    <table class="results">
+      <tbody>
+        <tr class="torrent">
+          <td class="name"><a class="title" href="/details/wrong-nth-first">Wrong First Nth Movie 2026 1080p WEB-DL</a></td>
+          <td class="size">700 MB</td>
+          <td class="actions"><a class="download" href="/download/wrong-nth-first">Download</a></td>
+        </tr>
+        <tr class="torrent">
+          <td class="name"><a class="title" href="/details/wrong-nth-second">Wrong Second Nth Movie 2026 1080p WEB-DL</a></td>
+          <td class="size">900 MB</td>
+          <td class="actions"><a class="download" href="/download/wrong-nth-second">Download</a></td>
+        </tr>
+        <tr class="torrent">
+          <td class="actions">
+            <a class="title" href="/details/wrong-nth-field">Wrong Field Nth Movie 2026 1080p WEB-DL</a>
+            <a class="download" href="/download/nth-child">Download</a>
+          </td>
+          <td class="size">1.7 GB</td>
+          <td class="name"><a class="title" href="/details/nth-child">Nth Child Movie 2026 1080p WEB-DL</a></td>
+        </tr>
+      </tbody>
+    </table>
+  </body>
+</html>`
+
 const HTML_NESTED_RESULTS = `<!doctype html>
 <html>
   <body>
@@ -2685,6 +2713,73 @@ search:
       infoUrl: "https://tracker.example/details/child-pseudo",
       downloadUrl: "https://tracker.example/download/child-pseudo",
       size: 1_200_000_000,
+      category: "2000",
+    })
+  })
+
+  it("matches Cardigann HTML nth-child pseudo classes", async () => {
+    const fetchMock = vi.fn(
+      async () => new Response(HTML_NTH_CHILD_SELECTOR_RESULTS, { status: 200 }),
+    )
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 75,
+      name: "HTML Nth Child Selector Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "html-nth-child-selector-cardigann",
+      definitionYaml: `
+id: html-nth-child-selector-cardigann
+name: HTML Nth Child Selector Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+      newznab: 2000
+  modes:
+    search: [q]
+search:
+  paths:
+    - path: /browse
+      response:
+        type: html
+  rows:
+    selector: tbody > tr.torrent:nth-child(3)
+  fields:
+    title:
+      selector: td:nth-child(2n+3) a.title
+    details:
+      selector: td:nth-child(2n+3) a.title
+      attribute: href
+    download:
+      selector: td:nth-child(1) a.download
+      attribute: href
+    size:
+      selector: td:nth-child(even)
+    category:
+      text: Movies
+`,
+      baseUrl: "https://tracker.example",
+      apiKey: "",
+      priority: 35,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Nth Child", type: "general", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "Nth Child Movie 2026 1080p WEB-DL",
+      infoUrl: "https://tracker.example/details/nth-child",
+      downloadUrl: "https://tracker.example/download/nth-child",
+      size: 1_700_000_000,
       category: "2000",
     })
   })

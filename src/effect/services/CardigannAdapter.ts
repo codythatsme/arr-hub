@@ -64,6 +64,7 @@ interface HtmlElementMatch {
   readonly innerHtmlStartIndex?: number
   readonly firstChild?: boolean
   readonly lastChild?: boolean
+  readonly childIndex?: number
 }
 
 interface SimpleHtmlSelector {
@@ -1813,6 +1814,8 @@ function htmlSelectorFiltersMatch(
         return element.firstChild === true
       case "last-child":
         return element.lastChild === true
+      case "nth-child":
+        return htmlNthChildMatches(element.childIndex, filter.selector)
       default:
         return true
     }
@@ -1867,12 +1870,13 @@ function isDirectHtmlChildAt(html: string, index: number): boolean {
 function htmlChildPositionAt(
   html: string,
   index: number,
-): { readonly first: boolean; readonly last: boolean } {
+): { readonly first: boolean; readonly last: boolean; readonly index: number | undefined } {
   let rootChildCount = 0
   let targetDepth = -1
   let targetFound = false
   let first = false
   let last = true
+  let childIndex: number | undefined
   const stack: Array<{ tagName: string; childCount: number }> = []
 
   for (const match of html.matchAll(/<\/?([A-Za-z][\w:-]*)([^>]*)>/g)) {
@@ -1905,6 +1909,7 @@ function htmlChildPositionAt(
       targetFound = true
       targetDepth = depth
       first = priorChildCount === 0
+      childIndex = priorChildCount + 1
     }
 
     const attributes = match[2] ?? ""
@@ -1919,7 +1924,36 @@ function htmlChildPositionAt(
     stack.push({ tagName, childCount: 0 })
   }
 
-  return targetFound ? { first, last } : { first: false, last: false }
+  return targetFound
+    ? { first, last, index: childIndex }
+    : { first: false, last: false, index: undefined }
+}
+
+function htmlNthChildMatches(index: number | undefined, expression: string): boolean {
+  if (index === undefined || index <= 0) return false
+
+  const normalized = expression.toLowerCase().replace(/\s+/g, "")
+  if (normalized.length === 0) return false
+  if (normalized === "odd") return index % 2 === 1
+  if (normalized === "even") return index % 2 === 0
+  if (/^[+-]?\d+$/.test(normalized)) return index === Number.parseInt(normalized, 10)
+
+  const match = normalized.match(/^([+-]?\d*)n(?:([+-]\d+))?$/)
+  if (match === null) return false
+
+  const coefficientText = match[1] ?? ""
+  const coefficient =
+    coefficientText === "" || coefficientText === "+"
+      ? 1
+      : coefficientText === "-"
+        ? -1
+        : Number.parseInt(coefficientText, 10)
+  const offset = match[2] === undefined ? 0 : Number.parseInt(match[2], 10)
+  if (!Number.isFinite(coefficient) || !Number.isFinite(offset)) return false
+  if (coefficient === 0) return index === offset
+
+  const delta = index - offset
+  return delta % coefficient === 0 && delta / coefficient >= 0
 }
 
 function findHtmlElementsForToken(
@@ -1935,7 +1969,8 @@ function findHtmlElementsForToken(
   const elementPattern = new RegExp(`<(${tagPattern})\\b([^>]*)>([\\s\\S]*?)<\\/\\1>`, "gi")
   const matches: Array<HtmlElementMatch> = []
   const needsChildPosition = selector.filters.some(
-    (filter) => filter.name === "first-child" || filter.name === "last-child",
+    (filter) =>
+      filter.name === "first-child" || filter.name === "last-child" || filter.name === "nth-child",
   )
   const pushMatch = (
     match: RegExpMatchArray,
@@ -1960,6 +1995,7 @@ function findHtmlElementsForToken(
       innerHtmlStartIndex: sourceIndex + outerHtml.indexOf(">") + 1,
       firstChild: childPosition?.first,
       lastChild: childPosition?.last,
+      childIndex: childPosition?.index,
     }
     if (
       htmlAttributeMatches(attributes, selector) &&
