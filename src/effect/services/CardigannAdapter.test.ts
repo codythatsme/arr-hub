@@ -1,4 +1,4 @@
-import { Effect } from "effect"
+import { Cause, Effect, Exit, Option } from "effect"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { IndexerError } from "../errors"
@@ -820,6 +820,82 @@ search:
     expect(headers.get("cookie")).toBe("landing=preseed; session=abc123; user=alice")
     expect(new URL(requests[0]?.url ?? "").searchParams.get("q")).toBe("Cookie Movie")
     expect(releases[0]?.title).toBe("Example Movie 2026 1080p WEB-DL")
+  })
+
+  it("fails Cardigann login when a configured error selector matches", async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response('<html><body><div class="login-error">Bad credentials</div></body></html>', {
+          status: 200,
+        }),
+    )
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 27,
+      name: "Login Error Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "login-error-cardigann",
+      definitionYaml: `
+id: login-error-cardigann
+name: Login Error Cardigann
+links:
+  - https://tracker.example
+settings:
+  - name: username
+    label: Username
+  - name: password
+    label: Password
+    type: password
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+  modes:
+    movie-search: [q]
+login:
+  path: /login
+  method: post
+  inputs:
+    username: "{{ .Config.Username }}"
+    password: "{{ .Config.Password }}"
+  error:
+    - selector: div.login-error
+      message:
+        selector: div.login-error
+search:
+  paths:
+    - path: /api
+      response:
+        type: torznab
+      inputs:
+        q: "{{ .Keywords }}"
+`,
+      baseUrl: "https://tracker.example/root",
+      apiKey: "",
+      configValues: {
+        username: "alice",
+        password: "wrong",
+      },
+      priority: 15,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const exit = await Effect.runPromiseExit(
+      adapter.search({ term: "Denied Movie", type: "movie", categories: [2000] }),
+    )
+    expect(Exit.isFailure(exit)).toBe(true)
+    if (Exit.isSuccess(exit)) throw new Error("expected login failure")
+    const error = Option.getOrUndefined(Cause.failureOption(exit.cause))
+    expect(error).toMatchObject({
+      _tag: "IndexerError",
+      reason: "auth_failed",
+      message: "Bad credentials",
+      retryable: false,
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
   it("applies Cardigann template filters to paths, raw params, and headers", async () => {

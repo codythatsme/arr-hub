@@ -551,6 +551,10 @@ login:
     password: "{{ .Config.Password }}"
   headers:
     X-Login: "1"
+  error:
+    - selector: div.login-error
+      message:
+        selector: div.login-error
   paths:
     - path: /login
       method: post
@@ -571,6 +575,16 @@ search:
       },
       headers: { "X-Login": "1" },
       cookies: [],
+      errors: [
+        {
+          selector: "div.login-error",
+          message: {
+            selector: "div.login-error",
+            optional: false,
+            filters: [],
+          },
+        },
+      ],
       paths: [
         {
           path: "/login",
@@ -612,6 +626,7 @@ search:
       inputs: { cookie: "{{ .Config.Cookie }}" },
       headers: {},
       cookies: ["landing={{ .Config.Cookie }}"],
+      errors: [],
       paths: [],
     })
   })

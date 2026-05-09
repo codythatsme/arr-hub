@@ -31,6 +31,11 @@ export interface CardigannLoginPath {
   readonly headers: Readonly<Record<string, string>>
 }
 
+export interface CardigannLoginError {
+  readonly selector?: string
+  readonly message?: CardigannFieldSelector
+}
+
 export interface CardigannFilter {
   readonly name: string
   readonly args: ReadonlyArray<string>
@@ -67,6 +72,7 @@ export interface CardigannLoginRuntime {
   readonly inputs: Readonly<Record<string, string>>
   readonly headers: Readonly<Record<string, string>>
   readonly cookies: ReadonlyArray<string>
+  readonly errors: ReadonlyArray<CardigannLoginError>
   readonly paths: ReadonlyArray<CardigannLoginPath>
 }
 
@@ -487,6 +493,7 @@ function parseLoginRuntime(value: unknown): CardigannLoginRuntime | null {
     inputs: parseInputMap(login.inputs),
     headers: parseHeaderMap(login.headers),
     cookies: parseScalarStringArray(login.cookies, "login cookies"),
+    errors: parseLoginErrors(login.error),
     paths: method === "cookie" ? [] : parseLoginPaths(login.paths ?? login.path, login),
   }
 }
@@ -532,24 +539,46 @@ function parseFields(value: unknown): Readonly<Record<string, CardigannFieldSele
   const fields: Record<string, CardigannFieldSelector> = {}
   for (const [fieldName, fieldValue] of Object.entries(record)) {
     const field = expectRecord(fieldValue, `field ${fieldName}`)
-    const selector = optionalScalarStringFromAny(field, ["selector"])
-    const attribute = optionalScalarStringFromAny(field, ["attribute"])
-    const text = optionalScalarStringFromAny(field, ["text"])
-    const remove = optionalScalarStringFromAny(field, ["remove"])
-    const cases = parseCaseMap(field.case)
-    const defaultValue = optionalScalarStringFromAny(field, ["default", "defaultValue"])
-    fields[fieldName] = {
-      optional: optionalBoolean(field, "optional") ?? false,
-      filters: parseFilters(field.filters),
-      ...(selector !== null ? { selector } : {}),
-      ...(attribute !== null ? { attribute } : {}),
-      ...(text !== null ? { text } : {}),
-      ...(remove !== null ? { remove } : {}),
-      ...(Object.keys(cases).length > 0 ? { case: cases } : {}),
-      ...(defaultValue !== null ? { defaultValue } : {}),
-    }
+    fields[fieldName] = parseFieldSelector(field)
   }
   return fields
+}
+
+function parseFieldSelector(field: Record<string, unknown>): CardigannFieldSelector {
+  const selector = optionalScalarStringFromAny(field, ["selector"])
+  const attribute = optionalScalarStringFromAny(field, ["attribute"])
+  const text = optionalScalarStringFromAny(field, ["text"])
+  const remove = optionalScalarStringFromAny(field, ["remove"])
+  const cases = parseCaseMap(field.case)
+  const defaultValue = optionalScalarStringFromAny(field, ["default", "defaultValue"])
+  return {
+    optional: optionalBoolean(field, "optional") ?? false,
+    filters: parseFilters(field.filters),
+    ...(selector !== null ? { selector } : {}),
+    ...(attribute !== null ? { attribute } : {}),
+    ...(text !== null ? { text } : {}),
+    ...(remove !== null ? { remove } : {}),
+    ...(Object.keys(cases).length > 0 ? { case: cases } : {}),
+    ...(defaultValue !== null ? { defaultValue } : {}),
+  }
+}
+
+function parseLoginErrors(value: unknown): ReadonlyArray<CardigannLoginError> {
+  if (value === undefined) return []
+  if (!Array.isArray(value)) throw new Error("login error must be a list")
+
+  return value.map((item) => {
+    const error = expectRecord(item, "login error")
+    const selector = optionalScalarStringFromAny(error, ["selector"])
+    const message = isRecord(error.message) ? parseFieldSelector(error.message) : undefined
+    if (selector === null && message === undefined) {
+      throw new Error("login error must include selector or message")
+    }
+    return {
+      ...(selector !== null ? { selector } : {}),
+      ...(message !== undefined ? { message } : {}),
+    }
+  })
 }
 
 function parseCaseMap(value: unknown): Readonly<Record<string, string>> {

@@ -11,6 +11,7 @@ import { IndexerError } from "../errors"
 import {
   type CardigannFieldSelector,
   type CardigannFilter,
+  type CardigannLoginError,
   type CardigannResponseType,
   type CardigannRuntimeDefinition,
   type CardigannSearchPath,
@@ -937,6 +938,15 @@ function htmlFieldValue(
   return applyCardigannFieldFilters(value.trim(), field.filters, variables).trim()
 }
 
+function htmlDocumentMatch(html: string): HtmlElementMatch {
+  return {
+    tagName: null,
+    attributes: {},
+    innerHtml: html,
+    outerHtml: html,
+  }
+}
+
 function fieldByName(
   fields: Readonly<Record<string, string>>,
   names: ReadonlyArray<string>,
@@ -1131,6 +1141,29 @@ function withCookieHeader(init: RequestInit, cookies: ReadonlyArray<string>): Re
   return { ...init, headers }
 }
 
+function loginErrorMessage(
+  html: string,
+  error: CardigannLoginError,
+  variables: Record<string, TemplateValue>,
+): string | null {
+  const selectorMatch =
+    error.selector !== undefined ? findHtmlElements(html, error.selector)[0] : undefined
+  if (error.selector !== undefined && selectorMatch === undefined) return null
+
+  if (error.message !== undefined) {
+    const messageMatch = error.message.selector
+      ? findHtmlElements(html, error.message.selector)[0]
+      : (selectorMatch ?? htmlDocumentMatch(html))
+    if (messageMatch === undefined) return null
+
+    const message = htmlFieldValue(messageMatch, error.message, variables).trim()
+    return message.length > 0 ? message : "Cardigann login failed"
+  }
+
+  const message = selectorMatch ? htmlTextContent(selectorMatch.innerHtml) : ""
+  return message.length > 0 ? message : "Cardigann login failed"
+}
+
 function resolveLoginRequests(
   config: IndexerConfig,
   definition: CardigannRuntimeDefinition,
@@ -1198,6 +1231,20 @@ function executeLoginRequests(
         config,
         withCookieHeader(request.init, cookieJarValues(cookieJar)),
       )
+      for (const error of definition.login.errors) {
+        const message = loginErrorMessage(response.text, error, variables)
+        if (message === null) continue
+
+        return yield* Effect.fail(
+          new IndexerError({
+            indexerId: config.id,
+            indexerName: config.name,
+            reason: "auth_failed",
+            message,
+            retryable: false,
+          }),
+        )
+      }
       for (const cookie of cookiePairsFromHeaders(response.headers)) {
         addCookiePair(cookieJar, cookie)
       }
