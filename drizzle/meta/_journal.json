@@ -78,6 +78,13 @@
       "when": 1778304307583,
       "tag": "0010_white_forge",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1778305592581,
+      "tag": "0011_simple_puma",
+      "breakpoints": true
     }
   ]
 }

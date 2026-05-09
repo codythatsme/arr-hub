@@ -1,8 +1,17 @@
 import { SqlError } from "@effect/sql/SqlError"
-import { desc, eq } from "drizzle-orm"
+import { desc, eq, inArray } from "drizzle-orm"
 import { Context, Effect, Layer } from "effect"
 
-import { downloadClients, downloadQueue, movies, releaseDecisions, series } from "#/db/schema"
+import {
+  downloadClients,
+  downloadQueue,
+  episodes,
+  movies,
+  releaseBlocklist,
+  releaseDecisions,
+  series,
+} from "#/db/schema"
+import type { MediaType } from "#/effect/domain/release"
 
 import { NotFoundError, SchedulerError } from "../errors"
 import { Db } from "./Db"
@@ -108,6 +117,32 @@ export const QueueServiceLive = Layer.effect(
         }
       })
 
+    const blocklistTargets = (item: QueueItem) =>
+      Effect.gen(function* () {
+        if (item.media.type === "movie" && item.media.id !== null) {
+          return [{ mediaId: item.media.id, mediaType: "movie" as const }]
+        }
+
+        if (item.media.type !== "series" || item.media.episodeIds === null) return []
+        const episodeIds = item.media.episodeIds
+        if (episodeIds.length === 0) return []
+
+        const targets: Array<{ readonly mediaId: number; readonly mediaType: MediaType }> =
+          episodeIds.map((episodeId) => ({ mediaId: episodeId, mediaType: "episode" }))
+
+        const rows = yield* db
+          .select({ seasonId: episodes.seasonId })
+          .from(episodes)
+          .where(inArray(episodes.id, [...episodeIds]))
+        const seasonIds = new Set(rows.map((row) => row.seasonId))
+        if (seasonIds.size === 1) {
+          const [seasonId] = seasonIds
+          if (seasonId !== undefined) targets.push({ mediaId: seasonId, mediaType: "season" })
+        }
+
+        return targets
+      })
+
     return {
       list: (filters) =>
         Effect.gen(function* () {
@@ -175,20 +210,44 @@ export const QueueServiceLive = Layer.effect(
       blocklist: (id) =>
         Effect.gen(function* () {
           const item = yield* fetchItem(id)
+          const targets = yield* blocklistTargets(item)
+          if (targets.length > 0) {
+            const reason = `blocked failed queue item ${item.externalId}`
+            for (const target of targets) {
+              yield* db
+                .insert(releaseBlocklist)
+                .values({
+                  mediaId: target.mediaId,
+                  mediaType: target.mediaType,
+                  candidateTitle: item.title,
+                  externalId: item.externalId,
+                  reason,
+                })
+                .onConflictDoNothing({
+                  target: [
+                    releaseBlocklist.mediaId,
+                    releaseBlocklist.mediaType,
+                    releaseBlocklist.candidateTitle,
+                  ],
+                })
+            }
+            yield* db.insert(releaseDecisions).values(
+              targets.map((target) => ({
+                mediaId: target.mediaId,
+                mediaType: target.mediaType,
+                candidateTitle: item.title,
+                decision: "rejected" as const,
+                reasons: [
+                  {
+                    stage: "filter" as const,
+                    rule: "queue_blocklist",
+                    detail: reason,
+                  },
+                ],
+              })),
+            )
+          }
           if (item.media.id !== null && item.media.type !== "unlinked") {
-            yield* db.insert(releaseDecisions).values({
-              mediaId: item.media.id,
-              mediaType: item.media.type === "movie" ? "movie" : "season",
-              candidateTitle: item.title,
-              decision: "rejected",
-              reasons: [
-                {
-                  stage: "filter",
-                  rule: "queue_blocklist",
-                  detail: `blocked failed queue item ${item.externalId}`,
-                },
-              ],
-            })
             yield* enqueueSearch(item)
           }
           yield* db

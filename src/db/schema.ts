@@ -589,6 +589,26 @@ export const releaseDecisions = sqliteTable("release_decisions", {
     .default(sql`(unixepoch())`),
 })
 
+export const releaseBlocklist = sqliteTable(
+  "release_blocklist",
+  {
+    id: integer().primaryKey({ autoIncrement: true }),
+    mediaId: integer("media_id").notNull(),
+    mediaType: text("media_type").$type<MediaType>().notNull(),
+    candidateTitle: text("candidate_title").notNull(),
+    indexerId: integer("indexer_id"),
+    indexerName: text("indexer_name"),
+    downloadUrl: text("download_url"),
+    infohash: text(),
+    externalId: text("external_id"),
+    reason: text().notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (t) => [unique().on(t.mediaId, t.mediaType, t.candidateTitle)],
+)
+
 // ── Scheduler ──
 
 export const schedulerConfig = sqliteTable("scheduler_config", {

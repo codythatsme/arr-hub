@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Layer } from "effect"
 
-import { customFormats, customFormatSpecs, customFormatScores } from "#/db/schema"
+import { customFormats, customFormatSpecs, customFormatScores, releaseBlocklist } from "#/db/schema"
 import type { ReleaseCandidate } from "#/effect/domain/indexer"
 import type { EvaluationContext, ExistingFile } from "#/effect/domain/release"
 import { TestDbLive } from "#/effect/test/TestDb"
@@ -86,6 +86,31 @@ describe("ReleasePolicyEngine", () => {
       expect(results[0].decision).toBe("accepted")
       expect(results[0].qualityRank).toBe(6)
       expect(results[0].parsed?.qualityName).toBe("Bluray1080p")
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("rejects a blocklisted release for the same media context", () =>
+    Effect.gen(function* () {
+      const profileId = yield* setupProfile()
+      const db = yield* Db
+      yield* db.insert(releaseBlocklist).values({
+        mediaId: baseContext.mediaId,
+        mediaType: baseContext.mediaType,
+        candidateTitle: "Movie.2024.1080p.BluRay.x264-GRP",
+        reason: "blocked failed queue item hash-1",
+      })
+
+      const engine = yield* ReleasePolicyEngine
+      const results = yield* engine.evaluate(
+        [makeCandidate({ title: "Movie.2024.1080p.BluRay.x264-GRP" })],
+        profileId,
+        baseContext,
+      )
+
+      expect(results).toHaveLength(1)
+      expect(results[0].decision).toBe("rejected")
+      expect(results[0].reasons[0].rule).toBe("blocklisted")
+      expect(results[0].reasons[0].detail).toContain("hash-1")
     }).pipe(Effect.provide(TestLayer)),
   )
 

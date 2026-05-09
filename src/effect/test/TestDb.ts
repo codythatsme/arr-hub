@@ -397,6 +397,21 @@ const runDdl = Effect.gen(function* () {
     decided_at INTEGER NOT NULL DEFAULT (unixepoch())
   )`
 
+  yield* sql`CREATE TABLE release_blocklist (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    media_id INTEGER NOT NULL,
+    media_type TEXT NOT NULL,
+    candidate_title TEXT NOT NULL,
+    indexer_id INTEGER,
+    indexer_name TEXT,
+    download_url TEXT,
+    infohash TEXT,
+    external_id TEXT,
+    reason TEXT NOT NULL,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    UNIQUE(media_id, media_type, candidate_title)
+  )`
+
   yield* sql`CREATE TABLE scheduler_config (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     job_type TEXT NOT NULL UNIQUE,

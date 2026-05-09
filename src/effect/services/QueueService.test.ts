@@ -7,6 +7,7 @@ import {
   downloadQueue,
   movies,
   qualityProfiles,
+  releaseBlocklist,
   releaseDecisions,
 } from "#/db/schema"
 import { Db } from "#/effect/services/Db"
@@ -126,10 +127,16 @@ describe("QueueService", () => {
         .select()
         .from(releaseDecisions)
         .where(eq(releaseDecisions.mediaId, seeded.movieId))
+      const blocklist = yield* db
+        .select()
+        .from(releaseBlocklist)
+        .where(eq(releaseBlocklist.mediaId, seeded.movieId))
 
       expect(blocked.status).toBe("failed")
       expect(decisions).toHaveLength(1)
       expect(decisions[0]?.reasons[0]?.rule).toBe("queue_blocklist")
+      expect(blocklist).toHaveLength(1)
+      expect(blocklist[0]?.candidateTitle).toBe("Example.Movie.2024.1080p-GROUP")
     }).pipe(Effect.provide(TestLayer)),
   )
 })

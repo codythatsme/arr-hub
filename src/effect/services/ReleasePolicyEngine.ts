@@ -1,8 +1,8 @@
 import { SqlError } from "@effect/sql/SqlError"
-import { eq, and } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
 import { Context, Effect, Layer } from "effect"
 
-import { customFormatSpecs, releaseDecisions } from "#/db/schema"
+import { customFormatSpecs, releaseBlocklist, releaseDecisions } from "#/db/schema"
 import type { ReleaseCandidate } from "#/effect/domain/indexer"
 import type { QualityName, SpecField } from "#/effect/domain/quality"
 import type {
@@ -94,6 +94,30 @@ function formatMatchesSpecs(
   return requiredPass && optionalPass
 }
 
+function normalizeBlockKey(value: string): string {
+  return value.trim().toLowerCase()
+}
+
+function blocklistMatch(
+  candidate: ReleaseCandidate,
+  rows: ReadonlyArray<typeof releaseBlocklist.$inferSelect>,
+): typeof releaseBlocklist.$inferSelect | null {
+  const titleKey = normalizeBlockKey(candidate.title)
+  const infohashKey = candidate.infohash ? normalizeBlockKey(candidate.infohash) : null
+
+  return (
+    rows.find((row) => {
+      if (normalizeBlockKey(row.candidateTitle) === titleKey) return true
+      if (row.downloadUrl !== null && row.downloadUrl === candidate.downloadUrl) return true
+      return (
+        row.infohash !== null &&
+        infohashKey !== null &&
+        normalizeBlockKey(row.infohash) === infohashKey
+      )
+    }) ?? null
+  )
+}
+
 // ── Service ──
 
 export class ReleasePolicyEngine extends Context.Tag("@arr-hub/ReleasePolicyEngine")<
@@ -127,6 +151,15 @@ export const ReleasePolicyEngineLive = Layer.effect(
         Effect.gen(function* () {
           // 1. Load profile
           const profile = yield* profileService.getById(profileId)
+          const blockedRows = yield* db
+            .select()
+            .from(releaseBlocklist)
+            .where(
+              and(
+                eq(releaseBlocklist.mediaId, context.mediaId),
+                eq(releaseBlocklist.mediaType, context.mediaType),
+              ),
+            )
 
           // Batch-load all custom format specs for scored formats
           const scoredFormatIds = profile.formatScores.map((fs) => fs.customFormatId)
@@ -160,6 +193,24 @@ export const ReleasePolicyEngineLive = Layer.effect(
 
           for (const candidate of candidates) {
             const reasons: Array<DecisionReason> = []
+            const blocked = blocklistMatch(candidate, blockedRows)
+            if (blocked) {
+              decisions.push({
+                candidate,
+                parsed: null,
+                qualityRank: null,
+                formatScore: 0,
+                decision: "rejected",
+                reasons: [
+                  {
+                    stage: "filter",
+                    rule: "blocklisted",
+                    detail: blocked.reason,
+                  },
+                ],
+              })
+              continue
+            }
 
             // 2. Parse
             const parseResult = yield* Effect.either(titleParser.parse(candidate.title))
