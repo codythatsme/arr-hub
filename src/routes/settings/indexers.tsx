@@ -3,10 +3,12 @@ import { createFileRoute } from "@tanstack/react-router"
 import { Radio, RefreshCw, Save, Trash2 } from "lucide-react"
 import { type FormEvent, type ReactNode, useState } from "react"
 
-import type { IndexerAuthField, IndexerDefinition } from "#/effect/domain/indexer"
+import type { IndexerAuthField, IndexerDefinition, IndexerProxy } from "#/effect/domain/indexer"
 import { useTRPC } from "#/integrations/trpc/react"
 
 export const Route = createFileRoute("/settings/indexers")({ component: Indexers })
+
+type IndexerProxyType = IndexerProxy["type"]
 
 interface IndexerFormState {
   readonly id: number | null
@@ -15,6 +17,7 @@ interface IndexerFormState {
   readonly definitionKey: string
   readonly baseUrl: string
   readonly apiKey: string
+  readonly proxyId: string
   readonly priority: string
   readonly minimumSeeders: string
   readonly queryCooldownSeconds: string
@@ -36,6 +39,7 @@ const emptyForm: IndexerFormState = {
   definitionKey: "",
   baseUrl: "",
   apiKey: "",
+  proxyId: "",
   priority: "50",
   minimumSeeders: "",
   queryCooldownSeconds: "",
@@ -50,18 +54,57 @@ const emptyForm: IndexerFormState = {
   rssEnabled: true,
 }
 
+interface ProxyFormState {
+  readonly id: number | null
+  readonly name: string
+  readonly type: IndexerProxyType
+  readonly host: string
+  readonly port: string
+  readonly username: string
+  readonly password: string
+  readonly tags: string
+  readonly flaresolverrTimeoutMs: string
+  readonly enabled: boolean
+}
+
+const emptyProxyForm: ProxyFormState = {
+  id: null,
+  name: "",
+  type: "http",
+  host: "",
+  port: "",
+  username: "",
+  password: "",
+  tags: "",
+  flaresolverrTimeoutMs: "",
+  enabled: true,
+}
+
+const proxyTypeOptions: ReadonlyArray<{ readonly type: IndexerProxyType; readonly label: string }> =
+  [
+    { type: "http", label: "HTTP" },
+    { type: "socks4", label: "SOCKS4" },
+    { type: "socks5", label: "SOCKS5" },
+    { type: "flaresolverr", label: "FlareSolverr" },
+  ]
+
 function Indexers() {
   const trpc = useTRPC()
   const queryClient = useQueryClient()
   const [form, setForm] = useState<IndexerFormState>(emptyForm)
+  const [proxyForm, setProxyForm] = useState<ProxyFormState>(emptyProxyForm)
   const [message, setMessage] = useState<string | null>(null)
+  const [proxyMessage, setProxyMessage] = useState<string | null>(null)
 
   const listKey = trpc.indexers.list.queryKey()
+  const proxyListKey = trpc.indexers.listProxies.queryKey()
   const indexers = useQuery(trpc.indexers.list.queryOptions())
   const types = useQuery(trpc.indexers.listTypes.queryOptions())
   const definitions = useQuery(trpc.indexers.listDefinitions.queryOptions())
+  const proxies = useQuery(trpc.indexers.listProxies.queryOptions())
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: listKey })
+  const invalidateProxies = () => queryClient.invalidateQueries({ queryKey: proxyListKey })
   const add = useMutation(
     trpc.indexers.add.mutationOptions({
       onSuccess: async () => {
@@ -96,6 +139,32 @@ function Indexers() {
       },
     }),
   )
+  const addProxy = useMutation(
+    trpc.indexers.addProxy.mutationOptions({
+      onSuccess: async () => {
+        await invalidateProxies()
+        setProxyForm(emptyProxyForm)
+        setProxyMessage("Indexer proxy added.")
+      },
+    }),
+  )
+  const updateProxy = useMutation(
+    trpc.indexers.updateProxy.mutationOptions({
+      onSuccess: async () => {
+        await invalidateProxies()
+        setProxyForm(emptyProxyForm)
+        setProxyMessage("Indexer proxy updated.")
+      },
+    }),
+  )
+  const removeProxy = useMutation(
+    trpc.indexers.removeProxy.mutationOptions({
+      onSuccess: async () => {
+        await Promise.all([invalidateProxies(), invalidate()])
+        setProxyMessage("Indexer proxy removed.")
+      },
+    }),
+  )
 
   const typeOptions = types.data ?? []
   const selectedType = typeOptions.find((item) => item.type === form.type)
@@ -119,8 +188,11 @@ function Indexers() {
         ? `${selectedApiKeyField.helpText} Leave blank to keep the existing secret.`
         : "Leave blank to keep the existing secret."
   const pending = add.isPending || update.isPending || remove.isPending || test.isPending
+  const proxyPending = addProxy.isPending || updateProxy.isPending || removeProxy.isPending
   const error =
     add.error?.message ?? update.error?.message ?? remove.error?.message ?? test.error?.message
+  const proxyError =
+    addProxy.error?.message ?? updateProxy.error?.message ?? removeProxy.error?.message
 
   const onSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -134,6 +206,7 @@ function Indexers() {
     const grabLimitCount = parseOptionalNumber(form.grabLimitCount)
     const grabLimitWindowSeconds = parseOptionalNumber(form.grabLimitWindowSeconds)
     const tags = parseTags(form.tags)
+    const proxyId = parseProxyId(form.proxyId)
     const configValues = collectConfigValues(new FormData(event.currentTarget), configFields)
     const hasConfigValues = Object.keys(configValues).length > 0
     const definitionKey =
@@ -149,6 +222,7 @@ function Indexers() {
         baseUrl: form.baseUrl.trim(),
         apiKey: form.apiKey.trim(),
         ...(hasConfigValues ? { configValues } : {}),
+        proxyId,
         priority,
         minimumSeeders,
         queryCooldownSeconds,
@@ -172,6 +246,7 @@ function Indexers() {
         type: form.type,
         ...(definitionKey ? { definitionKey } : {}),
         baseUrl: form.baseUrl.trim(),
+        proxyId,
         priority,
         minimumSeeders,
         queryCooldownSeconds,
@@ -186,6 +261,45 @@ function Indexers() {
         rssEnabled: form.rssEnabled,
         ...(form.apiKey.trim().length > 0 ? { apiKey: form.apiKey.trim() } : {}),
         ...(hasConfigValues ? { configValues } : {}),
+      },
+    })
+  }
+
+  const onProxySubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setProxyMessage(null)
+    const port = parseOptionalPositiveNumber(proxyForm.port)
+    const timeout = parseOptionalPositiveNumber(proxyForm.flaresolverrTimeoutMs)
+    const settings = {
+      tags: parseTags(proxyForm.tags),
+      ...(timeout !== null ? { flaresolverrTimeoutMs: timeout } : {}),
+    }
+
+    if (proxyForm.id === null) {
+      addProxy.mutate({
+        name: proxyForm.name.trim(),
+        type: proxyForm.type,
+        host: proxyForm.host.trim(),
+        port,
+        username: proxyForm.username.trim().length > 0 ? proxyForm.username.trim() : null,
+        password: proxyForm.password,
+        enabled: proxyForm.enabled,
+        settings,
+      })
+      return
+    }
+
+    updateProxy.mutate({
+      id: proxyForm.id,
+      data: {
+        name: proxyForm.name.trim(),
+        type: proxyForm.type,
+        host: proxyForm.host.trim(),
+        port,
+        username: proxyForm.username.trim().length > 0 ? proxyForm.username.trim() : null,
+        enabled: proxyForm.enabled,
+        settings,
+        ...(proxyForm.password.length > 0 ? { password: proxyForm.password } : {}),
       },
     })
   }
@@ -238,6 +352,9 @@ function Indexers() {
                       : ""}
                     {!indexer.searchEnabled ? " · search off" : ""}
                     {!indexer.rssEnabled ? " · RSS off" : ""}
+                    {indexer.proxyId !== null
+                      ? ` · proxy ${proxyName(indexer.proxyId, proxies.data ?? [])}`
+                      : ""}
                     {indexer.tags.length > 0 ? ` · tags ${indexer.tags.join(", ")}` : ""}
                   </p>
                   {indexer.health?.errorMessage && (
@@ -266,6 +383,7 @@ function Indexers() {
                         definitionKey: indexer.definitionKey ?? "",
                         baseUrl: indexer.baseUrl,
                         apiKey: "",
+                        proxyId: indexer.proxyId === null ? "" : String(indexer.proxyId),
                         priority: String(indexer.priority),
                         minimumSeeders:
                           indexer.minimumSeeders === null ? "" : String(indexer.minimumSeeders),
@@ -444,6 +562,21 @@ function Indexers() {
                 type="url"
                 required
               />
+            </Field>
+
+            <Field label="Proxy" hint="Optional outbound proxy for this indexer.">
+              <select
+                className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                value={form.proxyId}
+                onChange={(event) => setForm({ ...form, proxyId: event.target.value })}
+              >
+                <option value="">No proxy</option>
+                {(proxies.data ?? []).map((proxy) => (
+                  <option key={proxy.id} value={proxy.id}>
+                    {proxyLabel(proxy)}
+                  </option>
+                ))}
+              </select>
             </Field>
 
             <Field label={selectedApiKeyField?.label ?? "API key"} hint={apiKeyHint}>
@@ -637,6 +770,238 @@ function Indexers() {
           </div>
         </form>
       </section>
+
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-lg font-semibold">Indexer Proxies</h2>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Manage HTTP, SOCKS, and FlareSolverr proxies for indexer requests.
+          </p>
+        </div>
+
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
+          <div className="space-y-3">
+            {proxies.isLoading && (
+              <p className="text-muted-foreground text-sm">Loading indexer proxies...</p>
+            )}
+            {proxies.error && <p className="text-destructive text-sm">{proxies.error.message}</p>}
+            {proxies.data?.length === 0 && (
+              <p className="text-muted-foreground text-sm">No indexer proxies configured.</p>
+            )}
+            {proxies.data?.map((proxy) => (
+              <article key={proxy.id} className="rounded-md border p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="font-medium">{proxy.name}</h3>
+                      <StatusBadge enabled={proxy.enabled} />
+                    </div>
+                    <p className="text-muted-foreground mt-1 text-sm break-all">
+                      {proxy.type} · {proxy.host}
+                      {proxy.port !== null ? `:${proxy.port}` : ""}
+                    </p>
+                    <p className="text-muted-foreground mt-1 text-xs">
+                      {proxy.username ? `user ${proxy.username}` : "no username"}
+                      {proxy.settings.flaresolverrTimeoutMs
+                        ? ` · timeout ${proxy.settings.flaresolverrTimeoutMs}ms`
+                        : ""}
+                      {proxy.settings.tags && proxy.settings.tags.length > 0
+                        ? ` · tags ${proxy.settings.tags.join(", ")}`
+                        : ""}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap justify-end gap-2">
+                    <button
+                      type="button"
+                      className="rounded border px-2 py-1 text-xs disabled:opacity-50"
+                      disabled={proxyPending}
+                      onClick={() =>
+                        setProxyForm({
+                          id: proxy.id,
+                          name: proxy.name,
+                          type: proxy.type,
+                          host: proxy.host,
+                          port: proxy.port === null ? "" : String(proxy.port),
+                          username: proxy.username ?? "",
+                          password: "",
+                          tags: proxy.settings.tags?.join(", ") ?? "",
+                          flaresolverrTimeoutMs:
+                            proxy.settings.flaresolverrTimeoutMs === undefined
+                              ? ""
+                              : String(proxy.settings.flaresolverrTimeoutMs),
+                          enabled: proxy.enabled,
+                        })
+                      }
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded border px-2 py-1 text-xs disabled:opacity-50"
+                      disabled={proxyPending}
+                      onClick={() =>
+                        updateProxy.mutate({
+                          id: proxy.id,
+                          data: { enabled: !proxy.enabled },
+                        })
+                      }
+                    >
+                      {proxy.enabled ? "Disable" : "Enable"}
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`Delete ${proxy.name}`}
+                      className="rounded border p-1.5 disabled:opacity-50"
+                      disabled={proxyPending}
+                      onClick={() => removeProxy.mutate({ id: proxy.id })}
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+
+          <form className="h-fit rounded-md border p-4" onSubmit={onProxySubmit}>
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold">
+                {proxyForm.id === null ? "Add Proxy" : "Edit Proxy"}
+              </h2>
+              {proxyForm.id !== null && (
+                <button
+                  type="button"
+                  className="rounded border px-2 py-1 text-xs"
+                  onClick={() => setProxyForm(emptyProxyForm)}
+                >
+                  Cancel
+                </button>
+              )}
+            </div>
+
+            <div className="mt-4 space-y-4">
+              <Field label="Name">
+                <input
+                  className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                  value={proxyForm.name}
+                  onChange={(event) => setProxyForm({ ...proxyForm, name: event.target.value })}
+                  required
+                />
+              </Field>
+
+              <Field label="Type">
+                <select
+                  className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                  value={proxyForm.type}
+                  onChange={(event) =>
+                    setProxyForm({
+                      ...proxyForm,
+                      type: event.target.value as IndexerProxyType,
+                    })
+                  }
+                >
+                  {proxyTypeOptions.map((option) => (
+                    <option key={option.type} value={option.type}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+
+              <Field label="Host">
+                <input
+                  className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                  value={proxyForm.host}
+                  onChange={(event) => setProxyForm({ ...proxyForm, host: event.target.value })}
+                  placeholder="proxy.local"
+                  required
+                />
+              </Field>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Port">
+                  <input
+                    className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                    value={proxyForm.port}
+                    onChange={(event) => setProxyForm({ ...proxyForm, port: event.target.value })}
+                    type="number"
+                    min={1}
+                    placeholder="Optional"
+                  />
+                </Field>
+                <Field label="Timeout">
+                  <input
+                    className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                    value={proxyForm.flaresolverrTimeoutMs}
+                    onChange={(event) =>
+                      setProxyForm({ ...proxyForm, flaresolverrTimeoutMs: event.target.value })
+                    }
+                    type="number"
+                    min={1}
+                    placeholder="FlareSolverr ms"
+                  />
+                </Field>
+              </div>
+
+              <Field label="Username">
+                <input
+                  className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                  value={proxyForm.username}
+                  onChange={(event) => setProxyForm({ ...proxyForm, username: event.target.value })}
+                  autoComplete="off"
+                />
+              </Field>
+
+              <Field
+                label="Password"
+                hint={
+                  proxyForm.id === null ? undefined : "Leave blank to keep the existing secret."
+                }
+              >
+                <input
+                  className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                  value={proxyForm.password}
+                  onChange={(event) => setProxyForm({ ...proxyForm, password: event.target.value })}
+                  autoComplete="off"
+                  type="password"
+                />
+              </Field>
+
+              <Field label="Tags" hint="Comma-separated proxy tags.">
+                <input
+                  className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                  value={proxyForm.tags}
+                  onChange={(event) => setProxyForm({ ...proxyForm, tags: event.target.value })}
+                  placeholder="cloudflare, public-trackers"
+                />
+              </Field>
+
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={proxyForm.enabled}
+                  onChange={(event) =>
+                    setProxyForm({ ...proxyForm, enabled: event.target.checked })
+                  }
+                />
+                Enabled
+              </label>
+
+              {proxyMessage && <p className="text-sm text-emerald-600">{proxyMessage}</p>}
+              {proxyError && <p className="text-destructive text-sm">{proxyError}</p>}
+
+              <button
+                type="submit"
+                className="bg-primary text-primary-foreground inline-flex items-center gap-2 rounded px-3 py-2 text-sm disabled:opacity-50"
+                disabled={proxyPending}
+              >
+                <Save className="size-4" />
+                {proxyForm.id === null ? "Add proxy" : "Save proxy"}
+              </button>
+            </div>
+          </form>
+        </div>
+      </section>
     </div>
   )
 }
@@ -683,6 +1048,26 @@ function parseOptionalNumber(value: string): number | null {
   if (trimmed.length === 0) return null
   const parsed = Number(trimmed)
   return Number.isInteger(parsed) && parsed >= 0 ? parsed : null
+}
+
+function parseOptionalPositiveNumber(value: string): number | null {
+  const trimmed = value.trim()
+  if (trimmed.length === 0) return null
+  const parsed = Number(trimmed)
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null
+}
+
+function parseProxyId(value: string): number | null {
+  const parsed = Number(value)
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null
+}
+
+function proxyName(id: number, proxies: ReadonlyArray<IndexerProxy>): string {
+  return proxies.find((proxy) => proxy.id === id)?.name ?? `#${id}`
+}
+
+function proxyLabel(proxy: IndexerProxy): string {
+  return `${proxy.name} · ${proxy.type} · ${proxy.host}${proxy.port === null ? "" : `:${proxy.port}`}`
 }
 
 function definitionOptionsForType(
