@@ -1817,6 +1817,8 @@ function htmlSelectorFiltersMatch(
         return element.firstChild === true
       case "last-child":
         return element.lastChild === true
+      case "only-child":
+        return element.firstChild === true && element.lastChild === true
       case "nth-child":
         return htmlNthChildMatches(element.childIndex, filter.selector)
       case "nth-last-child":
@@ -1825,6 +1827,8 @@ function htmlSelectorFiltersMatch(
         return element.typeIndex === 1
       case "last-of-type":
         return htmlNthLastOfTypeIndex(element) === 1
+      case "only-of-type":
+        return element.typeIndex === 1 && element.typeCount === 1
       case "nth-of-type":
         return htmlNthChildMatches(element.typeIndex, filter.selector)
       case "nth-last-of-type":
@@ -2036,10 +2040,12 @@ function findHtmlElementsForToken(
     (filter) =>
       filter.name === "first-child" ||
       filter.name === "last-child" ||
+      filter.name === "only-child" ||
       filter.name === "nth-child" ||
       filter.name === "nth-last-child" ||
       filter.name === "first-of-type" ||
       filter.name === "last-of-type" ||
+      filter.name === "only-of-type" ||
       filter.name === "nth-of-type" ||
       filter.name === "nth-last-of-type",
   )

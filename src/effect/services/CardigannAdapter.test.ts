@@ -613,6 +613,61 @@ const HTML_OF_TYPE_SELECTOR_RESULTS = `<!doctype html>
   </body>
 </html>`
 
+const HTML_ONLY_CHILD_SELECTOR_RESULTS = `<!doctype html>
+<html>
+  <body>
+    <div class="cards">
+      <section class="child-check">
+        <article class="release">
+          <a class="title" href="/details/only-child">Only Child Movie 2026 1080p WEB-DL</a>
+          <span class="size">2.0 GB</span>
+          <a class="download" href="/download/only-child">Download</a>
+        </article>
+      </section>
+      <section class="child-check">
+        <article class="release">
+          <a class="title" href="/details/wrong-child-aside">Wrong Child Aside Movie 2026 1080p WEB-DL</a>
+          <span class="size">500 MB</span>
+          <a class="download" href="/download/wrong-child-aside">Download</a>
+        </article>
+        <aside>Advertisement</aside>
+      </section>
+      <section class="child-check">
+        <article class="release">
+          <a class="title" href="/details/wrong-child-first">Wrong Child First Movie 2026 1080p WEB-DL</a>
+          <span class="size">600 MB</span>
+          <a class="download" href="/download/wrong-child-first">Download</a>
+        </article>
+        <article class="release">
+          <a class="title" href="/details/wrong-child-second">Wrong Child Second Movie 2026 1080p WEB-DL</a>
+          <span class="size">700 MB</span>
+          <a class="download" href="/download/wrong-child-second">Download</a>
+        </article>
+      </section>
+      <section class="type-check">
+        <article class="release">
+          <a class="title" href="/details/only-of-type">Only Of Type Movie 2026 1080p WEB-DL</a>
+          <span class="size">2.1 GB</span>
+          <a class="download" href="/download/only-of-type">Download</a>
+        </article>
+        <aside>Advertisement</aside>
+      </section>
+      <section class="type-check">
+        <article class="release">
+          <a class="title" href="/details/wrong-type-first">Wrong Type First Movie 2026 1080p WEB-DL</a>
+          <span class="size">800 MB</span>
+          <a class="download" href="/download/wrong-type-first">Download</a>
+        </article>
+        <article class="release">
+          <a class="title" href="/details/wrong-type-second">Wrong Type Second Movie 2026 1080p WEB-DL</a>
+          <span class="size">900 MB</span>
+          <a class="download" href="/download/wrong-type-second">Download</a>
+        </article>
+      </section>
+    </div>
+  </body>
+</html>`
+
 const HTML_NESTED_RESULTS = `<!doctype html>
 <html>
   <body>
@@ -2972,6 +3027,75 @@ search:
       size: 1_900_000_000,
       category: "2000",
     })
+  })
+
+  it("matches Cardigann HTML only-child and only-of-type pseudo classes", async () => {
+    const fetchMock = vi.fn(
+      async () => new Response(HTML_ONLY_CHILD_SELECTOR_RESULTS, { status: 200 }),
+    )
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 78,
+      name: "HTML Only Child Selector Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "html-only-child-selector-cardigann",
+      definitionYaml: `
+id: html-only-child-selector-cardigann
+name: HTML Only Child Selector Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+      newznab: 2000
+  modes:
+    search: [q]
+search:
+  paths:
+    - path: /browse
+      response:
+        type: html
+  rows:
+    selector: section.child-check > article.release:only-child, section.type-check > article.release:only-of-type
+  fields:
+    title:
+      selector: a.title
+    details:
+      selector: a.title
+      attribute: href
+    download:
+      selector: a.download
+      attribute: href
+    size:
+      selector: span.size
+    category:
+      text: Movies
+`,
+      baseUrl: "https://tracker.example",
+      apiKey: "",
+      priority: 35,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Only Child", type: "general", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(releases).toHaveLength(2)
+    expect(releases.map((release) => release.title)).toEqual([
+      "Only Child Movie 2026 1080p WEB-DL",
+      "Only Of Type Movie 2026 1080p WEB-DL",
+    ])
+    expect(releases.map((release) => release.downloadUrl)).toEqual([
+      "https://tracker.example/download/only-child",
+      "https://tracker.example/download/only-of-type",
+    ])
+    expect(releases.map((release) => release.size)).toEqual([2_000_000_000, 2_100_000_000])
   })
 
   it("resolves nested Cardigann HTML descendant selectors within their parent matches", async () => {
