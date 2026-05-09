@@ -30,6 +30,7 @@ import type {
 } from "../domain/indexer"
 import { NotFoundError, IndexerError, ValidationError, type EncryptionError } from "../errors"
 import { AdapterRegistry } from "./AdapterRegistry"
+import { BUILT_IN_CARDIGANN_DEFINITIONS } from "./CardigannDefinitionLoader"
 import { CryptoService } from "./CryptoService"
 import { Db } from "./Db"
 
@@ -151,7 +152,7 @@ const GENERIC_CAPABILITIES = {
   })),
 }
 
-const BUILT_IN_DEFINITIONS: ReadonlyArray<IndexerDefinitionSeed> = [
+const GENERIC_INDEXER_DEFINITIONS: ReadonlyArray<IndexerDefinitionSeed> = [
   {
     definitionKey: "generic-torznab",
     displayName: "Generic Torznab",
@@ -198,6 +199,11 @@ const BUILT_IN_DEFINITIONS: ReadonlyArray<IndexerDefinitionSeed> = [
     tags: ["newznab", "usenet", "generic"],
     version: "builtin-1",
   },
+]
+
+const BUILT_IN_DEFINITIONS: ReadonlyArray<IndexerDefinitionSeed> = [
+  ...GENERIC_INDEXER_DEFINITIONS,
+  ...BUILT_IN_CARDIGANN_DEFINITIONS,
 ]
 
 function defaultDefinitionKey(type: string): string | null {

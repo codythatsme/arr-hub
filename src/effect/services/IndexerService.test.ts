@@ -162,7 +162,7 @@ describe("IndexerService", () => {
     }).pipe(Effect.provide(TestLayer)),
   )
 
-  it.effect("seeds first-party generic Torznab/Newznab definitions", () =>
+  it.effect("seeds generic and Cardigann-style definitions", () =>
     Effect.gen(function* () {
       const svc = yield* IndexerService
       yield* svc.seedBuiltInDefinitions()
@@ -172,6 +172,8 @@ describe("IndexerService", () => {
       expect(definitions.map((definition) => definition.definitionKey).toSorted()).toEqual([
         "generic-newznab",
         "generic-torznab",
+        "open-tv-torrents",
+        "public-domain-movie-torrents",
       ])
       expect(
         definitions.find((definition) => definition.definitionKey === "generic-torznab"),
@@ -181,6 +183,16 @@ describe("IndexerService", () => {
         implementation: "torznab",
         supportsRss: true,
         supportsSearch: true,
+      })
+      expect(
+        definitions.find((definition) => definition.definitionKey === "open-tv-torrents"),
+      ).toMatchObject({
+        displayName: "Open TV Torrents",
+        protocol: "torrent",
+        implementation: "cardigann_yaml",
+        baseUrl: "https://opentv.example",
+        privacy: "public",
+        tags: ["public", "tv"],
       })
     }).pipe(Effect.provide(TestLayer)),
   )
