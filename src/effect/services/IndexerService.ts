@@ -207,6 +207,14 @@ const BUILT_IN_DEFINITIONS: ReadonlyArray<IndexerDefinitionSeed> = [
   ...BUILT_IN_CARDIGANN_DEFINITIONS,
 ]
 
+const INDEXER_BACKOFF_MS: Record<IndexerError["reason"], number> = {
+  auth_failed: 0,
+  connection_failed: 60_000,
+  invalid_response: 60_000,
+  rate_limited: 5 * 60_000,
+  search_timeout: 60_000,
+}
+
 function defaultDefinitionKey(type: string): string | null {
   if (type === "torznab") return "generic-torznab"
   if (type === "newznab") return "generic-newznab"
@@ -294,6 +302,28 @@ function toStats(row: typeof indexerStats.$inferSelect, indexerName: string | nu
     lastSearchAt: row.lastSearchAt,
     lastRssAt: row.lastRssAt,
   }
+}
+
+function healthReason(message: string | null): IndexerError["reason"] | null {
+  const prefix = message?.split(":", 1)[0]
+  if (
+    prefix === "auth_failed" ||
+    prefix === "connection_failed" ||
+    prefix === "invalid_response" ||
+    prefix === "rate_limited" ||
+    prefix === "search_timeout"
+  ) {
+    return prefix
+  }
+  return null
+}
+
+function isBackoffActive(health: typeof indexerHealth.$inferSelect | null): boolean {
+  if (!health || health.status !== "unhealthy") return false
+  const reason = healthReason(health.errorMessage)
+  const backoffMs = reason ? INDEXER_BACKOFF_MS[reason] : 60_000
+  if (backoffMs <= 0) return false
+  return Date.now() - health.lastCheck.getTime() < backoffMs
 }
 
 // ── Live implementation ──
@@ -454,6 +484,59 @@ export const IndexerServiceLive = Layer.effect(
             updatedAt: now,
           })
           .where(eq(indexerStats.indexerId, indexerId))
+      })
+
+    const markIndexerSearchHealthy = (indexerId: number, responseTimeMs: number) =>
+      db
+        .insert(indexerHealth)
+        .values({
+          indexerId,
+          status: "healthy",
+          errorMessage: null,
+          responseTimeMs,
+          lastCheck: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: indexerHealth.indexerId,
+          set: {
+            status: "healthy",
+            errorMessage: null,
+            responseTimeMs,
+            lastCheck: new Date(),
+          },
+        })
+
+    const markIndexerSearchUnhealthy = (
+      indexerId: number,
+      err: IndexerError,
+      responseTimeMs: number,
+    ) =>
+      Effect.gen(function* () {
+        yield* db
+          .insert(indexerHealth)
+          .values({
+            indexerId,
+            status: "unhealthy",
+            errorMessage: `${err.reason}: ${err.message}`,
+            responseTimeMs,
+            lastCheck: new Date(),
+          })
+          .onConflictDoUpdate({
+            target: indexerHealth.indexerId,
+            set: {
+              status: "unhealthy",
+              errorMessage: `${err.reason}: ${err.message}`,
+              responseTimeMs,
+              lastCheck: new Date(),
+            },
+          })
+
+        if (err.reason === "auth_failed") {
+          yield* db
+            .update(indexers)
+            .set({ enabled: false, updatedAt: new Date() })
+            .where(eq(indexers.id, indexerId))
+        }
       })
 
     const aggregateCapabilities = (protocol?: IndexerProtocol) =>
@@ -642,20 +725,22 @@ export const IndexerServiceLive = Layer.effect(
       search: (query) =>
         Effect.gen(function* () {
           const rows = yield* db
-            .select()
+            .select({ indexer: indexers, health: indexerHealth })
             .from(indexers)
+            .leftJoin(indexerHealth, eq(indexers.id, indexerHealth.indexerId))
             .where(and(eq(indexers.enabled, true), eq(indexers.searchEnabled, true)))
             .orderBy(indexers.priority)
 
-          const eligibleRows = rows.filter((indexer) => {
-            const protocol = lookupProtocol(indexer.type)
+          const eligibleRows = rows.filter((row) => {
+            const protocol = lookupProtocol(row.indexer.type)
             return query.protocol === undefined || protocol === query.protocol
           })
 
           const results = yield* Effect.forEach(
-            eligibleRows,
-            (indexer) =>
+            eligibleRows.filter((row) => !isBackoffActive(row.health)),
+            (row) =>
               Effect.gen(function* () {
+                const indexer = row.indexer
                 const start = Date.now()
                 return yield* Effect.gen(function* () {
                   const apiKey = yield* crypto.decrypt(indexer.apiKeyEncrypted)
@@ -676,14 +761,18 @@ export const IndexerServiceLive = Layer.effect(
                   return yield* adapter.search(query)
                 }).pipe(
                   Effect.tap(() =>
-                    recordIndexerActivity(indexer.id, "search", true, Date.now() - start).pipe(
-                      Effect.ignore,
-                    ),
+                    Effect.all([
+                      recordIndexerActivity(indexer.id, "search", true, Date.now() - start),
+                      markIndexerSearchHealthy(indexer.id, Date.now() - start),
+                    ]).pipe(Effect.ignore),
                   ),
-                  Effect.tapError(() =>
-                    recordIndexerActivity(indexer.id, "search", false, Date.now() - start).pipe(
-                      Effect.ignore,
-                    ),
+                  Effect.tapError((err) =>
+                    Effect.gen(function* () {
+                      yield* recordIndexerActivity(indexer.id, "search", false, Date.now() - start)
+                      if (err._tag === "IndexerError") {
+                        yield* markIndexerSearchUnhealthy(indexer.id, err, Date.now() - start)
+                      }
+                    }).pipe(Effect.ignore),
                   ),
                 )
               }).pipe(Effect.either),

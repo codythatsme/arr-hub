@@ -368,4 +368,106 @@ describe("IndexerService", () => {
       })
     }).pipe(Effect.provide(TestLayer)),
   )
+
+  it.effect("backs off recently rate-limited indexers", () =>
+    Effect.gen(function* () {
+      const registry = yield* AdapterRegistry
+      let calls = 0
+      registry.registerIndexer(
+        "mock-rate-limited",
+        { displayName: "Mock Rate Limited", protocolAffinity: "torrent", authModel: "none" },
+        (config) => ({
+          testConnection: () => Effect.succeed({ searchTypes: ["search"], categories: [] }),
+          search: () => {
+            calls += 1
+            return Effect.fail(
+              new IndexerError({
+                indexerId: config.id,
+                indexerName: config.name,
+                reason: "rate_limited",
+                message: "slow down",
+                retryable: true,
+              }),
+            )
+          },
+        }),
+      )
+
+      const svc = yield* IndexerService
+      const indexer = yield* svc.add({
+        ...VALID_INPUT,
+        name: "Rate Limited",
+        type: "mock-rate-limited",
+        apiKey: "unused",
+      })
+
+      const first = yield* svc.search({ term: "example", type: "movie" })
+      const second = yield* svc.search({ term: "example", type: "movie" })
+
+      expect(first.errors).toHaveLength(1)
+      expect(second.errors).toHaveLength(0)
+      expect(second.releases).toHaveLength(0)
+      expect(calls).toBe(1)
+
+      const stats = yield* svc.listStats()
+      expect(stats.find((item) => item.indexerId === indexer.id)).toMatchObject({
+        totalSearches: 1,
+        failedSearches: 1,
+      })
+      const withHealth = yield* svc.getById(indexer.id)
+      expect(withHealth.enabled).toBe(true)
+      expect(withHealth.health).toMatchObject({
+        status: "unhealthy",
+        errorMessage: "rate_limited: slow down",
+      })
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("disables indexers after auth failures", () =>
+    Effect.gen(function* () {
+      const registry = yield* AdapterRegistry
+      let calls = 0
+      registry.registerIndexer(
+        "mock-auth-fail",
+        { displayName: "Mock Auth Fail", protocolAffinity: "torrent", authModel: "API key" },
+        (config) => ({
+          testConnection: () => Effect.succeed({ searchTypes: ["search"], categories: [] }),
+          search: () => {
+            calls += 1
+            return Effect.fail(
+              new IndexerError({
+                indexerId: config.id,
+                indexerName: config.name,
+                reason: "auth_failed",
+                message: "invalid API key",
+                retryable: false,
+              }),
+            )
+          },
+        }),
+      )
+
+      const svc = yield* IndexerService
+      const indexer = yield* svc.add({
+        ...VALID_INPUT,
+        name: "Auth Fail",
+        type: "mock-auth-fail",
+        apiKey: "unused",
+      })
+
+      const first = yield* svc.search({ term: "example", type: "movie" })
+      const second = yield* svc.search({ term: "example", type: "movie" })
+
+      expect(first.errors).toHaveLength(1)
+      expect(second.errors).toHaveLength(0)
+      expect(calls).toBe(1)
+
+      const withHealth = yield* svc.getById(indexer.id)
+      expect(withHealth.enabled).toBe(false)
+      expect(withHealth.health).toMatchObject({
+        status: "unhealthy",
+        errorMessage: "auth_failed: invalid API key",
+      })
+    }).pipe(Effect.provide(TestLayer)),
+  )
 })
