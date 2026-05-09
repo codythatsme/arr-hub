@@ -960,7 +960,16 @@ export const IndexerServiceLive = Layer.effect(
             updateData.apiKeyEncrypted = yield* crypto.encrypt(data.apiKey)
           }
           if (data.configValues !== undefined) {
-            updateData.configValuesEncrypted = yield* encryptConfigValues(data.configValues)
+            const existing = yield* db
+              .select({ configValuesEncrypted: indexers.configValuesEncrypted })
+              .from(indexers)
+              .where(eq(indexers.id, id))
+            const current = existing[0]
+            if (!current) return yield* new NotFoundError({ entity: "indexer", id })
+            updateData.configValuesEncrypted = {
+              ...current.configValuesEncrypted,
+              ...(yield* encryptConfigValues(data.configValues)),
+            }
           }
           updateData.updatedAt = new Date()
 

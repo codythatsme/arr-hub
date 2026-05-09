@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import { Radio, RefreshCw, Save, Trash2 } from "lucide-react"
 import { type FormEvent, type ReactNode, useState } from "react"
 
+import type { IndexerAuthField, IndexerDefinition } from "#/effect/domain/indexer"
 import { useTRPC } from "#/integrations/trpc/react"
 
 export const Route = createFileRoute("/settings/indexers")({ component: Indexers })
@@ -11,6 +12,7 @@ interface IndexerFormState {
   readonly id: number | null
   readonly name: string
   readonly type: string
+  readonly definitionKey: string
   readonly baseUrl: string
   readonly apiKey: string
   readonly priority: string
@@ -28,6 +30,7 @@ const emptyForm: IndexerFormState = {
   id: null,
   name: "",
   type: "torznab",
+  definitionKey: "",
   baseUrl: "",
   apiKey: "",
   priority: "50",
@@ -50,6 +53,7 @@ function Indexers() {
   const listKey = trpc.indexers.list.queryKey()
   const indexers = useQuery(trpc.indexers.list.queryOptions())
   const types = useQuery(trpc.indexers.listTypes.queryOptions())
+  const definitions = useQuery(trpc.indexers.listDefinitions.queryOptions())
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: listKey })
   const add = useMutation(
@@ -89,6 +93,25 @@ function Indexers() {
 
   const typeOptions = types.data ?? []
   const selectedType = typeOptions.find((item) => item.type === form.type)
+  const definitionOptions = definitionOptionsForType(definitions.data ?? [], form.type)
+  const selectedDefinitionKey = form.definitionKey || definitionOptions[0]?.definitionKey || ""
+  const selectedDefinition =
+    definitionOptions.find((definition) => definition.definitionKey === selectedDefinitionKey) ??
+    null
+  const selectedApiKeyField =
+    selectedDefinition?.authFields.find((field) => isApiKeyField(field.name)) ?? null
+  const configFields =
+    selectedDefinition?.authFields.filter((field) => !isApiKeyField(field.name)) ?? []
+  const showDefinitionSelector = form.type === "cardigann_yaml" && definitionOptions.length > 0
+  const apiKeyRequired =
+    form.id === null &&
+    (form.type === "torznab" || form.type === "newznab" || selectedApiKeyField?.required === true)
+  const apiKeyHint =
+    form.id === null
+      ? selectedApiKeyField?.helpText
+      : selectedApiKeyField?.helpText
+        ? `${selectedApiKeyField.helpText} Leave blank to keep the existing secret.`
+        : "Leave blank to keep the existing secret."
   const pending = add.isPending || update.isPending || remove.isPending || test.isPending
   const error =
     add.error?.message ?? update.error?.message ?? remove.error?.message ?? test.error?.message
@@ -104,13 +127,21 @@ function Indexers() {
     const queryLimitWindowSeconds = parseOptionalNumber(form.queryLimitWindowSeconds)
     const grabLimitCount = parseOptionalNumber(form.grabLimitCount)
     const grabLimitWindowSeconds = parseOptionalNumber(form.grabLimitWindowSeconds)
+    const configValues = collectConfigValues(new FormData(event.currentTarget), configFields)
+    const hasConfigValues = Object.keys(configValues).length > 0
+    const definitionKey =
+      form.type === "cardigann_yaml" && selectedDefinitionKey.length > 0
+        ? selectedDefinitionKey
+        : defaultDefinitionKeyForType(form.type)
 
     if (form.id === null) {
       add.mutate({
         name: form.name.trim(),
         type: form.type,
+        ...(definitionKey ? { definitionKey } : {}),
         baseUrl: form.baseUrl.trim(),
         apiKey: form.apiKey.trim(),
+        ...(hasConfigValues ? { configValues } : {}),
         priority,
         minimumSeeders,
         queryCooldownSeconds,
@@ -129,6 +160,7 @@ function Indexers() {
       data: {
         name: form.name.trim(),
         type: form.type,
+        ...(definitionKey ? { definitionKey } : {}),
         baseUrl: form.baseUrl.trim(),
         priority,
         minimumSeeders,
@@ -140,6 +172,7 @@ function Indexers() {
         categories,
         enabled: form.enabled,
         ...(form.apiKey.trim().length > 0 ? { apiKey: form.apiKey.trim() } : {}),
+        ...(hasConfigValues ? { configValues } : {}),
       },
     })
   }
@@ -214,6 +247,7 @@ function Indexers() {
                         id: indexer.id,
                         name: indexer.name,
                         type: indexer.type,
+                        definitionKey: indexer.definitionKey ?? "",
                         baseUrl: indexer.baseUrl,
                         apiKey: "",
                         priority: String(indexer.priority),
@@ -316,7 +350,22 @@ function Indexers() {
               <select
                 className="mt-1 w-full rounded border bg-transparent px-3 py-2"
                 value={form.type}
-                onChange={(event) => setForm({ ...form, type: event.target.value })}
+                onChange={(event) => {
+                  const nextType = event.target.value
+                  const nextDefinition = definitionOptionsForType(
+                    definitions.data ?? [],
+                    nextType,
+                  )[0]
+                  setForm({
+                    ...form,
+                    type: nextType,
+                    definitionKey: nextDefinition?.definitionKey ?? "",
+                    baseUrl:
+                      form.baseUrl.trim().length === 0 && nextDefinition?.baseUrl
+                        ? nextDefinition.baseUrl
+                        : form.baseUrl,
+                  })
+                }}
               >
                 {typeOptions.length === 0 && <option value={form.type}>{form.type}</option>}
                 {typeOptions.map((type) => (
@@ -326,6 +375,46 @@ function Indexers() {
                 ))}
               </select>
             </Field>
+
+            {showDefinitionSelector && (
+              <Field
+                label="Definition"
+                hint={
+                  selectedDefinition
+                    ? `${selectedDefinition.protocol} · ${selectedDefinition.privacy} · ${selectedDefinition.capabilities.searchTypes.join(", ")}`
+                    : undefined
+                }
+              >
+                <select
+                  className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                  value={selectedDefinitionKey}
+                  onChange={(event) => {
+                    const nextDefinition =
+                      definitionOptions.find(
+                        (definition) => definition.definitionKey === event.target.value,
+                      ) ?? null
+                    const currentDefaultBaseUrl = selectedDefinition?.baseUrl ?? ""
+                    const nextDefaultBaseUrl = nextDefinition?.baseUrl ?? ""
+                    setForm({
+                      ...form,
+                      definitionKey: event.target.value,
+                      baseUrl:
+                        form.baseUrl.trim().length === 0 ||
+                        (currentDefaultBaseUrl.length > 0 && form.baseUrl === currentDefaultBaseUrl)
+                          ? nextDefaultBaseUrl
+                          : form.baseUrl,
+                    })
+                  }}
+                  required={form.type === "cardigann_yaml"}
+                >
+                  {definitionOptions.map((definition) => (
+                    <option key={definition.definitionKey} value={definition.definitionKey}>
+                      {definition.displayName}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            )}
 
             <Field label="Base URL">
               <input
@@ -338,19 +427,49 @@ function Indexers() {
               />
             </Field>
 
-            <Field
-              label={form.id === null ? "API key" : "API key"}
-              hint={form.id === null ? undefined : "Leave blank to keep the existing secret."}
-            >
+            <Field label={selectedApiKeyField?.label ?? "API key"} hint={apiKeyHint}>
               <input
                 className="mt-1 w-full rounded border bg-transparent px-3 py-2"
                 value={form.apiKey}
                 onChange={(event) => setForm({ ...form, apiKey: event.target.value })}
                 autoComplete="off"
-                required={form.id === null}
+                required={apiKeyRequired}
                 type="password"
               />
             </Field>
+
+            {showDefinitionSelector && configFields.length > 0 && (
+              <div key={selectedDefinitionKey} className="space-y-3">
+                <div>
+                  <h3 className="text-sm font-medium">Definition settings</h3>
+                  {form.id !== null && (
+                    <p className="text-muted-foreground mt-1 text-xs">
+                      Leave saved values blank unless they need to change.
+                    </p>
+                  )}
+                </div>
+                {configFields.map((field) => (
+                  <Field key={field.name} label={field.label} hint={field.helpText}>
+                    {field.type === "textarea" ? (
+                      <textarea
+                        className="mt-1 min-h-24 w-full rounded border bg-transparent px-3 py-2"
+                        autoComplete="off"
+                        name={configFieldName(field)}
+                        required={form.id === null && field.required}
+                      />
+                    ) : (
+                      <input
+                        className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                        autoComplete="off"
+                        name={configFieldName(field)}
+                        required={form.id === null && field.required}
+                        type={configFieldInputType(field)}
+                      />
+                    )}
+                  </Field>
+                ))}
+              </div>
+            )}
 
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Priority">
@@ -507,4 +626,44 @@ function parseOptionalNumber(value: string): number | null {
   if (trimmed.length === 0) return null
   const parsed = Number(trimmed)
   return Number.isInteger(parsed) && parsed >= 0 ? parsed : null
+}
+
+function definitionOptionsForType(
+  definitions: ReadonlyArray<IndexerDefinition>,
+  type: string,
+): ReadonlyArray<IndexerDefinition> {
+  if (type !== "cardigann_yaml") return []
+  return definitions
+    .filter((definition) => definition.implementation === type)
+    .toSorted((a, b) => a.displayName.localeCompare(b.displayName))
+}
+
+function defaultDefinitionKeyForType(type: string): string | null {
+  if (type === "torznab") return "generic-torznab"
+  if (type === "newznab") return "generic-newznab"
+  return null
+}
+
+function isApiKeyField(name: string): boolean {
+  return /^api_?key$/i.test(name)
+}
+
+function collectConfigValues(
+  values: FormData,
+  fields: ReadonlyArray<IndexerAuthField>,
+): Record<string, string> {
+  const collected: Record<string, string> = {}
+  for (const field of fields) {
+    const value = values.get(configFieldName(field))
+    if (typeof value === "string" && value.trim().length > 0) collected[field.name] = value
+  }
+  return collected
+}
+
+function configFieldName(field: IndexerAuthField): string {
+  return `configValues.${field.name}`
+}
+
+function configFieldInputType(field: IndexerAuthField): "password" | "text" {
+  return field.type === "password" || field.type === "cookie" ? "password" : "text"
 }

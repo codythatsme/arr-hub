@@ -256,6 +256,7 @@ describe("IndexerService", () => {
       yield* svc.testConnection(added.id)
       expect(capturedValues).toEqual({
         username: "bob",
+        cookie: "session=secret",
       })
     }).pipe(Effect.provide(TestLayer)),
   )
