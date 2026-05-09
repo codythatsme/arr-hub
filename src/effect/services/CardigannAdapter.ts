@@ -1801,6 +1801,17 @@ function htmlElementMatchesFormPseudo(element: HtmlElementMatch, name: string): 
   }
 }
 
+function htmlElementIsHidden(element: HtmlElementMatch): boolean {
+  if (element.attributes.hidden !== undefined) return true
+  if (element.tagName === "input" && htmlFormControlType(element) === "hidden") return true
+
+  const style = (element.attributes.style ?? "").toLowerCase()
+  return (
+    /(?:^|;)\s*display\s*:\s*none\s*(?:;|$)/.test(style) ||
+    /(?:^|;)\s*visibility\s*:\s*hidden\s*(?:;|$)/.test(style)
+  )
+}
+
 function htmlSelectorFiltersMatch(
   element: HtmlElementMatch,
   filters: ReadonlyArray<JsonSelectorFilter>,
@@ -1835,6 +1846,10 @@ function htmlSelectorFiltersMatch(
       case "radio":
       case "image":
         return htmlElementMatchesFormPseudo(element, filter.name)
+      case "hidden":
+        return htmlElementIsHidden(element)
+      case "visible":
+        return !htmlElementIsHidden(element)
       case "empty":
         return (
           htmlTextContent(element.innerHtml).length === 0 &&

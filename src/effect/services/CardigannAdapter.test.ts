@@ -538,6 +538,34 @@ const HTML_FORM_PSEUDO_SELECTOR_RESULTS = `<!doctype html>
   </body>
 </html>`
 
+const HTML_VISIBILITY_PSEUDO_SELECTOR_RESULTS = `<!doctype html>
+<html>
+  <body>
+    <section class="results">
+      <article class="release">
+        <a class="title" href="/details/visibility">Visibility Pseudo Movie 2026 1080p WEB-DL</a>
+        <input class="download" type="hidden" value="/download/visibility">
+        <span class="size">2.5 GB</span>
+      </article>
+      <article class="release">
+        <a class="title" href="/details/wrong-hidden-title" style="display: none">Wrong Hidden Title Movie 2026 1080p WEB-DL</a>
+        <input class="download" type="hidden" value="/download/wrong-hidden-title">
+        <span class="size">500 MB</span>
+      </article>
+      <article class="release" hidden>
+        <a class="title" href="/details/wrong-hidden-row">Wrong Hidden Row Movie 2026 1080p WEB-DL</a>
+        <input class="download" type="hidden" value="/download/wrong-hidden-row">
+        <span class="size">600 MB</span>
+      </article>
+      <article class="release">
+        <a class="title" href="/details/wrong-visible-input">Wrong Visible Input Movie 2026 1080p WEB-DL</a>
+        <input class="download" type="text" value="/download/wrong-visible-input">
+        <span class="size">700 MB</span>
+      </article>
+    </section>
+  </body>
+</html>`
+
 const HTML_CHILD_PSEUDO_SELECTOR_RESULTS = `<!doctype html>
 <html>
   <body>
@@ -2887,6 +2915,73 @@ search:
       infoUrl: "https://tracker.example/details/form-pseudo",
       downloadUrl: "https://tracker.example/download/form-pseudo",
       size: 2_400_000_000,
+      category: "2000",
+    })
+  })
+
+  it("matches Cardigann HTML visibility pseudo classes", async () => {
+    const fetchMock = vi.fn(
+      async () => new Response(HTML_VISIBILITY_PSEUDO_SELECTOR_RESULTS, { status: 200 }),
+    )
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 83,
+      name: "HTML Visibility Pseudo Selector Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "html-visibility-pseudo-selector-cardigann",
+      definitionYaml: `
+id: html-visibility-pseudo-selector-cardigann
+name: HTML Visibility Pseudo Selector Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+      newznab: 2000
+  modes:
+    search: [q]
+search:
+  paths:
+    - path: /browse
+      response:
+        type: html
+  rows:
+    selector: article.release:visible:has(a.title:visible):has(input.download:hidden)
+  fields:
+    title:
+      selector: a.title:visible
+    details:
+      selector: a.title:visible
+      attribute: href
+    download:
+      selector: input.download:hidden
+      attribute: value
+    size:
+      selector: span.size:visible
+    category:
+      text: Movies
+`,
+      baseUrl: "https://tracker.example",
+      apiKey: "",
+      priority: 35,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Visibility Pseudo", type: "general", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "Visibility Pseudo Movie 2026 1080p WEB-DL",
+      infoUrl: "https://tracker.example/details/visibility",
+      downloadUrl: "https://tracker.example/download/visibility",
+      size: 2_500_000_000,
       category: "2000",
     })
   })
