@@ -803,6 +803,29 @@ function findHtmlElements(html: string, selectorText: string): ReadonlyArray<Htm
   return matches
 }
 
+function mergeHtmlRows(
+  rows: ReadonlyArray<HtmlElementMatch>,
+  after: number | undefined,
+): ReadonlyArray<HtmlElementMatch> {
+  if (after === undefined || after <= 0) return rows
+
+  const merged: Array<HtmlElementMatch> = []
+  for (let index = 0; index < rows.length; index += after + 1) {
+    const row = rows[index]
+    if (row === undefined) continue
+
+    const followingRows = rows.slice(index + 1, index + after + 1)
+    merged.push({
+      attributes: row.attributes,
+      innerHtml: [row.innerHtml, ...followingRows.map((followingRow) => followingRow.innerHtml)]
+        .filter((value) => value.length > 0)
+        .join("\n"),
+    })
+  }
+
+  return merged
+}
+
 function htmlTextContent(value: string): string {
   return htmlDecode(
     value
@@ -922,7 +945,10 @@ function parseHtmlReleases(
 ): ReadonlyArray<ReleaseCandidate> {
   if (definition.search.rows === null) return []
 
-  const rows = findHtmlElements(html, definition.search.rows.selector)
+  const rows = mergeHtmlRows(
+    findHtmlElements(html, definition.search.rows.selector),
+    definition.search.rows.after,
+  )
   const now = Date.now()
 
   return rows.map((row): ReleaseCandidate => {

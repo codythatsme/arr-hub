@@ -442,6 +442,7 @@ search:
         q: "{{ .Keywords }}"
   rows:
     selector: tr.torrent
+    after: 1
   fields:
     category:
       selector: a.category
@@ -463,7 +464,7 @@ search:
       text: "0"
 `)
 
-    expect(runtime.search.rows).toEqual({ selector: "tr.torrent" })
+    expect(runtime.search.rows).toEqual({ selector: "tr.torrent", after: 1 })
     expect(runtime.search.fields).toMatchObject({
       category: {
         selector: "a.category",

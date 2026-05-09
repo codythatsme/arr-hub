@@ -56,6 +56,26 @@ const HTML_NESTED_RESULTS = `<!doctype html>
   </body>
 </html>`
 
+const HTML_AFTER_RESULTS = `<!doctype html>
+<html>
+  <body>
+    <table class="results">
+      <tbody>
+        <tr>
+          <td class="name"><a href="/details/3">Split Row Movie 2026 1080p BluRay</a></td>
+          <td class="actions"><a class="download" href="/download/3">Download</a></td>
+        </tr>
+        <tr>
+          <td colspan="2">
+            <span class="size">3.5 GiB</span>
+            <time datetime="2026-05-03T00:00:00.000Z">May 3 2026</time>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </body>
+</html>`
+
 describe("CardigannAdapter", () => {
   afterEach(() => {
     vi.unstubAllGlobals()
@@ -330,6 +350,76 @@ search:
       size: 2_000_000_000,
       category: "2000",
     })
+  })
+
+  it("merges Cardigann HTML rows using rows.after before extracting fields", async () => {
+    const fetchMock = vi.fn(async () => new Response(HTML_AFTER_RESULTS, { status: 200 }))
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 27,
+      name: "After Rows HTML Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "after-rows-html-cardigann",
+      definitionYaml: `
+id: after-rows-html-cardigann
+name: After Rows HTML Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+      newznab: 2000
+  modes:
+    search: [q]
+search:
+  paths:
+    - path: /browse
+      response:
+        type: html
+  rows:
+    selector: table.results tr
+    after: 1
+  fields:
+    title:
+      selector: td.name a
+    details:
+      selector: td.name a
+      attribute: href
+    download:
+      selector: td.actions a.download
+      attribute: href
+    size:
+      selector: span.size
+    date:
+      selector: time
+      attribute: datetime
+    category:
+      text: Movies
+`,
+      baseUrl: "https://tracker.example",
+      apiKey: "",
+      priority: 35,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Split Row Movie", type: "general", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "Split Row Movie 2026 1080p BluRay",
+      downloadUrl: "https://tracker.example/download/3",
+      infoUrl: "https://tracker.example/details/3",
+      size: 3_758_096_384,
+      category: "2000",
+    })
+    expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-03T00:00:00.000Z")
   })
 
   it("builds Cardigann-style POST search requests from definition paths", async () => {

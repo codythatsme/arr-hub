@@ -38,6 +38,7 @@ export interface CardigannFilter {
 
 export interface CardigannRowsSelector {
   readonly selector: string
+  readonly after?: number
 }
 
 export interface CardigannFieldSelector {
@@ -511,7 +512,11 @@ function parseLoginPaths(
 function parseRows(value: unknown): CardigannRowsSelector | null {
   if (value === undefined) return null
   const rows = expectRecord(value, "rows")
-  return { selector: requiredString(rows, "selector") }
+  const after = optionalNonNegativeInt(rows, "after")
+  return {
+    selector: requiredString(rows, "selector"),
+    ...(after !== null ? { after } : {}),
+  }
 }
 
 function parseFields(value: unknown): Readonly<Record<string, CardigannFieldSelector>> {
@@ -888,6 +893,14 @@ function positiveIntFromValue(value: unknown, label: string): number {
   if (typeof value === "number" && Number.isInteger(value) && value > 0) return value
   if (typeof value === "string" && /^\d+$/.test(value.trim())) return Number(value.trim())
   throw new Error(`${label} must be a positive integer`)
+}
+
+function optionalNonNegativeInt(record: Record<string, unknown>, key: string): number | null {
+  const value = record[key]
+  if (value === undefined || value === null) return null
+  if (typeof value === "number" && Number.isInteger(value) && value >= 0) return value
+  if (typeof value === "string" && /^\d+$/.test(value.trim())) return Number(value.trim())
+  throw new Error(`${key} must be a non-negative integer`)
 }
 
 function firstString(value: unknown): string | null {
