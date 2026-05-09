@@ -2687,6 +2687,220 @@ search:
       text: "1"
 `
 
+const SPEED_CD = `
+id: speedcd
+name: SpeedCD
+description: Private general tracker exposed through a first-pass cookie-auth HTML Cardigann definition.
+type: private
+links:
+  - https://speed.cd/
+version: builtin-cardigann-1
+rss: false
+tags:
+  - private
+  - general
+  - movies
+  - tv
+  - html
+settings:
+  - name: cookie
+    label: Cookie
+    type: cookie
+    required: true
+    helpText: SpeedCD browser session cookie.
+  - name: freeleechOnly
+    label: Freeleech only
+    type: checkbox
+    default: false
+    helpText: Search freeleech torrents only.
+  - name: excludeArchives
+    label: Exclude archives
+    type: checkbox
+    default: false
+    helpText: Exclude torrents containing RAR files from results.
+caps:
+  categorymappings:
+    - id: "1"
+      cat: Movies/Other
+      desc: Movies/XviD
+      newznab: 2020
+    - id: "42"
+      cat: Movies
+      desc: Movies/Packs
+      newznab: 2000
+    - id: "32"
+      cat: Movies
+      desc: Movies/Kids
+      newznab: 2000
+    - id: "43"
+      cat: Movies/HD
+      desc: Movies/HD
+      newznab: 2040
+    - id: "47"
+      cat: Movies
+      desc: Movies/DiVERSiTY
+      newznab: 2000
+    - id: "28"
+      cat: Movies/BluRay
+      desc: Movies/B-Ray
+      newznab: 2050
+    - id: "48"
+      cat: Movies/3D
+      desc: Movies/3D
+      newznab: 2060
+    - id: "40"
+      cat: Movies/DVD
+      desc: Movies/DVD-R
+      newznab: 2070
+    - id: "56"
+      cat: Movies
+      desc: Movies/Anime
+      newznab: 2000
+    - id: "50"
+      cat: TV/Sport
+      desc: TV/Sports
+      newznab: 5060
+    - id: "52"
+      cat: TV/HD
+      desc: TV/B-Ray
+      newznab: 5040
+    - id: "53"
+      cat: TV/SD
+      desc: TV/DVD-R
+      newznab: 5030
+    - id: "41"
+      cat: TV
+      desc: TV/Packs
+      newznab: 5000
+    - id: "55"
+      cat: TV
+      desc: TV/Kids
+      newznab: 5000
+    - id: "57"
+      cat: TV
+      desc: TV/DiVERSiTY
+      newznab: 5000
+    - id: "49"
+      cat: TV/HD
+      desc: TV/HD
+      newznab: 5040
+    - id: "2"
+      cat: TV/SD
+      desc: TV/Episodes
+      newznab: 5030
+    - id: "30"
+      cat: TV/Anime
+      desc: TV/Anime
+      newznab: 5070
+    - id: "25"
+      cat: PC/Games
+      desc: Games/PC ISO
+      newznab: 4050
+    - id: "39"
+      cat: Console/Wii
+      desc: Games/Wii
+      newznab: 1030
+    - id: "45"
+      cat: Console/PS3
+      desc: Games/PS3
+      newznab: 1080
+    - id: "35"
+      cat: Console
+      desc: Games/Nintendo
+      newznab: 1000
+    - id: "33"
+      cat: Console/Xbox 360
+      desc: Games/XboX360
+      newznab: 1050
+    - id: "46"
+      cat: PC/Phone-Other
+      desc: Mobile
+      newznab: 4040
+    - id: "24"
+      cat: PC/0day
+      desc: Apps/0DAY
+      newznab: 4010
+    - id: "51"
+      cat: PC/Mac
+      desc: Mac
+      newznab: 4030
+    - id: "54"
+      cat: Books
+      desc: Educational
+      newznab: 7000
+    - id: "27"
+      cat: Books
+      desc: Books-Mags
+      newznab: 7000
+    - id: "26"
+      cat: Audio
+      desc: Music/Audio
+      newznab: 3000
+    - id: "3"
+      cat: Audio/Lossless
+      desc: Music/Flac
+      newznab: 3040
+    - id: "44"
+      cat: Audio
+      desc: Music/Pack
+      newznab: 3000
+    - id: "29"
+      cat: Audio/Video
+      desc: Music/Video
+      newznab: 3020
+  modes:
+    search: [q]
+    movie-search: [q, imdbid]
+    tv-search: [q, season, ep, imdbid]
+login:
+  method: cookie
+  inputs:
+    cookie: "{{ .Config.Cookie }}"
+search:
+  paths:
+    - path: 'browse/{{ range .Categories }}{{ . }}/{{ end }}{{ if .Config.FreeleechOnly }}freeleech/{{ end }}{{ if .Config.ExcludeArchives }}norar/{{ end }}{{ if .Keywords }}q/{{ .Keywords | urlencode }}{{ end }}'
+      response:
+        type: html
+  rows:
+    selector: 'tr:has(a)'
+  fields:
+    title:
+      selector: 'td:nth-of-type(2) > div > a[href^="/t/"]'
+      filters:
+        - name: re_replace
+          args: ['\\[REQ(UEST)?\\]', ""]
+    details:
+      selector: 'td:nth-of-type(2) > div > a[href^="/t/"]'
+      attribute: href
+    download:
+      selector: 'td:nth-of-type(4) a[href^="/download/"]'
+      attribute: href
+    category:
+      selector: td:nth-of-type(1) a
+      attribute: href
+      filters:
+        - name: split
+          args: ["/", "-1"]
+    date:
+      selector: 'td:nth-of-type(2) span[class^="elapsedDate"]'
+      attribute: title
+      filters:
+        - name: dateparse
+          args: "dddd, MMMM d, yyyy h:mmtt"
+    size:
+      selector: td:nth-of-type(6)
+    seeders:
+      selector: td:nth-of-type(8)
+    leechers:
+      selector: td:nth-of-type(9)
+    downloadvolumefactor:
+      case:
+        'td:nth-of-type(2) span:contains("[Freeleech]")': "0"
+        tr: "1"
+    uploadvolumefactor:
+      text: "1"
+`
+
 const MORE_THAN_TV = `
 id: morethantv
 name: MoreThanTV
@@ -2898,6 +3112,7 @@ const BUILT_IN_CARDIGANN_SOURCES = [
   TORRENT_BYTES,
   SCENE_TIME,
   HD_SPACE,
+  SPEED_CD,
   MORE_THAN_TV,
   HDACCESS,
   TORRENT_NETWORK,

@@ -270,6 +270,33 @@ const HD_SPACE_HTML_RESULTS = `
   </div>
 </body></html>`
 
+const SPEEDCD_HTML_RESULTS = `
+<html><body>
+  <div class="boxContent">
+    <table>
+      <tbody>
+        <tr>
+          <td><a href="/browse/43">Movies/HD</a></td>
+          <td>
+            <div>
+              <a href="/t/888/speedcd-movie-2026">[REQ] SpeedCD Movie 2026 1080p WEB-DL</a>
+              <span class="elapsedDate" title="Sunday, May 10, 2026 2:45PM">2 hours ago</span>
+              <span>[Freeleech]</span>
+            </div>
+          </td>
+          <td>Comments</td>
+          <td><a href="/download/888/SpeedCD.Movie.2026.torrent">Download</a></td>
+          <td>Uploader</td>
+          <td>8.8 GB</td>
+          <td>12</td>
+          <td>88</td>
+          <td>11</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</body></html>`
+
 const RETROFLIX_JSON_RESULTS = JSON.stringify([
   {
     download_volume_factor: 0,
@@ -2899,6 +2926,61 @@ search:
       uploadFactor: 1,
     })
     expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-10T13:45:09.000Z")
+  })
+
+  it("parses SpeedCD HTML results with cookie auth and search path flags", async () => {
+    const requests: Array<{ url: string; init: RequestInit | undefined }> = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      requests.push({ url: String(input), init })
+      return new Response(SPEEDCD_HTML_RESULTS, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 100,
+      name: "SpeedCD",
+      type: "cardigann_yaml",
+      definitionKey: "speedcd",
+      baseUrl: "https://speed.cd/",
+      apiKey: "",
+      configValues: {
+        cookie: "speed_session=abc",
+        freeleechOnly: "true",
+        excludeArchives: "true",
+      },
+      priority: 36,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({
+        term: "SpeedCD Movie",
+        type: "movie",
+        categories: [2040],
+      }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const request = requests[0]
+    expect(request?.url).toBe("https://speed.cd/browse/43/freeleech/norar/q/SpeedCD%20Movie")
+    expect(new Headers(request?.init?.headers).get("cookie")).toBe("speed_session=abc")
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "SpeedCD Movie 2026 1080p WEB-DL",
+      downloadUrl: "https://speed.cd/download/888/SpeedCD.Movie.2026.torrent",
+      infoUrl: "https://speed.cd/t/888/speedcd-movie-2026",
+      category: "2040",
+      size: 8_800_000_000,
+      seeders: 88,
+      leechers: 11,
+      indexerId: 100,
+      indexerName: "SpeedCD",
+      indexerPriority: 36,
+      downloadFactor: 0,
+      uploadFactor: 1,
+    })
+    expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-10T14:45:00.000Z")
   })
 
   it("parses RetroFlix SpeedApp JSON results with bearer auth", async () => {

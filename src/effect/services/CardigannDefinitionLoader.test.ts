@@ -92,6 +92,7 @@ caps:
       "torrentbytes",
       "scenetime",
       "hd-space",
+      "speedcd",
       "morethantv",
       "hdaccess",
       "torrent-network",
@@ -413,6 +414,39 @@ caps:
           { id: 5040, name: "TV Show / 1080p HDTV" },
           { id: 5080, name: "Documentary / 720p" },
           { id: 6000, name: "XXX / 1080p" },
+        ]),
+      },
+    })
+    expect(
+      BUILT_IN_CARDIGANN_DEFINITIONS.find((definition) => definition.definitionKey === "speedcd"),
+    ).toMatchObject({
+      displayName: "SpeedCD",
+      baseUrl: "https://speed.cd/",
+      privacy: "private",
+      supportsRss: false,
+      supportsSearch: true,
+      tags: ["private", "general", "movies", "tv", "html"],
+      authFields: expect.arrayContaining([
+        expect.objectContaining({ name: "cookie", type: "cookie", required: true }),
+        expect.objectContaining({
+          name: "freeleechOnly",
+          type: "checkbox",
+          defaultValue: "false",
+        }),
+        expect.objectContaining({
+          name: "excludeArchives",
+          type: "checkbox",
+          defaultValue: "false",
+        }),
+      ]),
+      capabilities: {
+        searchTypes: ["search", "movie", "tvsearch"],
+        categories: expect.arrayContaining([
+          { id: 2040, name: "Movies/HD" },
+          { id: 5040, name: "TV/HD" },
+          { id: 5070, name: "TV/Anime" },
+          { id: 4050, name: "Games/PC ISO" },
+          { id: 7000, name: "Books-Mags" },
         ]),
       },
     })
