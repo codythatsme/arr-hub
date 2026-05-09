@@ -915,6 +915,16 @@ function validatedTerms(value: string, allowed: string): string {
 
 type JsonPathToken = "*" | number | string
 
+interface JsonSelectorFilter {
+  readonly name: string
+  readonly selector: string
+}
+
+interface JsonSelector {
+  readonly path: string
+  readonly filters: ReadonlyArray<JsonSelectorFilter>
+}
+
 function parseJsonPath(path: string): ReadonlyArray<JsonPathToken> | null {
   const text = path.trim()
   if (text.length === 0) return []
@@ -975,6 +985,85 @@ function parseJsonPath(path: string): ReadonlyArray<JsonPathToken> | null {
   return tokens
 }
 
+function jsonSelectorFilterStart(text: string): number {
+  let bracketDepth = 0
+  let quote: string | null = null
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index] ?? ""
+    if ((char === `"` || char === "'") && bracketDepth > 0) {
+      quote = quote === char ? null : (quote ?? char)
+    } else if (quote === null && char === "[") {
+      bracketDepth += 1
+    } else if (quote === null && char === "]") {
+      bracketDepth = Math.max(0, bracketDepth - 1)
+    } else if (quote === null && bracketDepth === 0 && char === ":") {
+      return index
+    }
+  }
+
+  return -1
+}
+
+function parseJsonSelectorFilters(suffix: string): ReadonlyArray<JsonSelectorFilter> | null {
+  const filters: Array<JsonSelectorFilter> = []
+  let index = 0
+
+  while (index < suffix.length) {
+    while (/\s/.test(suffix[index] ?? "")) index += 1
+    if (index >= suffix.length) break
+    if (suffix[index] !== ":") return null
+    index += 1
+
+    const nameStart = index
+    while (/[A-Za-z]/.test(suffix[index] ?? "")) index += 1
+    const name = suffix.slice(nameStart, index).trim().toLowerCase()
+    if (name.length === 0) return null
+
+    while (/\s/.test(suffix[index] ?? "")) index += 1
+    if (suffix[index] !== "(") return null
+    index += 1
+
+    const selectorStart = index
+    let depth = 1
+    let quote: string | null = null
+    while (index < suffix.length && depth > 0) {
+      const char = suffix[index] ?? ""
+      if (quote !== null) {
+        if (char === quote) quote = null
+      } else if (char === `"` || char === "'") {
+        quote = char
+      } else if (char === "(") {
+        depth += 1
+      } else if (char === ")") {
+        depth -= 1
+      }
+      index += 1
+    }
+    if (depth !== 0) return null
+
+    filters.push({
+      name,
+      selector: suffix.slice(selectorStart, index - 1).trim(),
+    })
+  }
+
+  return filters
+}
+
+function parseJsonSelector(selector: string): JsonSelector | null {
+  const text = selector.trim()
+  const filterStart = jsonSelectorFilterStart(text)
+  if (filterStart < 0) return { path: text, filters: [] }
+
+  const filters = parseJsonSelectorFilters(text.slice(filterStart))
+  if (filters === null) return null
+  return {
+    path: text.slice(0, filterStart).trim(),
+    filters,
+  }
+}
+
 function isJsonRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
@@ -1004,6 +1093,46 @@ function selectJsonPathValues(
   }
 
   return values
+}
+
+function jsonSelectorText(value: unknown): string {
+  return jsonValueToString(value)
+}
+
+function jsonSelectorMatches(value: unknown, filters: ReadonlyArray<JsonSelectorFilter>): boolean {
+  return filters.every((filter) => {
+    switch (filter.name) {
+      case "contains":
+        return jsonSelectorText(value).includes(filter.selector)
+      case "has":
+        return jsonSelectorExists(value, filter.selector)
+      case "not":
+        return !jsonSelectorExists(value, filter.selector)
+      default:
+        return true
+    }
+  })
+}
+
+function selectJsonSelectorValues(
+  value: unknown,
+  selectorText: string,
+): ReadonlyArray<unknown> | null {
+  const selector = parseJsonSelector(selectorText)
+  if (selector === null) return null
+
+  const tokens = parseJsonPath(selector.path)
+  if (tokens === null) return null
+
+  const selected = selectJsonPathValues(value, tokens)
+  return selector.filters.length === 0
+    ? selected
+    : selected.filter((item) => jsonSelectorMatches(item, selector.filters))
+}
+
+function jsonSelectorExists(value: unknown, selectorText: string): boolean {
+  const selected = selectJsonSelectorValues(value, selectorText)
+  return selected !== null && selected.length > 0
 }
 
 function jsonValueToString(value: unknown): string {
@@ -1641,10 +1770,8 @@ function jsonFieldValue(
   if (field.text !== undefined) {
     value = renderTemplate(field.text, variables)
   } else if (field.selector !== undefined) {
-    const tokens = parseJsonPath(renderTemplate(field.selector, variables))
-    if (tokens !== null) {
-      value = jsonSelectionToFieldString(selectJsonPathValues(row, tokens))
-    }
+    const selected = selectJsonSelectorValues(row, renderTemplate(field.selector, variables))
+    if (selected !== null) value = jsonSelectionToFieldString(selected)
   }
 
   value = jsonCaseValue(value, field.case, variables)
@@ -1874,7 +2001,11 @@ function parseJsonRows(
   rows: CardigannRowsSelector,
   variables: Record<string, TemplateValue>,
 ): ReadonlyArray<unknown> {
-  const tokens = parseJsonPath(renderTemplate(rows.selector, variables))
+  const selectorText = renderTemplate(rows.selector, variables)
+  const selector = parseJsonSelector(selectorText)
+  if (selector === null) throw new Error(`Invalid Cardigann JSON rows selector: ${rows.selector}`)
+
+  const tokens = parseJsonPath(selector.path)
   if (tokens === null) throw new Error(`Invalid Cardigann JSON rows selector: ${rows.selector}`)
 
   const selected = selectJsonPathValues(json, tokens)
@@ -1887,10 +2018,14 @@ function parseJsonRows(
     selected.length === 1 && Array.isArray(selected[0])
       ? (selected[0] as ReadonlyArray<unknown>)
       : selected
+  const filteredRows =
+    selector.filters.length === 0
+      ? selectedRows
+      : selectedRows.filter((row) => jsonSelectorMatches(row, selector.filters))
   const attributeRows =
     rows.attribute === undefined
-      ? selectedRows
-      : selectedRows.flatMap((row) => jsonRowAttributeValues(row, rows, variables))
+      ? filteredRows
+      : filteredRows.flatMap((row) => jsonRowAttributeValues(row, rows, variables))
   if (rows.multiple === true) return attributeRows.flatMap(jsonMultipleRowValues)
   return attributeRows
 }
@@ -1903,11 +2038,9 @@ function jsonRowAttributeValues(
   const attribute = rows.attribute
   if (attribute === undefined) return [row]
 
-  const tokens = parseJsonPath(renderTemplate(attribute, variables))
-  if (tokens === null)
+  const selected = selectJsonSelectorValues(row, renderTemplate(attribute, variables))
+  if (selected === null)
     throw new Error(`Invalid Cardigann JSON row attribute selector: ${attribute}`)
-
-  const selected = selectJsonPathValues(row, tokens)
   if (selected.length === 0) {
     if (rows.missingAttributeEqualsNoResults === true) return []
     throw new Error(`Cardigann JSON row attribute selector returned no results: ${attribute}`)

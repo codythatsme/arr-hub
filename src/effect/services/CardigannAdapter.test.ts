@@ -42,6 +42,69 @@ const JSON_RESULTS = JSON.stringify({
   },
 })
 
+const JSON_SELECTOR_FILTER_RESULTS = JSON.stringify({
+  data: {
+    results: [
+      {
+        title: "Keep Movie 2026 1080p WEB-DL",
+        links: {
+          download: "/download/keep",
+          details: "/details/keep",
+        },
+        category: "Movies",
+        stats: {
+          size: "2 GB",
+          seeders: 51,
+        },
+        tags: ["freeleech", "featured"],
+        published: "2026-05-09T00:00:00.000Z",
+      },
+      {
+        title: "Missing Download Movie 2026 1080p WEB-DL",
+        links: {
+          details: "/details/missing",
+        },
+        category: "Movies",
+        stats: {
+          size: "3 GB",
+          seeders: 40,
+        },
+        tags: ["freeleech"],
+        published: "2026-05-09T00:00:00.000Z",
+      },
+      {
+        title: "Dead Movie 2026 1080p WEB-DL",
+        links: {
+          download: "/download/dead",
+        },
+        category: "Movies",
+        stats: {
+          size: "4 GB",
+          seeders: 30,
+        },
+        status: {
+          dead: true,
+        },
+        tags: ["freeleech"],
+        published: "2026-05-09T00:00:00.000Z",
+      },
+      {
+        title: "Wrong Tag Movie 2026 1080p WEB-DL",
+        links: {
+          download: "/download/wrong-tag",
+        },
+        category: "Movies",
+        stats: {
+          size: "5 GB",
+          seeders: 20,
+        },
+        tags: ["internal"],
+        published: "2026-05-09T00:00:00.000Z",
+      },
+    ],
+  },
+})
+
 const HTML_RESULTS = `<!doctype html>
 <html>
   <body>
@@ -402,6 +465,77 @@ search:
       infohash: "0123456789abcdef0123456789abcdef01234567",
     })
     expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-08T00:00:00.000Z")
+  })
+
+  it("filters Cardigann JSON selectors with has, not, and contains pseudo filters", async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON_SELECTOR_FILTER_RESULTS, { status: 200 }))
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 66,
+      name: "JSON Selector Filter Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "json-selector-filter-cardigann",
+      definitionYaml: `
+id: json-selector-filter-cardigann
+name: JSON Selector Filter Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+      newznab: 2000
+  modes:
+    search: [q]
+search:
+  paths:
+    - path: /api/search
+      response:
+        type: json
+  rows:
+    selector: $.data.results:has(links.download):has(tags:contains(freeleech)):not(status.dead)
+  fields:
+    title:
+      selector: title:contains(Keep Movie)
+    details:
+      selector: links.details
+    download:
+      selector: links.download:contains(/download/)
+    category:
+      selector: category:contains(Movies)
+      case:
+        Movies: movies
+    size:
+      selector: stats.size
+    seeders:
+      selector: stats.seeders
+    date:
+      selector: published
+`,
+      baseUrl: "https://tracker.example",
+      apiKey: "",
+      priority: 35,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Keep Movie", type: "general", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "Keep Movie 2026 1080p WEB-DL",
+      downloadUrl: "https://tracker.example/download/keep",
+      infoUrl: "https://tracker.example/details/keep",
+      category: "2000",
+      size: 2_000_000_000,
+      seeders: 51,
+    })
+    expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-09T00:00:00.000Z")
   })
 
   it("normalizes Cardigann field-name modifiers in JSON selector results", async () => {
