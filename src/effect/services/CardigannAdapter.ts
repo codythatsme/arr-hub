@@ -62,6 +62,8 @@ interface HtmlElementMatch {
   readonly outerHtml: string
   readonly sourceIndex?: number
   readonly innerHtmlStartIndex?: number
+  readonly firstChild?: boolean
+  readonly lastChild?: boolean
 }
 
 interface SimpleHtmlSelector {
@@ -1505,10 +1507,6 @@ function matchesNoResultsMessage(text: string, noResultsMessage: string | undefi
   return noResultsMessage.length > 0 ? text.includes(noResultsMessage) : text.trim().length === 0
 }
 
-function stripUnsupportedHtmlSelectorPseudos(token: string): string {
-  return token.replace(/:(?:first|last)-child\b/g, "")
-}
-
 function htmlSelectorSteps(selector: string): ReadonlyArray<HtmlSelectorStep> {
   const steps: Array<HtmlSelectorStep> = []
   let current = ""
@@ -1522,7 +1520,7 @@ function htmlSelectorSteps(selector: string): ReadonlyArray<HtmlSelectorStep> {
     current = ""
     if (token.length === 0) return
     steps.push({
-      token: stripUnsupportedHtmlSelectorPseudos(token),
+      token,
       direct: nextDirect,
     })
     nextDirect = false
@@ -1811,6 +1809,10 @@ function htmlSelectorFiltersMatch(
           htmlTextContent(element.innerHtml).length > 0 ||
           /<[A-Za-z][\w:-]*/.test(element.innerHtml)
         )
+      case "first-child":
+        return element.firstChild === true
+      case "last-child":
+        return element.lastChild === true
       default:
         return true
     }
@@ -1862,6 +1864,64 @@ function isDirectHtmlChildAt(html: string, index: number): boolean {
   return stack.length === 0
 }
 
+function htmlChildPositionAt(
+  html: string,
+  index: number,
+): { readonly first: boolean; readonly last: boolean } {
+  let rootChildCount = 0
+  let targetDepth = -1
+  let targetFound = false
+  let first = false
+  let last = true
+  const stack: Array<{ tagName: string; childCount: number }> = []
+
+  for (const match of html.matchAll(/<\/?([A-Za-z][\w:-]*)([^>]*)>/g)) {
+    const raw = match[0]
+    const tagName = (match[1] ?? "").toLowerCase()
+    if (tagName.length === 0) continue
+
+    if (raw.startsWith("</")) {
+      const openIndex = stack.findLastIndex((frame) => frame.tagName === tagName)
+      if (openIndex >= 0) stack.splice(openIndex)
+      continue
+    }
+
+    const matchIndex = match.index ?? 0
+    const depth = stack.length
+    if (targetFound && matchIndex > index && depth === targetDepth) {
+      last = false
+      break
+    }
+
+    const parent = stack.at(-1)
+    const priorChildCount = parent?.childCount ?? rootChildCount
+    if (parent) {
+      parent.childCount += 1
+    } else {
+      rootChildCount += 1
+    }
+
+    if (matchIndex === index) {
+      targetFound = true
+      targetDepth = depth
+      first = priorChildCount === 0
+    }
+
+    const attributes = match[2] ?? ""
+    if (
+      raw.endsWith("/>") ||
+      attributes.trimEnd().endsWith("/") ||
+      HTML_VOID_ELEMENTS.has(tagName)
+    ) {
+      continue
+    }
+
+    stack.push({ tagName, childCount: 0 })
+  }
+
+  return targetFound ? { first, last } : { first: false, last: false }
+}
+
 function findHtmlElementsForToken(
   html: string,
   selectorText: string,
@@ -1874,6 +1934,9 @@ function findHtmlElementsForToken(
   const tagPattern = selector.tag ? escapeRegExp(selector.tag) : "[A-Za-z][\\w:-]*"
   const elementPattern = new RegExp(`<(${tagPattern})\\b([^>]*)>([\\s\\S]*?)<\\/\\1>`, "gi")
   const matches: Array<HtmlElementMatch> = []
+  const needsChildPosition = selector.filters.some(
+    (filter) => filter.name === "first-child" || filter.name === "last-child",
+  )
   const pushMatch = (
     match: RegExpMatchArray,
     tagName: string,
@@ -1887,6 +1950,7 @@ function findHtmlElementsForToken(
 
     const attributes = parseHtmlAttributes(match[2] ?? "")
     const sourceIndex = baseIndex + matchIndex
+    const childPosition = needsChildPosition ? htmlChildPositionAt(html, matchIndex) : null
     const element = {
       tagName,
       attributes,
@@ -1894,6 +1958,8 @@ function findHtmlElementsForToken(
       outerHtml,
       sourceIndex,
       innerHtmlStartIndex: sourceIndex + outerHtml.indexOf(">") + 1,
+      firstChild: childPosition?.first,
+      lastChild: childPosition?.last,
     }
     if (
       htmlAttributeMatches(attributes, selector) &&

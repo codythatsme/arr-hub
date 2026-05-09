@@ -506,6 +506,29 @@ const HTML_VOID_STATE_SELECTOR_RESULTS = `<!doctype html>
   </body>
 </html>`
 
+const HTML_CHILD_PSEUDO_SELECTOR_RESULTS = `<!doctype html>
+<html>
+  <body>
+    <table class="results">
+      <tbody>
+        <tr class="torrent">
+          <td class="name"><a class="title" href="/details/wrong-first">Wrong First Child Movie 2026 1080p WEB-DL</a></td>
+          <td class="actions"><a class="download" href="/download/wrong-first">Download</a></td>
+        </tr>
+        <tr class="torrent">
+          <td class="name"><a class="title" href="/details/wrong-middle">Wrong Middle Child Movie 2026 1080p WEB-DL</a></td>
+          <td class="actions"><a class="download" href="/download/wrong-middle">Download</a></td>
+        </tr>
+        <tr class="torrent">
+          <td class="name"><a class="title" href="/details/child-pseudo">Child Pseudo Movie 2026 1080p WEB-DL</a></td>
+          <td class="stats"><span class="size">1.2 GB</span></td>
+          <td class="actions"><a class="download" href="/download/child-pseudo">Download</a></td>
+        </tr>
+      </tbody>
+    </table>
+  </body>
+</html>`
+
 const HTML_NESTED_RESULTS = `<!doctype html>
 <html>
   <body>
@@ -2595,6 +2618,73 @@ search:
       title: "Void State Movie 2026 1080p WEB-DL",
       infoUrl: "https://tracker.example/details/void-state",
       downloadUrl: "https://tracker.example/download/void-state",
+      category: "2000",
+    })
+  })
+
+  it("matches Cardigann HTML child-position pseudo classes", async () => {
+    const fetchMock = vi.fn(
+      async () => new Response(HTML_CHILD_PSEUDO_SELECTOR_RESULTS, { status: 200 }),
+    )
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 74,
+      name: "HTML Child Pseudo Selector Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "html-child-pseudo-selector-cardigann",
+      definitionYaml: `
+id: html-child-pseudo-selector-cardigann
+name: HTML Child Pseudo Selector Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+      newznab: 2000
+  modes:
+    search: [q]
+search:
+  paths:
+    - path: /browse
+      response:
+        type: html
+  rows:
+    selector: tbody > tr.torrent:last-child
+  fields:
+    title:
+      selector: td.name:first-child a.title
+    details:
+      selector: td.name:first-child a.title
+      attribute: href
+    download:
+      selector: td.actions:last-child a.download
+      attribute: href
+    size:
+      selector: td.stats span.size
+    category:
+      text: Movies
+`,
+      baseUrl: "https://tracker.example",
+      apiKey: "",
+      priority: 35,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Child Pseudo", type: "general", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "Child Pseudo Movie 2026 1080p WEB-DL",
+      infoUrl: "https://tracker.example/details/child-pseudo",
+      downloadUrl: "https://tracker.example/download/child-pseudo",
+      size: 1_200_000_000,
       category: "2000",
     })
   })
