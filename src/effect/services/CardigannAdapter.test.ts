@@ -404,6 +404,26 @@ const HTML_ATTRIBUTE_OPERATOR_RESULTS = `<!doctype html>
   </body>
 </html>`
 
+const HTML_ESCAPED_SELECTOR_RESULTS = `<!doctype html>
+<html>
+  <body>
+    <table>
+      <tbody>
+        <tr id="row:wrong" class="torrent release item" data-token="release-main">
+          <td><a class="title link:details" href="/details/wrong-escaped">Wrong Escaped Selector Movie 2026 1080p WEB-DL</a></td>
+          <td><a class="download link.download" data-token="release-main" href="/download/wrong-escaped">Download</a></td>
+          <td><span class="category" data-value="Movies:HD">Movies</span></td>
+        </tr>
+        <tr id="row:movie" class="torrent release.item" data-token="release#main">
+          <td><a class="title link:details" href="/details/escaped-selector">Escaped Selector Movie 2026 1080p WEB-DL</a></td>
+          <td><a class="download link.download" data-token="release#main" href="/download/escaped-selector">Download</a></td>
+          <td><span class="category" data-value="Movies:HD">Movies</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </body>
+</html>`
+
 const HTML_SELECTOR_POSITION_RESULTS = `<!doctype html>
 <html>
   <body>
@@ -2710,6 +2730,71 @@ search:
     expect(releases[0]).toMatchObject({
       title: "Attribute Movie 2026 1080p WEB-DL",
       downloadUrl: "https://tracker.example/download/attribute-final",
+      category: "2000",
+    })
+  })
+
+  it("matches Cardigann HTML selectors with escaped CSS identifiers", async () => {
+    const fetchMock = vi.fn(
+      async () => new Response(HTML_ESCAPED_SELECTOR_RESULTS, { status: 200 }),
+    )
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 88,
+      name: "HTML Escaped Selector Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "html-escaped-selector-cardigann",
+      definitionYaml: `
+id: html-escaped-selector-cardigann
+name: HTML Escaped Selector Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies-hd
+      cat: Movies
+      desc: "Movies:HD"
+      newznab: 2000
+  modes:
+    search: [q]
+search:
+  paths:
+    - path: /browse
+      response:
+        type: html
+  rows:
+    selector: 'tr#row\\:movie.torrent.release\\.item[data-token="release\\#main"]'
+  fields:
+    title:
+      selector: 'a.title.link\\:details'
+    details:
+      selector: 'a.title.link\\:details'
+      attribute: href
+    download:
+      selector: 'a.download.link\\.download[data-token="release\\#main"]'
+      attribute: href
+    category:
+      selector: 'span.category[data-value="Movies\\:HD"]'
+      attribute: data-value
+`,
+      baseUrl: "https://tracker.example",
+      apiKey: "",
+      priority: 35,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Escaped Selector Movie", type: "general", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "Escaped Selector Movie 2026 1080p WEB-DL",
+      infoUrl: "https://tracker.example/details/escaped-selector",
+      downloadUrl: "https://tracker.example/download/escaped-selector",
       category: "2000",
     })
   })

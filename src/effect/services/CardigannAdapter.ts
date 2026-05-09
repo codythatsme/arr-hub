@@ -1604,24 +1604,107 @@ function splitHtmlSelectorList(selector: string): ReadonlyArray<string> {
   return selectors
 }
 
+const HTML_SELECTOR_FILTER_NAMES = new Set([
+  "button",
+  "checkbox",
+  "checked",
+  "contains",
+  "disabled",
+  "empty",
+  "enabled",
+  "eq",
+  "even",
+  "file",
+  "first",
+  "first-child",
+  "first-of-type",
+  "gt",
+  "has",
+  "header",
+  "hidden",
+  "image",
+  "input",
+  "lang",
+  "last",
+  "last-child",
+  "last-of-type",
+  "lt",
+  "not",
+  "nth-child",
+  "nth-last-child",
+  "nth-last-of-type",
+  "nth-of-type",
+  "odd",
+  "only-child",
+  "only-of-type",
+  "parent",
+  "password",
+  "radio",
+  "reset",
+  "root",
+  "selected",
+  "submit",
+  "text",
+  "visible",
+])
+
 function htmlSelectorFilterStart(text: string): number {
   let bracketDepth = 0
   let quote: string | null = null
 
   for (let index = 0; index < text.length; index += 1) {
     const char = text[index] ?? ""
-    if ((char === `"` || char === "'") && bracketDepth > 0) {
+    if (quote === null && char === "\\") {
+      index += 1
+    } else if ((char === `"` || char === "'") && bracketDepth > 0) {
       quote = quote === char ? null : (quote ?? char)
     } else if (quote === null && char === "[") {
       bracketDepth += 1
     } else if (quote === null && char === "]") {
       bracketDepth = Math.max(0, bracketDepth - 1)
     } else if (quote === null && bracketDepth === 0 && char === ":") {
-      return index
+      const filterName = text
+        .slice(index + 1)
+        .match(/^[A-Za-z-]+/)?.[0]
+        ?.toLowerCase()
+      if (filterName !== undefined && HTML_SELECTOR_FILTER_NAMES.has(filterName)) return index
     }
   }
 
   return -1
+}
+
+function htmlSelectorIdentifierToken(text: string): string {
+  let token = ""
+  let bracketDepth = 0
+  let quote: string | null = null
+
+  for (const char of text) {
+    if ((char === `"` || char === "'") && bracketDepth > 0) {
+      quote = quote === char ? null : (quote ?? char)
+    } else if (quote === null && char === "[") {
+      bracketDepth += 1
+    } else if (quote === null && char === "]") {
+      bracketDepth = Math.max(0, bracketDepth - 1)
+    } else if (bracketDepth === 0) {
+      token += char
+    }
+  }
+
+  return token
+}
+
+function unescapeCssSelectorValue(value: string): string {
+  return value.replaceAll(/\\([0-9A-Fa-f]{1,6}\s?|.)/g, (_match, escaped: string) => {
+    const hex = escaped.trim()
+    if (/^[0-9A-Fa-f]{1,6}$/.test(hex)) {
+      const codePoint = Number.parseInt(hex, 16)
+      if (Number.isFinite(codePoint) && codePoint > 0 && codePoint <= 0x10ffff) {
+        return String.fromCodePoint(codePoint)
+      }
+    }
+    return escaped
+  })
 }
 
 function parseSimpleHtmlSelectorToken(token: string): SimpleHtmlSelector | null {
@@ -1632,23 +1715,26 @@ function parseSimpleHtmlSelectorToken(token: string): SimpleHtmlSelector | null 
   const filters = filterStart < 0 ? [] : parseHtmlSelectorFilters(token.slice(filterStart))
   if (filters === null) return null
 
-  const tagMatch = baseToken.match(/^[A-Za-z][\w:-]*/)
-  const idMatch = baseToken.match(/#([\w-]+)/)
-  const classes = Array.from(baseToken.matchAll(/\.([\w-]+)/g)).map((match) => match[1] ?? "")
+  const identifierToken = htmlSelectorIdentifierToken(baseToken)
+  const tagMatch = identifierToken.match(/^[A-Za-z][\w:-]*/)
+  const idMatch = identifierToken.match(/(?<!\\)#((?:\\.|[\w:-])+)/)
+  const classes = Array.from(identifierToken.matchAll(/(?<!\\)\.((?:\\.|[\w:-])+)/g)).map((match) =>
+    unescapeCssSelectorValue(match[1] ?? ""),
+  )
   const attributes = Array.from(
     baseToken.matchAll(
       /\[([\w:-]+)(?:\s*([!~|*^$]?=)\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=\]]+))(?:\s+([is]))?)?\]/gi,
     ),
   ).map((match) => ({
-    name: match[1] ?? "",
+    name: unescapeCssSelectorValue(match[1] ?? ""),
     operator: match[2] ?? null,
-    value: match[3] ?? match[4] ?? match[5] ?? "",
+    value: unescapeCssSelectorValue(match[3] ?? match[4] ?? match[5] ?? ""),
     caseInsensitive: (match[6] ?? "").toLowerCase() === "i",
   }))
 
   return {
     tag: tagMatch?.[0].toLowerCase() ?? null,
-    id: idMatch?.[1] ?? null,
+    id: idMatch?.[1] !== undefined ? unescapeCssSelectorValue(idMatch[1]) : null,
     classes,
     attributes,
     filters,
