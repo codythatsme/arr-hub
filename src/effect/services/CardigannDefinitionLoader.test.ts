@@ -91,6 +91,7 @@ caps:
       "bit-hdtv",
       "torrentbytes",
       "scenetime",
+      "hd-space",
       "morethantv",
       "hdaccess",
       "torrent-network",
@@ -383,6 +384,35 @@ caps:
           { id: 5040, name: "TV HD" },
           { id: 5070, name: "TV ANIME" },
           { id: 7000, name: "Books and Magazines" },
+        ]),
+      },
+    })
+    expect(
+      BUILT_IN_CARDIGANN_DEFINITIONS.find((definition) => definition.definitionKey === "hd-space"),
+    ).toMatchObject({
+      displayName: "HD-Space",
+      baseUrl: "https://hd-space.org/",
+      privacy: "private",
+      supportsRss: false,
+      supportsSearch: true,
+      tags: ["private", "movies", "tv", "html"],
+      authFields: expect.arrayContaining([
+        expect.objectContaining({ name: "username", type: "text", required: true }),
+        expect.objectContaining({ name: "password", type: "password", required: true }),
+        expect.objectContaining({
+          name: "freeleechOnly",
+          type: "checkbox",
+          defaultValue: "false",
+        }),
+      ]),
+      capabilities: {
+        searchTypes: ["search", "movie", "tvsearch"],
+        categories: expect.arrayContaining([
+          { id: 2050, name: "Movie / Blu-ray" },
+          { id: 2040, name: "Movie / 1080p" },
+          { id: 5040, name: "TV Show / 1080p HDTV" },
+          { id: 5080, name: "Documentary / 720p" },
+          { id: 6000, name: "XXX / 1080p" },
         ]),
       },
     })

@@ -119,8 +119,8 @@ describe("IndexerService", () => {
       const second = yield* svc.refreshDefinitions()
 
       expect(first).toMatchObject({
-        total: 21,
-        created: 21,
+        total: 22,
+        created: 22,
         updated: 0,
         unchanged: 0,
       })
@@ -146,12 +146,13 @@ describe("IndexerService", () => {
         "created",
         "created",
         "created",
+        "created",
       ])
       expect(second).toMatchObject({
-        total: 21,
+        total: 22,
         created: 0,
         updated: 0,
-        unchanged: 21,
+        unchanged: 22,
       })
       expect(second.definitions.every((definition) => definition.previousVersion !== null)).toBe(
         true,
@@ -427,6 +428,7 @@ describe("IndexerService", () => {
         "bit-hdtv",
         "generic-newznab",
         "generic-torznab",
+        "hd-space",
         "hdaccess",
         "iptorrents",
         "knaben",
@@ -589,6 +591,17 @@ describe("IndexerService", () => {
         privacy: "private",
         supportsRss: false,
         tags: ["private", "general", "movies", "tv", "html"],
+      })
+      expect(
+        definitions.find((definition) => definition.definitionKey === "hd-space"),
+      ).toMatchObject({
+        displayName: "HD-Space",
+        protocol: "torrent",
+        implementation: "cardigann_yaml",
+        baseUrl: "https://hd-space.org/",
+        privacy: "private",
+        supportsRss: false,
+        tags: ["private", "movies", "tv", "html"],
       })
       expect(
         definitions.find((definition) => definition.definitionKey === "open-tv-torrents"),

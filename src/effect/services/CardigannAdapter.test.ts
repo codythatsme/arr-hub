@@ -219,6 +219,57 @@ const SCENETIME_HTML_RESULTS = `
   </table>
 </body></html>`
 
+const HD_SPACE_LOGIN_HTML = `
+<html><body>
+  <form action="index.php?page=login" method="post">
+    <input type="hidden" name="returnto" value="index.php">
+    <input type="text" name="uid" value="">
+    <input type="password" name="pwd" value="">
+  </form>
+</body></html>`
+
+const HD_SPACE_HTML_RESULTS = `
+<html><body>
+  <div id="bodyarea">
+    <table class="lista">
+      <tbody>
+        <tr><td class="header" colspan="10">Results</td></tr>
+        <tr>
+          <td><a href="index.php?page=torrents&amp;category=19">Movie / 1080p</a></td>
+          <td>
+            <a href="index.php?page=torrent-details&amp;id=777">HD-Space Movie 2026 1080p BluRay</a>
+            <span style="color: #000000 ">Genres&nbsp;Action, Drama</span>
+            <img title="FreeLeech" src="images/free.png">
+          </td>
+          <td>Comments</td>
+          <td><a href="download.php?id=777&amp;f=HD-Space.Movie.2026.1080p.torrent">Download</a></td>
+          <td>May 10, 2026, 13:45:09</td>
+          <td>7.7 GB</td>
+          <td>Uploader</td>
+          <td>77</td>
+          <td>9</td>
+          <td>15</td>
+        </tr>
+        <tr>
+          <td><a href="index.php?page=torrents&amp;category=18">Movie / 720p</a></td>
+          <td>
+            <a href="index.php?page=torrent-details&amp;id=778">HD-Space Half Free 2026 720p</a>
+            <img title="Half FreeLeech" src="images/half.png">
+          </td>
+          <td>Comments</td>
+          <td><a href="download.php?id=778&amp;f=HD-Space.Half.Free.2026.720p.torrent">Download</a></td>
+          <td>May 10, 2026, 14:00:00</td>
+          <td>3.3 GB</td>
+          <td>Uploader</td>
+          <td>22</td>
+          <td>4</td>
+          <td>3</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</body></html>`
+
 const RETROFLIX_JSON_RESULTS = JSON.stringify([
   {
     download_volume_factor: 0,
@@ -2763,6 +2814,91 @@ search:
       uploadFactor: 1,
     })
     expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-10T13:23:00.000Z")
+  })
+
+  it("parses HD-Space HTML results after form login and freeleech filtering", async () => {
+    const requests: Array<{ url: string; init: RequestInit | undefined }> = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(String(input))
+      requests.push({ url: String(input), init })
+      if (url.pathname === "/index.php" && url.searchParams.get("page") === "login") {
+        if (init?.method === "POST") {
+          return new Response('<html><body><a href="logout.php">Logout</a></body></html>', {
+            status: 200,
+            headers: { "set-cookie": "hds_session=abc; Path=/" },
+          })
+        }
+        return new Response(HD_SPACE_LOGIN_HTML, {
+          status: 200,
+          headers: { "set-cookie": "landing=hds; Path=/" },
+        })
+      }
+      return new Response(HD_SPACE_HTML_RESULTS, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 99,
+      name: "HD-Space",
+      type: "cardigann_yaml",
+      definitionKey: "hd-space",
+      baseUrl: "https://hd-space.org/",
+      apiKey: "",
+      configValues: {
+        username: "alice",
+        password: "secret",
+        freeleechOnly: "true",
+      },
+      priority: 35,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({
+        term: "HD Space Movie",
+        type: "movie",
+        categories: [2040],
+        imdbId: "tt7778889",
+      }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    const landingRequest = requests[0]
+    expect(landingRequest?.url).toBe("https://hd-space.org/index.php?page=login")
+
+    const loginRequest = requests[1]
+    expect(loginRequest?.url).toBe("https://hd-space.org/index.php?page=login")
+    expect(loginRequest?.init?.method).toBe("POST")
+    const loginBody = new URLSearchParams(String(loginRequest?.init?.body ?? ""))
+    expect(loginBody.get("returnto")).toBe("index.php")
+    expect(loginBody.get("uid")).toBe("alice")
+    expect(loginBody.get("pwd")).toBe("secret")
+    expect(new Headers(loginRequest?.init?.headers).get("cookie")).toBe("landing=hds")
+
+    const searchRequest = requests[2]
+    expect(searchRequest?.url).toBe(
+      "https://hd-space.org/index.php?page=torrents&active=0&category=19%3B18%3B40%3B16&options=2&search=tt7778889",
+    )
+    expect(new Headers(searchRequest?.init?.headers).get("cookie")).toBe(
+      "landing=hds; hds_session=abc",
+    )
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "HD-Space Movie 2026 1080p BluRay",
+      downloadUrl: "https://hd-space.org/download.php?id=777&f=HD-Space.Movie.2026.1080p.torrent",
+      infoUrl: "https://hd-space.org/index.php?page=torrent-details&id=777",
+      category: "2040",
+      size: 7_700_000_000,
+      seeders: 77,
+      leechers: 9,
+      indexerId: 99,
+      indexerName: "HD-Space",
+      indexerPriority: 35,
+      downloadFactor: 0,
+      uploadFactor: 1,
+    })
+    expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-10T13:45:09.000Z")
   })
 
   it("parses RetroFlix SpeedApp JSON results with bearer auth", async () => {

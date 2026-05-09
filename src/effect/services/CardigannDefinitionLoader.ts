@@ -2497,6 +2497,196 @@ search:
       text: "1"
 `
 
+const HD_SPACE = `
+id: hd-space
+name: HD-Space
+description: Private HD movie and TV tracker exposed through a first-pass form-login HTML Cardigann definition.
+type: private
+links:
+  - https://hd-space.org/
+version: builtin-cardigann-1
+rss: false
+tags:
+  - private
+  - movies
+  - tv
+  - html
+settings:
+  - name: username
+    label: Username
+    type: text
+    required: true
+    helpText: HD-Space username.
+  - name: password
+    label: Password
+    type: password
+    required: true
+    helpText: HD-Space password.
+  - name: freeleechOnly
+    label: Freeleech only
+    type: checkbox
+    default: false
+    helpText: Show freeleech releases only.
+caps:
+  categorymappings:
+    - id: "15"
+      cat: Movies/BluRay
+      desc: Movie / Blu-ray
+      newznab: 2050
+    - id: "19"
+      cat: Movies/HD
+      desc: Movie / 1080p
+      newznab: 2040
+    - id: "18"
+      cat: Movies/HD
+      desc: Movie / 720p
+      newznab: 2040
+    - id: "46"
+      cat: Movies/UHD
+      desc: Movie / 2160p
+      newznab: 2045
+    - id: "40"
+      cat: Movies/HD
+      desc: Movie / Remux
+      newznab: 2040
+    - id: "16"
+      cat: Movies/HD
+      desc: Movie / HD-DVD
+      newznab: 2040
+    - id: "41"
+      cat: Movies/UHD
+      desc: Movie / 4K UHD
+      newznab: 2045
+    - id: "21"
+      cat: TV/HD
+      desc: TV Show / 720p HDTV
+      newznab: 5040
+    - id: "22"
+      cat: TV/HD
+      desc: TV Show / 1080p HDTV
+      newznab: 5040
+    - id: "45"
+      cat: TV/UHD
+      desc: TV Show / 2160p HDTV
+      newznab: 5045
+    - id: "24"
+      cat: TV/Documentary
+      desc: Documentary / 720p
+      newznab: 5080
+    - id: "25"
+      cat: TV/Documentary
+      desc: Documentary / 1080p
+      newznab: 5080
+    - id: "47"
+      cat: TV/Documentary
+      desc: Documentary / 2160p
+      newznab: 5080
+    - id: "27"
+      cat: TV/Anime
+      desc: Animation / 720p
+      newznab: 5070
+    - id: "28"
+      cat: TV/Anime
+      desc: Animation / 1080p
+      newznab: 5070
+    - id: "48"
+      cat: TV/Anime
+      desc: Animation / 2160p
+      newznab: 5070
+    - id: "30"
+      cat: Audio/Lossless
+      desc: Music / HQ Audio
+      newznab: 3040
+    - id: "31"
+      cat: Audio/Video
+      desc: Music / Videos
+      newznab: 3020
+    - id: "33"
+      cat: XXX
+      desc: XXX / 720p
+      newznab: 6000
+    - id: "34"
+      cat: XXX
+      desc: XXX / 1080p
+      newznab: 6000
+    - id: "49"
+      cat: XXX
+      desc: XXX / 2160p
+      newznab: 6000
+    - id: "36"
+      cat: Movies/Other
+      desc: Trailers
+      newznab: 2020
+    - id: "37"
+      cat: PC
+      desc: Software
+      newznab: 4000
+    - id: "38"
+      cat: Other
+      desc: Others
+      newznab: 8000
+  modes:
+    search: [q]
+    movie-search: [q, imdbid]
+    tv-search: [q, season, ep, imdbid]
+login:
+  method: form
+  path: index.php?page=login
+  form: form
+  inputs:
+    uid: "{{ .Config.Username }}"
+    pwd: "{{ .Config.Password }}"
+  error:
+    - selector: 'table.lista td.lista span[style*="#FF0000"], table.lista td.header:contains("login attempts")'
+search:
+  paths:
+    - path: index.php
+      response:
+        type: html
+      inputs:
+        page: torrents
+        active: "0"
+        category: '{{ .Categories | join ";" }}'
+        options: "{{ if .Query.IMDBID }}2{{ else }}0{{ end }}"
+        search: "{{ if .Query.IMDBID }}{{ .Query.IMDBID }}{{ else }}{{ .Keywords }}{{ end }}"
+  rows:
+    selector: 'div#bodyarea table.lista:not(:contains("Our Team Recommend")) > tbody > tr:has(a[href^="index.php?page=torrent-details&id="]){{ if .Config.FreeleechOnly }}:has(img[title="FreeLeech"], img[src="images/sf.png"]){{ end }}'
+  fields:
+    title:
+      selector: td:nth-of-type(2) a[href^="index.php?page=torrent-details&id="]
+    details:
+      selector: td:nth-of-type(2) a[href^="index.php?page=torrent-details&id="]
+      attribute: href
+    download:
+      selector: td:nth-of-type(4) a[href^="download.php?id="]
+      attribute: href
+    category:
+      selector: a[href^="index.php?page=torrents&category="]
+      attribute: href
+      filters:
+        - name: querystring
+          args: category
+    date:
+      selector: td:nth-of-type(5)
+      filters:
+        - name: dateparse
+          args: "MMMM d, yyyy, HH:mm:ss"
+    size:
+      selector: td:nth-of-type(6)
+    seeders:
+      selector: td:nth-of-type(8)
+    leechers:
+      selector: td:nth-of-type(9)
+    downloadvolumefactor:
+      case:
+        'img[title="FreeLeech"]': "0"
+        'img[src="images/sf.png"]': "0"
+        'img[title="Half FreeLeech"]': "0.5"
+        tr: "1"
+    uploadvolumefactor:
+      text: "1"
+`
+
 const MORE_THAN_TV = `
 id: morethantv
 name: MoreThanTV
@@ -2707,6 +2897,7 @@ const BUILT_IN_CARDIGANN_SOURCES = [
   BIT_HDTV,
   TORRENT_BYTES,
   SCENE_TIME,
+  HD_SPACE,
   MORE_THAN_TV,
   HDACCESS,
   TORRENT_NETWORK,
