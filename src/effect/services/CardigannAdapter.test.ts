@@ -349,6 +349,35 @@ const HD_TORRENTS_HTML_RESULTS = `
   </table>
 </body></html>`
 
+const FUNFILE_HTML_RESULTS = `
+<html><body>
+  <table class="mainframe">
+    <tbody>
+      <tr>
+        <td>
+          <table cellpadding="2">
+            <tbody>
+              <tr>
+                <td class="row3"><a href="browse.php?cat=19">Movies</a></td>
+                <td class="row3"><a href="details.php?id=111&amp;hit=1" title="FunFile Movie 2026 1080p WEB-DL">FunFile Movie</a></td>
+                <td class="row3"><a href="download.php?id=111">Download</a></td>
+                <td class="row3">12</td>
+                <td class="row3">3</td>
+                <td class="row3">2 hours ago</td>
+                <td class="row3">Uploader</td>
+                <td class="row3">4.2 GB</td>
+                <td class="row3">8</td>
+                <td class="row3">21</td>
+                <td class="row3">2</td>
+              </tr>
+            </tbody>
+          </table>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</body></html>`
+
 const RETROFLIX_JSON_RESULTS = JSON.stringify([
   {
     download_volume_factor: 0,
@@ -3110,6 +3139,78 @@ search:
     expect(releases[1]).toMatchObject({
       title: "HD-Torrents Movie 2026 2160p Quarter",
       category: "2045",
+      downloadFactor: 1,
+      uploadFactor: 1,
+    })
+  })
+
+  it("parses FunFile HTML results after POST login", async () => {
+    const requests: Array<{ url: string; init: RequestInit | undefined }> = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(String(input))
+      requests.push({ url: String(input), init })
+      if (url.pathname === "/takelogin.php") {
+        return new Response('<html><body><a href="logout.php">Logout</a></body></html>', {
+          status: 200,
+          headers: { "set-cookie": "funfile_session=abc; Path=/" },
+        })
+      }
+      return new Response(FUNFILE_HTML_RESULTS, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 102,
+      name: "FunFile",
+      type: "cardigann_yaml",
+      definitionKey: "funfile",
+      baseUrl: "https://www.funfile.org/",
+      apiKey: "",
+      configValues: {
+        username: "alice",
+        password: "secret",
+      },
+      priority: 38,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({
+        term: "FunFile Movie",
+        type: "movie",
+        categories: [2000],
+        imdbId: "tt1122334",
+      }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    const loginRequest = requests[0]
+    expect(loginRequest?.url).toBe("https://www.funfile.org/takelogin.php")
+    expect(loginRequest?.init?.method).toBe("POST")
+    const loginBody = new URLSearchParams(String(loginRequest?.init?.body ?? ""))
+    expect(loginBody.get("username")).toBe("alice")
+    expect(loginBody.get("password")).toBe("secret")
+    expect(loginBody.get("returnto")).toBe("/")
+    expect(loginBody.get("login")).toBe("Login")
+
+    const searchRequest = requests[1]
+    expect(searchRequest?.url).toBe(
+      "https://www.funfile.org/browse.php?cat=0&incldead=1&showspam=1&s_title=1&search=tt1122334&s_desc=1&c19=1",
+    )
+    expect(new Headers(searchRequest?.init?.headers).get("cookie")).toBe("funfile_session=abc")
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "FunFile Movie 2026 1080p WEB-DL",
+      downloadUrl: "https://www.funfile.org/download.php?id=111",
+      infoUrl: "https://www.funfile.org/details.php?id=111&hit=1",
+      category: "2000",
+      size: 4_200_000_000,
+      seeders: 21,
+      leechers: 2,
+      indexerId: 102,
+      indexerName: "FunFile",
+      indexerPriority: 38,
       downloadFactor: 1,
       uploadFactor: 1,
     })

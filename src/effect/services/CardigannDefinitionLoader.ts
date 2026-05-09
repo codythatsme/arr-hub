@@ -3091,6 +3091,133 @@ search:
         tr: "1"
 `
 
+const FUNFILE = `
+id: funfile
+name: FunFile
+description: Private general tracker exposed through a first-pass POST-login HTML Cardigann definition.
+type: private
+links:
+  - https://www.funfile.org/
+version: builtin-cardigann-1
+rss: false
+tags:
+  - private
+  - general
+  - movies
+  - tv
+  - music
+  - books
+  - html
+settings:
+  - name: username
+    label: Username
+    type: text
+    required: true
+  - name: password
+    label: Password
+    type: password
+    required: true
+caps:
+  categorymappings:
+    - id: "44"
+      cat: TV/Anime
+      desc: Anime
+      newznab: 5070
+    - id: "22"
+      cat: PC
+      desc: Applications
+      newznab: 4000
+    - id: "43"
+      cat: Audio/Audiobook
+      desc: Audio Books
+      newznab: 3030
+    - id: "27"
+      cat: Books
+      desc: Ebook
+      newznab: 7000
+    - id: "4"
+      cat: PC/Games
+      desc: Games
+      newznab: 4050
+    - id: "40"
+      cat: Other/Misc
+      desc: Miscellaneous
+      newznab: 8010
+    - id: "19"
+      cat: Movies
+      desc: Movies
+      newznab: 2000
+    - id: "6"
+      cat: Audio
+      desc: Music
+      newznab: 3000
+    - id: "31"
+      cat: PC/Phone-Other
+      desc: Portable
+      newznab: 4040
+    - id: "49"
+      cat: Other
+      desc: Tutorials
+      newznab: 8000
+    - id: "7"
+      cat: TV
+      desc: TV
+      newznab: 5000
+  modes:
+    search: [q]
+    movie-search: [q, imdbid]
+    tv-search: [q, season, ep, imdbid]
+login:
+  method: post
+  path: takelogin.php
+  inputs:
+    username: "{{ .Config.Username }}"
+    password: "{{ .Config.Password }}"
+    returnto: /
+    login: Login
+  error:
+    - selector: td.mf_content
+search:
+  paths:
+    - path: 'browse.php?cat=0&incldead=1&showspam=1&s_title=1&search={{ if .Query.IMDBID }}{{ .Query.IMDBID | urlencode }}{{ else }}{{ .Keywords | urlencode }}{{ end }}{{ if .Query.IMDBID }}&s_desc=1{{ end }}{{ range .Categories }}&c{{ . }}=1{{ end }}'
+      response:
+        type: html
+  rows:
+    selector: 'table.mainframe tr:has(a[href^="download.php"])'
+  fields:
+    title:
+      selector: a[href^="details.php?id="]
+      attribute: title
+    details:
+      selector: a[href^="details.php?id="]
+      attribute: href
+    download:
+      selector: a[href^="download.php"]
+      attribute: href
+    category:
+      selector: a[href^="browse.php?cat="]
+      attribute: href
+      filters:
+        - name: querystring
+          args: cat
+    date:
+      selector: td:nth-of-type(6)
+      filters:
+        - name: timeago
+    size:
+      selector: td:nth-of-type(8)
+    grabs:
+      selector: td:nth-of-type(9)
+    seeders:
+      selector: td:nth-of-type(10)
+    leechers:
+      selector: td:nth-of-type(11)
+    downloadvolumefactor:
+      text: "1"
+    uploadvolumefactor:
+      text: "1"
+`
+
 const MORE_THAN_TV = `
 id: morethantv
 name: MoreThanTV
@@ -3304,6 +3431,7 @@ const BUILT_IN_CARDIGANN_SOURCES = [
   HD_SPACE,
   SPEED_CD,
   HD_TORRENTS,
+  FUNFILE,
   MORE_THAN_TV,
   HDACCESS,
   TORRENT_NETWORK,

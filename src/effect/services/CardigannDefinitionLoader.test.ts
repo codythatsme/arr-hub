@@ -94,6 +94,7 @@ caps:
       "hd-space",
       "speedcd",
       "hd-torrents",
+      "funfile",
       "morethantv",
       "hdaccess",
       "torrent-network",
@@ -474,6 +475,30 @@ caps:
           { id: 5040, name: "TV Show/1080p/i" },
           { id: 3020, name: "Music/2160p" },
           { id: 6000, name: "XXX/2160p" },
+        ]),
+      },
+    })
+    expect(
+      BUILT_IN_CARDIGANN_DEFINITIONS.find((definition) => definition.definitionKey === "funfile"),
+    ).toMatchObject({
+      displayName: "FunFile",
+      baseUrl: "https://www.funfile.org/",
+      privacy: "private",
+      supportsRss: false,
+      supportsSearch: true,
+      tags: ["private", "general", "movies", "tv", "music", "books", "html"],
+      authFields: expect.arrayContaining([
+        expect.objectContaining({ name: "username", type: "text", required: true }),
+        expect.objectContaining({ name: "password", type: "password", required: true }),
+      ]),
+      capabilities: {
+        searchTypes: ["search", "movie", "tvsearch"],
+        categories: expect.arrayContaining([
+          { id: 5070, name: "Anime" },
+          { id: 3030, name: "Audio Books" },
+          { id: 4050, name: "Games" },
+          { id: 8010, name: "Miscellaneous" },
+          { id: 5000, name: "TV" },
         ]),
       },
     })

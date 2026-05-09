@@ -119,8 +119,8 @@ describe("IndexerService", () => {
       const second = yield* svc.refreshDefinitions()
 
       expect(first).toMatchObject({
-        total: 24,
-        created: 24,
+        total: 25,
+        created: 25,
         updated: 0,
         unchanged: 0,
       })
@@ -149,12 +149,13 @@ describe("IndexerService", () => {
         "created",
         "created",
         "created",
+        "created",
       ])
       expect(second).toMatchObject({
-        total: 24,
+        total: 25,
         created: 0,
         updated: 0,
-        unchanged: 24,
+        unchanged: 25,
       })
       expect(second.definitions.every((definition) => definition.previousVersion !== null)).toBe(
         true,
@@ -428,6 +429,7 @@ describe("IndexerService", () => {
         "animetosho",
         "beyond-hd",
         "bit-hdtv",
+        "funfile",
         "generic-newznab",
         "generic-torznab",
         "hd-space",
@@ -628,6 +630,17 @@ describe("IndexerService", () => {
         privacy: "private",
         supportsRss: false,
         tags: ["private", "movies", "tv", "music", "html"],
+      })
+      expect(
+        definitions.find((definition) => definition.definitionKey === "funfile"),
+      ).toMatchObject({
+        displayName: "FunFile",
+        protocol: "torrent",
+        implementation: "cardigann_yaml",
+        baseUrl: "https://www.funfile.org/",
+        privacy: "private",
+        supportsRss: false,
+        tags: ["private", "general", "movies", "tv", "music", "books", "html"],
       })
       expect(
         definitions.find((definition) => definition.definitionKey === "open-tv-torrents"),
