@@ -12,6 +12,7 @@ type JobType =
   | "search_missing"
   | "search_cutoff"
   | "download_monitor"
+  | "indexer_definition_refresh"
   | "movie_metadata_refresh"
   | "series_metadata_refresh"
   | "tv_rss_sync"
@@ -46,6 +47,7 @@ const jobTypeOptions: ReadonlyArray<JobType> = [
   "search_missing",
   "search_cutoff",
   "download_monitor",
+  "indexer_definition_refresh",
   "movie_metadata_refresh",
   "series_metadata_refresh",
   "tv_rss_sync",

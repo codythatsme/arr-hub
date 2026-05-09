@@ -7,7 +7,9 @@ import { indexerDefinitionSources, indexerDefinitions } from "#/db/schema"
 import type { IndexerDefinitionSeed, IndexerDefinitionSyncAction } from "../domain/indexer"
 import type {
   IndexerDefinitionSource,
+  IndexerDefinitionSourceRefreshFailure,
   IndexerDefinitionSourceRefreshResult,
+  IndexerDefinitionSourceRefreshSummary,
 } from "../domain/indexerDefinitionSource"
 import { IndexerDefinitionSourceError, NotFoundError } from "../errors"
 import { parseCardigannDefinitionYaml } from "./CardigannDefinitionLoader"
@@ -48,6 +50,7 @@ export class IndexerDefinitionSourceService extends Context.Tag(
       IndexerDefinitionSourceRefreshResult,
       NotFoundError | IndexerDefinitionSourceError | SqlError
     >
+    readonly refreshEnabled: () => Effect.Effect<IndexerDefinitionSourceRefreshSummary, SqlError>
   }
 >() {}
 
@@ -153,6 +156,37 @@ function toSourceError(
   })
 }
 
+function toRefreshFailure(
+  source: typeof indexerDefinitionSources.$inferSelect,
+  error: unknown,
+): IndexerDefinitionSourceRefreshFailure {
+  if (
+    error instanceof IndexerDefinitionSourceError ||
+    (typeof error === "object" &&
+      error !== null &&
+      "_tag" in error &&
+      error._tag === "IndexerDefinitionSourceError")
+  ) {
+    const sourceError = error as IndexerDefinitionSourceError
+    return {
+      sourceId: sourceError.sourceId,
+      sourceName: sourceError.sourceName,
+      message: sourceError.message,
+      reason: sourceError.reason,
+      retryable: sourceError.retryable,
+    }
+  }
+
+  const message = error instanceof Error ? error.message : String(error)
+  return {
+    sourceId: source.id,
+    sourceName: source.name,
+    message,
+    reason: "sync_failed",
+    retryable: true,
+  }
+}
+
 export const IndexerDefinitionSourceServiceLive = Layer.effect(
   IndexerDefinitionSourceService,
   Effect.gen(function* () {
@@ -192,6 +226,75 @@ export const IndexerDefinitionSourceServiceLive = Layer.effect(
             updatedAt: now,
           },
         })
+
+    const refreshSource = (source: typeof indexerDefinitionSources.$inferSelect) => {
+      const run = Effect.gen(function* () {
+        const sourceYaml = yield* Effect.tryPromise({
+          try: () => fetchDefinitionYaml(source.url),
+          catch: (error) => toSourceError(source, error),
+        })
+        const definition = yield* Effect.try({
+          try: () => ({
+            ...parseCardigannDefinitionYaml(sourceYaml),
+            sourceYaml,
+          }),
+          catch: (error) => toSourceError(source, error),
+        })
+
+        const existingRows = yield* db
+          .select()
+          .from(indexerDefinitions)
+          .where(eq(indexerDefinitions.definitionKey, definition.definitionKey))
+        const existing = existingRows[0]
+        const action: IndexerDefinitionSyncAction =
+          existing === undefined
+            ? "created"
+            : definitionChanged(existing, definition)
+              ? "updated"
+              : "unchanged"
+
+        const refreshedAt = new Date()
+        if (action !== "unchanged") {
+          yield* upsertDefinition(definition, refreshedAt)
+        }
+
+        yield* db
+          .update(indexerDefinitionSources)
+          .set({
+            lastCheckedAt: refreshedAt,
+            lastError: null,
+            lastDefinitionKey: definition.definitionKey,
+            lastVersion: definition.version,
+            updatedAt: refreshedAt,
+          })
+          .where(eq(indexerDefinitionSources.id, source.id))
+
+        return {
+          sourceId: source.id,
+          refreshedAt,
+          definitionKey: definition.definitionKey,
+          displayName: definition.displayName,
+          previousVersion: existing?.version ?? null,
+          version: definition.version,
+          action,
+        } satisfies IndexerDefinitionSourceRefreshResult
+      })
+
+      return run.pipe(
+        Effect.tapError((error) => {
+          if (error._tag !== "IndexerDefinitionSourceError") return Effect.void
+          const failedAt = new Date()
+          return db
+            .update(indexerDefinitionSources)
+            .set({
+              lastCheckedAt: failedAt,
+              lastError: error.message,
+              updatedAt: failedAt,
+            })
+            .where(eq(indexerDefinitionSources.id, source.id))
+        }),
+      )
+    }
 
     return {
       add: (input) =>
@@ -253,72 +356,41 @@ export const IndexerDefinitionSourceServiceLive = Layer.effect(
       refresh: (id) =>
         Effect.gen(function* () {
           const source = yield* loadSourceRow(id)
+          return yield* refreshSource(source)
+        }),
 
-          const run = Effect.gen(function* () {
-            const sourceYaml = yield* Effect.tryPromise({
-              try: () => fetchDefinitionYaml(source.url),
-              catch: (error) => toSourceError(source, error),
-            })
-            const definition = yield* Effect.try({
-              try: () => ({
-                ...parseCardigannDefinitionYaml(sourceYaml),
-                sourceYaml,
-              }),
-              catch: (error) => toSourceError(source, error),
-            })
+      refreshEnabled: () =>
+        Effect.gen(function* () {
+          const sources = yield* db
+            .select()
+            .from(indexerDefinitionSources)
+            .where(eq(indexerDefinitionSources.enabled, true))
+            .orderBy(indexerDefinitionSources.name)
 
-            const existingRows = yield* db
-              .select()
-              .from(indexerDefinitions)
-              .where(eq(indexerDefinitions.definitionKey, definition.definitionKey))
-            const existing = existingRows[0]
-            const action: IndexerDefinitionSyncAction =
-              existing === undefined
-                ? "created"
-                : definitionChanged(existing, definition)
-                  ? "updated"
-                  : "unchanged"
+          const results: Array<IndexerDefinitionSourceRefreshResult> = []
+          const errors: Array<IndexerDefinitionSourceRefreshFailure> = []
 
-            const refreshedAt = new Date()
-            if (action !== "unchanged") {
-              yield* upsertDefinition(definition, refreshedAt)
+          for (const source of sources) {
+            const outcome = yield* refreshSource(source).pipe(
+              Effect.map((result) => ({ ok: true as const, result })),
+              Effect.catchAll((error) => Effect.succeed({ ok: false as const, error })),
+            )
+
+            if (outcome.ok) {
+              results.push(outcome.result)
+            } else {
+              errors.push(toRefreshFailure(source, outcome.error))
             }
+          }
 
-            yield* db
-              .update(indexerDefinitionSources)
-              .set({
-                lastCheckedAt: refreshedAt,
-                lastError: null,
-                lastDefinitionKey: definition.definitionKey,
-                lastVersion: definition.version,
-                updatedAt: refreshedAt,
-              })
-              .where(eq(indexerDefinitionSources.id, source.id))
-
-            return {
-              sourceId: source.id,
-              refreshedAt,
-              definitionKey: definition.definitionKey,
-              displayName: definition.displayName,
-              previousVersion: existing?.version ?? null,
-              version: definition.version,
-              action,
-            } satisfies IndexerDefinitionSourceRefreshResult
-          })
-
-          return yield* run.pipe(
-            Effect.tapError((error) => {
-              if (error._tag !== "IndexerDefinitionSourceError") return Effect.void
-              return db
-                .update(indexerDefinitionSources)
-                .set({
-                  lastCheckedAt: new Date(),
-                  lastError: error.message,
-                  updatedAt: new Date(),
-                })
-                .where(eq(indexerDefinitionSources.id, source.id))
-            }),
-          )
+          return {
+            refreshedAt: new Date(),
+            total: sources.length,
+            succeeded: results.length,
+            failed: errors.length,
+            results,
+            errors,
+          } satisfies IndexerDefinitionSourceRefreshSummary
         }),
     }
   }),

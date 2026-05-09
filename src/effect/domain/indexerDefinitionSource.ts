@@ -22,3 +22,20 @@ export interface IndexerDefinitionSourceRefreshResult {
   readonly version: string
   readonly action: IndexerDefinitionSyncAction
 }
+
+export interface IndexerDefinitionSourceRefreshFailure {
+  readonly sourceId: number
+  readonly sourceName: string
+  readonly message: string
+  readonly reason: "connection_failed" | "invalid_response" | "sync_failed"
+  readonly retryable: boolean
+}
+
+export interface IndexerDefinitionSourceRefreshSummary {
+  readonly refreshedAt: Date
+  readonly total: number
+  readonly succeeded: number
+  readonly failed: number
+  readonly results: ReadonlyArray<IndexerDefinitionSourceRefreshResult>
+  readonly errors: ReadonlyArray<IndexerDefinitionSourceRefreshFailure>
+}

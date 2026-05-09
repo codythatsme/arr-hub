@@ -74,4 +74,13 @@ export const indexerDefinitionSourcesRouter = {
       }),
     ),
   ),
+
+  refreshEnabled: authedProcedure.mutation(() =>
+    runEffect(
+      Effect.gen(function* () {
+        const svc = yield* IndexerDefinitionSourceService
+        return yield* svc.refreshEnabled()
+      }),
+    ),
+  ),
 } satisfies TRPCRouterRecord

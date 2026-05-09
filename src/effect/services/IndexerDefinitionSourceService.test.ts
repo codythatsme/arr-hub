@@ -165,4 +165,79 @@ describe("IndexerDefinitionSourceService", () => {
       }).pipe(Effect.provide(TestLayer)),
     )
   })
+
+  it("refreshes all enabled sources and skips disabled sources", async () => {
+    vi.stubGlobal(
+      "fetch",
+      async () => new Response(remoteDefinitionYaml("remote-1"), { status: 200 }),
+    )
+
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const sources = yield* IndexerDefinitionSourceService
+
+        yield* sources.add({
+          name: "Enabled source",
+          url: "https://definitions.example/enabled.yml",
+        })
+        const disabled = yield* sources.add({
+          name: "Disabled source",
+          url: "https://definitions.example/disabled.yml",
+          enabled: false,
+        })
+
+        const summary = yield* sources.refreshEnabled()
+        expect(summary).toMatchObject({
+          total: 1,
+          succeeded: 1,
+          failed: 0,
+        })
+        expect(summary.results[0]).toMatchObject({
+          definitionKey: "remote-cardigann",
+          action: "created",
+        })
+
+        const skipped = yield* sources.getById(disabled.id)
+        expect(skipped.lastCheckedAt).toBeNull()
+      }).pipe(Effect.provide(TestLayer)),
+    )
+  })
+
+  it("continues enabled source refresh after per-source failures", async () => {
+    vi.stubGlobal("fetch", async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes("broken")) return new Response("unavailable", { status: 500 })
+      return new Response(remoteDefinitionYaml("remote-1"), { status: 200 })
+    })
+
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const sources = yield* IndexerDefinitionSourceService
+
+        yield* sources.add({
+          name: "Broken source",
+          url: "https://definitions.example/broken.yml",
+        })
+        yield* sources.add({
+          name: "Working source",
+          url: "https://definitions.example/working.yml",
+        })
+
+        const summary = yield* sources.refreshEnabled()
+        expect(summary).toMatchObject({
+          total: 2,
+          succeeded: 1,
+          failed: 1,
+        })
+        expect(summary.errors[0]).toMatchObject({
+          sourceName: "Broken source",
+          reason: "connection_failed",
+        })
+        expect(summary.results[0]).toMatchObject({
+          definitionKey: "remote-cardigann",
+          action: "created",
+        })
+      }).pipe(Effect.provide(TestLayer)),
+    )
+  })
 })

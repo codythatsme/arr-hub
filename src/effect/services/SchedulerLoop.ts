@@ -11,6 +11,7 @@ import {
 import { AcquisitionPipeline } from "./AcquisitionPipeline"
 import { Db } from "./Db"
 import { DownloadMonitor } from "./DownloadMonitor"
+import { IndexerDefinitionSourceService } from "./IndexerDefinitionSourceService"
 import { MetadataRefreshService } from "./MetadataRefreshService"
 import { MovieService } from "./MovieService"
 import { SchedulerService } from "./SchedulerService"
@@ -22,6 +23,7 @@ const tick = Effect.gen(function* () {
   const scheduler = yield* SchedulerService
   const pipeline = yield* AcquisitionPipeline
   const monitor = yield* DownloadMonitor
+  const definitionSources = yield* IndexerDefinitionSourceService
   const metadataRefresh = yield* MetadataRefreshService
   const movieService = yield* MovieService
 
@@ -99,6 +101,13 @@ const tick = Effect.gen(function* () {
         if (completions.length > 0) {
           yield* Effect.log(`download_monitor: ${completions.length} completed`)
         }
+        break
+      }
+      case "indexer_definition_refresh": {
+        const summary = yield* definitionSources.refreshEnabled()
+        yield* Effect.log(
+          `indexer_definition_refresh: ${summary.succeeded} refreshed, ${summary.failed} failed`,
+        )
         break
       }
       case "movie_metadata_refresh": {
@@ -204,6 +213,8 @@ function payloadForType(jobType: SchedulerJobType): SchedulerJobPayload | null {
       return { _tag: "rss_sync" }
     case "download_monitor":
       return { _tag: "download_monitor" }
+    case "indexer_definition_refresh":
+      return { _tag: "indexer_definition_refresh" }
     case "movie_metadata_refresh":
       return { _tag: "movie_metadata_refresh" }
     case "series_metadata_refresh":
