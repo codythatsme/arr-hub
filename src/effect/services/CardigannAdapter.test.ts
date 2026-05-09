@@ -444,6 +444,26 @@ const HTML_ESCAPED_DELIMITER_SELECTOR_RESULTS = `<!doctype html>
   </body>
 </html>`
 
+const HTML_QUOTED_ATTRIBUTE_DELIMITER_RESULTS = `<!doctype html>
+<html>
+  <body>
+    <table>
+      <tbody>
+        <tr class="torrent release-item" data-token="release-main">
+          <td><a class="title title-main" data-slug="details-main" href="/details/wrong-quoted-attribute">Wrong Quoted Attribute Movie 2026 1080p WEB-DL</a></td>
+          <td><a class="download download-main" data-token="download-main" href="/download/wrong-quoted-attribute">Download</a></td>
+          <td><span class="category" data-value="Movies">Movies</span></td>
+        </tr>
+        <tr class="torrent release>item" data-token="release>main">
+          <td><a class="title title>main" data-slug="details>main" href="/details/quoted-attribute">Quoted Attribute Movie 2026 1080p WEB-DL</a></td>
+          <td><a class="download download>main" data-token="download>main" href="/download/quoted-attribute">Download</a></td>
+          <td><span class="category" data-value="Movies>HD">Movies</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </body>
+</html>`
+
 const HTML_MATCHING_PSEUDO_SELECTOR_RESULTS = `<!doctype html>
 <html>
   <body>
@@ -2905,6 +2925,71 @@ search:
       title: "Escaped Delimiter Movie 2026 1080p WEB-DL",
       infoUrl: "https://tracker.example/details/escaped-delimiter",
       downloadUrl: "https://tracker.example/download/escaped-delimiter",
+      category: "2000",
+    })
+  })
+
+  it("matches Cardigann HTML selectors with quoted attribute delimiter characters", async () => {
+    const fetchMock = vi.fn(
+      async () => new Response(HTML_QUOTED_ATTRIBUTE_DELIMITER_RESULTS, { status: 200 }),
+    )
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 92,
+      name: "HTML Quoted Attribute Delimiter Selector Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "html-quoted-attribute-delimiter-selector-cardigann",
+      definitionYaml: `
+id: html-quoted-attribute-delimiter-selector-cardigann
+name: HTML Quoted Attribute Delimiter Selector Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies-hd
+      cat: Movies
+      desc: "Movies>HD"
+      newznab: 2000
+  modes:
+    search: [q]
+search:
+  paths:
+    - path: /browse
+      response:
+        type: html
+  rows:
+    selector: 'tr.torrent.release\\>item[data-token="release\\>main"]'
+  fields:
+    title:
+      selector: 'a.title.title\\>main[data-slug="details\\>main"]'
+    details:
+      selector: 'a.title.title\\>main[data-slug="details\\>main"]'
+      attribute: href
+    download:
+      selector: 'a.download.download\\>main[data-token="download\\>main"]'
+      attribute: href
+    category:
+      selector: 'span.category[data-value="Movies\\>HD"]'
+      attribute: data-value
+`,
+      baseUrl: "https://tracker.example",
+      apiKey: "",
+      priority: 36,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Quoted Attribute Movie", type: "general", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "Quoted Attribute Movie 2026 1080p WEB-DL",
+      infoUrl: "https://tracker.example/details/quoted-attribute",
+      downloadUrl: "https://tracker.example/download/quoted-attribute",
       category: "2000",
     })
   })

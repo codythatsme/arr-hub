@@ -1792,8 +1792,29 @@ function parseHtmlAttributes(value: string): Readonly<Record<string, string>> {
   return attributes
 }
 
+const HTML_TAG_ATTRIBUTES_PATTERN = String.raw`(?:"[^"]*"|'[^']*'|[^'">])*`
+const HTML_TAG_PATTERN = /<\/?([A-Za-z][\w:-]*)\b((?:"[^"]*"|'[^']*'|[^'">])*)>/g
+
+function htmlOpeningTagEndIndex(value: string): number {
+  let quote: '"' | "'" | null = null
+  for (let index = 0; index < value.length; index += 1) {
+    const character = value[index]
+    if (quote !== null) {
+      if (character === quote) quote = null
+      continue
+    }
+    if (character === '"' || character === "'") {
+      quote = character
+      continue
+    }
+    if (character === ">") return index
+  }
+  return -1
+}
+
 function findHtmlInputElements(html: string): ReadonlyArray<HtmlElementMatch> {
-  return Array.from(html.matchAll(/<input\b([^>]*)>/gi)).map((match) => ({
+  const inputPattern = new RegExp(`<input\\b(${HTML_TAG_ATTRIBUTES_PATTERN})>`, "gi")
+  return Array.from(html.matchAll(inputPattern)).map((match) => ({
     tagName: "input",
     attributes: parseHtmlAttributes(match[1] ?? ""),
     innerHtml: "",
@@ -1968,9 +1989,7 @@ function htmlElementInheritedLanguage(element: HtmlElementMatch): string | null 
   if (element.scopeHtml === undefined || element.sourceIndex === undefined) return null
 
   const stack: Array<{ tagName: string; language: string | null }> = []
-  for (const match of element.scopeHtml
-    .slice(0, element.sourceIndex)
-    .matchAll(/<\/?([A-Za-z][\w:-]*)([^>]*)>/g)) {
+  for (const match of element.scopeHtml.slice(0, element.sourceIndex).matchAll(HTML_TAG_PATTERN)) {
     const raw = match[0]
     const tagName = (match[1] ?? "").toLowerCase()
     if (tagName.length === 0) continue
@@ -2114,7 +2133,7 @@ const HTML_VOID_ELEMENTS = new Set([
 
 function isDirectHtmlChildAt(html: string, index: number): boolean {
   const stack: Array<string> = []
-  for (const match of html.slice(0, index).matchAll(/<\/?([A-Za-z][\w:-]*)([^>]*)>/g)) {
+  for (const match of html.slice(0, index).matchAll(HTML_TAG_PATTERN)) {
     const raw = match[0]
     const tagName = (match[1] ?? "").toLowerCase()
     if (tagName.length === 0) continue
@@ -2171,7 +2190,7 @@ function htmlChildPositionAt(
     key: number
   }> = []
 
-  for (const match of html.matchAll(/<\/?([A-Za-z][\w:-]*)([^>]*)>/g)) {
+  for (const match of html.matchAll(HTML_TAG_PATTERN)) {
     const raw = match[0]
     const tagName = (match[1] ?? "").toLowerCase()
     if (tagName.length === 0) continue
@@ -2301,7 +2320,10 @@ function findHtmlElementsForToken(
   if (selector === null) return []
 
   const tagPattern = selector.tag ? escapeRegExp(selector.tag) : "[A-Za-z][\\w:-]*"
-  const elementPattern = new RegExp(`<(${tagPattern})\\b([^>]*)>([\\s\\S]*?)<\\/\\1>`, "gi")
+  const elementPattern = new RegExp(
+    `<(${tagPattern})\\b(${HTML_TAG_ATTRIBUTES_PATTERN})>([\\s\\S]*?)<\\/\\1>`,
+    "gi",
+  )
   const matches: Array<HtmlElementMatch> = []
   const needsChildPosition = selector.filters.some(
     (filter) =>
@@ -2330,6 +2352,7 @@ function findHtmlElementsForToken(
 
     const attributes = parseHtmlAttributes(match[2] ?? "")
     const sourceIndex = baseIndex + matchIndex
+    const openingTagEndIndex = htmlOpeningTagEndIndex(outerHtml)
     const childPosition =
       needsChildPosition || forceChildPosition ? htmlChildPositionAt(html, matchIndex) : null
     const element = {
@@ -2338,7 +2361,8 @@ function findHtmlElementsForToken(
       innerHtml,
       outerHtml,
       sourceIndex,
-      innerHtmlStartIndex: sourceIndex + outerHtml.indexOf(">") + 1,
+      innerHtmlStartIndex:
+        openingTagEndIndex >= 0 ? sourceIndex + openingTagEndIndex + 1 : undefined,
       firstChild: childPosition?.first,
       lastChild: childPosition?.last,
       childIndex: childPosition?.index,
@@ -2361,7 +2385,10 @@ function findHtmlElementsForToken(
     pushMatch(match, (match[1] ?? "").toLowerCase(), match[3] ?? "", match[0])
   }
 
-  const voidElementPattern = new RegExp(`<(${tagPattern})\\b([^>]*)\\/?>`, "gi")
+  const voidElementPattern = new RegExp(
+    `<(${tagPattern})\\b(${HTML_TAG_ATTRIBUTES_PATTERN})\\/?>`,
+    "gi",
+  )
   for (const match of html.matchAll(voidElementPattern)) {
     const tagName = (match[1] ?? "").toLowerCase()
     const outerHtml = match[0]
@@ -2727,7 +2754,7 @@ function htmlTextContent(value: string): string {
     value
       .replaceAll(/<script\b[\s\S]*?<\/script>/gi, " ")
       .replaceAll(/<style\b[\s\S]*?<\/style>/gi, " ")
-      .replaceAll(/<[^>]+>/g, " ")
+      .replaceAll(HTML_TAG_PATTERN, " ")
       .replaceAll(/\s+/g, " ")
       .trim(),
   )
