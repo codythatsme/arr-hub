@@ -2548,7 +2548,12 @@ export function createCardigannYamlAdapter(config: IndexerConfig): IndexerAdapte
           authenticatedRequests,
           (request) =>
             Effect.gen(function* () {
-              if (request.responseType === "html" || request.responseType === "json") {
+              const usesSelectorParser =
+                request.responseType === "html" ||
+                request.responseType === "json" ||
+                (request.responseType === "xml" && definition.search.rows !== null)
+
+              if (usesSelectorParser) {
                 const response = yield* fetchIndexerResponseText(request.url, config, request.init)
                 const responseText = applyCardigannPreprocessingFilters(
                   response.text,
@@ -2574,9 +2579,9 @@ export function createCardigannYamlAdapter(config: IndexerConfig): IndexerAdapte
 
                 return yield* Effect.try({
                   try: () =>
-                    request.responseType === "html"
-                      ? parseHtmlReleases(responseText, request, definition, config)
-                      : parseJsonReleases(responseText, request, definition, config),
+                    request.responseType === "json"
+                      ? parseJsonReleases(responseText, request, definition, config)
+                      : parseHtmlReleases(responseText, request, definition, config),
                   catch: (error) =>
                     new IndexerError({
                       indexerId: config.id,

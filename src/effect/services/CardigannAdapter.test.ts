@@ -651,6 +651,100 @@ search:
     })
   })
 
+  it("parses Cardigann XML selector results", async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(`
+<response>
+  <results>
+    <torrent>
+      <title>XML Selector Movie 2026 1080p WEB-DL</title>
+      <download href="/download/xml-selector">Download</download>
+      <details href="/details/xml-selector">Details</details>
+      <category>Movies</category>
+      <size>700 MB</size>
+      <seeders>19</seeders>
+      <leechers>2</leechers>
+      <date>2026-05-09T00:00:00.000Z</date>
+    </torrent>
+  </results>
+</response>
+`),
+    )
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 63,
+      name: "XML Selector Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "xml-selector-cardigann",
+      definitionYaml: `
+id: xml-selector-cardigann
+name: XML Selector Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+      newznab: 2000
+  modes:
+    search: [q]
+search:
+  paths:
+    - path: /api/xml-selector
+      response:
+        type: xml
+      inputs:
+        q: "{{ .Keywords }}"
+  rows:
+    selector: torrent
+  fields:
+    title:
+      selector: title
+    download:
+      selector: download
+      attribute: href
+    details:
+      selector: details
+      attribute: href
+    category:
+      selector: category
+    size:
+      selector: size
+    seeders:
+      selector: seeders
+    leechers:
+      selector: leechers
+    date:
+      selector: date
+`,
+      baseUrl: "https://tracker.example",
+      apiKey: "",
+      priority: 25,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "XML Selector Movie", type: "general", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "XML Selector Movie 2026 1080p WEB-DL",
+      downloadUrl: "https://tracker.example/download/xml-selector",
+      infoUrl: "https://tracker.example/details/xml-selector",
+      category: "2000",
+      size: 700_000_000,
+      seeders: 19,
+      leechers: 2,
+    })
+    expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-09T00:00:00.000Z")
+  })
+
   it("returns no releases for Cardigann response no-results messages", async () => {
     const fetchMock = vi.fn(async () => new Response("NO JSON RESULTS", { status: 200 }))
     vi.stubGlobal("fetch", fetchMock)

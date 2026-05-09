@@ -12,7 +12,7 @@ import type {
   IndexerProtocol,
 } from "../domain/indexer"
 
-export type CardigannResponseType = "html" | "json" | "torznab" | "newznab" | "rss"
+export type CardigannResponseType = "html" | "json" | "xml" | "torznab" | "newznab" | "rss"
 
 export interface CardigannSearchPath {
   readonly path: string
@@ -1015,9 +1015,8 @@ function parseLoginMethod(value: string): "get" | "post" | "cookie" | "oneurl" |
 
 function parseResponseType(value: string): CardigannResponseType {
   const type = value.toLowerCase()
-  if (type === "html" || type === "json") return type
+  if (type === "html" || type === "json" || type === "xml") return type
   if (type === "torznab" || type === "newznab" || type === "rss") return type
-  if (type === "xml") return "torznab"
   throw new Error(`unsupported Cardigann response type: ${value}`)
 }
 

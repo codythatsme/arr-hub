@@ -516,7 +516,7 @@ search:
           inputs: { t: "search", limit: "100" },
           headers: {},
           categories: ["1"],
-          responseType: "torznab",
+          responseType: "xml",
         },
       ],
     })
