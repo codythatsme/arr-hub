@@ -11,25 +11,37 @@ type Movie = typeof movies.$inferSelect
 
 interface MovieInput {
   readonly tmdbId: number
+  readonly imdbId?: string | null
   readonly title: string
+  readonly originalTitle?: string | null
   readonly year?: number | null
+  readonly releaseDate?: Date | null
   readonly overview?: string | null
   readonly posterPath?: string | null
+  readonly genres?: ReadonlyArray<string>
+  readonly runtimeMinutes?: number | null
   readonly status?: "wanted" | "available" | "missing"
   readonly qualityProfileId?: number | null
   readonly rootFolderPath?: string | null
   readonly monitored?: boolean
+  readonly metadataRefreshedAt?: Date | null
 }
 
 interface MovieUpdate {
+  readonly imdbId?: string | null
   readonly title?: string
+  readonly originalTitle?: string | null
   readonly year?: number | null
+  readonly releaseDate?: Date | null
   readonly overview?: string | null
   readonly posterPath?: string | null
+  readonly genres?: ReadonlyArray<string>
+  readonly runtimeMinutes?: number | null
   readonly status?: "wanted" | "available" | "missing"
   readonly qualityProfileId?: number | null
   readonly rootFolderPath?: string | null
   readonly monitored?: boolean
+  readonly metadataRefreshedAt?: Date | null
 }
 
 interface MovieFilters {
@@ -77,14 +89,20 @@ export const MovieServiceLive = Layer.effect(
             .insert(movies)
             .values({
               tmdbId: input.tmdbId,
+              imdbId: input.imdbId ?? null,
               title: input.title,
+              originalTitle: input.originalTitle ?? null,
               year: input.year ?? null,
+              releaseDate: input.releaseDate ?? null,
               overview: input.overview ?? null,
               posterPath: input.posterPath ?? null,
+              genres: input.genres ?? [],
+              runtimeMinutes: input.runtimeMinutes ?? null,
               status: input.status ?? "wanted",
               qualityProfileId: input.qualityProfileId ?? null,
               rootFolderPath: input.rootFolderPath ?? null,
               monitored: input.monitored ?? true,
+              metadataRefreshedAt: input.metadataRefreshedAt ?? null,
             })
             .returning()
 

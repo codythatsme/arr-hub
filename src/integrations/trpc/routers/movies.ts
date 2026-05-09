@@ -9,25 +9,37 @@ import { authedProcedure, runEffect } from "../init"
 
 const movieInputSchema = z.object({
   tmdbId: z.number(),
+  imdbId: z.string().nullish(),
   title: z.string(),
+  originalTitle: z.string().nullish(),
   year: z.number().nullish(),
+  releaseDate: z.date().nullish(),
   overview: z.string().nullish(),
   posterPath: z.string().nullish(),
+  genres: z.array(z.string()).optional(),
+  runtimeMinutes: z.number().nullish(),
   status: z.enum(["wanted", "available", "missing"]).optional(),
   qualityProfileId: z.number().nullish(),
   rootFolderPath: z.string().nullish(),
   monitored: z.boolean().optional(),
+  metadataRefreshedAt: z.date().nullish(),
 })
 
 const movieUpdateSchema = z.object({
+  imdbId: z.string().nullish(),
   title: z.string().optional(),
+  originalTitle: z.string().nullish(),
   year: z.number().nullish(),
+  releaseDate: z.date().nullish(),
   overview: z.string().nullish(),
   posterPath: z.string().nullish(),
+  genres: z.array(z.string()).optional(),
+  runtimeMinutes: z.number().nullish(),
   status: z.enum(["wanted", "available", "missing"]).optional(),
   qualityProfileId: z.number().nullish(),
   rootFolderPath: z.string().nullish(),
   monitored: z.boolean().optional(),
+  metadataRefreshedAt: z.date().nullish(),
 })
 
 const movieFiltersSchema = z

@@ -22,13 +22,15 @@ describe("SchedulerService", () => {
       Effect.gen(function* () {
         const svc = yield* SchedulerService
         const configs = yield* svc.getConfig()
-        expect(configs).toHaveLength(6)
+        expect(configs).toHaveLength(8)
         const types = configs.map((c) => c.jobType).toSorted()
         expect(types).toEqual([
           "download_monitor",
+          "movie_metadata_refresh",
           "rss_sync",
           "search_cutoff",
           "search_missing",
+          "series_metadata_refresh",
           "tv_rss_sync",
           "tv_search_cutoff",
         ])
@@ -42,7 +44,7 @@ describe("SchedulerService", () => {
       yield* svc.seedConfig()
       yield* svc.seedConfig()
       const configs = yield* svc.getConfig()
-      expect(configs).toHaveLength(6)
+      expect(configs).toHaveLength(8)
     }).pipe(Effect.provide(TestLayer)),
   )
 
@@ -259,7 +261,7 @@ describe("SchedulerService", () => {
         yield* svc.enqueue({ _tag: "rss_sync" })
 
         const summaries = yield* svc.status()
-        expect(summaries).toHaveLength(6)
+        expect(summaries).toHaveLength(8)
 
         const rss = summaries.find((s) => s.jobType === "rss_sync")
         expect(rss?.activeCount).toBe(1)

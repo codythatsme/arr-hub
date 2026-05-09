@@ -111,10 +111,18 @@ export const customFormatScores = sqliteTable(
 export const movies = sqliteTable("movies", {
   id: integer().primaryKey({ autoIncrement: true }),
   tmdbId: integer("tmdb_id").notNull().unique(),
+  imdbId: text("imdb_id"),
   title: text().notNull(),
+  originalTitle: text("original_title"),
   year: integer(),
+  releaseDate: integer("release_date", { mode: "timestamp" }),
   overview: text(),
   posterPath: text("poster_path"),
+  genres: text({ mode: "json" })
+    .$type<ReadonlyArray<string>>()
+    .notNull()
+    .default(sql`'[]'`),
+  runtimeMinutes: integer("runtime_minutes"),
   status: text({ enum: ["wanted", "available", "missing"] })
     .notNull()
     .default("wanted"),
@@ -126,6 +134,7 @@ export const movies = sqliteTable("movies", {
   existingQualityName: text("existing_quality_name"),
   existingQualityRank: integer("existing_quality_rank"),
   existingFormatScore: integer("existing_format_score"),
+  metadataRefreshedAt: integer("metadata_refreshed_at", { mode: "timestamp" }),
   addedAt: integer("added_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),

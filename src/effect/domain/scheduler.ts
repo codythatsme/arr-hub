@@ -5,6 +5,8 @@ export type SchedulerJobType =
   | "search_missing"
   | "search_cutoff"
   | "download_monitor"
+  | "movie_metadata_refresh"
+  | "series_metadata_refresh"
   | "tv_rss_sync"
   | "tv_search_cutoff"
   | "tv_search_series"
@@ -24,6 +26,8 @@ export type SchedulerJobPayload =
   | { readonly _tag: "search_missing"; readonly movieId: number }
   | { readonly _tag: "search_cutoff" }
   | { readonly _tag: "download_monitor" }
+  | { readonly _tag: "movie_metadata_refresh" }
+  | { readonly _tag: "series_metadata_refresh" }
   | { readonly _tag: "tv_rss_sync" }
   | { readonly _tag: "tv_search_cutoff" }
   | { readonly _tag: "tv_search_series"; readonly seriesId: number }
@@ -42,6 +46,10 @@ export function dedupeKey(payload: SchedulerJobPayload): string {
       return "search_cutoff"
     case "download_monitor":
       return "download_monitor"
+    case "movie_metadata_refresh":
+      return "movie_metadata_refresh"
+    case "series_metadata_refresh":
+      return "series_metadata_refresh"
     case "tv_rss_sync":
       return "tv_rss_sync"
     case "tv_search_cutoff":
@@ -103,6 +111,22 @@ export const DEFAULT_CONFIGS: ReadonlyArray<SchedulerJobConfig> = [
     retryDelaySeconds: 30,
     maxRetries: 5,
     backoffMultiplier: 1.5,
+    enabled: true,
+  },
+  {
+    jobType: "movie_metadata_refresh",
+    intervalMinutes: 1440,
+    retryDelaySeconds: 300,
+    maxRetries: 3,
+    backoffMultiplier: 2,
+    enabled: true,
+  },
+  {
+    jobType: "series_metadata_refresh",
+    intervalMinutes: 1440,
+    retryDelaySeconds: 300,
+    maxRetries: 3,
+    backoffMultiplier: 2,
     enabled: true,
   },
   {

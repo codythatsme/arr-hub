@@ -57,6 +57,13 @@
       "when": 1778301546482,
       "tag": "0007_dazzling_captain_universe",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1778302227399,
+      "tag": "0008_light_randall_flagg",
+      "breakpoints": true
     }
   ]
 }

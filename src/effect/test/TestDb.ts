@@ -49,10 +49,15 @@ const runDdl = Effect.gen(function* () {
   yield* sql`CREATE TABLE movies (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     tmdb_id INTEGER NOT NULL UNIQUE,
+    imdb_id TEXT,
     title TEXT NOT NULL,
+    original_title TEXT,
     year INTEGER,
+    release_date INTEGER,
     overview TEXT,
     poster_path TEXT,
+    genres TEXT NOT NULL DEFAULT '[]',
+    runtime_minutes INTEGER,
     status TEXT NOT NULL DEFAULT 'wanted',
     quality_profile_id INTEGER REFERENCES quality_profiles(id),
     root_folder_path TEXT,
@@ -62,6 +67,7 @@ const runDdl = Effect.gen(function* () {
     existing_quality_name TEXT,
     existing_quality_rank INTEGER,
     existing_format_score INTEGER,
+    metadata_refreshed_at INTEGER,
     added_at INTEGER NOT NULL DEFAULT (unixepoch())
   )`
 

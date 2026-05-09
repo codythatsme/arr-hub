@@ -12,6 +12,7 @@ import { DownloadMonitorLive } from "./services/DownloadMonitor"
 import { ImportServiceLive } from "./services/ImportService"
 import { IndexerServiceLive } from "./services/IndexerService"
 import { MediaServerServiceLive } from "./services/MediaServerService"
+import { MetadataRefreshServiceLive } from "./services/MetadataRefreshService"
 import { MonitoringTriggerBusLive } from "./services/MonitoringTriggerBus"
 import { MovieServiceLive } from "./services/MovieService"
 import { NotificationServiceLive } from "./services/NotificationService"
@@ -40,6 +41,7 @@ export const AppLive = Layer.mergeAll(
   DownloadMonitorLive,
   PlexSessionMonitorLive,
   PluginLoaderLive,
+  MetadataRefreshServiceLive,
   ImportServiceLive,
 ).pipe(
   Layer.provideMerge(SchedulerServiceLive),

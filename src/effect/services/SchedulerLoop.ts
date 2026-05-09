@@ -11,6 +11,7 @@ import {
 import { AcquisitionPipeline } from "./AcquisitionPipeline"
 import { Db } from "./Db"
 import { DownloadMonitor } from "./DownloadMonitor"
+import { MetadataRefreshService } from "./MetadataRefreshService"
 import { MovieService } from "./MovieService"
 import { SchedulerService } from "./SchedulerService"
 
@@ -21,6 +22,7 @@ const tick = Effect.gen(function* () {
   const scheduler = yield* SchedulerService
   const pipeline = yield* AcquisitionPipeline
   const monitor = yield* DownloadMonitor
+  const metadataRefresh = yield* MetadataRefreshService
   const movieService = yield* MovieService
 
   // 1. Enqueue recurring jobs
@@ -97,6 +99,20 @@ const tick = Effect.gen(function* () {
         if (completions.length > 0) {
           yield* Effect.log(`download_monitor: ${completions.length} completed`)
         }
+        break
+      }
+      case "movie_metadata_refresh": {
+        const summary = yield* metadataRefresh.refreshAllMovies()
+        yield* Effect.log(
+          `movie_metadata_refresh: ${summary.refreshed} refreshed, ${summary.failed} failed`,
+        )
+        break
+      }
+      case "series_metadata_refresh": {
+        const summary = yield* metadataRefresh.refreshAllSeries()
+        yield* Effect.log(
+          `series_metadata_refresh: ${summary.refreshed} refreshed, ${summary.skipped} skipped, ${summary.failed} failed`,
+        )
         break
       }
       case "tv_rss_sync": {
@@ -188,6 +204,10 @@ function payloadForType(jobType: SchedulerJobType): SchedulerJobPayload | null {
       return { _tag: "rss_sync" }
     case "download_monitor":
       return { _tag: "download_monitor" }
+    case "movie_metadata_refresh":
+      return { _tag: "movie_metadata_refresh" }
+    case "series_metadata_refresh":
+      return { _tag: "series_metadata_refresh" }
     case "search_cutoff":
       return { _tag: "search_cutoff" }
     case "search_missing":
