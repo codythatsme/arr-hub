@@ -205,6 +205,10 @@ function templateValueToString(value: TemplateValue | undefined): string {
   return value ? value.join(",") : ""
 }
 
+function escapeRegExp(value: string): string {
+  return value.replaceAll(/[\\^$*+?.()|[\]{}-]/g, "\\$&")
+}
+
 function applyTemplateFilter(
   value: TemplateValue | undefined,
   filter: string,
@@ -244,20 +248,46 @@ function applyTemplateFilter(
   }
 }
 
+function renderRangeTemplates(template: string, variables: Record<string, TemplateValue>): string {
+  return template.replaceAll(
+    /\{\{\s*range\s+(?:(\$\w+)\s*,\s*\$\w+\s*:=\s*)?(\.[^}\s]+)\s*\}\}([\S\s]*?)\{\{\s*end\s*\}\}/g,
+    (_match, indexVariable: string | undefined, key: string, body: string) => {
+      const value = variables[key]
+      if (!Array.isArray(value)) return ""
+
+      return value
+        .map((item, index) => {
+          let rendered = body.replaceAll(/\{\{\s*\.\s*\}\}/g, () => item)
+          if (indexVariable) {
+            rendered = rendered.replaceAll(
+              new RegExp(`\\{\\{\\s*${escapeRegExp(indexVariable)}\\s*\\}\\}`, "g"),
+              String(index),
+            )
+          }
+          return rendered
+        })
+        .join("")
+    },
+  )
+}
+
 function renderTemplate(template: string, variables: Record<string, TemplateValue>): string {
-  return template.replace(/\{\{\s*([^}]+?)\s*\}\}/g, (_match, expression: string) => {
-    const [key = "", ...filters] = splitTemplatePipeline(expression)
-    let value = variables[key.trim()]
-    for (const filterExpression of filters) {
-      const filter = parseFilterCall(filterExpression)
-      value = applyTemplateFilter(value, filter.name, filter.args)
-    }
-    return templateValueToString(value)
-  })
+  return renderRangeTemplates(template, variables).replace(
+    /\{\{\s*([^}]+?)\s*\}\}/g,
+    (_match, expression: string) => {
+      const [key = "", ...filters] = splitTemplatePipeline(expression)
+      let value = variables[key.trim()]
+      for (const filterExpression of filters) {
+        const filter = parseFilterCall(filterExpression)
+        value = applyTemplateFilter(value, filter.name, filter.args)
+      }
+      return templateValueToString(value)
+    },
+  )
 }
 
 function trimCharacters(value: string, chars: string): string {
-  const escaped = chars.replaceAll(/[\\^$*+?.()|[\]{}-]/g, "\\$&")
+  const escaped = escapeRegExp(chars)
   return value.replace(new RegExp(`^[${escaped}]+|[${escaped}]+$`, "g"), "")
 }
 

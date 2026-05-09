@@ -270,6 +270,59 @@ search:
     expect(headers.get("x-query-slug")).toBe("example-movie")
   })
 
+  it("expands Cardigann range templates for repeated category params", async () => {
+    let requestUrl: string | undefined
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      requestUrl = String(input)
+      return new Response(RSS_XML, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 17,
+      name: "Range Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "range-cardigann",
+      definitionYaml: `
+id: range-cardigann
+name: Range Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+    - id: tv
+      cat: TV
+      desc: TV
+  modes:
+    search: [q]
+search:
+  paths:
+    - path: /search
+      response:
+        type: torznab
+      inputs:
+        $raw: '{{ range .Categories }}cat={{ . }}&{{ end }}q={{ .Keywords }}'
+`,
+      baseUrl: "https://tracker.example/root",
+      apiKey: "",
+      priority: 15,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    await Effect.runPromise(
+      adapter.search({ term: "Range Search", type: "general", categories: [2000, 5000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const url = new URL(requestUrl ?? "")
+    expect(url.searchParams.getAll("cat")).toEqual(["movies", "tv"])
+    expect(url.searchParams.get("q")).toBe("Range Search")
+  })
+
   it("narrows Cardigann Categories for each matching path", async () => {
     const requestUrls: Array<string> = []
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
