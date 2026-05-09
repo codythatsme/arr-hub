@@ -119,8 +119,8 @@ describe("IndexerService", () => {
       const second = yield* svc.refreshDefinitions()
 
       expect(first).toMatchObject({
-        total: 9,
-        created: 9,
+        total: 10,
+        created: 10,
         updated: 0,
         unchanged: 0,
       })
@@ -134,12 +134,13 @@ describe("IndexerService", () => {
         "created",
         "created",
         "created",
+        "created",
       ])
       expect(second).toMatchObject({
-        total: 9,
+        total: 10,
         created: 0,
         updated: 0,
-        unchanged: 9,
+        unchanged: 10,
       })
       expect(second.definitions.every((definition) => definition.previousVersion !== null)).toBe(
         true,
@@ -409,6 +410,7 @@ describe("IndexerService", () => {
 
       const definitions = yield* svc.listDefinitions()
       expect(definitions.map((definition) => definition.definitionKey).toSorted()).toEqual([
+        "anidex",
         "animetosho",
         "generic-newznab",
         "generic-torznab",
@@ -436,6 +438,16 @@ describe("IndexerService", () => {
         privacy: "public",
         tags: ["public", "anime", "rss"],
       })
+      expect(definitions.find((definition) => definition.definitionKey === "anidex")).toMatchObject(
+        {
+          displayName: "Anidex",
+          protocol: "torrent",
+          implementation: "cardigann_yaml",
+          baseUrl: "https://anidex.info/",
+          privacy: "public",
+          tags: ["public", "anime", "html"],
+        },
+      )
       expect(
         definitions.find((definition) => definition.definitionKey === "open-tv-torrents"),
       ).toMatchObject({

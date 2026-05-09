@@ -210,6 +210,38 @@ const HTML_MAGNET_RESULTS = `<!doctype html>
   </body>
 </html>`
 
+const ANIDEX_HTML_RESULTS = `<!doctype html>
+<html>
+  <body>
+    <div id="content">
+      <table>
+        <tbody>
+          <tr>
+            <td><a href="/?page=search&id=1"><img title="English" /></a></td>
+            <td>Group</td>
+            <td>
+              <a href="/?page=torrent&id=12345">
+                <span title="[ExampleSubs] Spy Family - 01 (1080p)">Spy Family</span>
+              </a>
+            </td>
+            <td>Comments</td>
+            <td>
+              <a href="/dl/12345">Torrent</a>
+              <a href="magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567">Magnet</a>
+            </td>
+            <td>Uploader</td>
+            <td>1.4 GiB</td>
+            <td title="2026-05-06 11:22:33 UTC">2026-05-06</td>
+            <td>42</td>
+            <td>3</td>
+            <td>101</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </body>
+</html>`
+
 const HTML_FIELD_MODIFIER_RESULTS = `<!doctype html>
 <html>
   <body>
@@ -1968,6 +2000,62 @@ search:
       indexerName: "HDAccess",
       indexerPriority: 18,
     })
+  })
+
+  it("builds and parses Anidex HTML searches from the built-in definition", async () => {
+    let requestUrl: string | undefined
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      requestUrl = String(input)
+      return new Response(ANIDEX_HTML_RESULTS, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 87,
+      name: "Anidex",
+      type: "cardigann_yaml",
+      definitionKey: "anidex",
+      baseUrl: "https://anidex.info",
+      apiKey: "",
+      configValues: {
+        authorisedOnly: "true",
+        language: "1",
+      },
+      priority: 22,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Spy Family", type: "tv", categories: [5070] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const url = new URL(requestUrl ?? "")
+    expect(url.origin).toBe("https://anidex.info")
+    expect(url.pathname).toBe("/")
+    expect(url.searchParams.get("page")).toBe("search")
+    expect(url.searchParams.get("s")).toBe("upload_timestamp")
+    expect(url.searchParams.get("o")).toBe("desc")
+    expect(url.searchParams.get("group_id")).toBe("0")
+    expect(url.searchParams.get("q")).toBe("Spy Family")
+    expect(url.searchParams.get("id")).toBe("1,2,3,4,5")
+    expect(url.searchParams.get("a")).toBe("1")
+    expect(url.searchParams.get("lang_id")).toBe("1")
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "[ExampleSubs] Spy Family - 01 (1080p)",
+      downloadUrl: "https://anidex.info/dl/12345",
+      infoUrl: "https://anidex.info/?page=torrent&id=12345",
+      category: "5070",
+      size: 1_503_238_554,
+      seeders: 42,
+      leechers: 3,
+      indexerId: 87,
+      indexerName: "Anidex",
+      indexerPriority: 22,
+    })
+    expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-06T11:22:33.000Z")
   })
 
   it("parses first-pass Cardigann HTML selector results", async () => {

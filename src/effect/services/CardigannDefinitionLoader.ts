@@ -275,6 +275,164 @@ search:
         limit: "{{ .Query.Limit }}"
 `
 
+const ANIDEX = `
+id: anidex
+name: Anidex
+description: Public anime, manga, music, and software tracker exposed through Cardigann HTML selectors.
+type: public
+links:
+  - https://anidex.info/
+version: builtin-cardigann-1
+tags:
+  - public
+  - anime
+  - html
+settings:
+  - name: authorisedOnly
+    label: Authorised only
+    type: checkbox
+    default: false
+    required: false
+    helpText: Search authorised torrents only.
+  - name: language
+    label: Language
+    type: select
+    required: false
+    helpText: Restrict searches to one Anidex language. Leave empty for all languages.
+    options:
+      - value: "1"
+        label: English
+      - value: "2"
+        label: Japanese
+      - value: "7"
+        label: Russian
+      - value: "8"
+        label: German
+      - value: "10"
+        label: French
+      - value: "15"
+        label: Spanish
+      - value: "21"
+        label: Chinese Simplified
+      - value: "28"
+        label: Korean
+caps:
+  categorymappings:
+    - id: "1"
+      cat: TV/Anime
+      desc: Anime - Sub
+      newznab: 5070
+    - id: "2"
+      cat: TV/Anime
+      desc: Anime - Raw
+      newznab: 5070
+    - id: "3"
+      cat: TV/Anime
+      desc: Anime - Dub
+      newznab: 5070
+    - id: "4"
+      cat: TV/Anime
+      desc: Live Action - Sub
+      newznab: 5070
+    - id: "5"
+      cat: TV/Anime
+      desc: Live Action - Raw
+      newznab: 5070
+    - id: "6"
+      cat: Books/EBook
+      desc: Light Novel
+      newznab: 7020
+    - id: "7"
+      cat: Books/Comics
+      desc: Manga - Translated
+      newznab: 7030
+    - id: "8"
+      cat: Books/Comics
+      desc: Manga - Raw
+      newznab: 7030
+    - id: "9"
+      cat: Audio/MP3
+      desc: Music - Lossy
+      newznab: 3010
+    - id: "10"
+      cat: Audio/Lossless
+      desc: Music - Lossless
+      newznab: 3040
+    - id: "11"
+      cat: Audio/Video
+      desc: Music - Video
+      newznab: 3020
+    - id: "12"
+      cat: PC/Games
+      desc: Games
+      newznab: 4050
+    - id: "13"
+      cat: PC/0day
+      desc: Applications
+      newznab: 4010
+    - id: "14"
+      cat: XXX/ImageSet
+      desc: Pictures
+      newznab: 6060
+    - id: "15"
+      cat: XXX
+      desc: Adult Video
+      newznab: 6000
+    - id: "16"
+      cat: Other
+      desc: Other
+      newznab: 8000
+  modes:
+    search: [q]
+    tv-search: [q, season, ep]
+search:
+  paths:
+    - path: /
+      response:
+        type: html
+      inputs:
+        page: search
+        s: upload_timestamp
+        o: desc
+        group_id: "0"
+        q: "{{ .Keywords }}"
+        id: "{{ .Categories | join ',' }}"
+        a: "{{ if .Config.AuthorisedOnly }}1{{ end }}"
+        lang_id: "{{ .Config.Language }}"
+  rows:
+    selector: div#content table > tbody > tr
+  fields:
+    title:
+      selector: td:nth-child(3) span
+      attribute: title
+    details:
+      selector: td:nth-child(3) a
+      attribute: href
+    download:
+      selector: a[href^="/dl/"]
+      attribute: href
+    category:
+      selector: td:nth-child(1) a
+      attribute: href
+      filters:
+        - name: querystring
+          args: id
+    size:
+      selector: td:nth-child(7)
+    seeders:
+      selector: td:nth-child(9)
+    leechers:
+      selector: td:nth-child(10)
+    grabs:
+      selector: td:nth-child(11)
+    date:
+      selector: td:nth-child(8)
+      attribute: title
+      filters:
+        - name: dateparse
+          args: yyyy-MM-dd HH:mm:ss UTC
+`
+
 const MORE_THAN_TV = `
 id: morethantv
 name: MoreThanTV
@@ -473,6 +631,7 @@ const BUILT_IN_CARDIGANN_SOURCES = [
   OPEN_TV_TORRENTS,
   NYAA,
   ANIME_TOSHO,
+  ANIDEX,
   MORE_THAN_TV,
   HDACCESS,
   TORRENT_NETWORK,

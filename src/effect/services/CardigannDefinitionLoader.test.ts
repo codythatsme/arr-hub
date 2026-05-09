@@ -79,6 +79,7 @@ caps:
       "open-tv-torrents",
       "nyaa",
       "animetosho",
+      "anidex",
       "morethantv",
       "hdaccess",
       "torrent-network",
@@ -102,6 +103,25 @@ caps:
       BUILT_IN_CARDIGANN_DEFINITIONS.find((definition) => definition.definitionKey === "animetosho")
         ?.baseUrl,
     ).toBe("https://feed.animetosho.org")
+    expect(
+      BUILT_IN_CARDIGANN_DEFINITIONS.find((definition) => definition.definitionKey === "anidex"),
+    ).toMatchObject({
+      displayName: "Anidex",
+      baseUrl: "https://anidex.info/",
+      privacy: "public",
+      tags: ["public", "anime", "html"],
+      capabilities: {
+        searchTypes: ["search", "tvsearch"],
+        categories: expect.arrayContaining([
+          { id: 5070, name: "Anime - Sub" },
+          { id: 7020, name: "Light Novel" },
+          { id: 7030, name: "Manga - Translated" },
+          { id: 3010, name: "Music - Lossy" },
+          { id: 4050, name: "Games" },
+          { id: 8000, name: "Other" },
+        ]),
+      },
+    })
     expect(
       BUILT_IN_CARDIGANN_DEFINITIONS.find((definition) => definition.definitionKey === "morethantv")
         ?.authFields,
