@@ -1114,59 +1114,6 @@ function parseJsonSelectorFilters(suffix: string): ReadonlyArray<JsonSelectorFil
   return filters
 }
 
-function parseHtmlSelectorFilters(suffix: string): ReadonlyArray<JsonSelectorFilter> | null {
-  const filters: Array<JsonSelectorFilter> = []
-  let index = 0
-
-  while (index < suffix.length) {
-    while (/\s/.test(suffix[index] ?? "")) index += 1
-    if (index >= suffix.length) break
-    if (suffix[index] !== ":") return null
-    index += 1
-
-    const nameStart = index
-    while (/[A-Za-z-]/.test(suffix[index] ?? "")) index += 1
-    const name = suffix.slice(nameStart, index).trim().toLowerCase()
-    if (name.length === 0) return null
-
-    while (/\s/.test(suffix[index] ?? "")) index += 1
-    if (suffix[index] !== "(") {
-      filters.push({ name, selector: "" })
-      continue
-    }
-    index += 1
-
-    const selectorStart = index
-    let depth = 1
-    let quote: string | null = null
-    while (index < suffix.length && depth > 0) {
-      const char = suffix[index] ?? ""
-      if (char === "\\") {
-        index += 2
-        continue
-      }
-      if (quote !== null) {
-        if (char === quote) quote = null
-      } else if (char === `"` || char === "'") {
-        quote = char
-      } else if (char === "(") {
-        depth += 1
-      } else if (char === ")") {
-        depth -= 1
-      }
-      index += 1
-    }
-    if (depth !== 0) return null
-
-    filters.push({
-      name,
-      selector: suffix.slice(selectorStart, index - 1).trim(),
-    })
-  }
-
-  return filters
-}
-
 function parseJsonSelector(selector: string): JsonSelector | null {
   const text = selector.trim()
   const filterStart = jsonSelectorFilterStart(text)
@@ -1673,30 +1620,90 @@ const HTML_SELECTOR_FILTER_NAMES = new Set([
   "where",
 ])
 
-function htmlSelectorFilterStart(text: string): number {
+function parseHtmlSelectorTokenParts(
+  text: string,
+): { readonly baseToken: string; readonly filters: ReadonlyArray<JsonSelectorFilter> } | null {
+  let baseToken = ""
+  const filters: Array<JsonSelectorFilter> = []
   let bracketDepth = 0
   let quote: string | null = null
 
-  for (let index = 0; index < text.length; index += 1) {
+  for (let index = 0; index < text.length; ) {
     const char = text[index] ?? ""
-    if (quote === null && char === "\\") {
+    if (char === "\\") {
+      baseToken += char
       index += 1
-    } else if ((char === `"` || char === "'") && bracketDepth > 0) {
+      if (index < text.length) baseToken += text[index] ?? ""
+      index += 1
+      continue
+    }
+
+    if ((char === `"` || char === "'") && bracketDepth > 0) {
       quote = quote === char ? null : (quote ?? char)
+      baseToken += char
+      index += 1
+      continue
     } else if (quote === null && char === "[") {
       bracketDepth += 1
+      baseToken += char
+      index += 1
+      continue
     } else if (quote === null && char === "]") {
       bracketDepth = Math.max(0, bracketDepth - 1)
+      baseToken += char
+      index += 1
+      continue
     } else if (quote === null && bracketDepth === 0 && char === ":") {
-      const filterName = text
+      const name = text
         .slice(index + 1)
         .match(/^[A-Za-z-]+/)?.[0]
         ?.toLowerCase()
-      if (filterName !== undefined && HTML_SELECTOR_FILTER_NAMES.has(filterName)) return index
+      if (name !== undefined && HTML_SELECTOR_FILTER_NAMES.has(name)) {
+        let cursor = index + 1 + name.length
+        while (/\s/.test(text[cursor] ?? "")) cursor += 1
+        if (text[cursor] !== "(") {
+          filters.push({ name, selector: "" })
+          index = cursor
+          continue
+        }
+
+        cursor += 1
+        const selectorStart = cursor
+        let depth = 1
+        let filterQuote: string | null = null
+        while (cursor < text.length && depth > 0) {
+          const filterChar = text[cursor] ?? ""
+          if (filterChar === "\\") {
+            cursor += 2
+            continue
+          }
+          if (filterQuote !== null) {
+            if (filterChar === filterQuote) filterQuote = null
+          } else if (filterChar === `"` || filterChar === "'") {
+            filterQuote = filterChar
+          } else if (filterChar === "(") {
+            depth += 1
+          } else if (filterChar === ")") {
+            depth -= 1
+          }
+          cursor += 1
+        }
+        if (depth !== 0) return null
+
+        filters.push({
+          name,
+          selector: text.slice(selectorStart, cursor - 1).trim(),
+        })
+        index = cursor
+        continue
+      }
     }
+
+    baseToken += char
+    index += 1
   }
 
-  return -1
+  return { baseToken, filters }
 }
 
 function htmlSelectorIdentifierToken(text: string): string {
@@ -1743,10 +1750,9 @@ function unescapeCssSelectorValue(value: string): string {
 function parseSimpleHtmlSelectorToken(token: string): SimpleHtmlSelector | null {
   if (token.length === 0) return null
 
-  const filterStart = htmlSelectorFilterStart(token)
-  const baseToken = filterStart < 0 ? token : token.slice(0, filterStart)
-  const filters = filterStart < 0 ? [] : parseHtmlSelectorFilters(token.slice(filterStart))
-  if (filters === null) return null
+  const selectorParts = parseHtmlSelectorTokenParts(token)
+  if (selectorParts === null) return null
+  const { baseToken, filters } = selectorParts
 
   const identifierToken = htmlSelectorIdentifierToken(baseToken)
   const tagMatch = identifierToken.match(/^[A-Za-z][\w:-]*/)

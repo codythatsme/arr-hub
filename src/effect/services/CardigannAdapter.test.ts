@@ -2973,6 +2973,70 @@ search:
     })
   })
 
+  it("matches Cardigann HTML selectors with simple parts after pseudo classes", async () => {
+    const fetchMock = vi.fn(
+      async () => new Response(HTML_MATCHING_PSEUDO_SELECTOR_RESULTS, { status: 200 }),
+    )
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 91,
+      name: "HTML Pseudo Tail Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "html-pseudo-tail-cardigann",
+      definitionYaml: `
+id: html-pseudo-tail-cardigann
+name: HTML Pseudo Tail Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+      newznab: 2000
+  modes:
+    search: [q]
+search:
+  paths:
+    - path: /browse
+      response:
+        type: html
+  rows:
+    selector: tr:is(.primary, .featured)[data-status="alive"].torrent
+  fields:
+    title:
+      selector: a:is(.primary-title, .fallback-title).title
+    details:
+      selector: a:is(.primary-title, .fallback-title).title
+      attribute: href
+    download:
+      selector: a:matches(.magnet-link).download
+      attribute: href
+    category:
+      selector: span:where(.hd, .uhd).category
+`,
+      baseUrl: "https://tracker.example",
+      apiKey: "",
+      priority: 37,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Grouping Pseudo Movie", type: "general", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "Grouping Pseudo Movie 2026 1080p WEB-DL",
+      infoUrl: "https://tracker.example/details/grouping-pseudo",
+      downloadUrl: "https://tracker.example/download/grouping-pseudo",
+      category: "2000",
+    })
+  })
+
   it("applies Cardigann HTML positional selector filters", async () => {
     const fetchMock = vi.fn(
       async () => new Response(HTML_SELECTOR_POSITION_RESULTS, { status: 200 }),
