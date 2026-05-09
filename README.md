@@ -90,7 +90,7 @@ users to keep Prowlarr installed upstream.
 Current foundation:
 
 - Generic first-party Torznab/Newznab and small curated Cardigann-style YAML definition records are seeded at startup.
-- Indexer records can carry definition keys, tags, search/RSS enable flags, minimum-seeder filters, query cooldowns, and optional proxy links; Cardigann-style definitions now have first-pass GET/XML search execution.
+- Indexer records can carry definition keys, tags, search/RSS enable flags, minimum-seeder filters, query cooldowns, and optional proxy links; Cardigann-style definitions now have first-pass GET/POST XML search execution.
 - HTTP/SOCKS/FlareSolverr proxy configuration is persisted and applied to outbound Torznab/Newznab requests; indexer search statistics, first-pass search health/backoff state, and version-aware built-in definition refresh are persisted.
 - URL-backed Cardigann definition source records can fetch remote YAML, persist the raw source, record SHA-256 provenance with optional checksum pinning, make refreshed definitions available to definition-keyed indexers, and refresh enabled sources from the scheduler.
 - External clients can query aggregate XML feeds with an ARR Hub API key:
@@ -112,7 +112,7 @@ ARR Hub is not yet a full Sonarr/Radarr/Prowlarr replacement. TV metadata,
 completed-download imports, release decisions, and operator workflows have
 working first-pass implementations, but they still lack the full depth of the
 mature Arr apps. Prowlarr replacement is underway, but ARR Hub still does not
-ship a broad tracker catalogue, full Cardigann request runtime, or trusted
+ship a broad tracker catalogue, full Cardigann selector/login runtime, or trusted
 remote definition catalogue pipeline beyond checksum-pinned sources.
 
 ## API Compatibility
