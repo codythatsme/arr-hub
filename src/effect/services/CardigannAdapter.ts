@@ -1411,6 +1411,40 @@ function simpleSelectorTokens(selector: string): ReadonlyArray<string> {
   return tokens
 }
 
+function splitHtmlSelectorList(selector: string): ReadonlyArray<string> {
+  const selectors: Array<string> = []
+  let current = ""
+  let bracketDepth = 0
+  let parenDepth = 0
+  let quote: string | null = null
+
+  for (const char of selector.trim()) {
+    if ((char === `"` || char === `'`) && (bracketDepth > 0 || parenDepth > 0)) {
+      quote = quote === char ? null : (quote ?? char)
+    } else if (quote === null && char === "[") {
+      bracketDepth += 1
+    } else if (quote === null && char === "]") {
+      bracketDepth = Math.max(0, bracketDepth - 1)
+    } else if (quote === null && char === "(") {
+      parenDepth += 1
+    } else if (quote === null && char === ")") {
+      parenDepth = Math.max(0, parenDepth - 1)
+    }
+
+    if (quote === null && bracketDepth === 0 && parenDepth === 0 && char === ",") {
+      const selected = current.trim()
+      if (selected.length > 0) selectors.push(selected)
+      current = ""
+    } else {
+      current += char
+    }
+  }
+
+  const selected = current.trim()
+  if (selected.length > 0) selectors.push(selected)
+  return selectors
+}
+
 function htmlSelectorFilterStart(text: string): number {
   let bracketDepth = 0
   let quote: string | null = null
@@ -1648,7 +1682,28 @@ function findHtmlElementsForToken(
   return applyHtmlPositionalSelectorFilters(matches, selector.filters)
 }
 
-function findHtmlElements(html: string, selectorText: string): ReadonlyArray<HtmlElementMatch> {
+function uniqueHtmlElementMatches(
+  matches: ReadonlyArray<HtmlElementMatch>,
+): ReadonlyArray<HtmlElementMatch> {
+  const seen = new Set<string>()
+  const unique: Array<HtmlElementMatch> = []
+  for (const match of matches) {
+    const key = `${match.sourceIndex ?? -1}:${match.outerHtml}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    unique.push(match)
+  }
+  return unique
+}
+
+function htmlElementSourceIndex(match: HtmlElementMatch): number {
+  return match.sourceIndex ?? Number.MAX_SAFE_INTEGER
+}
+
+function findHtmlElementsForSelector(
+  html: string,
+  selectorText: string,
+): ReadonlyArray<HtmlElementMatch> {
   const tokens = simpleSelectorTokens(selectorText)
   if (tokens.length === 0) return []
 
@@ -1662,6 +1717,18 @@ function findHtmlElements(html: string, selectorText: string): ReadonlyArray<Htm
     if (matches.length === 0) return []
   }
   return matches
+}
+
+function findHtmlElements(html: string, selectorText: string): ReadonlyArray<HtmlElementMatch> {
+  const selectors = splitHtmlSelectorList(selectorText)
+  if (selectors.length === 0) return []
+  if (selectors.length === 1) return findHtmlElementsForSelector(html, selectors[0] ?? "")
+
+  return uniqueHtmlElementMatches(
+    selectors
+      .flatMap((selector) => findHtmlElementsForSelector(html, selector))
+      .toSorted((left, right) => htmlElementSourceIndex(left) - htmlElementSourceIndex(right)),
+  )
 }
 
 function mergeHtmlRows(
@@ -1843,6 +1910,11 @@ function removeHtmlElements(html: string, selectorText: string): string {
 }
 
 function htmlElementSelfMatches(element: HtmlElementMatch, selectorText: string): boolean {
+  const selectors = splitHtmlSelectorList(selectorText)
+  if (selectors.length > 1) {
+    return selectors.some((selector) => htmlElementSelfMatches(element, selector))
+  }
+
   const tokens = simpleSelectorTokens(selectorText)
   if (tokens.length !== 1) return false
 

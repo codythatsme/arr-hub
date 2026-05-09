@@ -326,6 +326,24 @@ const HTML_SELECTOR_POSITION_RESULTS = `<!doctype html>
   </body>
 </html>`
 
+const HTML_SELECTOR_LIST_RESULTS = `<!doctype html>
+<html>
+  <body>
+    <table>
+      <tbody>
+        <tr class="release">
+          <td><span class="title">Comma First Movie 2026 1080p WEB-DL</span></td>
+          <td><a class="download" href="/download/comma-first">Download</a></td>
+        </tr>
+        <tr class="torrent">
+          <td><a class="title">Comma Second Movie 2026 720p WEB-DL</a></td>
+          <td><a class="magnet" href="magnet:?xt=urn:btih:abcdefabcdefabcd&dn=Comma+Second">Magnet</a></td>
+        </tr>
+      </tbody>
+    </table>
+  </body>
+</html>`
+
 const HTML_NESTED_RESULTS = `<!doctype html>
 <html>
   <body>
@@ -2009,6 +2027,67 @@ search:
       downloadUrl: "https://tracker.example/download/position-final",
       category: "2000",
     })
+  })
+
+  it("resolves Cardigann HTML selector lists in document order", async () => {
+    const fetchMock = vi.fn(async () => new Response(HTML_SELECTOR_LIST_RESULTS, { status: 200 }))
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 71,
+      name: "HTML Selector List Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "html-selector-list-cardigann",
+      definitionYaml: `
+id: html-selector-list-cardigann
+name: HTML Selector List Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+      newznab: 2000
+  modes:
+    search: [q]
+search:
+  paths:
+    - path: /browse
+      response:
+        type: html
+  rows:
+    selector: tr.torrent, tr.release
+  fields:
+    title:
+      selector: a.title, span.title
+    download:
+      selector: a.magnet, a.download
+      attribute: href
+    category:
+      text: Movies
+`,
+      baseUrl: "https://tracker.example",
+      apiKey: "",
+      priority: 35,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Comma", type: "general", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(releases).toHaveLength(2)
+    expect(releases.map((release) => release.title)).toEqual([
+      "Comma First Movie 2026 1080p WEB-DL",
+      "Comma Second Movie 2026 720p WEB-DL",
+    ])
+    expect(releases.map((release) => release.downloadUrl)).toEqual([
+      "https://tracker.example/download/comma-first",
+      "magnet:?xt=urn:btih:abcdefabcdefabcd&dn=Comma+Second",
+    ])
   })
 
   it("resolves nested Cardigann HTML descendant selectors within their parent matches", async () => {
