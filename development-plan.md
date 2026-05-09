@@ -22,7 +22,7 @@ Primary blockers:
 
 - The operator UI now exposes the existing backend workflows and has persisted browser smoke coverage, but deeper workflows still depend on backend work listed below.
 - The metadata lifecycle is now functional for TMDB-backed movie/TV adds, Sonarr episode import, refresh jobs, and calendar population, but still lacks Sonarr/Radarr-depth alternate titles, ratings, local artwork cache, availability semantics, and TVDB/SkyHook parity.
-- Completed download handling is not a real media import pipeline. It mostly marks rows as available; it does not inspect, move, hardlink, rename, validate, or import files.
+- Completed download handling now has a first real import path that resolves completed output paths, selects media files, filters samples, renames, and copy/move/hardlinks into library folders. It still lacks remote path mappings, manual import, library rescan, rename preview/action, and deeper Sonarr/Radarr import rejection rules.
 - The release decision engine is far smaller than Sonarr/Radarr. It lacks many required rejection rules, blocklist enforcement, size/age/retention/free-space checks, language/release profiles, proper title matching, and TV/anime edge cases.
 - Prowlarr replacement scope is mostly absent. The app only consumes Torznab/Newznab endpoints; it does not manage a Prowlarr-scale indexer catalogue, Cardigann definitions, indexer proxies, stats, app sync, or external Torznab/Newznab proxy endpoints.
 - Download client coverage is narrow: qBittorrent and SABnzbd only.
@@ -33,7 +33,7 @@ Primary blockers:
 Commands run from `/Users/codythatsme/Developer/arr-hub`:
 
 - `bun run typecheck`: passed.
-- `bun run test`: passed, 32 test files plus 1 skipped live suite, 292 passed and 4 skipped tests.
+- `bun run test`: passed, 33 test files plus 1 skipped live suite, 296 passed and 4 skipped tests.
 - `bun run test:e2e`: passed, 1 Chromium smoke test covering onboarding, settings, add movie, add TV from metadata, manual search display, calendar population, and queue page.
 - `bun run lint`: passed with warnings and 0 errors.
 - `bun run build`: passed with chunk-size and external dependency warnings.
@@ -60,8 +60,10 @@ Completed in atomic commits after this plan was written:
 - `0438ca577f` imported Sonarr episodes, files, monitored flags, air dates, and existing quality data.
 - `6cb918f655` added movie and series metadata refresh jobs plus scheduler integration.
 - `bf7597a151` added a calendar UI populated from real monitored episode air dates.
+- `42142ccd4f` persisted completed download output paths from qBittorrent/SABnzbd into queue rows.
+- `a99bda9144` added `MediaImportService`, movie/episode import file operations, and monitor-driven completed download imports.
 
-Milestones 1 and 2 are complete against the current backend surface. Later milestones remain open and are still required before ARR Hub can honestly claim Sonarr/Radarr/Prowlarr replacement-grade behavior.
+Milestones 1 and 2 are complete against the current backend surface. Milestone 3 now has its backend import foundation, but remains open until remote path mapping, manual import, rescan, and rename workflows are implemented. Later milestones remain open and are still required before ARR Hub can honestly claim Sonarr/Radarr/Prowlarr replacement-grade behavior.
 
 ## Current Functionality Inventory
 
@@ -72,10 +74,11 @@ Backend/service surfaces:
 - `src/effect/services/SeriesService.ts`: CRUD/list/local lookup, season/episode monitor toggles, and monitored episode calendar queries.
 - `src/effect/services/TmdbClient.ts`: movie TMDB search/details/popular/trending plus TV search/details/season hydration.
 - `src/effect/services/IndexerService.ts` and `src/effect/services/TorznabAdapter.ts`: Torznab/Newznab connection testing and search.
-- `src/effect/services/DownloadClientService.ts`, `QBittorrentAdapter.ts`, `SABnzbdAdapter.ts`: add/list/test/grab/queue/remove downloads for qBittorrent and SABnzbd.
+- `src/effect/services/DownloadClientService.ts`, `QBittorrentAdapter.ts`, `SABnzbdAdapter.ts`: add/list/test/grab/queue/remove downloads for qBittorrent and SABnzbd, including persisted completed output paths.
 - `src/effect/services/ReleasePolicyEngine.ts`: parses titles, checks allowed quality, custom format score, and basic upgrade scoring.
 - `src/effect/services/AcquisitionPipeline.ts`: movie search/evaluate/grab, episode search/evaluate/grab, season pack first search, series search.
-- `src/effect/services/DownloadMonitor.ts`: polls download clients, updates queue rows, marks linked media available on completion, triggers Plex library refresh.
+- `src/effect/services/MediaImportService.ts`: imports completed movie and episode files from downloader output paths, filters samples, applies copy/move/hardlink settings, builds target names, stores real file paths and quality state.
+- `src/effect/services/DownloadMonitor.ts`: polls download clients, updates queue rows, calls media import for completed linked downloads, leaves failed imports visible in queue, triggers Plex library refresh.
 - `src/effect/services/MediaServerService.ts` and `PlexAdapter.ts`: Plex connection, libraries, library sync matching, refresh, active sessions, shared users.
 - `src/effect/services/PlexSessionMonitor.ts`: active stream monitoring and notification trigger emission.
 - `src/effect/services/NotificationService.ts`: in-app and webhook notification channels.
@@ -190,38 +193,40 @@ Acceptance criteria:
 
 Current state:
 
-- `DownloadMonitor.checkCompletions` marks linked movies/episodes as `hasFile=true` when a queue item is completed.
-- It does not inspect downloaded files, move/copy/hardlink media, rename files, select the right file, detect samples, check free space, or set real quality names.
-- Settings include `media.namingConvention` and `media.fileHandling`, but no file pipeline consumes them.
+- `DownloadMonitor.checkCompletions` now calls `MediaImportService` for completed queue items linked to movies or episodes.
+- qBittorrent and SABnzbd adapters now persist completed output paths into `download_queue.output_path`.
+- `MediaImportService` inspects downloaded files, filters sample files, chooses the largest movie file, matches simple episode files by season/episode, copy/move/hardlinks into root folders, applies movie naming settings, writes real `filePath` values, and stores imported quality state.
+- Failed imports are left in the queue with a visible error instead of being deleted.
 - `RootFolderService` records paths and best-effort disk space only.
 
 Gap:
 
-- This is the largest gap versus Sonarr/Radarr. A replacement must own the completed download import pipeline.
+- This remains one of the largest gaps versus Sonarr/Radarr. ARR Hub now has a basic completed download import foundation, but it does not yet have remote path mappings, free-space checks, full import decision parity, manual import, rescan, or rename workflows.
 
 Tasks:
 
-- Create a `MediaImportService` or equivalent with movie and episode import paths.
+- [x] Create a `MediaImportService` or equivalent with movie and episode import paths.
 - Use vendor references:
   - `vendor/radarr/src/NzbDrone.Core/MediaFiles/MovieImport`
   - `vendor/sonarr/src/NzbDrone.Core/MediaFiles/EpisodeImport`
   - `vendor/radarr/src/NzbDrone.Core/Organizer`
   - `vendor/sonarr/src/NzbDrone.Core/Organizer`
 - Implement completed download import:
-  - Resolve download client output path.
-  - Apply remote path mappings.
-  - Wait for unpacking/repair/post-processing to finish.
-  - Enumerate files and filter samples/extras.
-  - Parse title and match against grabbed media.
-  - Reject wrong movie/show/episode, wrong season, split/multi-episode mismatches, low quality, and bad upgrades.
-  - Move/copy/hardlink into root folder.
-  - Build final file name from naming settings.
-  - Store `filePath`, quality, size, import date, and media info.
-  - Trigger media server library refresh with the imported file/folder path.
-- Add manual import workflow.
-- Add rescan existing library workflow.
-- Add rename preview and rename action.
-- Add recycle bin/delete behavior or document explicit non-support.
+  - [x] Resolve download client output path.
+  - [ ] Apply remote path mappings.
+  - [ ] Wait for unpacking/repair/post-processing to finish beyond downloader status normalization.
+  - [x] Enumerate files and filter samples/extras.
+  - [x] Parse title and match against grabbed media for basic movie and episode imports.
+  - [ ] Reject wrong movie/show/episode, wrong season, split/multi-episode mismatches, low quality, and bad upgrades with Sonarr/Radarr-grade reasons.
+  - [x] Move/copy/hardlink into root folder.
+  - [x] Build final file name from naming settings for movies and deterministic TV episode naming.
+  - [x] Store `filePath`, quality, and media info.
+  - [ ] Store file size/import date in dedicated media file records.
+  - [x] Trigger media server library refresh after successful import.
+- [ ] Add manual import workflow.
+- [ ] Add rescan existing library workflow.
+- [ ] Add rename preview and rename action.
+- [ ] Add recycle bin/delete behavior or document explicit non-support.
 
 Acceptance criteria:
 
@@ -640,15 +645,19 @@ Goal: stop faking imports.
 
 Tasks:
 
-1. Add media file model and import service.
-2. Add remote path mappings.
-3. Implement qBittorrent/SAB completed path resolution.
-4. Implement movie import and episode import decisions.
-5. Implement move/copy/hardlink and naming config.
-6. Add manual import UI.
+1. [ ] Add dedicated media file model for size/import date/media info history.
+2. [x] Add import service.
+3. [ ] Add remote path mappings.
+4. [x] Implement qBittorrent/SAB completed path resolution.
+5. [x] Implement basic movie import and episode import decisions.
+6. [x] Implement move/copy/hardlink and naming config.
+7. [ ] Add manual import UI.
+8. [ ] Add library rescan workflow.
+9. [ ] Add rename preview and rename action.
 
 Acceptance:
 
+- Unit coverage verifies copy, move, hardlink, sample filtering, episode matching, and missing output path failures.
 - Live qBittorrent/SAB smoke tests can download a fixture file and import it into a media root.
 - The database records real file paths and quality.
 
