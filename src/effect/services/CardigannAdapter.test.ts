@@ -2101,6 +2101,8 @@ search:
       attribute: href
     size:
       selector: td.size
+    downloadvolumefactor:
+      text: "0"
     uploadvolumefactor:
       selector: td.name
       case:
@@ -2128,6 +2130,7 @@ search:
       infoUrl: "https://tracker.example/details/4",
       size: 4_000_000_000,
       category: "2000",
+      downloadFactor: 0,
       uploadFactor: 2,
     })
   })

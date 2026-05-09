@@ -1981,6 +1981,14 @@ function releaseCategory(definition: CardigannRuntimeDefinition, trackerCategory
   return mapping ? String(mapping.newznabCategory) : trimmed
 }
 
+function numberFieldOrDefault(value: string, defaultValue: number): number {
+  const trimmed = value.trim()
+  if (trimmed.length === 0) return defaultValue
+
+  const parsed = Number(trimmed)
+  return Number.isFinite(parsed) ? parsed : defaultValue
+}
+
 function releaseFromResultFields(
   resultFields: Readonly<Record<string, string>>,
   dateValue: string,
@@ -2018,8 +2026,8 @@ function releaseFromResultFields(
     protocol: definition.protocol,
     publishedAt,
     infohash: fieldByName(resultFields, ["infohash"]).trim() || null,
-    downloadFactor: Number(fieldByName(resultFields, ["downloadvolumefactor"])) || 1,
-    uploadFactor: Number(fieldByName(resultFields, ["uploadvolumefactor"])) || 1,
+    downloadFactor: numberFieldOrDefault(fieldByName(resultFields, ["downloadvolumefactor"]), 1),
+    uploadFactor: numberFieldOrDefault(fieldByName(resultFields, ["uploadvolumefactor"]), 1),
   }
 }
 
