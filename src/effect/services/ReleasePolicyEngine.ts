@@ -2,7 +2,15 @@ import { SqlError } from "@effect/sql/SqlError"
 import { and, eq } from "drizzle-orm"
 import { Context, Effect, Layer } from "effect"
 
-import { customFormatSpecs, releaseBlocklist, releaseDecisions } from "#/db/schema"
+import {
+  customFormatSpecs,
+  episodes,
+  movies,
+  releaseBlocklist,
+  releaseDecisions,
+  seasons,
+  series,
+} from "#/db/schema"
 import type { ReleaseCandidate } from "#/effect/domain/indexer"
 import type { QualityName, SpecField } from "#/effect/domain/quality"
 import type {
@@ -17,6 +25,7 @@ import { NotFoundError } from "#/effect/errors"
 
 import { Db } from "./Db"
 import { ProfileService, type ProfileWithDetails } from "./ProfileService"
+import { evaluateReleaseSpecifications, type ReleaseTarget } from "./releasePolicy/specifications"
 import { TitleParserService } from "./TitleParserService"
 
 // ── Quality helpers (module-scope — no closure needed) ──
@@ -118,6 +127,58 @@ function blocklistMatch(
   )
 }
 
+function loadReleaseTarget(
+  db: Context.Tag.Service<typeof Db>,
+  context: EvaluationContext,
+): Effect.Effect<ReleaseTarget | null, SqlError> {
+  if (context.mediaType === "movie") {
+    return Effect.gen(function* () {
+      const rows = yield* db
+        .select({ title: movies.title, year: movies.year })
+        .from(movies)
+        .where(eq(movies.id, context.mediaId))
+        .limit(1)
+      const row = rows[0]
+      return row
+        ? { title: row.title, year: row.year, seasonNumber: null, episodeNumber: null }
+        : null
+    })
+  }
+
+  if (context.mediaType === "episode") {
+    return Effect.gen(function* () {
+      const rows = yield* db
+        .select({
+          title: series.title,
+          year: series.year,
+          seasonNumber: seasons.seasonNumber,
+          episodeNumber: episodes.episodeNumber,
+        })
+        .from(episodes)
+        .innerJoin(seasons, eq(episodes.seasonId, seasons.id))
+        .innerJoin(series, eq(seasons.seriesId, series.id))
+        .where(eq(episodes.id, context.mediaId))
+        .limit(1)
+      return rows[0] ?? null
+    })
+  }
+
+  return Effect.gen(function* () {
+    const rows = yield* db
+      .select({
+        title: series.title,
+        year: series.year,
+        seasonNumber: seasons.seasonNumber,
+      })
+      .from(seasons)
+      .innerJoin(series, eq(seasons.seriesId, series.id))
+      .where(eq(seasons.id, context.mediaId))
+      .limit(1)
+    const row = rows[0]
+    return row ? { ...row, episodeNumber: null } : null
+  })
+}
+
 // ── Service ──
 
 export class ReleasePolicyEngine extends Context.Tag("@arr-hub/ReleasePolicyEngine")<
@@ -151,6 +212,7 @@ export const ReleasePolicyEngineLive = Layer.effect(
         Effect.gen(function* () {
           // 1. Load profile
           const profile = yield* profileService.getById(profileId)
+          const target = yield* loadReleaseTarget(db, context)
           const blockedRows = yield* db
             .select()
             .from(releaseBlocklist)
@@ -228,6 +290,24 @@ export const ReleasePolicyEngineLive = Layer.effect(
               continue
             }
             const parsed = parseResult.right
+
+            const specificationReasons = evaluateReleaseSpecifications({
+              candidate,
+              parsed,
+              evaluation: context,
+              target,
+            })
+            if (specificationReasons.length > 0) {
+              decisions.push({
+                candidate,
+                parsed,
+                qualityRank: null,
+                formatScore: 0,
+                decision: "rejected",
+                reasons: specificationReasons,
+              })
+              continue
+            }
 
             // 3. Filter — quality name
             if (parsed.qualityName === null) {

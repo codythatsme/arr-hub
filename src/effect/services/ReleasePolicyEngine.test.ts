@@ -1,7 +1,16 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Layer } from "effect"
 
-import { customFormats, customFormatSpecs, customFormatScores, releaseBlocklist } from "#/db/schema"
+import {
+  customFormats,
+  customFormatScores,
+  customFormatSpecs,
+  episodes,
+  movies,
+  releaseBlocklist,
+  seasons,
+  series,
+} from "#/db/schema"
 import type { ReleaseCandidate } from "#/effect/domain/indexer"
 import type { EvaluationContext, ExistingFile } from "#/effect/domain/release"
 import { TestDbLive } from "#/effect/test/TestDb"
@@ -111,6 +120,79 @@ describe("ReleasePolicyEngine", () => {
       expect(results[0].decision).toBe("rejected")
       expect(results[0].reasons[0].rule).toBe("blocklisted")
       expect(results[0].reasons[0].detail).toContain("hash-1")
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("rejects releases whose parsed movie title does not match the target", () =>
+    Effect.gen(function* () {
+      const profileId = yield* setupProfile()
+      const db = yield* Db
+      const [movie] = yield* db
+        .insert(movies)
+        .values({
+          tmdbId: 1001,
+          title: "Correct Movie",
+          year: 2024,
+          qualityProfileId: profileId,
+        })
+        .returning({ id: movies.id })
+
+      const engine = yield* ReleasePolicyEngine
+      const results = yield* engine.evaluate(
+        [makeCandidate({ title: "Wrong.Movie.2024.1080p.BluRay.x264-GRP" })],
+        profileId,
+        { mediaId: movie.id, mediaType: "movie" },
+      )
+
+      expect(results).toHaveLength(1)
+      expect(results[0].decision).toBe("rejected")
+      expect(results[0].reasons[0].rule).toBe("title_mismatch")
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("rejects releases for the wrong episode number", () =>
+    Effect.gen(function* () {
+      const profileId = yield* setupProfile()
+      const db = yield* Db
+      const [show] = yield* db
+        .insert(series)
+        .values({ tvdbId: 2001, title: "Test Show", qualityProfileId: profileId })
+        .returning({ id: series.id })
+      const [season] = yield* db
+        .insert(seasons)
+        .values({ seriesId: show.id, seasonNumber: 1 })
+        .returning({ id: seasons.id })
+      const [episode] = yield* db
+        .insert(episodes)
+        .values({ seasonId: season.id, tvdbId: 2101, title: "Pilot", episodeNumber: 1 })
+        .returning({ id: episodes.id })
+
+      const engine = yield* ReleasePolicyEngine
+      const results = yield* engine.evaluate(
+        [makeCandidate({ title: "Test.Show.S01E02.1080p.WEB-DL.x264-GRP" })],
+        profileId,
+        { mediaId: episode.id, mediaType: "episode" },
+      )
+
+      expect(results).toHaveLength(1)
+      expect(results[0].decision).toBe("rejected")
+      expect(results[0].reasons[0].rule).toBe("episode_mismatch")
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("rejects torrent releases with no seeders", () =>
+    Effect.gen(function* () {
+      const profileId = yield* setupProfile()
+      const engine = yield* ReleasePolicyEngine
+      const results = yield* engine.evaluate(
+        [makeCandidate({ title: "Movie.2024.1080p.BluRay.x264-GRP", seeders: 0 })],
+        profileId,
+        baseContext,
+      )
+
+      expect(results).toHaveLength(1)
+      expect(results[0].decision).toBe("rejected")
+      expect(results[0].reasons[0].rule).toBe("torrent_no_seeders")
     }).pipe(Effect.provide(TestLayer)),
   )
 
