@@ -411,6 +411,18 @@ function relativeTimeDate(value: string, now: number = Date.now()): Date | null 
   return new Date(now + direction * milliseconds)
 }
 
+function unixTimeDate(value: string): Date | null {
+  const trimmed = value.trim()
+  if (!/^-?\d+(?:\.\d+)?$/.test(trimmed)) return null
+
+  const timestamp = Number(trimmed)
+  if (!Number.isFinite(timestamp)) return null
+
+  const milliseconds = Math.abs(timestamp) < 10_000_000_000 ? timestamp * 1_000 : timestamp
+  const date = new Date(milliseconds)
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
 const MONTH_BY_NAME: Readonly<Record<string, number>> = {
   apr: 4,
   april: 4,
@@ -1330,6 +1342,9 @@ function applyCardigannKeywordFilter(
     case "reltime":
     case "timeago":
       return relativeTimeDate(value)?.toUTCString() ?? value
+    case "timestamp":
+    case "unixtime":
+      return unixTimeDate(value)?.toUTCString() ?? value
     case "diacritics":
       return first === "replace" ? stripDiacritics(value) : value
     case "fuzzytime":

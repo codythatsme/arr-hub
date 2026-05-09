@@ -856,6 +856,319 @@ search:
       text: "1"
 `
 
+const TORRENT_DAY = `
+id: torrentday
+name: TorrentDay
+description: Private TV, movie, and general tracker exposed through a first-pass JSON Cardigann definition.
+type: private
+links:
+  - https://tday.love/
+version: builtin-cardigann-1
+rss: false
+tags:
+  - private
+  - general
+  - movies
+  - tv
+  - json
+settings:
+  - name: cookie
+    label: Cookie
+    type: cookie
+    required: true
+    helpText: TorrentDay browser session cookie.
+  - name: freeleechOnly
+    label: FreeLeech Only
+    type: checkbox
+    required: false
+    default: false
+    helpText: Search freeleech torrents only.
+caps:
+  categorymappings:
+    - id: "25"
+      cat: Movies/SD
+      desc: Movies/480p
+      newznab: 2030
+      default: true
+    - id: "96"
+      cat: Movies/UHD
+      desc: Movie/4K
+      newznab: 2045
+      default: true
+    - id: "11"
+      cat: Movies/BluRay
+      desc: Movies/Bluray
+      newznab: 2050
+      default: true
+    - id: "5"
+      cat: Movies/BluRay
+      desc: Movies/Bluray-Full
+      newznab: 2050
+      default: true
+    - id: "103"
+      cat: Movies/SD
+      desc: Movies/Cam
+      newznab: 2030
+      default: true
+    - id: "3"
+      cat: Movies/DVD
+      desc: Movies/DVD-R
+      newznab: 2070
+      default: true
+    - id: "21"
+      cat: Movies/SD
+      desc: Movies/MP4
+      newznab: 2030
+      default: true
+    - id: "22"
+      cat: Movies/Foreign
+      desc: Movies/Non-English
+      newznab: 2010
+      default: true
+    - id: "13"
+      cat: Movies
+      desc: Movies/Packs
+      newznab: 2000
+      default: true
+    - id: "44"
+      cat: Movies/SD
+      desc: Movies/SD/x264
+      newznab: 2030
+      default: true
+    - id: "48"
+      cat: Movies
+      desc: Movies/x265
+      newznab: 2000
+      default: true
+    - id: "1"
+      cat: Movies/SD
+      desc: Movies/XviD
+      newznab: 2030
+      default: true
+    - id: "24"
+      cat: TV/SD
+      desc: TV/480p
+      newznab: 5030
+      default: true
+    - id: "104"
+      cat: TV/UHD
+      desc: TV/4K
+      newznab: 5045
+      default: true
+    - id: "32"
+      cat: TV/HD
+      desc: TV/Bluray
+      newznab: 5040
+      default: true
+    - id: "31"
+      cat: TV/SD
+      desc: TV/DVD-R
+      newznab: 5030
+      default: true
+    - id: "33"
+      cat: TV/SD
+      desc: TV/DVD-Rip
+      newznab: 5030
+      default: true
+    - id: "46"
+      cat: TV/SD
+      desc: TV/Mobile
+      newznab: 5030
+      default: true
+    - id: "82"
+      cat: TV/Foreign
+      desc: TV/Non-English
+      newznab: 5020
+      default: true
+    - id: "14"
+      cat: TV
+      desc: TV/Packs
+      newznab: 5000
+      default: true
+    - id: "26"
+      cat: TV/SD
+      desc: TV/SD/x264
+      newznab: 5030
+      default: true
+    - id: "7"
+      cat: TV/HD
+      desc: TV/x264
+      newznab: 5040
+      default: true
+    - id: "34"
+      cat: TV/HD
+      desc: TV/x265
+      newznab: 5040
+      default: true
+    - id: "2"
+      cat: TV/SD
+      desc: TV/XviD
+      newznab: 5030
+      default: true
+    - id: "10"
+      cat: Console/NDS
+      desc: Nintendo
+      newznab: 1010
+      default: true
+    - id: "4"
+      cat: PC/Games
+      desc: PC/Games
+      newznab: 4050
+      default: true
+    - id: "18"
+      cat: Console/PS3
+      desc: PS
+      newznab: 1080
+      default: true
+    - id: "8"
+      cat: Console/PSP
+      desc: PSP
+      newznab: 1020
+      default: true
+    - id: "9"
+      cat: Console/Xbox
+      desc: Xbox
+      newznab: 1040
+      default: true
+    - id: "17"
+      cat: Audio/MP3
+      desc: Music/Audio
+      newznab: 3010
+      default: true
+    - id: "27"
+      cat: Audio/Lossless
+      desc: Music/Flac
+      newznab: 3040
+      default: true
+    - id: "23"
+      cat: Audio/Foreign
+      desc: Music/Non-English
+      newznab: 3060
+      default: true
+    - id: "41"
+      cat: Audio
+      desc: Music/Packs
+      newznab: 3000
+      default: true
+    - id: "16"
+      cat: Audio/Video
+      desc: Music/Video
+      newznab: 3020
+      default: true
+    - id: "29"
+      cat: TV/Anime
+      desc: Anime
+      newznab: 5070
+      default: true
+    - id: "42"
+      cat: Audio/Audiobook
+      desc: Audio Books
+      newznab: 3030
+      default: true
+    - id: "20"
+      cat: Books
+      desc: Books
+      newznab: 7000
+      default: true
+    - id: "102"
+      cat: Books/Foreign
+      desc: Books/Non-English
+      newznab: 7060
+      default: true
+    - id: "30"
+      cat: TV/Documentary
+      desc: Documentary
+      newznab: 5080
+      default: true
+    - id: "95"
+      cat: TV/Documentary
+      desc: Educational
+      newznab: 5080
+      default: true
+    - id: "47"
+      cat: Other
+      desc: Fonts
+      newznab: 8000
+      default: true
+    - id: "43"
+      cat: PC/Mac
+      desc: Mac
+      newznab: 4030
+      default: true
+    - id: "45"
+      cat: Audio/Other
+      desc: Podcast
+      newznab: 3050
+      default: true
+    - id: "28"
+      cat: PC
+      desc: Softwa/Packs
+      newznab: 4000
+      default: true
+    - id: "12"
+      cat: PC
+      desc: Software
+      newznab: 4000
+      default: true
+    - id: "19"
+      cat: XXX
+      desc: XXX/0Day
+      newznab: 6000
+      default: true
+    - id: "6"
+      cat: XXX
+      desc: XXX/Movies
+      newznab: 6000
+      default: true
+    - id: "15"
+      cat: XXX/Pack
+      desc: XXX/Packs
+      newznab: 6050
+      default: true
+  modes:
+    search: [q]
+    movie-search: [q, imdbid]
+    tv-search: [q, season, ep, imdbid]
+login:
+  method: cookie
+  inputs:
+    cookie: "{{ .Config.Cookie }}"
+search:
+  paths:
+    - path: 't.json?{{ .Categories | join ";" }}{{ if .Config.FreeleechOnly }};free{{ end }};q={{ if .Query.IMDBID }}{{ .Query.IMDBID | urlencode }}%20{{ end }}{{ .Keywords | urlencode }}'
+      response:
+        type: json
+  rows:
+    selector: $.*
+    missingAttributeEqualsNoResults: true
+  fields:
+    id:
+      selector: t
+    title:
+      selector: name
+    details:
+      text: details.php?id={{ .Result.id }}
+    download:
+      text: download.php/{{ .Result.id }}/{{ .Result.id }}.torrent
+    category:
+      selector: c
+    size:
+      selector: size
+    seeders:
+      selector: seeders
+    leechers:
+      selector: leechers
+    date:
+      selector: ctime
+      filters:
+        - name: unixtime
+    downloadvolumefactor:
+      selector: '["download-multiplier"]'
+      default: "1"
+    uploadvolumefactor:
+      text: "1"
+`
+
 const MORE_THAN_TV = `
 id: morethantv
 name: MoreThanTV
@@ -1058,6 +1371,7 @@ const BUILT_IN_CARDIGANN_SOURCES = [
   SUBSPLEASE,
   TORRENTS_CSV,
   KNABEN,
+  TORRENT_DAY,
   MORE_THAN_TV,
   HDACCESS,
   TORRENT_NETWORK,

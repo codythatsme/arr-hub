@@ -83,6 +83,7 @@ caps:
       "subsplease",
       "torrents-csv",
       "knaben",
+      "torrentday",
       "morethantv",
       "hdaccess",
       "torrent-network",
@@ -176,6 +177,32 @@ caps:
           { id: 5070, name: "Anime" },
           { id: 7020, name: "EBooks" },
           { id: 8000, name: "Other" },
+        ]),
+      },
+    })
+    expect(
+      BUILT_IN_CARDIGANN_DEFINITIONS.find(
+        (definition) => definition.definitionKey === "torrentday",
+      ),
+    ).toMatchObject({
+      displayName: "TorrentDay",
+      baseUrl: "https://tday.love/",
+      privacy: "private",
+      supportsRss: false,
+      supportsSearch: true,
+      tags: ["private", "general", "movies", "tv", "json"],
+      authFields: expect.arrayContaining([
+        expect.objectContaining({ name: "cookie", type: "cookie", required: true }),
+        expect.objectContaining({ name: "freeleechOnly", type: "checkbox", defaultValue: "false" }),
+      ]),
+      capabilities: {
+        searchTypes: ["search", "movie", "tvsearch"],
+        categories: expect.arrayContaining([
+          { id: 2050, name: "Movies/Bluray" },
+          { id: 5040, name: "TV/x264" },
+          { id: 5070, name: "Anime" },
+          { id: 3030, name: "Audio Books" },
+          { id: 6050, name: "XXX/Packs" },
         ]),
       },
     })

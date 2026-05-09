@@ -91,6 +91,22 @@ const KNABEN_JSON_RESULTS = JSON.stringify({
   ],
 })
 
+const TORRENT_DAY_JSON_RESULTS = JSON.stringify([
+  {
+    name: "Example Movie 2026 1080p WEB-DL",
+    t: 12345,
+    c: 11,
+    size: 2_500_000_000,
+    files: 4,
+    completed: 12,
+    seeders: 24,
+    leechers: 6,
+    "imdb-id": "tt1234567",
+    "download-multiplier": 0,
+    ctime: 1_778_320_800,
+  },
+])
+
 const JSON_SELECTOR_FILTER_RESULTS = JSON.stringify({
   data: {
     results: [
@@ -2257,6 +2273,61 @@ search:
       indexerId: 90,
       indexerName: "Knaben",
       indexerPriority: 26,
+      downloadFactor: 0,
+      uploadFactor: 1,
+    })
+    expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-09T10:00:00.000Z")
+  })
+
+  it("parses TorrentDay JSON results with cookie auth and Unix timestamps", async () => {
+    const requests: Array<{ url: string; init: RequestInit | undefined }> = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      requests.push({ url: String(input), init })
+      return new Response(TORRENT_DAY_JSON_RESULTS, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 91,
+      name: "TorrentDay",
+      type: "cardigann_yaml",
+      definitionKey: "torrentday",
+      baseUrl: "https://tday.love/",
+      apiKey: "",
+      configValues: {
+        cookie: "uid=alice; pass=secret",
+        freeleechOnly: "true",
+      },
+      priority: 27,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({
+        term: "Example Movie",
+        type: "movie",
+        categories: [2050],
+        imdbId: "tt1234567",
+      }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const request = requests[0]
+    expect(request?.url).toBe("https://tday.love/t.json?11;5;free;q=tt1234567%20Example%20Movie")
+    expect(new Headers(request?.init?.headers).get("cookie")).toBe("uid=alice; pass=secret")
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "Example Movie 2026 1080p WEB-DL",
+      downloadUrl: "https://tday.love/download.php/12345/12345.torrent",
+      infoUrl: "https://tday.love/details.php?id=12345",
+      category: "2050",
+      size: 2_500_000_000,
+      seeders: 24,
+      leechers: 6,
+      indexerId: 91,
+      indexerName: "TorrentDay",
+      indexerPriority: 27,
       downloadFactor: 0,
       uploadFactor: 1,
     })
