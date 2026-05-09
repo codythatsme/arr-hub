@@ -300,6 +300,32 @@ const HTML_SELECTOR_PSEUDO_RESULTS = `<!doctype html>
   </body>
 </html>`
 
+const HTML_SELECTOR_POSITION_RESULTS = `<!doctype html>
+<html>
+  <body>
+    <table>
+      <tbody>
+        <tr class="torrent">
+          <td><a class="title">Wrong Position Movie 2026 1080p WEB-DL</a></td>
+          <td><a class="download" href="/download/wrong-position">Download</a></td>
+          <td><span class="category">Movies</span></td>
+        </tr>
+        <tr class="torrent">
+          <td><a class="title">Position Movie 2026 1080p WEB-DL</a></td>
+          <td>
+            <a class="download" href="/download/position-mirror">Mirror</a>
+            <a class="download" href="/download/position-final">Download</a>
+          </td>
+          <td>
+            <span class="category">Movies</span>
+            <span class="category">Other</span>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </body>
+</html>`
+
 const HTML_NESTED_RESULTS = `<!doctype html>
 <html>
   <body>
@@ -1921,6 +1947,66 @@ search:
     expect(releases[0]).toMatchObject({
       title: "Wanted Movie 2026 1080p WEB-DL",
       downloadUrl: "https://tracker.example/download/wanted-pseudo",
+      category: "2000",
+    })
+  })
+
+  it("applies Cardigann HTML positional selector filters", async () => {
+    const fetchMock = vi.fn(
+      async () => new Response(HTML_SELECTOR_POSITION_RESULTS, { status: 200 }),
+    )
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 70,
+      name: "HTML Selector Position Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "html-selector-position-cardigann",
+      definitionYaml: `
+id: html-selector-position-cardigann
+name: HTML Selector Position Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+      newznab: 2000
+  modes:
+    search: [q]
+search:
+  paths:
+    - path: /browse
+      response:
+        type: html
+  rows:
+    selector: tr.torrent:eq(1)
+  fields:
+    title:
+      selector: a.title
+    download:
+      selector: a.download:last
+      attribute: href
+    category:
+      selector: span.category:first
+`,
+      baseUrl: "https://tracker.example",
+      apiKey: "",
+      priority: 35,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Position Movie", type: "general", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "Position Movie 2026 1080p WEB-DL",
+      downloadUrl: "https://tracker.example/download/position-final",
       category: "2000",
     })
   })

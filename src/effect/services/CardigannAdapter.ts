@@ -1052,6 +1052,55 @@ function parseJsonSelectorFilters(suffix: string): ReadonlyArray<JsonSelectorFil
   return filters
 }
 
+function parseHtmlSelectorFilters(suffix: string): ReadonlyArray<JsonSelectorFilter> | null {
+  const filters: Array<JsonSelectorFilter> = []
+  let index = 0
+
+  while (index < suffix.length) {
+    while (/\s/.test(suffix[index] ?? "")) index += 1
+    if (index >= suffix.length) break
+    if (suffix[index] !== ":") return null
+    index += 1
+
+    const nameStart = index
+    while (/[A-Za-z-]/.test(suffix[index] ?? "")) index += 1
+    const name = suffix.slice(nameStart, index).trim().toLowerCase()
+    if (name.length === 0) return null
+
+    while (/\s/.test(suffix[index] ?? "")) index += 1
+    if (suffix[index] !== "(") {
+      filters.push({ name, selector: "" })
+      continue
+    }
+    index += 1
+
+    const selectorStart = index
+    let depth = 1
+    let quote: string | null = null
+    while (index < suffix.length && depth > 0) {
+      const char = suffix[index] ?? ""
+      if (quote !== null) {
+        if (char === quote) quote = null
+      } else if (char === `"` || char === "'") {
+        quote = char
+      } else if (char === "(") {
+        depth += 1
+      } else if (char === ")") {
+        depth -= 1
+      }
+      index += 1
+    }
+    if (depth !== 0) return null
+
+    filters.push({
+      name,
+      selector: suffix.slice(selectorStart, index - 1).trim(),
+    })
+  }
+
+  return filters
+}
+
 function parseJsonSelector(selector: string): JsonSelector | null {
   const text = selector.trim()
   const filterStart = jsonSelectorFilterStart(text)
@@ -1387,7 +1436,7 @@ function parseSimpleHtmlSelectorToken(token: string): SimpleHtmlSelector | null 
 
   const filterStart = htmlSelectorFilterStart(token)
   const baseToken = filterStart < 0 ? token : token.slice(0, filterStart)
-  const filters = filterStart < 0 ? [] : parseJsonSelectorFilters(token.slice(filterStart))
+  const filters = filterStart < 0 ? [] : parseHtmlSelectorFilters(token.slice(filterStart))
   if (filters === null) return null
 
   const tagMatch = baseToken.match(/^[A-Za-z][\w:-]*/)
@@ -1486,11 +1535,69 @@ function htmlSelectorExists(element: HtmlElementMatch, selectorText: string): bo
   )
 }
 
+function isHtmlPositionalSelectorFilter(filter: JsonSelectorFilter): boolean {
+  return (
+    filter.name === "eq" ||
+    filter.name === "first" ||
+    filter.name === "last" ||
+    filter.name === "even" ||
+    filter.name === "odd" ||
+    filter.name === "gt" ||
+    filter.name === "lt"
+  )
+}
+
+function htmlSelectorPositionIndex(filter: JsonSelectorFilter, length: number): number | null {
+  if (filter.name === "first") return 0
+  if (filter.name === "last") return length - 1
+  if (filter.name !== "eq") return null
+
+  const index = Number.parseInt(filter.selector, 10)
+  if (!Number.isFinite(index)) return null
+  return index < 0 ? length + index : index
+}
+
+function applyHtmlPositionalSelectorFilters(
+  matches: ReadonlyArray<HtmlElementMatch>,
+  filters: ReadonlyArray<JsonSelectorFilter>,
+): ReadonlyArray<HtmlElementMatch> {
+  return filters.reduce((current, filter) => {
+    switch (filter.name) {
+      case "eq":
+      case "first":
+      case "last": {
+        const index = htmlSelectorPositionIndex(filter, current.length)
+        const match = index !== null ? current[index] : undefined
+        return match === undefined ? [] : [match]
+      }
+      case "even":
+        return current.filter((_, index) => index % 2 === 0)
+      case "odd":
+        return current.filter((_, index) => index % 2 === 1)
+      case "gt": {
+        const index = Number.parseInt(filter.selector, 10)
+        return Number.isFinite(index)
+          ? current.filter((_, itemIndex) => itemIndex > index)
+          : current
+      }
+      case "lt": {
+        const index = Number.parseInt(filter.selector, 10)
+        return Number.isFinite(index)
+          ? current.filter((_, itemIndex) => itemIndex < index)
+          : current
+      }
+      default:
+        return current
+    }
+  }, matches)
+}
+
 function htmlSelectorFiltersMatch(
   element: HtmlElementMatch,
   filters: ReadonlyArray<JsonSelectorFilter>,
 ): boolean {
   return filters.every((filter) => {
+    if (isHtmlPositionalSelectorFilter(filter)) return true
     switch (filter.name) {
       case "contains":
         return htmlTextContent(element.innerHtml).includes(
@@ -1538,7 +1645,7 @@ function findHtmlElementsForToken(
       matches.push(element)
     }
   }
-  return matches
+  return applyHtmlPositionalSelectorFilters(matches, selector.filters)
 }
 
 function findHtmlElements(html: string, selectorText: string): ReadonlyArray<HtmlElementMatch> {
@@ -1741,6 +1848,7 @@ function htmlElementSelfMatches(element: HtmlElementMatch, selectorText: string)
 
   const selector = parseSimpleHtmlSelectorToken(tokens[0] ?? "")
   if (selector === null) return false
+  if (selector.filters.some(isHtmlPositionalSelectorFilter)) return false
   if (selector.tag !== null && element.tagName !== selector.tag) return false
   return (
     htmlAttributeMatches(element.attributes, selector) &&
