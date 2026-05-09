@@ -253,6 +253,14 @@ function queryStringValue(value: string, key: string): string {
   return new URLSearchParams(query).get(trimmedKey) ?? ""
 }
 
+function urlDecode(value: string): string {
+  try {
+    return decodeURIComponent(value)
+  } catch {
+    return value
+  }
+}
+
 const HTML_ENTITIES: Readonly<Record<string, string>> = {
   amp: "&",
   apos: "'",
@@ -330,6 +338,9 @@ function applyTemplateFilter(
     case "urlencode":
     case "urlencodecomponent":
       return encodeURIComponent(text)
+    case "urldecode":
+    case "urldecodecomponent":
+      return urlDecode(text)
     default:
       return text
   }
@@ -525,12 +536,11 @@ function applyCardigannKeywordFilter(
     case "trim":
       return first ? trimCharacters(value, first) : value.trim()
     case "urldecode":
-      try {
-        return decodeURIComponent(value)
-      } catch {
-        return value
-      }
+    case "urldecodecomponent":
+      return urlDecode(value)
+    case "queryescape":
     case "urlencode":
+    case "urlencodecomponent":
       return encodeURIComponent(value)
     default:
       return value

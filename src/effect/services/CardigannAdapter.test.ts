@@ -240,10 +240,12 @@ search:
         X-Link-Token: '{{ .Config.Link | querystring "token" }}'
         X-Html-Decoded: '{{ .Config.EncodedTitle | htmldecode }}'
         X-Html-Encoded: '{{ .Config.RawHtml | htmlencode }}'
+        X-Url-Decoded: '{{ .Config.EncodedPath | urldecode }}'
       inputs:
         $raw: 'q={{ .Keywords | trim | urlencode }}&imdb={{ .Query.IMDBIDShort | prepend "tt" }}&cat={{ .Categories | join "," }}&source={{ .Config.Link | querystring "source" }}'
         decoded: '{{ .Config.EncodedTitle | htmldecode }}'
         encoded: '{{ .Config.RawHtml | htmlencode }}'
+        urlDecoded: '{{ .Config.EncodedPath | urldecodecomponent }}'
 `,
       baseUrl: "https://tracker.example/root",
       apiKey: "api-key",
@@ -252,6 +254,7 @@ search:
         cookie: "session=secret",
         link: "browse.php?source=web&token=abc%20123#row",
         encodedTitle: "Anne Rice&#039;s &amp; Co",
+        encodedPath: "Encoded%20Name%2BPlus",
         rawHtml: `A & B <C> "D" 'E'`,
       },
       priority: 15,
@@ -277,6 +280,7 @@ search:
     expect(url.searchParams.get("source")).toBe("web")
     expect(url.searchParams.get("decoded")).toBe("Anne Rice's & Co")
     expect(url.searchParams.get("encoded")).toBe("A &amp; B &lt;C&gt; &quot;D&quot; &#39;E&#39;")
+    expect(url.searchParams.get("urlDecoded")).toBe("Encoded Name+Plus")
 
     const headers = new Headers(requestInit?.headers)
     expect(headers.get("x-auth")).toBe("alice:session=secret:api-key")
@@ -285,6 +289,7 @@ search:
     expect(headers.get("x-link-token")).toBe("abc 123")
     expect(headers.get("x-html-decoded")).toBe("Anne Rice's & Co")
     expect(headers.get("x-html-encoded")).toBe("A &amp; B &lt;C&gt; &quot;D&quot; &#39;E&#39;")
+    expect(headers.get("x-url-decoded")).toBe("Encoded Name+Plus")
   })
 
   it("expands Cardigann range templates for repeated category params", async () => {
@@ -673,12 +678,14 @@ caps:
 search:
   keywordsfilters:
     - name: trim
+    - name: urldecodecomponent
     - name: re_replace
       args: ["\\\\s+", "+"]
     - name: append
       args: "-{{ .Config.Region }}"
+    - name: urlencodecomponent
   paths:
-    - path: /search
+    - path: /search/{{ .Keywords }}
       response:
         type: torznab
       inputs:
@@ -694,11 +701,12 @@ search:
     })
 
     await Effect.runPromise(
-      adapter.search({ term: "  Keyword Filter Movie  ", type: "movie", categories: [2000] }),
+      adapter.search({ term: "  Keyword%20Filter%20Movie  ", type: "movie", categories: [2000] }),
     )
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
     const url = new URL(requestUrl ?? "")
+    expect(url.pathname).toBe("/search/Keyword%2BFilter%2BMovie-AU")
     expect(url.searchParams.get("q")).toBe("Keyword+Filter+Movie-AU")
     expect(url.searchParams.get("raw")).toBe("Keyword Filter Movie")
   })
