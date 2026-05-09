@@ -2,25 +2,20 @@ import { SqlError } from "@effect/sql/SqlError"
 import { and, eq, inArray, isNotNull, or } from "drizzle-orm"
 import { Context, Effect, Layer } from "effect"
 
-import {
-  downloadQueue,
-  episodes,
-  movies,
-  releaseDecisions,
-  mediaServers,
-  mediaServerLibraries,
-} from "#/db/schema"
-import type { MediaType } from "#/effect/domain/release"
+import { downloadQueue, mediaServers, mediaServerLibraries } from "#/db/schema"
 import type {
   DownloadClientError,
   EncryptionError,
+  MediaImportError,
   MediaServerError,
   NotFoundError,
+  SettingsError,
   ValidationError,
 } from "#/effect/errors"
 
 import { Db } from "./Db"
 import { DownloadClientService } from "./DownloadClientService"
+import { MediaImportService } from "./MediaImportService"
 import { MediaServerService } from "./MediaServerService"
 
 // ── Types ──
@@ -40,75 +35,32 @@ type MonitorError =
   | EncryptionError
   | SqlError
 
-// ── Decision lookup helper ──
-
 type DbHandle = Context.Tag.Service<typeof Db>
 
-function decisionFor(db: DbHandle, mediaId: number, mediaType: MediaType, candidateTitle: string) {
-  return Effect.gen(function* () {
-    const rows = yield* db
-      .select({
-        qualityRank: releaseDecisions.qualityRank,
-        formatScore: releaseDecisions.formatScore,
-      })
-      .from(releaseDecisions)
-      .where(
-        and(
-          eq(releaseDecisions.mediaId, mediaId),
-          eq(releaseDecisions.mediaType, mediaType),
-          eq(releaseDecisions.candidateTitle, candidateTitle),
-        ),
-      )
-      .limit(1)
-    return rows[0]
-  })
+type ImportFailure = MediaImportError | NotFoundError | SettingsError | SqlError
+
+function importFailureMessage(error: ImportFailure): string {
+  if (error._tag === "MediaImportError") return error.message
+  if (error._tag === "NotFoundError") return `${error.entity} ${error.id} was not found`
+  if (error._tag === "SettingsError") return error.message
+  return error instanceof Error ? error.message : String(error)
 }
 
-function applyMovieCompletion(db: DbHandle, movieId: number, candidateTitle: string) {
-  return Effect.gen(function* () {
-    const decision = yield* decisionFor(db, movieId, "movie", candidateTitle)
-    yield* db
-      .update(movies)
-      .set({
-        status: "available",
-        hasFile: true,
-        existingQualityRank: decision?.qualityRank ?? null,
-        existingFormatScore: decision?.formatScore ?? null,
-      })
-      .where(eq(movies.id, movieId))
-  })
-}
-
-function applyEpisodeCompletion(
-  db: DbHandle,
-  episodeIds: ReadonlyArray<number>,
-  candidateTitle: string,
-) {
-  return Effect.gen(function* () {
-    // Decision was recorded either per-episode ("episode" mediaType, any of episodeIds)
-    // or per-season ("season" mediaType). Look up by candidateTitle across both.
-    const anyDecision = yield* db
-      .select({
-        qualityRank: releaseDecisions.qualityRank,
-        formatScore: releaseDecisions.formatScore,
-      })
-      .from(releaseDecisions)
-      .where(eq(releaseDecisions.candidateTitle, candidateTitle))
-      .limit(1)
-    const decision = anyDecision[0]
-
-    for (const episodeId of episodeIds) {
-      yield* db
-        .update(episodes)
-        .set({
-          hasFile: true,
-          existingQualityRank: decision?.qualityRank ?? null,
-          existingFormatScore: decision?.formatScore ?? null,
-          existingQualityName: null,
-        })
-        .where(eq(episodes.id, episodeId))
-    }
-  })
+function markImportFailure(db: DbHandle, queueId: number, error: ImportFailure) {
+  const message = importFailureMessage(error)
+  return db
+    .update(downloadQueue)
+    .set({
+      status: "failed",
+      errorMessage: message,
+      updatedAt: new Date(),
+    })
+    .where(eq(downloadQueue.id, queueId))
+    .pipe(
+      Effect.zipRight(
+        Effect.logWarning(`download import failed for queue row ${queueId}: ${message}`),
+      ),
+    )
 }
 
 // ── Service tag ──
@@ -128,6 +80,7 @@ export const DownloadMonitorLive = Layer.effect(
     const db = yield* Db
     const downloadClientService = yield* DownloadClientService
     const mediaServerService = yield* MediaServerService
+    const mediaImport = yield* MediaImportService
 
     return {
       checkCompletions: () =>
@@ -144,6 +97,7 @@ export const DownloadMonitorLive = Layer.effect(
               episodeIds: downloadQueue.episodeIds,
               externalId: downloadQueue.externalId,
               title: downloadQueue.title,
+              outputPath: downloadQueue.outputPath,
             })
             .from(downloadQueue)
             .where(
@@ -159,7 +113,17 @@ export const DownloadMonitorLive = Layer.effect(
 
           for (const row of completedRows) {
             if (row.movieId !== null) {
-              yield* applyMovieCompletion(db, row.movieId, row.title)
+              const imported = yield* Effect.either(
+                mediaImport.importMovie({
+                  movieId: row.movieId,
+                  sourcePath: row.outputPath,
+                  releaseTitle: row.title,
+                }),
+              )
+              if (imported._tag === "Left") {
+                yield* markImportFailure(db, row.id, imported.left)
+                continue
+              }
               yield* db.delete(downloadQueue).where(eq(downloadQueue.id, row.id))
               completions.push({
                 movieId: row.movieId,
@@ -169,7 +133,18 @@ export const DownloadMonitorLive = Layer.effect(
               })
               touchedMovie = true
             } else if (row.seriesId !== null && row.episodeIds && row.episodeIds.length > 0) {
-              yield* applyEpisodeCompletion(db, row.episodeIds, row.title)
+              const imported = yield* Effect.either(
+                mediaImport.importEpisodes({
+                  seriesId: row.seriesId,
+                  episodeIds: row.episodeIds,
+                  sourcePath: row.outputPath,
+                  releaseTitle: row.title,
+                }),
+              )
+              if (imported._tag === "Left") {
+                yield* markImportFailure(db, row.id, imported.left)
+                continue
+              }
               yield* db.delete(downloadQueue).where(eq(downloadQueue.id, row.id))
               completions.push({
                 movieId: null,

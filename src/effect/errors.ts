@@ -125,6 +125,20 @@ export class AcquisitionError extends Data.TaggedError("AcquisitionError")<{
   readonly message: string
 }> {}
 
+export type MediaImportErrorReason =
+  | "missing_output_path"
+  | "source_not_found"
+  | "no_media_files"
+  | "root_folder_missing"
+  | "file_operation_failed"
+  | "episode_match_failed"
+
+export class MediaImportError extends Data.TaggedError("MediaImportError")<{
+  readonly reason: MediaImportErrorReason
+  readonly message: string
+  readonly retryable: boolean
+}> {}
+
 export type MetadataErrorReason =
   | "api_key_missing"
   | "not_found"

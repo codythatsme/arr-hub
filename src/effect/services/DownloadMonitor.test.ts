@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest"
-import { eq } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
 import { Effect, Layer, Ref } from "effect"
 
 import {
@@ -19,6 +19,7 @@ import { TestDbLive } from "#/effect/test/TestDb"
 
 import { DownloadClientService } from "./DownloadClientService"
 import { DownloadMonitor, DownloadMonitorLive } from "./DownloadMonitor"
+import { MediaImportService } from "./MediaImportService"
 import { MediaServerService } from "./MediaServerService"
 
 // ── Mocks ──
@@ -50,9 +51,102 @@ const MockMediaServerService = Layer.succeed(MediaServerService, {
   listTypes: () => [],
 })
 
-const BaseLayer = Layer.mergeAll(MockDownloadClientService, MockMediaServerService).pipe(
-  Layer.provideMerge(TestDbLive),
+const MockMediaImportService = Layer.effect(
+  MediaImportService,
+  Effect.gen(function* () {
+    const db = yield* Db
+
+    const decisionByTitle = (candidateTitle: string) =>
+      db
+        .select({
+          qualityRank: releaseDecisions.qualityRank,
+          formatScore: releaseDecisions.formatScore,
+        })
+        .from(releaseDecisions)
+        .where(eq(releaseDecisions.candidateTitle, candidateTitle))
+        .limit(1)
+
+    return {
+      importMovie: ({ movieId, releaseTitle }) =>
+        Effect.gen(function* () {
+          const rows = yield* db
+            .select({
+              qualityRank: releaseDecisions.qualityRank,
+              formatScore: releaseDecisions.formatScore,
+            })
+            .from(releaseDecisions)
+            .where(
+              and(
+                eq(releaseDecisions.mediaId, movieId),
+                eq(releaseDecisions.mediaType, "movie"),
+                eq(releaseDecisions.candidateTitle, releaseTitle),
+              ),
+            )
+            .limit(1)
+          const decision = rows[0]
+          const targetPath = `/library/movie-${movieId}.mkv`
+          yield* db
+            .update(movies)
+            .set({
+              status: "available",
+              hasFile: true,
+              filePath: targetPath,
+              existingQualityName: "WEBDL1080p",
+              existingQualityRank: decision?.qualityRank ?? null,
+              existingFormatScore: decision?.formatScore ?? 0,
+            })
+            .where(eq(movies.id, movieId))
+
+          return {
+            mediaKind: "movie" as const,
+            mediaId: movieId,
+            sourcePath: "/downloads/movie.mkv",
+            targetPath,
+            sizeBytes: 1,
+            qualityName: "WEBDL1080p" as const,
+            qualityRank: decision?.qualityRank ?? null,
+            formatScore: decision?.formatScore ?? 0,
+          }
+        }),
+
+      importEpisodes: ({ episodeIds, releaseTitle }) =>
+        Effect.gen(function* () {
+          const decision = (yield* decisionByTitle(releaseTitle))[0]
+          const results = []
+          for (const episodeId of episodeIds) {
+            const targetPath = `/library/episode-${episodeId}.mkv`
+            yield* db
+              .update(episodes)
+              .set({
+                hasFile: true,
+                filePath: targetPath,
+                existingQualityName: "WEBDL1080p",
+                existingQualityRank: decision?.qualityRank ?? null,
+                existingFormatScore: decision?.formatScore ?? 0,
+              })
+              .where(eq(episodes.id, episodeId))
+            results.push({
+              mediaKind: "episode" as const,
+              mediaId: episodeId,
+              sourcePath: `/downloads/episode-${episodeId}.mkv`,
+              targetPath,
+              sizeBytes: 1,
+              qualityName: "WEBDL1080p" as const,
+              qualityRank: decision?.qualityRank ?? null,
+              formatScore: decision?.formatScore ?? 0,
+            })
+          }
+          return results
+        }),
+    }
+  }),
 )
+
+const BaseLayer = Layer.mergeAll(
+  MockDownloadClientService,
+  MockMediaServerService,
+  MockMediaImportService,
+).pipe(Layer.provideMerge(TestDbLive))
 
 const TestLayer = DownloadMonitorLive.pipe(Layer.provideMerge(BaseLayer))
 
@@ -331,9 +425,11 @@ describe("DownloadMonitor TV", () => {
       const ref = yield* Ref.make<ReadonlyArray<RefreshCall>>([])
       const TrackingLayer = DownloadMonitorLive.pipe(
         Layer.provideMerge(
-          Layer.mergeAll(MockDownloadClientService, makeTrackingMediaServer(ref)).pipe(
-            Layer.provideMerge(TestDbLive),
-          ),
+          Layer.mergeAll(
+            MockDownloadClientService,
+            makeTrackingMediaServer(ref),
+            MockMediaImportService,
+          ).pipe(Layer.provideMerge(TestDbLive)),
         ),
       )
 

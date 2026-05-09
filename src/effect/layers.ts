@@ -11,6 +11,7 @@ import { DownloadClientServiceLive } from "./services/DownloadClientService"
 import { DownloadMonitorLive } from "./services/DownloadMonitor"
 import { ImportServiceLive } from "./services/ImportService"
 import { IndexerServiceLive } from "./services/IndexerService"
+import { MediaImportServiceLive } from "./services/MediaImportService"
 import { MediaServerServiceLive } from "./services/MediaServerService"
 import { MetadataRefreshServiceLive } from "./services/MetadataRefreshService"
 import { MonitoringTriggerBusLive } from "./services/MonitoringTriggerBus"
@@ -33,12 +34,16 @@ import { StatsServiceLive } from "./services/StatsService"
 import { TitleParserServiceLive } from "./services/TitleParserService"
 import { TmdbClientLive } from "./services/TmdbClient"
 
+const DownloadMonitorWithImportLive = DownloadMonitorLive.pipe(
+  Layer.provideMerge(MediaImportServiceLive),
+)
+
 /** All application services, fully wired. Db + CryptoService also exposed for direct use. */
 export const AppLive = Layer.mergeAll(
   DiagnosticsServiceLive,
   QueueServiceLive,
   AcquisitionPipelineLive,
-  DownloadMonitorLive,
+  DownloadMonitorWithImportLive,
   PlexSessionMonitorLive,
   PluginLoaderLive,
   MetadataRefreshServiceLive,
