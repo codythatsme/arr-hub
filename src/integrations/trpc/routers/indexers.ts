@@ -5,6 +5,7 @@ import { z } from "zod"
 import { IndexerService } from "#/effect/services/IndexerService"
 
 import { authedProcedure, runEffect } from "../init"
+import { syncEnabledIndexerApplications } from "./indexerApplicationSyncTrigger"
 
 const indexerInputSchema = z.object({
   name: z.string(),
@@ -85,7 +86,9 @@ export const indexersRouter = {
     runEffect(
       Effect.gen(function* () {
         const svc = yield* IndexerService
-        return yield* svc.add(input)
+        const indexer = yield* svc.add(input)
+        yield* syncEnabledIndexerApplications
+        return indexer
       }),
     ),
   ),
@@ -114,7 +117,9 @@ export const indexersRouter = {
       runEffect(
         Effect.gen(function* () {
           const svc = yield* IndexerService
-          return yield* svc.update(input.id, input.data)
+          const indexer = yield* svc.update(input.id, input.data)
+          yield* syncEnabledIndexerApplications
+          return indexer
         }),
       ),
     ),
@@ -124,6 +129,7 @@ export const indexersRouter = {
       Effect.gen(function* () {
         const svc = yield* IndexerService
         yield* svc.remove(input.id)
+        yield* syncEnabledIndexerApplications
       }),
     ),
   ),
