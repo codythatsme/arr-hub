@@ -93,4 +93,13 @@ export const indexerApplicationsRouter = {
       }),
     ),
   ),
+
+  syncEnabled: authedProcedure.mutation(() =>
+    runEffect(
+      Effect.gen(function* () {
+        const svc = yield* IndexerApplicationService
+        return yield* svc.syncEnabled()
+      }),
+    ),
+  ),
 } satisfies TRPCRouterRecord

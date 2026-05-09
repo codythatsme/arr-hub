@@ -56,3 +56,20 @@ export interface IndexerApplicationSyncResult {
   readonly skipped: number
   readonly items: ReadonlyArray<IndexerApplicationSyncItem>
 }
+
+export interface IndexerApplicationSyncFailure {
+  readonly applicationId: number
+  readonly applicationName: string
+  readonly message: string
+  readonly reason: "auth_failed" | "connection_failed" | "invalid_response" | "sync_failed"
+  readonly retryable: boolean
+}
+
+export interface IndexerApplicationSyncSummary {
+  readonly syncedAt: Date
+  readonly total: number
+  readonly succeeded: number
+  readonly failed: number
+  readonly results: ReadonlyArray<IndexerApplicationSyncResult>
+  readonly errors: ReadonlyArray<IndexerApplicationSyncFailure>
+}

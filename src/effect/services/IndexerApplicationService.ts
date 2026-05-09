@@ -15,9 +15,11 @@ import type {
   IndexerApplication,
   IndexerApplicationMapping,
   IndexerApplicationSettings,
+  IndexerApplicationSyncFailure,
   IndexerApplicationSyncItem,
   IndexerApplicationSyncLevel,
   IndexerApplicationSyncResult,
+  IndexerApplicationSyncSummary,
   IndexerApplicationType,
 } from "../domain/indexerApplication"
 import { IndexerApplicationError, NotFoundError, type EncryptionError } from "../errors"
@@ -70,6 +72,7 @@ export class IndexerApplicationService extends Context.Tag("@arr-hub/IndexerAppl
       IndexerApplicationSyncResult,
       NotFoundError | IndexerApplicationError | EncryptionError | SqlError
     >
+    readonly syncEnabled: () => Effect.Effect<IndexerApplicationSyncSummary, SqlError>
   }
 >() {}
 
@@ -242,6 +245,37 @@ function toApplicationError(
     message,
     retryable: true,
   })
+}
+
+function toSyncFailure(
+  application: typeof indexerApplications.$inferSelect,
+  error: unknown,
+): IndexerApplicationSyncFailure {
+  if (
+    error instanceof IndexerApplicationError ||
+    (typeof error === "object" &&
+      error !== null &&
+      "_tag" in error &&
+      error._tag === "IndexerApplicationError")
+  ) {
+    const appError = error as IndexerApplicationError
+    return {
+      applicationId: appError.applicationId,
+      applicationName: appError.applicationName,
+      message: appError.message,
+      reason: appError.reason,
+      retryable: appError.retryable,
+    }
+  }
+
+  const message = error instanceof Error ? error.message : String(error)
+  return {
+    applicationId: application.id,
+    applicationName: application.name,
+    message,
+    reason: "sync_failed",
+    retryable: true,
+  }
 }
 
 // ── Helpers ──
@@ -510,6 +544,150 @@ export const IndexerApplicationServiceLive = Layer.effect(
           },
         })
 
+    const syncApplication = (application: typeof indexerApplications.$inferSelect) => {
+      const run = Effect.gen(function* () {
+        const [apiKey, syncApiKey] = yield* Effect.all([
+          crypto.decrypt(application.apiKeyEncrypted),
+          crypto.decrypt(application.syncApiKeyEncrypted),
+        ])
+        const settings = normalizeSettings(application.settings)
+        const protocolFeeds = yield* loadProtocolFeeds()
+        const existingMappings = yield* db
+          .select()
+          .from(indexerApplicationMappings)
+          .where(eq(indexerApplicationMappings.applicationId, application.id))
+
+        const plannedItems = PROTOCOL_ORDER.map((protocol) => {
+          const feed = protocolFeeds.get(protocol)
+          const categories = feed
+            ? filteredCategories(application.type, settings, Array.from(feed.categories))
+            : []
+          return { protocol, categories, indexerCount: feed?.indexerCount ?? 0 }
+        })
+
+        const remoteIndexersNeeded = plannedItems.some(
+          (item) => item.indexerCount > 0 && item.categories.length > 0,
+        )
+
+        const [remoteSchemas, remoteIndexers] = remoteIndexersNeeded
+          ? yield* Effect.tryPromise({
+              try: () =>
+                Promise.all([
+                  fetchRemoteIndexerSchema(application.baseUrl, apiKey),
+                  fetchRemoteIndexers(application.baseUrl, apiKey),
+                ]),
+              catch: (error) => toApplicationError(application, error),
+            })
+          : [[], []]
+
+        const items: Array<IndexerApplicationSyncItem> = []
+
+        for (const item of plannedItems) {
+          if (item.indexerCount === 0) {
+            items.push({
+              protocol: item.protocol,
+              action: "skipped",
+              remoteIndexerId: null,
+              remoteIndexerName: null,
+              categories: [],
+              reason: "no enabled indexers for protocol",
+            })
+            continue
+          }
+
+          if (item.categories.length === 0) {
+            items.push({
+              protocol: item.protocol,
+              action: "skipped",
+              remoteIndexerId: null,
+              remoteIndexerName: null,
+              categories: [],
+              reason: "no categories match application sync filter",
+            })
+            continue
+          }
+
+          const implementation = implementationName(item.protocol)
+          const schema = remoteSchemas.find((remote) => remote.implementation === implementation)
+          const mapping = existingMappings.find((remote) => remote.protocol === item.protocol)
+          const existingRemote = findRemoteIndexer({
+            protocol: item.protocol,
+            application,
+            mapping,
+            remoteIndexers,
+          })
+
+          if (existingRemote && settings.syncLevel === "add_only") {
+            yield* saveMapping(application.id, item.protocol, existingRemote)
+            items.push({
+              protocol: item.protocol,
+              action: "skipped",
+              remoteIndexerId: existingRemote.id,
+              remoteIndexerName: existingRemote.name,
+              categories: item.categories,
+              reason: "remote aggregate indexer already exists",
+            })
+            continue
+          }
+
+          const payload = buildRemoteIndexerPayload({
+            application,
+            settings,
+            protocol: item.protocol,
+            categories: item.categories,
+            schema,
+            syncApiKey,
+            remoteId: existingRemote?.id ?? null,
+          })
+
+          const remoteIndexer = yield* Effect.tryPromise({
+            try: () =>
+              createOrUpdateRemoteIndexer(
+                application.baseUrl,
+                apiKey,
+                payload,
+                existingRemote?.id ?? null,
+              ),
+            catch: (error) => toApplicationError(application, error),
+          })
+
+          yield* saveMapping(application.id, item.protocol, remoteIndexer)
+          items.push({
+            protocol: item.protocol,
+            action: existingRemote ? "updated" : "created",
+            remoteIndexerId: remoteIndexer.id,
+            remoteIndexerName: remoteIndexer.name,
+            categories: item.categories,
+          })
+        }
+
+        const syncedAt = new Date()
+        yield* db
+          .update(indexerApplications)
+          .set({ lastSyncedAt: syncedAt, lastError: null, updatedAt: syncedAt })
+          .where(eq(indexerApplications.id, application.id))
+
+        return {
+          applicationId: application.id,
+          syncedAt,
+          created: items.filter((item) => item.action === "created").length,
+          updated: items.filter((item) => item.action === "updated").length,
+          skipped: items.filter((item) => item.action === "skipped").length,
+          items,
+        } satisfies IndexerApplicationSyncResult
+      })
+
+      return run.pipe(
+        Effect.tapError((error) => {
+          if (error._tag !== "IndexerApplicationError") return Effect.void
+          return db
+            .update(indexerApplications)
+            .set({ lastError: error.message, updatedAt: new Date() })
+            .where(eq(indexerApplications.id, application.id))
+        }),
+      )
+    }
+
     return {
       add: (input) =>
         Effect.gen(function* () {
@@ -597,150 +775,41 @@ export const IndexerApplicationServiceLive = Layer.effect(
             .where(eq(indexerApplications.id, id))
           const application = rows[0]
           if (!application) return yield* new NotFoundError({ entity: "indexer_application", id })
+          return yield* syncApplication(application)
+        }),
 
-          const run = Effect.gen(function* () {
-            const [apiKey, syncApiKey] = yield* Effect.all([
-              crypto.decrypt(application.apiKeyEncrypted),
-              crypto.decrypt(application.syncApiKeyEncrypted),
-            ])
-            const settings = normalizeSettings(application.settings)
-            const protocolFeeds = yield* loadProtocolFeeds()
-            const existingMappings = yield* db
-              .select()
-              .from(indexerApplicationMappings)
-              .where(eq(indexerApplicationMappings.applicationId, application.id))
+      syncEnabled: () =>
+        Effect.gen(function* () {
+          const applications = yield* db
+            .select()
+            .from(indexerApplications)
+            .where(eq(indexerApplications.enabled, true))
+            .orderBy(indexerApplications.name)
 
-            const plannedItems = PROTOCOL_ORDER.map((protocol) => {
-              const feed = protocolFeeds.get(protocol)
-              const categories = feed
-                ? filteredCategories(application.type, settings, Array.from(feed.categories))
-                : []
-              return { protocol, categories, indexerCount: feed?.indexerCount ?? 0 }
-            })
+          const results: Array<IndexerApplicationSyncResult> = []
+          const errors: Array<IndexerApplicationSyncFailure> = []
 
-            const remoteIndexersNeeded = plannedItems.some(
-              (item) => item.indexerCount > 0 && item.categories.length > 0,
+          for (const application of applications) {
+            const outcome = yield* syncApplication(application).pipe(
+              Effect.map((result) => ({ ok: true as const, result })),
+              Effect.catchAll((error) => Effect.succeed({ ok: false as const, error })),
             )
 
-            const [remoteSchemas, remoteIndexers] = remoteIndexersNeeded
-              ? yield* Effect.tryPromise({
-                  try: () =>
-                    Promise.all([
-                      fetchRemoteIndexerSchema(application.baseUrl, apiKey),
-                      fetchRemoteIndexers(application.baseUrl, apiKey),
-                    ]),
-                  catch: (error) => toApplicationError(application, error),
-                })
-              : [[], []]
-
-            const items: Array<IndexerApplicationSyncItem> = []
-
-            for (const item of plannedItems) {
-              if (item.indexerCount === 0) {
-                items.push({
-                  protocol: item.protocol,
-                  action: "skipped",
-                  remoteIndexerId: null,
-                  remoteIndexerName: null,
-                  categories: [],
-                  reason: "no enabled indexers for protocol",
-                })
-                continue
-              }
-
-              if (item.categories.length === 0) {
-                items.push({
-                  protocol: item.protocol,
-                  action: "skipped",
-                  remoteIndexerId: null,
-                  remoteIndexerName: null,
-                  categories: [],
-                  reason: "no categories match application sync filter",
-                })
-                continue
-              }
-
-              const implementation = implementationName(item.protocol)
-              const schema = remoteSchemas.find(
-                (remote) => remote.implementation === implementation,
-              )
-              const mapping = existingMappings.find((remote) => remote.protocol === item.protocol)
-              const existingRemote = findRemoteIndexer({
-                protocol: item.protocol,
-                application,
-                mapping,
-                remoteIndexers,
-              })
-
-              if (existingRemote && settings.syncLevel === "add_only") {
-                yield* saveMapping(application.id, item.protocol, existingRemote)
-                items.push({
-                  protocol: item.protocol,
-                  action: "skipped",
-                  remoteIndexerId: existingRemote.id,
-                  remoteIndexerName: existingRemote.name,
-                  categories: item.categories,
-                  reason: "remote aggregate indexer already exists",
-                })
-                continue
-              }
-
-              const payload = buildRemoteIndexerPayload({
-                application,
-                settings,
-                protocol: item.protocol,
-                categories: item.categories,
-                schema,
-                syncApiKey,
-                remoteId: existingRemote?.id ?? null,
-              })
-
-              const remoteIndexer = yield* Effect.tryPromise({
-                try: () =>
-                  createOrUpdateRemoteIndexer(
-                    application.baseUrl,
-                    apiKey,
-                    payload,
-                    existingRemote?.id ?? null,
-                  ),
-                catch: (error) => toApplicationError(application, error),
-              })
-
-              yield* saveMapping(application.id, item.protocol, remoteIndexer)
-              items.push({
-                protocol: item.protocol,
-                action: existingRemote ? "updated" : "created",
-                remoteIndexerId: remoteIndexer.id,
-                remoteIndexerName: remoteIndexer.name,
-                categories: item.categories,
-              })
+            if (outcome.ok) {
+              results.push(outcome.result)
+            } else {
+              errors.push(toSyncFailure(application, outcome.error))
             }
+          }
 
-            const syncedAt = new Date()
-            yield* db
-              .update(indexerApplications)
-              .set({ lastSyncedAt: syncedAt, lastError: null, updatedAt: syncedAt })
-              .where(eq(indexerApplications.id, application.id))
-
-            return {
-              applicationId: application.id,
-              syncedAt,
-              created: items.filter((item) => item.action === "created").length,
-              updated: items.filter((item) => item.action === "updated").length,
-              skipped: items.filter((item) => item.action === "skipped").length,
-              items,
-            } satisfies IndexerApplicationSyncResult
-          })
-
-          return yield* run.pipe(
-            Effect.tapError((error) => {
-              if (error._tag !== "IndexerApplicationError") return Effect.void
-              return db
-                .update(indexerApplications)
-                .set({ lastError: error.message, updatedAt: new Date() })
-                .where(eq(indexerApplications.id, application.id))
-            }),
-          )
+          return {
+            syncedAt: new Date(),
+            total: applications.length,
+            succeeded: results.length,
+            failed: errors.length,
+            results,
+            errors,
+          } satisfies IndexerApplicationSyncSummary
         }),
     }
   }),

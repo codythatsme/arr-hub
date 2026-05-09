@@ -12,6 +12,7 @@ const jobTypeSchema = z.enum([
   "search_cutoff",
   "download_monitor",
   "indexer_definition_refresh",
+  "indexer_application_sync",
   "movie_metadata_refresh",
   "series_metadata_refresh",
   "tv_rss_sync",

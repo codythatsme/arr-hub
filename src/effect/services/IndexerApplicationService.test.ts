@@ -39,9 +39,10 @@ function remoteField(body: Record<string, unknown>, name: string): unknown {
   return fields.find((field) => field.name === name)?.value
 }
 
-function stubRemoteApplication() {
+function stubRemoteApplication(options?: { readonly failHosts?: ReadonlyArray<string> }) {
   const requests: Array<RemoteRequest> = []
   const remoteIndexers: Array<Record<string, unknown>> = []
+  const failHosts = new Set(options?.failHosts ?? [])
 
   vi.stubGlobal("fetch", async (input: string | URL | Request, init?: RequestInit) => {
     const url = new URL(input instanceof Request ? input.url : input.toString())
@@ -49,6 +50,8 @@ function stubRemoteApplication() {
     const body =
       typeof init?.body === "string" ? (JSON.parse(init.body) as Record<string, unknown>) : null
     requests.push({ url, method, body })
+
+    if (failHosts.has(url.hostname)) return new Response("bad key", { status: 401 })
 
     if (url.pathname === "/api/v3/indexer/schema") {
       return jsonResponse([
@@ -212,6 +215,69 @@ describe("IndexerApplicationService", () => {
 
         const failed = yield* apps.getById(app.id)
         expect(failed.lastError).toContain("HTTP 401")
+      }).pipe(Effect.provide(TestLayer)),
+    )
+  })
+
+  it("syncs enabled applications and continues after per-application failures", async () => {
+    stubRemoteApplication({ failHosts: ["broken.test"] })
+
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const indexers = yield* IndexerService
+        const apps = yield* IndexerApplicationService
+
+        yield* indexers.add({
+          name: "Torrent Movies",
+          type: "torznab",
+          baseUrl: "http://tracker.test",
+          apiKey: "tracker-secret",
+          categories: [2000],
+        })
+
+        yield* apps.add({
+          name: "Broken Radarr",
+          type: "radarr",
+          baseUrl: "http://broken.test",
+          apiKey: "bad-key",
+          syncBaseUrl: "http://arr-hub.test",
+          syncApiKey: "arr-hub-key",
+        })
+        const disabled = yield* apps.add({
+          name: "Disabled Radarr",
+          type: "radarr",
+          baseUrl: "http://disabled.test",
+          apiKey: "remote-key",
+          syncBaseUrl: "http://arr-hub.test",
+          syncApiKey: "arr-hub-key",
+          enabled: false,
+        })
+        const working = yield* apps.add({
+          name: "Working Radarr",
+          type: "radarr",
+          baseUrl: "http://radarr.test",
+          apiKey: "remote-key",
+          syncBaseUrl: "http://arr-hub.test",
+          syncApiKey: "arr-hub-key",
+        })
+
+        const summary = yield* apps.syncEnabled()
+        expect(summary).toMatchObject({
+          total: 2,
+          succeeded: 1,
+          failed: 1,
+        })
+        expect(summary.errors[0]).toMatchObject({
+          applicationName: "Broken Radarr",
+          reason: "auth_failed",
+        })
+        expect(summary.results[0]).toMatchObject({
+          applicationId: working.id,
+          created: 1,
+        })
+
+        const skipped = yield* apps.getById(disabled.id)
+        expect(skipped.lastSyncedAt).toBeNull()
       }).pipe(Effect.provide(TestLayer)),
     )
   })
