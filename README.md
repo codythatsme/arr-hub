@@ -7,7 +7,7 @@ ARR Hub is a unified, self-hosted media automation app inspired by the arr ecosy
 - Adapter-driven integrations (download clients, indexers, media servers)
 - Shared release policy engine + scheduler pipelines
 - Operator UI for onboarding, settings, profiles, movies, TV, manual search, scheduler, and queue actions
-- Prowlarr replacement foundation; current indexer support consumes Torznab/Newznab upstreams, seeds generic/Cardigann-style definitions, refreshes URL-backed Cardigann sources, exposes first-pass aggregate feeds, and can sync aggregate indexers into Radarr/Sonarr from scheduler and indexer mutations with stale remote cleanup
+- Prowlarr replacement foundation; current indexer support consumes Torznab/Newznab upstreams, seeds generic/Cardigann-style definitions including Nyaa RSS coverage, refreshes URL-backed Cardigann sources, exposes first-pass aggregate feeds, and can sync aggregate indexers into Radarr/Sonarr from scheduler and indexer mutations with stale remote cleanup
 
 See [development-plan.md](./development-plan.md) for detailed replacement-readiness status.
 
@@ -89,7 +89,7 @@ users to keep Prowlarr installed upstream.
 
 Current foundation:
 
-- Generic first-party Torznab/Newznab and small curated Cardigann-style YAML definition records are seeded at startup.
+- Generic first-party Torznab/Newznab and small curated Cardigann-style YAML definition records, including Nyaa RSS coverage, are seeded at startup.
 - Indexer records can carry definition keys, tags, search/RSS enable flags, minimum-seeder filters, query cooldowns, rolling query limits, and optional proxy links; Cardigann-style definitions now have first-pass GET/POST XML search execution with templated request headers.
 - HTTP/SOCKS/FlareSolverr proxy configuration is persisted and applied to outbound Torznab/Newznab requests; indexer search statistics, first-pass search health/backoff state, and version-aware built-in definition refresh are persisted.
 - URL-backed Cardigann definition source records can fetch remote YAML, persist the raw source, record SHA-256 provenance with optional checksum pinning, make refreshed definitions available to definition-keyed indexers, and refresh enabled sources from the scheduler.
@@ -99,7 +99,7 @@ Current foundation:
 - Radarr/Sonarr application records can persist encrypted remote credentials and sync aggregate Torznab/Newznab indexers into `/api/v3/indexer`; enabled apps can be refreshed from the scheduler and after indexer add/update/remove mutations, stale remote aggregate indexers are removed when protocols no longer have eligible local indexers, and the synced app payload uses a reachable ARR Hub URL plus ARR Hub API key, app priority, and first-pass torrent seed criteria.
 
 This is not yet a Prowlarr-scale catalogue. The Cardigann/YAML loader currently
-supports curated fixtures plus manually configured URL-backed YAML sources; broad
+supports a small curated built-in set including Nyaa RSS plus manually configured URL-backed YAML sources; broad
 tracker coverage, full Cardigann selector/login parity, broader per-indexer policy
 parity, trusted remote definition catalogues, and full Prowlarr app-sync parity
 for richer per-indexer and app-specific sync semantics remain planned work. Search
