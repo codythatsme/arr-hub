@@ -103,6 +103,7 @@ caps:
       "funfile",
       "immortalseed",
       "xspeeds",
+      "xthor",
       "revolutiontt",
       "pretome",
       "morethantv",
@@ -735,6 +736,34 @@ caps:
           { id: 5040, name: "TV HD" },
           { id: 3040, name: "Music FLAC" },
           { id: 3030, name: "Books Audiobooks" },
+        ]),
+      },
+    })
+    expect(
+      BUILT_IN_CARDIGANN_DEFINITIONS.find((definition) => definition.definitionKey === "xthor"),
+    ).toMatchObject({
+      displayName: "Xthor",
+      baseUrl: "https://api.xthor.tk/",
+      privacy: "private",
+      supportsRss: false,
+      supportsSearch: true,
+      tags: ["private", "general", "movies", "tv", "books", "json", "api"],
+      authFields: expect.arrayContaining([
+        expect.objectContaining({ name: "passkey", type: "password", required: true }),
+        expect.objectContaining({
+          name: "freeleechOnly",
+          type: "checkbox",
+          defaultValue: "false",
+        }),
+      ]),
+      capabilities: {
+        searchTypes: ["search", "movie", "tvsearch"],
+        categories: expect.arrayContaining([
+          { id: 2045, name: "Films 2160p/x265" },
+          { id: 2040, name: "Films 1080p/x264" },
+          { id: 5040, name: "Series HD VF" },
+          { id: 7020, name: "Livres Romans" },
+          { id: 4050, name: "Logiciels Jeux PC" },
         ]),
       },
     })

@@ -633,6 +633,26 @@ const XSPEEDS_HTML_RESULTS = `
   </table>
 </body></html>`
 
+const XTHOR_JSON_RESULTS = JSON.stringify({
+  error: { code: 0, descr: "OK" },
+  torrents: [
+    {
+      id: 9001,
+      category: 4,
+      seeders: 72,
+      leechers: 9,
+      name: "Xthor Movie 2026 1080p x264",
+      times_completed: 31,
+      size: 8_123_456_000,
+      added: 1_778_330_096,
+      freeleech: 1,
+      numfiles: 7,
+      download_link: "https://api.xthor.tk/download.php?id=9001&passkey=xthor-passkey",
+      tmdb_id: 12345,
+    },
+  ],
+})
+
 const REVOLUTIONTT_HTML_RESULTS = `
 <html><body>
   <table id="torrents-table">
@@ -4053,6 +4073,67 @@ search:
       uploadFactor: 2,
     })
     expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-10T19:05:00.000Z")
+  })
+
+  it("parses Xthor passkey JSON API results from the built-in definition", async () => {
+    const requests: Array<{ url: string; init: RequestInit | undefined }> = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      requests.push({ url: String(input), init })
+      return new Response(XTHOR_JSON_RESULTS, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 105,
+      name: "Xthor",
+      type: "cardigann_yaml",
+      definitionKey: "xthor",
+      baseUrl: "https://api.xthor.tk/",
+      apiKey: "",
+      configValues: {
+        passkey: "xthor-passkey",
+        freeleechOnly: "true",
+      },
+      priority: 41,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({
+        term: "Xthor Movie",
+        type: "movie",
+        categories: [2040],
+        tmdbId: 12345,
+      }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const request = requests[0]
+    const url = new URL(request?.url ?? "")
+    expect(url.origin).toBe("https://api.xthor.tk")
+    expect(url.pathname).toBe("/")
+    expect(url.searchParams.get("passkey")).toBe("xthor-passkey")
+    expect(url.searchParams.get("tmdbid")).toBe("12345")
+    expect(url.searchParams.has("search")).toBe(false)
+    expect(url.searchParams.get("freeleech")).toBe("1")
+    expect(url.searchParams.get("category")).toBe("100+4+5+122")
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "Xthor Movie 2026 1080p x264",
+      downloadUrl: "https://api.xthor.tk/download.php?id=9001&passkey=xthor-passkey",
+      infoUrl: "https://xthor.tk/details.php?id=9001",
+      category: "2040",
+      size: 8_123_456_000,
+      seeders: 72,
+      leechers: 9,
+      indexerId: 105,
+      indexerName: "Xthor",
+      indexerPriority: 41,
+      downloadFactor: 0,
+      uploadFactor: 1,
+    })
+    expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-09T12:34:56.000Z")
   })
 
   it("parses RevolutionTT HTML results after POST login", async () => {

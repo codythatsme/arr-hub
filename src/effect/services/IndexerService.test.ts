@@ -119,19 +119,19 @@ describe("IndexerService", () => {
       const second = yield* svc.refreshDefinitions()
 
       expect(first).toMatchObject({
-        total: 35,
-        created: 35,
+        total: 36,
+        created: 36,
         updated: 0,
         unchanged: 0,
       })
       expect(first.definitions.map((definition) => definition.action)).toEqual(
-        Array(35).fill("created"),
+        Array(36).fill("created"),
       )
       expect(second).toMatchObject({
-        total: 35,
+        total: 36,
         created: 0,
         updated: 0,
-        unchanged: 35,
+        unchanged: 36,
       })
       expect(second.definitions.every((definition) => definition.previousVersion !== null)).toBe(
         true,
@@ -436,6 +436,7 @@ describe("IndexerService", () => {
         "torrents-csv",
         "torrentsyndikat",
         "xspeeds",
+        "xthor",
       ])
       expect(
         definitions.find((definition) => definition.definitionKey === "generic-torznab"),
@@ -714,6 +715,15 @@ describe("IndexerService", () => {
         privacy: "private",
         supportsRss: false,
         tags: ["private", "general", "movies", "tv", "music", "books", "html"],
+      })
+      expect(definitions.find((definition) => definition.definitionKey === "xthor")).toMatchObject({
+        displayName: "Xthor",
+        protocol: "torrent",
+        implementation: "cardigann_yaml",
+        baseUrl: "https://api.xthor.tk/",
+        privacy: "private",
+        supportsRss: false,
+        tags: ["private", "general", "movies", "tv", "books", "json", "api"],
       })
       expect(
         definitions.find((definition) => definition.definitionKey === "revolutiontt"),

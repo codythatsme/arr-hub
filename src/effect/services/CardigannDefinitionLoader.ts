@@ -4730,6 +4730,325 @@ search:
         tr: "1"
 `
 
+const XTHOR = `
+id: xthor
+name: Xthor
+description: French private general tracker exposed through a first-pass passkey JSON API Cardigann definition.
+type: private
+links:
+  - https://api.xthor.tk/
+version: builtin-cardigann-1
+rss: false
+tags:
+  - private
+  - general
+  - movies
+  - tv
+  - books
+  - json
+  - api
+settings:
+  - name: passkey
+    label: Passkey
+    type: password
+    required: true
+    helpText: Xthor account passkey.
+  - name: freeleechOnly
+    label: Freeleech only
+    type: checkbox
+    default: false
+    helpText: Search freeleech torrents only.
+caps:
+  categorymappings:
+    - id: "118"
+      cat: Movies/BluRay
+      desc: Films 2160p/Bluray
+      newznab: 2050
+    - id: "119"
+      cat: Movies/BluRay
+      desc: Films 2160p/Remux
+      newznab: 2050
+    - id: "107"
+      cat: Movies/UHD
+      desc: Films 2160p/x265
+      newznab: 2045
+    - id: "1"
+      cat: Movies/BluRay
+      desc: Films 1080p/BluRay
+      newznab: 2050
+    - id: "2"
+      cat: Movies/BluRay
+      desc: Films 1080p/Remux
+      newznab: 2050
+    - id: "100"
+      cat: Movies/HD
+      desc: Films 1080p/x265
+      newznab: 2040
+    - id: "4"
+      cat: Movies/HD
+      desc: Films 1080p/x264
+      newznab: 2040
+    - id: "5"
+      cat: Movies/HD
+      desc: Films 720p/x264
+      newznab: 2040
+    - id: "7"
+      cat: Movies/SD
+      desc: Films SD/x264
+      newznab: 2030
+    - id: "3"
+      cat: Movies/3D
+      desc: Films 3D
+      newznab: 2060
+    - id: "6"
+      cat: Movies/SD
+      desc: Films XviD
+      newznab: 2030
+    - id: "8"
+      cat: Movies/DVD
+      desc: Films DVD
+      newznab: 2070
+    - id: "122"
+      cat: Movies/HD
+      desc: Films HDTV
+      newznab: 2040
+    - id: "94"
+      cat: Movies/WEB-DL
+      desc: Films WEBDL
+      newznab: 2080
+    - id: "95"
+      cat: Movies/WEB-DL
+      desc: Films WEBRiP
+      newznab: 2080
+    - id: "12"
+      cat: TV/Documentary
+      desc: Films Documentaire
+      newznab: 5080
+    - id: "31"
+      cat: Movies/Other
+      desc: Films Animation
+      newznab: 2020
+    - id: "33"
+      cat: Movies/Other
+      desc: Films Spectacle
+      newznab: 2020
+    - id: "125"
+      cat: TV/Sport
+      desc: Films Sports
+      newznab: 5060
+    - id: "20"
+      cat: Audio/Video
+      desc: Films Concerts, Clips
+      newznab: 3020
+    - id: "9"
+      cat: Movies/Other
+      desc: Films VOSTFR
+      newznab: 2020
+    - id: "104"
+      cat: TV/Other
+      desc: Series BluRay
+      newznab: 5050
+    - id: "13"
+      cat: TV/Other
+      desc: Series Pack VF
+      newznab: 5050
+    - id: "15"
+      cat: TV/HD
+      desc: Series HD VF
+      newznab: 5040
+    - id: "14"
+      cat: TV/SD
+      desc: Series SD VF
+      newznab: 5030
+    - id: "98"
+      cat: TV/Other
+      desc: Series Pack VOSTFR
+      newznab: 5050
+    - id: "17"
+      cat: TV/HD
+      desc: Series HD VOSTFR
+      newznab: 5040
+    - id: "16"
+      cat: TV/SD
+      desc: Series SD VOSTFR
+      newznab: 5030
+    - id: "101"
+      cat: TV/Anime
+      desc: Series Packs Anime
+      newznab: 5070
+    - id: "32"
+      cat: TV/Anime
+      desc: Series Animes
+      newznab: 5070
+    - id: "110"
+      cat: TV/Anime
+      desc: Series Anime VOSTFR
+      newznab: 5070
+    - id: "123"
+      cat: TV/Other
+      desc: Series Animation
+      newznab: 5050
+    - id: "109"
+      cat: TV/Documentary
+      desc: Series DOC
+      newznab: 5080
+    - id: "34"
+      cat: TV/Other
+      desc: Series Sport
+      newznab: 5050
+    - id: "30"
+      cat: TV/Other
+      desc: Series Emission TV
+      newznab: 5050
+    - id: "36"
+      cat: XXX
+      desc: MISC XxX/Films
+      newznab: 6000
+    - id: "105"
+      cat: XXX
+      desc: MISC XxX/Series
+      newznab: 6000
+    - id: "114"
+      cat: XXX
+      desc: MISC XxX/Lesbiennes
+      newznab: 6000
+    - id: "115"
+      cat: XXX
+      desc: MISC XxX/Gays
+      newznab: 6000
+    - id: "113"
+      cat: XXX
+      desc: MISC XxX/Hentai
+      newznab: 6000
+    - id: "120"
+      cat: XXX
+      desc: MISC XxX/Magazines
+      newznab: 6000
+    - id: "24"
+      cat: Books/EBook
+      desc: Livres Romans
+      newznab: 7020
+    - id: "124"
+      cat: Audio/Audiobook
+      desc: Livres Audio Books
+      newznab: 3030
+    - id: "96"
+      cat: Books/Mags
+      desc: Livres Magazines
+      newznab: 7010
+    - id: "99"
+      cat: Books/Other
+      desc: Livres Bandes dessinees
+      newznab: 7050
+    - id: "116"
+      cat: Books/EBook
+      desc: Livres Romans Jeunesse
+      newznab: 7020
+    - id: "102"
+      cat: Books/Comics
+      desc: Livres Comics
+      newznab: 7030
+    - id: "103"
+      cat: Books/Other
+      desc: Livres Mangas
+      newznab: 7050
+    - id: "25"
+      cat: PC/Games
+      desc: Logiciels Jeux PC
+      newznab: 4050
+    - id: "27"
+      cat: Console/PS3
+      desc: Logiciels Playstation
+      newznab: 1080
+    - id: "111"
+      cat: PC/Mac
+      desc: Logiciels Jeux MAC
+      newznab: 4030
+    - id: "26"
+      cat: Console/Xbox 360
+      desc: Logiciels XboX
+      newznab: 1050
+    - id: "112"
+      cat: PC
+      desc: Logiciels Jeux Linux
+      newznab: 4000
+    - id: "28"
+      cat: Console/Wii
+      desc: Logiciels Nintendo
+      newznab: 1030
+    - id: "29"
+      cat: Console/NDS
+      desc: Logiciels NDS
+      newznab: 1010
+    - id: "117"
+      cat: PC
+      desc: Logiciels ROM
+      newznab: 4000
+    - id: "21"
+      cat: PC
+      desc: Logiciels Applis PC
+      newznab: 4000
+    - id: "22"
+      cat: PC/Mac
+      desc: Logiciels Applis Mac
+      newznab: 4030
+    - id: "23"
+      cat: PC/Phone-Android
+      desc: Logiciels Smartphone
+      newznab: 4070
+  modes:
+    search: [q]
+    movie-search: [q, tmdbid]
+    tv-search: [q, season, ep]
+    music-search: [q]
+    book-search: [q]
+search:
+  paths:
+    - path: /
+      response:
+        type: json
+      inputs:
+        passkey: "{{ .Config.Passkey }}"
+        tmdbid: "{{ .Query.TMDBID }}"
+        search: "{{ if .Query.TMDBID }}{{ else }}{{ .Keywords }}{{ end }}"
+        freeleech: "{{ if .Config.FreeleechOnly }}1{{ end }}"
+        category: "{{ .Categories | join '+' }}"
+  rows:
+    selector: $.torrents, $.Torrents
+  fields:
+    id:
+      selector: id, Id
+    title:
+      selector: name, Name
+    details:
+      text: "https://xthor.tk/details.php?id={{ .Result.id }}"
+    download:
+      selector: download_link, Download_link
+    category:
+      selector: category, Category
+    date:
+      selector: added, Added
+      filters:
+        - name: unixtime
+    size:
+      selector: size, Size
+    files:
+      selector: numfiles, Numfiles
+    grabs:
+      selector: times_completed, Times_completed
+    seeders:
+      selector: seeders, Seeders
+    leechers:
+      selector: leechers, Leechers
+    downloadvolumefactor:
+      selector: freeleech, Freeleech
+      case:
+        "1": "0"
+        "0": "1"
+    uploadvolumefactor:
+      text: "1"
+`
+
 const REVOLUTION_TT = `
 id: revolutiontt
 name: RevolutionTT
@@ -5448,6 +5767,7 @@ const BUILT_IN_CARDIGANN_SOURCES = [
   FUNFILE,
   IMMORTAL_SEED,
   X_SPEEDS,
+  XTHOR,
   REVOLUTION_TT,
   PRETOME,
   MORE_THAN_TV,
