@@ -319,6 +319,16 @@ function Indexers() {
       },
     }),
   )
+  const refreshBuiltInDefinitions = useMutation(
+    trpc.indexers.refreshDefinitions.mutationOptions({
+      onSuccess: async (result) => {
+        await invalidateDefinitions()
+        setDefinitionSourceMessage(
+          `Refreshed built-ins: ${result.created} created, ${result.updated} updated, ${result.unchanged} unchanged.`,
+        )
+      },
+    }),
+  )
   const addApplication = useMutation(
     trpc.indexerApplications.add.mutationOptions({
       onSuccess: async () => {
@@ -393,7 +403,8 @@ function Indexers() {
     removeDefinitionSource.isPending ||
     refreshDefinitionSource.isPending ||
     refreshEnabledDefinitionSources.isPending ||
-    importDefinitionCatalog.isPending
+    importDefinitionCatalog.isPending ||
+    refreshBuiltInDefinitions.isPending
   const applicationPending =
     addApplication.isPending ||
     updateApplication.isPending ||
@@ -410,7 +421,8 @@ function Indexers() {
     removeDefinitionSource.error?.message ??
     refreshDefinitionSource.error?.message ??
     refreshEnabledDefinitionSources.error?.message ??
-    importDefinitionCatalog.error?.message
+    importDefinitionCatalog.error?.message ??
+    refreshBuiltInDefinitions.error?.message
   const applicationError =
     addApplication.error?.message ??
     updateApplication.error?.message ??
@@ -1321,15 +1333,26 @@ function Indexers() {
               Manage URL-backed Cardigann YAML sources and checksum-pinned catalog manifests.
             </p>
           </div>
-          <button
-            type="button"
-            className="inline-flex items-center gap-2 rounded border px-3 py-2 text-sm disabled:opacity-50"
-            disabled={definitionSourcePending}
-            onClick={() => refreshEnabledDefinitionSources.mutate()}
-          >
-            <RefreshCw className="size-4" />
-            Refresh enabled
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 rounded border px-3 py-2 text-sm disabled:opacity-50"
+              disabled={definitionSourcePending}
+              onClick={() => refreshBuiltInDefinitions.mutate()}
+            >
+              <RefreshCw className="size-4" />
+              Refresh built-ins
+            </button>
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 rounded border px-3 py-2 text-sm disabled:opacity-50"
+              disabled={definitionSourcePending}
+              onClick={() => refreshEnabledDefinitionSources.mutate()}
+            >
+              <RefreshCw className="size-4" />
+              Refresh enabled
+            </button>
+          </div>
         </div>
 
         {definitionSourceMessage && (
