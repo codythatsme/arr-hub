@@ -89,16 +89,23 @@ function mappedTrackerCategories(
     .map((category) => category.trackerCategory)
 }
 
-function pathMatchesCategories(
+function categoriesForPath(
   path: CardigannSearchPath,
   trackerCategories: ReadonlyArray<string>,
-): boolean {
-  if (path.categories.length === 0 || trackerCategories.length === 0) return true
+): ReadonlyArray<string> | null {
+  if (path.categories.length === 0 || trackerCategories.length === 0) return trackerCategories
 
   const negated = path.categories[0] === "!"
-  const allowed = new Set(negated ? path.categories.slice(1) : path.categories)
-  const intersects = trackerCategories.some((category) => allowed.has(category))
-  return negated ? !intersects : intersects
+  const configured = negated ? path.categories.slice(1) : path.categories
+  const selected = new Set(configured)
+
+  if (negated) {
+    const blocked = trackerCategories.some((category) => selected.has(category))
+    return blocked ? null : trackerCategories.filter((category) => !selected.has(category))
+  }
+
+  const narrowed = trackerCategories.filter((category) => selected.has(category))
+  return narrowed.length > 0 ? narrowed : null
 }
 
 function configKeyVariants(key: string): ReadonlyArray<string> {
@@ -391,10 +398,12 @@ function resolveSearchRequests(
 
   const requests = new Map<string, CardigannSearchRequest>()
   for (const path of definition.search.paths) {
-    if (!pathMatchesCategories(path, trackerCategories)) continue
+    const pathCategories = categoriesForPath(path, trackerCategories)
+    if (pathCategories === null) continue
+    const pathVariables = { ...variables, ".Categories": pathCategories }
 
     const url = new URL(
-      renderTemplate(path.path, variables),
+      renderTemplate(path.path, pathVariables),
       baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`,
     )
     const targetParams = path.method === "get" ? url.searchParams : new URLSearchParams()
@@ -403,13 +412,18 @@ function resolveSearchRequests(
       appendInputs(
         targetParams,
         definition.search.inputs,
-        variables,
+        pathVariables,
         definition.search.allowEmptyInputs,
       )
     }
-    appendInputs(targetParams, path.inputs, variables, definition.search.allowEmptyInputs)
-    appendHeaders(headers, definition.search.headers, variables, definition.search.allowEmptyInputs)
-    appendHeaders(headers, path.headers, variables, definition.search.allowEmptyInputs)
+    appendInputs(targetParams, path.inputs, pathVariables, definition.search.allowEmptyInputs)
+    appendHeaders(
+      headers,
+      definition.search.headers,
+      pathVariables,
+      definition.search.allowEmptyInputs,
+    )
+    appendHeaders(headers, path.headers, pathVariables, definition.search.allowEmptyInputs)
 
     const init: RequestInit = {}
     if (path.method === "post") {

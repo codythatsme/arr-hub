@@ -270,6 +270,70 @@ search:
     expect(headers.get("x-query-slug")).toBe("example-movie")
   })
 
+  it("narrows Cardigann Categories for each matching path", async () => {
+    const requestUrls: Array<string> = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      requestUrls.push(String(input))
+      return new Response(RSS_XML, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 16,
+      name: "Path Category Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "path-category-cardigann",
+      definitionYaml: `
+id: path-category-cardigann
+name: Path Category Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+    - id: tv
+      cat: TV
+      desc: TV
+  modes:
+    search: [q]
+search:
+  paths:
+    - path: /movies
+      categories: [movies]
+      response:
+        type: torznab
+      inputs:
+        cat: "{{ .Categories | join ',' }}"
+    - path: /tv
+      categories: [tv]
+      response:
+        type: torznab
+      inputs:
+        cat: "{{ .Categories | join ',' }}"
+`,
+      baseUrl: "https://tracker.example/root",
+      apiKey: "",
+      priority: 15,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    await Effect.runPromise(
+      adapter.search({ term: "Mixed Category Search", type: "general", categories: [2000, 5000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    const requests = requestUrls
+      .map((item) => new URL(item))
+      .toSorted((left, right) => left.pathname.localeCompare(right.pathname))
+    expect(requests.map((url) => `${url.pathname}:${url.searchParams.get("cat")}`)).toEqual([
+      "/movies:movies",
+      "/tv:tv",
+    ])
+  })
+
   it("applies Cardigann keyword filters before rendering Keywords", async () => {
     let requestUrl: string | undefined
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
