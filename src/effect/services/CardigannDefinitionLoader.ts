@@ -56,6 +56,7 @@ export interface CardigannRowsSelector {
   readonly selector: string
   readonly after?: number
   readonly filters: ReadonlyArray<CardigannFilter>
+  readonly dateHeaders?: CardigannFieldSelector
 }
 
 export interface CardigannFieldSelector {
@@ -575,10 +576,14 @@ function parseRows(value: unknown): CardigannRowsSelector | null {
   if (value === undefined) return null
   const rows = expectRecord(value, "rows")
   const after = optionalNonNegativeInt(rows, "after")
+  const dateHeaders = rows.dateheaders ?? rows.dateHeaders
   return {
     selector: requiredString(rows, "selector"),
     filters: parseFilters(rows.filters),
     ...(after !== null ? { after } : {}),
+    ...(dateHeaders !== undefined
+      ? { dateHeaders: parseFieldSelector(expectRecord(dateHeaders, "rows dateheaders")) }
+      : {}),
   }
 }
 

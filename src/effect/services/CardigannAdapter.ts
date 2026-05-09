@@ -58,6 +58,8 @@ interface HtmlElementMatch {
   readonly attributes: Readonly<Record<string, string>>
   readonly innerHtml: string
   readonly outerHtml: string
+  readonly sourceIndex?: number
+  readonly innerHtmlStartIndex?: number
 }
 
 interface SimpleHtmlSelector {
@@ -1124,6 +1126,7 @@ function htmlAttributeMatches(
 function findHtmlElementsForToken(
   html: string,
   selectorText: string,
+  baseIndex = 0,
 ): ReadonlyArray<HtmlElementMatch> {
   const selector = parseSimpleHtmlSelectorToken(selectorText)
   if (selector === null) return []
@@ -1137,7 +1140,15 @@ function findHtmlElementsForToken(
 
     const attributes = parseHtmlAttributes(match[2] ?? "")
     if (htmlAttributeMatches(attributes, selector)) {
-      matches.push({ tagName, attributes, innerHtml: match[3] ?? "", outerHtml: match[0] })
+      const sourceIndex = baseIndex + (match.index ?? 0)
+      matches.push({
+        tagName,
+        attributes,
+        innerHtml: match[3] ?? "",
+        outerHtml: match[0],
+        sourceIndex,
+        innerHtmlStartIndex: sourceIndex + match[0].indexOf(">") + 1,
+      })
     }
   }
   return matches
@@ -1151,7 +1162,9 @@ function findHtmlElements(html: string, selectorText: string): ReadonlyArray<Htm
     { tagName: null, attributes: {}, innerHtml: html, outerHtml: html },
   ]
   for (const token of tokens) {
-    matches = matches.flatMap((match) => findHtmlElementsForToken(match.innerHtml, token))
+    matches = matches.flatMap((match) =>
+      findHtmlElementsForToken(match.innerHtml, token, match.innerHtmlStartIndex ?? 0),
+    )
     if (matches.length === 0) return []
   }
   return matches
@@ -1178,6 +1191,8 @@ function mergeHtmlRows(
       outerHtml: [row.outerHtml, ...followingRows.map((followingRow) => followingRow.outerHtml)]
         .filter((value) => value.length > 0)
         .join("\n"),
+      sourceIndex: row.sourceIndex,
+      innerHtmlStartIndex: row.innerHtmlStartIndex,
     })
   }
 
@@ -1246,6 +1261,40 @@ function filterHtmlRows(
   return rows.filter((row) =>
     filters.every((filter) => rowMatchesCardigannFilter(row, filter, variables)),
   )
+}
+
+function htmlDateHeaderValue(
+  html: string,
+  row: HtmlElementMatch,
+  dateHeaders: CardigannFieldSelector,
+  variables: Record<string, TemplateValue>,
+): string {
+  const rowIndex = row.sourceIndex ?? html.indexOf(row.outerHtml)
+  if (rowIndex <= 0) return ""
+
+  const precedingHtml = html.slice(0, rowIndex)
+  if (row.tagName !== null) {
+    const previousRows = findHtmlElements(precedingHtml, row.tagName)
+    for (let index = previousRows.length - 1; index >= 0; index -= 1) {
+      const previousRow = previousRows[index]
+      if (previousRow === undefined) continue
+      const value = htmlFieldValue(previousRow, dateHeaders, variables)
+      if (value.length > 0) return value
+    }
+  }
+
+  if (dateHeaders.selector === undefined) return ""
+
+  const { selector: _selector, ...headerField } = dateHeaders
+  const headerElements = findHtmlElements(precedingHtml, dateHeaders.selector)
+  for (let index = headerElements.length - 1; index >= 0; index -= 1) {
+    const headerElement = headerElements[index]
+    if (headerElement === undefined) continue
+    const value = htmlFieldValue(headerElement, headerField, variables)
+    if (value.length > 0) return value
+  }
+
+  return ""
 }
 
 function removeHtmlElements(html: string, selectorText: string): string {
@@ -1341,6 +1390,8 @@ function htmlDocumentMatch(html: string): HtmlElementMatch {
     attributes: {},
     innerHtml: html,
     outerHtml: html,
+    sourceIndex: 0,
+    innerHtmlStartIndex: 0,
   }
 }
 
@@ -1428,13 +1479,11 @@ function parseHtmlReleases(
   definition: CardigannRuntimeDefinition,
   config: IndexerConfig,
 ): ReadonlyArray<ReleaseCandidate> {
-  if (definition.search.rows === null) return []
+  const rowSelector = definition.search.rows
+  if (rowSelector === null) return []
 
-  const rows = mergeHtmlRows(
-    findHtmlElements(html, definition.search.rows.selector),
-    definition.search.rows.after,
-  )
-  const filteredRows = filterHtmlRows(rows, definition.search.rows.filters, request.variables)
+  const rows = mergeHtmlRows(findHtmlElements(html, rowSelector.selector), rowSelector.after)
+  const filteredRows = filterHtmlRows(rows, rowSelector.filters, request.variables)
   const now = Date.now()
 
   return filteredRows.map((row): ReleaseCandidate => {
@@ -1446,7 +1495,16 @@ function parseHtmlReleases(
       variables[`.Result.${name}`] = value
     }
 
-    const publishedAt = parseHtmlDate(fieldByName(resultFields, ["date", "pubdate", "publishdate"]))
+    let dateValue = fieldByName(resultFields, ["date", "pubdate", "publishdate"])
+    if (dateValue.length === 0 && rowSelector.dateHeaders !== undefined) {
+      dateValue = htmlDateHeaderValue(html, row, rowSelector.dateHeaders, variables)
+      if (dateValue.length > 0) {
+        resultFields.date = dateValue
+        variables[".Result.date"] = dateValue
+      }
+    }
+
+    const publishedAt = parseHtmlDate(dateValue)
     const ageDays = Math.max(0, Math.floor((now - publishedAt.getTime()) / 86_400_000))
     const downloadUrl = absoluteUrl(
       fieldByName(resultFields, ["download", "downloadurl", "link"]),

@@ -72,6 +72,37 @@ const HTML_DATEPARSE_RESULTS = `<!doctype html>
   </body>
 </html>`
 
+const HTML_DATE_HEADER_RESULTS = `<!doctype html>
+<html>
+  <body>
+    <table>
+      <tbody>
+        <tr class="day">
+          <td class="date-header">2026-05-04</td>
+        </tr>
+        <tr class="torrent">
+          <td><a class="title">Header Date Movie 2026 1080p WEB-DL</a></td>
+          <td><a class="download" href="/download/header-date">Download</a></td>
+          <td class="size">850 MB</td>
+        </tr>
+        <tr class="torrent">
+          <td><a class="title">Second Header Date Movie 2026 720p WEB-DL</a></td>
+          <td><a class="download" href="/download/second-header-date">Download</a></td>
+          <td class="size">650 MB</td>
+        </tr>
+        <tr class="day">
+          <td class="date-header">2026-05-05</td>
+        </tr>
+        <tr class="torrent">
+          <td><a class="title">Next Header Date Movie 2026 1080p WEB-DL</a></td>
+          <td><a class="download" href="/download/next-header-date">Download</a></td>
+          <td class="size">950 MB</td>
+        </tr>
+      </tbody>
+    </table>
+  </body>
+</html>`
+
 const HTML_ROW_FILTER_RESULTS = `<!doctype html>
 <html>
   <body>
@@ -500,6 +531,74 @@ search:
       expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-02T13:45:30.000Z")
     },
   )
+
+  it("applies Cardigann HTML date headers when release rows omit dates", async () => {
+    const fetchMock = vi.fn(async () => new Response(HTML_DATE_HEADER_RESULTS, { status: 200 }))
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 54,
+      name: "Date Header HTML Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "date-header-html-cardigann",
+      definitionYaml: `
+id: date-header-html-cardigann
+name: Date Header HTML Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+      newznab: 2000
+  modes:
+    search: [q]
+search:
+  paths:
+    - path: /browse
+      response:
+        type: html
+  rows:
+    selector: tr.torrent
+    dateheaders:
+      selector: td.date-header
+      filters:
+        - name: dateparse
+          args: "yyyy-MM-dd"
+  fields:
+    title:
+      selector: a.title
+    download:
+      selector: a.download
+      attribute: href
+    size:
+      selector: td.size
+    category:
+      text: Movies
+`,
+      baseUrl: "https://tracker.example",
+      apiKey: "",
+      priority: 35,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Header Date Movie", type: "general", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(releases).toHaveLength(3)
+    expect(releases[0]).toMatchObject({
+      title: "Header Date Movie 2026 1080p WEB-DL",
+      downloadUrl: "https://tracker.example/download/header-date",
+      category: "2000",
+    })
+    expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-04T00:00:00.000Z")
+    expect(releases[1]?.publishedAt.toISOString()).toBe("2026-05-04T00:00:00.000Z")
+    expect(releases[2]?.publishedAt.toISOString()).toBe("2026-05-05T00:00:00.000Z")
+  })
 
   it("applies Cardigann andmatch row filters to HTML results", async () => {
     const fetchMock = vi.fn(async () => new Response(HTML_ROW_FILTER_RESULTS, { status: 200 }))

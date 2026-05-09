@@ -541,6 +541,9 @@ search:
     filters:
       - name: andmatch
         args: 66
+    dateheaders:
+      selector: tr.date-header
+      optional: true
   fields:
     category:
       selector: a.category
@@ -572,6 +575,11 @@ search:
       selector: "tr.torrent",
       after: 1,
       filters: [{ name: "andmatch", args: ["66"] }],
+      dateHeaders: {
+        selector: "tr.date-header",
+        optional: true,
+        filters: [],
+      },
     })
     expect(runtime.search.fields).toMatchObject({
       category: {
