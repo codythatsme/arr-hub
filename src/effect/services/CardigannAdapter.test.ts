@@ -387,6 +387,61 @@ search:
     ])
   })
 
+  it("uses default Cardigann categories when no request categories match", async () => {
+    let requestUrl: string | undefined
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      requestUrl = String(input)
+      return new Response(RSS_XML, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 18,
+      name: "Default Category Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "default-category-cardigann",
+      definitionYaml: `
+id: default-category-cardigann
+name: Default Category Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+      default: true
+    - id: tv
+      cat: TV
+      desc: TV
+  modes:
+    search: [q]
+search:
+  paths:
+    - path: /search
+      response:
+        type: torznab
+      inputs:
+        cat: "{{ .Categories | join ',' }}"
+        q: "{{ .Keywords }}"
+`,
+      baseUrl: "https://tracker.example/root",
+      apiKey: "",
+      priority: 15,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    await Effect.runPromise(
+      adapter.search({ term: "Default Category Search", type: "general", categories: [7000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const url = new URL(requestUrl ?? "")
+    expect(url.searchParams.get("cat")).toBe("movies")
+    expect(url.searchParams.get("q")).toBe("Default Category Search")
+  })
+
   it("applies Cardigann keyword filters before rendering Keywords", async () => {
     let requestUrl: string | undefined
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {

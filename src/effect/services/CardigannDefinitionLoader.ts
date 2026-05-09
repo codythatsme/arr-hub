@@ -591,6 +591,7 @@ function parseCategories(value: unknown): ReadonlyArray<IndexerCategoryMapping> 
         optionalString(category, "desc") ??
         trackerCategory,
       newznabCategory: resolveNewznabCategory(category),
+      ...(optionalBoolean(category, "default") === true ? { defaultCategory: true } : {}),
     }
   })
 }

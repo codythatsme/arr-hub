@@ -197,6 +197,34 @@ caps:
     ])
   })
 
+  it("parses default Cardigann category mappings", () => {
+    const definition = parseCardigannDefinitionYaml(`
+id: default-category-cardigann
+name: Default Category Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+      default: true
+    - id: tv
+      cat: TV
+      desc: TV
+`)
+
+    expect(definition.categories).toEqual([
+      {
+        trackerCategory: "movies",
+        trackerCategoryDesc: "Movies",
+        newznabCategory: 2000,
+        defaultCategory: true,
+      },
+      { trackerCategory: "tv", trackerCategoryDesc: "TV", newznabCategory: 5000 },
+    ])
+  })
+
   it("parses first-pass Cardigann search runtime metadata", () => {
     const runtime = parseCardigannRuntimeDefinitionYaml(`
 id: runtime-cardigann

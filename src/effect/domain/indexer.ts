@@ -61,6 +61,7 @@ export interface IndexerCategoryMapping {
   readonly trackerCategory: string
   readonly trackerCategoryDesc: string
   readonly newznabCategory: number
+  readonly defaultCategory?: boolean
 }
 
 export interface IndexerDefinitionSeed {

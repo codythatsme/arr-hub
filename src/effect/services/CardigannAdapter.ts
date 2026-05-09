@@ -82,11 +82,16 @@ function mappedTrackerCategories(
   definition: CardigannRuntimeDefinition,
   query: SearchQuery,
 ): ReadonlyArray<string> {
-  if (!query.categories || query.categories.length === 0) return []
+  const defaultCategories = definition.categories
+    .filter((category) => category.defaultCategory === true)
+    .map((category) => category.trackerCategory)
+  if (!query.categories || query.categories.length === 0) return defaultCategories
+
   const requested = new Set(query.categories)
-  return definition.categories
+  const mapped = definition.categories
     .filter((category) => requested.has(category.newznabCategory))
     .map((category) => category.trackerCategory)
+  return mapped.length > 0 ? mapped : defaultCategories
 }
 
 function categoriesForPath(
