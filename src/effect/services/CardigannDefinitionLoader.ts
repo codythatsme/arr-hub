@@ -607,6 +607,7 @@ function parseLoginRuntime(value: unknown): CardigannLoginRuntime | null {
             login.paths ?? login.path,
             login,
             method === "oneurl" || method === "form" ? "get" : null,
+            method === "form",
           ),
     ...(selectors ? { selectors } : {}),
     ...(Object.keys(selectorInputs).length > 0 ? { selectorInputs } : {}),
@@ -622,6 +623,7 @@ function parseLoginPaths(
   value: unknown,
   login: Record<string, unknown>,
   defaultMethodOverride: "get" | "post" | null = null,
+  allowPathMethodOverride = false,
 ): ReadonlyArray<CardigannLoginPath> {
   const pathValues =
     typeof value === "string"
@@ -635,9 +637,13 @@ function parseLoginPaths(
 
   return pathValues.map((item) => {
     const path = typeof item === "string" ? { path: item } : expectRecord(item, "login path")
+    const pathMethod =
+      defaultMethodOverride === null || allowPathMethodOverride
+        ? optionalString(path, "method")
+        : null
     return {
       path: requiredString(path, "path"),
-      method: defaultMethodOverride ?? parseMethod(optionalString(path, "method") ?? defaultMethod),
+      method: parseMethod(pathMethod ?? defaultMethod),
       inputs: parseInputMap(path.inputs),
       headers: parseHeaderMap(path.headers),
     }

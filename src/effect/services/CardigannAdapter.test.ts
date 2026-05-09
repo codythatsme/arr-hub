@@ -4386,6 +4386,122 @@ search:
     expect(releases[0]?.title).toBe("Example Movie 2026 1080p WEB-DL")
   })
 
+  it("executes Cardigann POST form login landing requests", async () => {
+    const requests: Array<{ url: string; init: RequestInit | undefined }> = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      requests.push({ url, init })
+      const pathname = new URL(url).pathname
+      if (pathname === "/login") {
+        return new Response(
+          `<html><body>
+            <form id="signin" action="/session">
+              <input type="hidden" name="csrf" value="token123">
+              <input type="text" name="username" value="landing-user">
+            </form>
+          </body></html>`,
+          {
+            status: 200,
+            headers: { "set-cookie": "landing=abc; Path=/; HttpOnly" },
+          },
+        )
+      }
+      if (pathname === "/session") {
+        return new Response("ok", {
+          status: 200,
+          headers: { "set-cookie": "session=xyz; Path=/; HttpOnly" },
+        })
+      }
+      return new Response(RSS_XML, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 87,
+      name: "POST Landing Form Login Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "post-landing-form-login-cardigann",
+      definitionYaml: `
+id: post-landing-form-login-cardigann
+name: POST Landing Form Login Cardigann
+links:
+  - https://tracker.example
+settings:
+  - name: username
+    label: Username
+  - name: password
+    label: Password
+    type: password
+  - name: gate
+    label: Gate
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+  modes:
+    movie-search: [q]
+login:
+  path:
+    path: /login
+    method: post
+    headers:
+      X-Landing: "{{ .Config.Gate }}"
+    inputs:
+      gate: "{{ .Config.Gate }}"
+      empty: ""
+  method: form
+  form: form#signin
+  inputs:
+    username: "{{ .Config.Username }}"
+    password: "{{ .Config.Password }}"
+search:
+  paths:
+    - path: /api
+      response:
+        type: torznab
+      inputs:
+        q: "{{ .Keywords }}"
+`,
+      baseUrl: "https://tracker.example/root",
+      apiKey: "",
+      configValues: {
+        username: "alice",
+        password: "secret",
+        gate: "invite-123",
+      },
+      priority: 15,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "POST Landing Movie", type: "movie", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    expect(new URL(requests[0]?.url ?? "").pathname).toBe("/login")
+    expect(requests[0]?.init?.method).toBe("POST")
+    const landingBody = new URLSearchParams(String(requests[0]?.init?.body ?? ""))
+    expect(landingBody.get("gate")).toBe("invite-123")
+    expect(landingBody.has("empty")).toBe(false)
+    const landingHeaders = new Headers(requests[0]?.init?.headers)
+    expect(landingHeaders.get("content-type")).toBe("application/x-www-form-urlencoded")
+    expect(landingHeaders.get("x-landing")).toBe("invite-123")
+
+    const submitBody = new URLSearchParams(String(requests[1]?.init?.body ?? ""))
+    expect(new URL(requests[1]?.url ?? "").pathname).toBe("/session")
+    expect(requests[1]?.init?.method).toBe("POST")
+    expect(submitBody.get("csrf")).toBe("token123")
+    expect(submitBody.get("username")).toBe("alice")
+    expect(submitBody.get("password")).toBe("secret")
+
+    const searchHeaders = new Headers(requests[2]?.init?.headers)
+    expect(searchHeaders.get("cookie")).toBe("landing=abc; session=xyz")
+    expect(new URL(requests[2]?.url ?? "").searchParams.get("q")).toBe("POST Landing Movie")
+    expect(releases[0]?.title).toBe("Example Movie 2026 1080p WEB-DL")
+  })
+
   it("submits Cardigann form login select and textarea defaults", async () => {
     const requests: Array<{ url: string; init: RequestInit | undefined }> = []
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {

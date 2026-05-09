@@ -3099,6 +3099,30 @@ function loginHeaders(
   return headers
 }
 
+function formLoginLandingRequestInit(
+  landingUrl: URL,
+  login: CardigannLoginRuntime,
+  path: CardigannLoginRuntime["paths"][number],
+  variables: Record<string, TemplateValue>,
+): RequestInit {
+  const headers = loginHeaders(login, path, variables)
+  const init: RequestInit = {}
+  if (path.method === "post") {
+    const body = new URLSearchParams()
+    appendInputs(body, path.inputs, variables, false)
+    init.method = "POST"
+    init.body = body
+    if (!headers.has("content-type")) {
+      headers.set("content-type", "application/x-www-form-urlencoded")
+    }
+  } else {
+    appendInputs(landingUrl.searchParams, path.inputs, variables, false)
+  }
+
+  if (Array.from(headers).length > 0) init.headers = headers
+  return init
+}
+
 function selectorInputValue(
   document: HtmlElementMatch,
   inputName: string,
@@ -3354,9 +3378,7 @@ function executeFormLoginRequests(
         renderTemplate(path.path, variables),
         baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`,
       )
-      const landingHeaders = loginHeaders(login, path, variables)
-      const landingInit: RequestInit = {}
-      if (Array.from(landingHeaders).length > 0) landingInit.headers = landingHeaders
+      const landingInit = formLoginLandingRequestInit(landingUrl, login, path, variables)
 
       const landingResponse = yield* fetchIndexerResponseText(
         landingUrl,
