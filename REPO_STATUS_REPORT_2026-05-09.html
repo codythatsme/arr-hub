@@ -1,0 +1,1445 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ARR Hub Repository Status Report - 2026-05-09</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0d1117;
+        --panel: #151b23;
+        --panel-2: #1b2330;
+        --text: #e6edf3;
+        --muted: #8b949e;
+        --border: #30363d;
+        --good: #2ea043;
+        --warn: #d29922;
+        --bad: #f85149;
+        --info: #58a6ff;
+        --purple: #a371f7;
+        --code: #111820;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family:
+          Inter,
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+        line-height: 1.5;
+      }
+
+      a {
+        color: var(--info);
+      }
+
+      code,
+      pre,
+      kbd {
+        font-family:
+          ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      }
+
+      code {
+        color: #c9d1d9;
+        background: var(--code);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 0.1rem 0.3rem;
+      }
+
+      pre {
+        overflow: auto;
+        background: var(--code);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 1rem;
+      }
+
+      header.hero {
+        border-bottom: 1px solid var(--border);
+        background: #111720;
+      }
+
+      .wrap {
+        width: min(1180px, calc(100vw - 40px));
+        margin: 0 auto;
+      }
+
+      .hero .wrap {
+        padding: 36px 0 28px;
+      }
+
+      .eyebrow {
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        font-size: 0.78rem;
+        font-weight: 700;
+      }
+
+      h1,
+      h2,
+      h3 {
+        line-height: 1.18;
+        margin: 0;
+      }
+
+      h1 {
+        margin-top: 0.35rem;
+        font-size: clamp(2rem, 4vw, 3.2rem);
+      }
+
+      h2 {
+        font-size: 1.35rem;
+        margin-bottom: 0.9rem;
+      }
+
+      h3 {
+        font-size: 1rem;
+        margin: 1.25rem 0 0.5rem;
+      }
+
+      p {
+        margin: 0.45rem 0;
+      }
+
+      .subtitle {
+        max-width: 920px;
+        color: var(--muted);
+        font-size: 1.05rem;
+        margin-top: 0.75rem;
+      }
+
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 1rem;
+      }
+
+      .pill,
+      .status {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 0.22rem 0.55rem;
+        font-size: 0.78rem;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+
+      .status.good {
+        color: #9be9a8;
+        border-color: rgba(46, 160, 67, 0.55);
+        background: rgba(46, 160, 67, 0.12);
+      }
+
+      .status.warn {
+        color: #f2cc60;
+        border-color: rgba(210, 153, 34, 0.55);
+        background: rgba(210, 153, 34, 0.12);
+      }
+
+      .status.bad {
+        color: #ffaba8;
+        border-color: rgba(248, 81, 73, 0.55);
+        background: rgba(248, 81, 73, 0.12);
+      }
+
+      .status.info {
+        color: #a5d6ff;
+        border-color: rgba(88, 166, 255, 0.55);
+        background: rgba(88, 166, 255, 0.12);
+      }
+
+      nav {
+        position: sticky;
+        top: 0;
+        z-index: 5;
+        border-bottom: 1px solid var(--border);
+        background: rgba(13, 17, 23, 0.92);
+        backdrop-filter: blur(10px);
+      }
+
+      nav .wrap {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        padding: 0.7rem 0;
+      }
+
+      nav a {
+        color: var(--muted);
+        text-decoration: none;
+        border: 1px solid transparent;
+        border-radius: 999px;
+        padding: 0.25rem 0.55rem;
+        font-size: 0.82rem;
+      }
+
+      nav a:hover {
+        color: var(--text);
+        border-color: var(--border);
+      }
+
+      main.wrap {
+        padding: 28px 0 60px;
+      }
+
+      section {
+        margin-top: 26px;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(12, 1fr);
+        gap: 14px;
+      }
+
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 16px;
+      }
+
+      .card.alt {
+        background: var(--panel-2);
+      }
+
+      .span-3 {
+        grid-column: span 3;
+      }
+
+      .span-4 {
+        grid-column: span 4;
+      }
+
+      .span-6 {
+        grid-column: span 6;
+      }
+
+      .span-8 {
+        grid-column: span 8;
+      }
+
+      .span-12 {
+        grid-column: span 12;
+      }
+
+      .metric {
+        color: var(--muted);
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-weight: 700;
+      }
+
+      .metric-value {
+        margin-top: 0.35rem;
+        font-size: 1.55rem;
+        font-weight: 800;
+      }
+
+      .muted {
+        color: var(--muted);
+      }
+
+      .callout {
+        border-left: 4px solid var(--warn);
+        background: rgba(210, 153, 34, 0.1);
+        padding: 14px 16px;
+        border-radius: 8px;
+      }
+
+      .callout.bad {
+        border-left-color: var(--bad);
+        background: rgba(248, 81, 73, 0.1);
+      }
+
+      .callout.good {
+        border-left-color: var(--good);
+        background: rgba(46, 160, 67, 0.1);
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.92rem;
+      }
+
+      th,
+      td {
+        vertical-align: top;
+        padding: 0.65rem 0.7rem;
+        border-bottom: 1px solid var(--border);
+      }
+
+      th {
+        color: var(--muted);
+        text-align: left;
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      tr:last-child td {
+        border-bottom: 0;
+      }
+
+      ul {
+        margin: 0.5rem 0 0;
+        padding-left: 1.2rem;
+      }
+
+      li + li {
+        margin-top: 0.3rem;
+      }
+
+      .two-col {
+        columns: 2;
+        column-gap: 32px;
+      }
+
+      .toc-title {
+        color: var(--muted);
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-weight: 800;
+      }
+
+      .small {
+        font-size: 0.86rem;
+      }
+
+      @media (max-width: 900px) {
+        .span-3,
+        .span-4,
+        .span-6,
+        .span-8 {
+          grid-column: span 12;
+        }
+
+        .two-col {
+          columns: 1;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="hero">
+      <div class="wrap">
+        <div class="eyebrow">Repository audit</div>
+        <h1>ARR Hub Current State Report</h1>
+        <p class="subtitle">
+          Deep inspection of the first-party application code, routes, service layer, data model,
+          verification scripts, local SQLite state, deployment assets, and test results in
+          <code>/Users/codythatsme/Developer/arr-hub</code>.
+        </p>
+        <div class="meta">
+          <span class="pill">Date: 2026-05-09</span>
+          <span class="pill">Branch: main</span>
+          <span class="pill">Commit: f1a6078850 feat: goal run</span>
+          <span class="pill">Pre-report worktree: clean</span>
+          <span class="pill">New artifact: this report file</span>
+        </div>
+      </div>
+    </header>
+
+    <nav>
+      <div class="wrap">
+        <a href="#verdict">Verdict</a>
+        <a href="#verification">Verification</a>
+        <a href="#architecture">Architecture</a>
+        <a href="#ui">UI</a>
+        <a href="#api">API</a>
+        <a href="#data">Data</a>
+        <a href="#features">Features</a>
+        <a href="#testing">Testing</a>
+        <a href="#deployment">Deployment</a>
+        <a href="#gaps">Gaps</a>
+        <a href="#files">Evidence</a>
+      </div>
+    </nav>
+
+    <main class="wrap">
+      <section id="verdict">
+        <h2>Executive Verdict</h2>
+        <div class="grid">
+          <div class="card span-6">
+            <h3>What exists</h3>
+            <p>
+              ARR Hub is a substantial local-first media automation application. It has a TanStack
+              Start/TanStack Router frontend, tRPC API, Effect service layer, Drizzle/SQLite data
+              model, built-in adapters for qBittorrent/SABnzbd/Torznab/Newznab/Plex/Jellyfin, an
+              acquisition and release-policy pipeline, scheduler, Plex activity analytics,
+              notifications, plugin loading, onboarding, import from Radarr/Sonarr, Docker assets,
+              and a sizeable unit/integration test suite.
+            </p>
+          </div>
+          <div class="card span-6">
+            <h3>What is actually working right now</h3>
+            <p>
+              The TypeScript app compiles, formats, tests, and builds successfully. The backend
+              service architecture is broadly wired. However, the current local SQLite database in
+              <code>data/arr-hub.db</code> is not in a clean runnable product state: it has users
+              and API keys, no onboarding setup state, no Drizzle migration tracking table, and is
+              missing current schema tables for plugins and notifications.
+            </p>
+          </div>
+          <div class="card span-12 callout bad">
+            <strong>Most important operational finding:</strong>
+            With the default <code>DATABASE_PATH=data/arr-hub.db</code>, the local app will likely
+            redirect to onboarding because <code>setup_state</code> is empty, but onboarding cannot
+            create the admin because users already exist. The same local database also lacks
+            <code>plugins</code>, <code>notification_channels</code>, and
+            <code>notification_deliveries</code>, so those runtime features can fail until the
+            database is reset, pushed, migrated with a proper baseline, or manually repaired.
+          </div>
+        </div>
+      </section>
+
+      <section id="verification">
+        <h2>Verification Run</h2>
+        <div class="grid">
+          <div class="card span-3">
+            <div class="metric">TypeScript</div>
+            <div class="metric-value"><span class="status good">Pass</span></div>
+            <p class="small">
+              <code>bun run typecheck</code> completed with <code>tsc --noEmit</code>.
+            </p>
+          </div>
+          <div class="card span-3">
+            <div class="metric">Formatting</div>
+            <div class="metric-value"><span class="status good">Pass</span></div>
+            <p class="small"><code>oxfmt --check</code> passed on 192 matched files.</p>
+          </div>
+          <div class="card span-3">
+            <div class="metric">Lint</div>
+            <div class="metric-value"><span class="status warn">Pass with warnings</span></div>
+            <p class="small"><code>oxlint</code> found 0 errors and 114 warnings.</p>
+          </div>
+          <div class="card span-3">
+            <div class="metric">Tests</div>
+            <div class="metric-value"><span class="status good">Pass</span></div>
+            <p class="small">29 files passed, 1 file skipped; 284 tests passed, 4 skipped.</p>
+          </div>
+          <div class="card span-6">
+            <h3>Build</h3>
+            <p>
+              <code>bun run build</code> passed and generated <code>.output</code>. Build warnings
+              are present but non-fatal:
+            </p>
+            <ul>
+              <li>
+                Client chunks exceed 500 kB: notably <code>main</code> and <code>stats</code>.
+              </li>
+              <li>
+                SSR/Nitro build prints module-level <code>"use client"</code> ignored warnings from
+                dependencies.
+              </li>
+              <li>
+                Native module tracing warns production OS/architecture must match builder for
+                <code>better-sqlite3</code>.
+              </li>
+              <li>Several imported names are reported as unused during Rollup output.</li>
+            </ul>
+          </div>
+          <div class="card span-6">
+            <h3>Live Adapter Checks</h3>
+            <ul>
+              <li>
+                <code>bun run test:live-adapters</code>: all 4 tests skipped without live env vars.
+              </li>
+              <li>
+                <code>bun run test:live-adapters:docker</code>: failed. SABnzbd passed, then the
+                qBittorrent live check failed with <code>invalid username or password</code>.
+                Prowlarr/Torznab and Plex did not complete in that run.
+              </li>
+              <li>Docker is installed and reachable outside the sandbox.</li>
+              <li>No temporary <code>arr-hub-live-*</code> containers were left running.</li>
+              <li>
+                Existing Docker volumes named <code>arr-hub-live-plex-config</code>,
+                <code>arr-hub-live-prowlarr-config</code>, <code>arr-hub-live-qbit-config</code>,
+                and <code>arr-hub-live-sabnzbd-config</code> already exist; I did not remove them.
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Command</th>
+              <th>Result</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>git status --short</code></td>
+              <td><span class="status good">Clean</span></td>
+              <td>
+                No pre-existing tracked or untracked changes were reported. This HTML report is the
+                new untracked artifact.
+              </td>
+            </tr>
+            <tr>
+              <td><code>bun run typecheck</code></td>
+              <td><span class="status good">Pass</span></td>
+              <td>No TypeScript errors.</td>
+            </tr>
+            <tr>
+              <td><code>bun run lint</code></td>
+              <td><span class="status warn">Pass</span></td>
+              <td>
+                0 errors, 114 warnings, mostly React perf rules for inline functions/objects/JSX
+                props plus a few scoping/allocation warnings.
+              </td>
+            </tr>
+            <tr>
+              <td><code>bun run fmt:check</code></td>
+              <td><span class="status good">Pass</span></td>
+              <td>192 files checked.</td>
+            </tr>
+            <tr>
+              <td><code>bun run test</code></td>
+              <td><span class="status good">Pass</span></td>
+              <td>284 passed, 4 skipped live tests.</td>
+            </tr>
+            <tr>
+              <td><code>bun run build</code></td>
+              <td><span class="status good">Pass</span></td>
+              <td>Warnings are present, but no build failure.</td>
+            </tr>
+            <tr>
+              <td><code>bun run test:live-adapters</code></td>
+              <td><span class="status info">Skipped</span></td>
+              <td>Requires live service environment variables.</td>
+            </tr>
+            <tr>
+              <td><code>bun run test:live-adapters:docker</code></td>
+              <td><span class="status bad">Fail</span></td>
+              <td>
+                SABnzbd passed. qBittorrent failed authentication. Prowlarr and Plex were not
+                reached.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="architecture">
+        <h2>Architecture And Stack</h2>
+        <div class="grid">
+          <div class="card span-4">
+            <h3>Application Framework</h3>
+            <ul>
+              <li>Bun + TypeScript ESM package.</li>
+              <li>TanStack Start, TanStack Router, TanStack Query.</li>
+              <li>React 19, Tailwind CSS 4, Radix UI, lucide-react, Recharts.</li>
+              <li>
+                Vite 7 with React compiler plugin, TanStack devtools, Nitro node-server output.
+              </li>
+            </ul>
+          </div>
+          <div class="card span-4">
+            <h3>Backend Architecture</h3>
+            <ul>
+              <li>tRPC 11 routers as the main application API.</li>
+              <li>
+                Effect services wired via <code>AppLive</code> and <code>ManagedRuntime</code>.
+              </li>
+              <li>Direct HTTP JSON wrappers for queue/system endpoints.</li>
+              <li>
+                Background scheduler loop and notification worker started by runtime bootstrap.
+              </li>
+            </ul>
+          </div>
+          <div class="card span-4">
+            <h3>Persistence</h3>
+            <ul>
+              <li>
+                SQLite through <code>better-sqlite3</code>, <code>@effect/sql-sqlite-node</code>,
+                and Drizzle.
+              </li>
+              <li>Default database path: <code>data/arr-hub.db</code>.</li>
+              <li>Drizzle schema in <code>src/db/schema.ts</code>.</li>
+              <li>7 migration files under <code>drizzle/</code>.</li>
+            </ul>
+          </div>
+          <div class="card span-12">
+            <h3>First-party code size</h3>
+            <p>
+              The repo contains 176 files under <code>src</code>, 67 service/domain adapter files
+              under <code>src/effect/services</code>, 36 route files, 22 tRPC router files, and 15
+              Drizzle migration/meta files. The repo also contains a large <code>vendor/</code>
+              reference tree for Effect, Prowlarr, Radarr, Sonarr, Tautulli, and Seerr; this report
+              treats those as reference/vendor material, not ARR Hub implementation code.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section id="ui">
+        <h2>Frontend Route And UI Coverage</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Route</th>
+              <th>Status</th>
+              <th>What is implemented</th>
+              <th>Current limitation</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>/</code></td>
+              <td><span class="status good">Live</span></td>
+              <td>
+                Dashboard with active streams, total bandwidth, plays today, server health badges,
+                active session cards, polling.
+              </td>
+              <td>Depends on configured media servers and history data.</td>
+            </tr>
+            <tr>
+              <td><code>/login</code></td>
+              <td><span class="status good">Live</span></td>
+              <td>Admin login form stores token in local storage and in-memory fallback.</td>
+              <td>No logout UI found.</td>
+            </tr>
+            <tr>
+              <td>
+                <code>/onboarding</code>, <code>/onboarding/quickstart</code>,
+                <code>/onboarding/wizard</code>
+              </td>
+              <td><span class="status warn">Code live, local DB blocked</span></td>
+              <td>
+                Quickstart and advanced wizard create admin, seed profiles, add root folders, test
+                optional indexer/download/Plex integrations, and import Radarr/Sonarr during setup.
+              </td>
+              <td>
+                Current local DB has users but no setup state, which likely blocks completing
+                onboarding without DB repair/reset.
+              </td>
+            </tr>
+            <tr>
+              <td><code>/movies</code>, <code>/movies/$id</code></td>
+              <td><span class="status warn">Partial UI</span></td>
+              <td>
+                Movie list, movie detail, file/quality metrics, watched-by table from Plex history.
+              </td>
+              <td>
+                No visible add/edit/delete/search/evaluate/grab controls, despite backend endpoints
+                existing and README claiming those UI validation surfaces.
+              </td>
+            </tr>
+            <tr>
+              <td><code>/tv</code>, <code>/tv/$id</code></td>
+              <td><span class="status warn">Partial UI</span></td>
+              <td>Series list, detail, season/episode table, watched-by history by episode.</td>
+              <td>
+                No visible add/edit/delete/search/grab/monitor toggle controls, despite backend
+                support.
+              </td>
+            </tr>
+            <tr>
+              <td><code>/activity/queue</code></td>
+              <td><span class="status good">Live</span></td>
+              <td>
+                Queue table with status/media filters, progress, ETA, size, client, retry, remove,
+                blocklist actions.
+              </td>
+              <td>
+                No auto-poll interval in the page; depends on manual invalidation after actions.
+              </td>
+            </tr>
+            <tr>
+              <td><code>/activity/history</code></td>
+              <td><span class="status good">Live</span></td>
+              <td>Plex playback history table with media-type filter and cursor pagination.</td>
+              <td>No server/user/date filters exposed in UI, although backend supports them.</td>
+            </tr>
+            <tr>
+              <td><code>/activity/users</code></td>
+              <td><span class="status good">Live</span></td>
+              <td>
+                Plex user list, sync from Plex, active/inactive/admin status, per-user
+                stats/details.
+              </td>
+              <td>Plex only; Jellyfin shared users currently returns empty.</td>
+            </tr>
+            <tr>
+              <td><code>/activity/stats</code></td>
+              <td><span class="status good">Live</span></td>
+              <td>
+                Recharts analytics for daily plays, watch time, stream type distribution, plays by
+                hour, top media/users, filters by range/media/server/user.
+              </td>
+              <td>Stats bundle is a large build chunk.</td>
+            </tr>
+            <tr>
+              <td><code>/settings</code></td>
+              <td><span class="status good">Live</span></td>
+              <td>Settings index navigation exists.</td>
+              <td>Several child pages are placeholders.</td>
+            </tr>
+            <tr>
+              <td><code>/settings/security</code></td>
+              <td><span class="status good">Live</span></td>
+              <td>API key create/list/revoke; shows one-time generated token.</td>
+              <td>Session tokens are listed alongside API keys; no user/password management UI.</td>
+            </tr>
+            <tr>
+              <td><code>/settings/profiles</code></td>
+              <td><span class="status warn">Partial UI</span></td>
+              <td>
+                Lists profiles, previews effective bundle reapply values, shows quality items and
+                format scores.
+              </td>
+              <td>
+                No visible create/update/delete/apply bundle form, even though backend has these
+                mutations.
+              </td>
+            </tr>
+            <tr>
+              <td><code>/settings/notifications</code></td>
+              <td><span class="status warn">Code live, local DB missing tables</span></td>
+              <td>Channel CRUD for in-app/webhook notifications and recent delivery table.</td>
+              <td>
+                Current local DB lacks notification tables, so this page can fail until schema is
+                applied.
+              </td>
+            </tr>
+            <tr>
+              <td><code>/settings/plugins</code></td>
+              <td><span class="status warn">Code live, local DB missing table</span></td>
+              <td>
+                Scan local plugin folders, enable/disable/remove plugins, table of
+                capability/status/path.
+              </td>
+              <td>Current local DB lacks <code>plugins</code> table.</td>
+            </tr>
+            <tr>
+              <td><code>/settings/indexers</code></td>
+              <td><span class="status bad">Placeholder</span></td>
+              <td>Header and description only.</td>
+              <td>No list/add/edit/test controls despite backend support.</td>
+            </tr>
+            <tr>
+              <td><code>/settings/download-clients</code></td>
+              <td><span class="status bad">Placeholder</span></td>
+              <td>Header and description only.</td>
+              <td>No list/add/edit/test controls despite backend support.</td>
+            </tr>
+            <tr>
+              <td><code>/settings/media-servers</code></td>
+              <td><span class="status bad">Placeholder</span></td>
+              <td>Header and description only.</td>
+              <td>No list/add/edit/test/library/sync controls despite backend support.</td>
+            </tr>
+            <tr>
+              <td>
+                <code>/settings/general</code>, <code>/settings/media-management</code>,
+                <code>/settings/scheduler</code>
+              </td>
+              <td><span class="status bad">Placeholder</span></td>
+              <td>Headers and descriptions only.</td>
+              <td>Settings and scheduler APIs exist but are not surfaced here.</td>
+            </tr>
+            <tr>
+              <td><code>/system</code></td>
+              <td><span class="status good">Live</span></td>
+              <td>
+                Status metrics, DB size, aggregate health, integration health, scheduler task
+                counts, in-memory structured logs.
+              </td>
+              <td>Logs are process-memory only, not persisted.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="api">
+        <h2>API And Router Coverage</h2>
+        <div class="grid">
+          <div class="card span-6">
+            <h3>tRPC routers wired in <code>src/integrations/trpc/router.ts</code></h3>
+            <p>
+              Auth, onboarding, movies, notifications, series, profiles, settings, custom formats,
+              indexers, download clients, media servers, Plex users, plugins, history, import,
+              releases, queue, root folders, scheduler, stats, diagnostics, and TMDB.
+            </p>
+          </div>
+          <div class="card span-6">
+            <h3>Direct HTTP endpoints</h3>
+            <p>
+              <code>/api/trpc/*</code>, <code>/api/system/health</code>,
+              <code>/api/system/status</code>, <code>/api/system/logs</code>,
+              <code>/api/system/tasks</code>, <code>/api/queue</code>, and queue action endpoints
+              for retry/remove/blocklist.
+            </p>
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Router</th>
+              <th>Procedures</th>
+              <th>Auth</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>auth</code></td>
+              <td>login, createApiKey, revokeApiKey, listApiKeys</td>
+              <td>login public; others authed</td>
+              <td>Session and API tokens are stored hashed.</td>
+            </tr>
+            <tr>
+              <td><code>onboarding</code></td>
+              <td>status, quickstart, startWizard, submit steps, skip, back, complete</td>
+              <td>Public</td>
+              <td>Designed for first-launch setup before auth exists.</td>
+            </tr>
+            <tr>
+              <td><code>movies</code></td>
+              <td>add, list, get, update, remove, lookup, search, grab, searchAndGrab</td>
+              <td>Authed</td>
+              <td>Backend supports more than the current Movies UI exposes.</td>
+            </tr>
+            <tr>
+              <td><code>series</code></td>
+              <td>
+                add, list, get, update, remove, lookup, toggle season/episode monitor, calendar,
+                search/grab series/season/episode
+              </td>
+              <td>Authed</td>
+              <td>TV acquisition backend is present.</td>
+            </tr>
+            <tr>
+              <td><code>indexers</code></td>
+              <td>add, list, get, update, remove, test, search, listTypes</td>
+              <td>Authed</td>
+              <td>Settings page is still a placeholder.</td>
+            </tr>
+            <tr>
+              <td><code>downloadClients</code></td>
+              <td>
+                add, list, get, update, remove, test, listTypes, addDownload, getQueue,
+                removeDownload
+              </td>
+              <td>Authed</td>
+              <td>Settings page is still a placeholder.</td>
+            </tr>
+            <tr>
+              <td><code>mediaServers</code></td>
+              <td>
+                add, list, get, update, remove, test, libraries, sync, refresh, listTypes,
+                activeSessions
+              </td>
+              <td>Authed</td>
+              <td>Settings page is still a placeholder; dashboard consumes activeSessions/list.</td>
+            </tr>
+            <tr>
+              <td><code>notifications</code></td>
+              <td>listChannels, createChannel, updateChannel, deleteChannel, listDeliveries</td>
+              <td>Authed</td>
+              <td>Code exists but current local DB lacks the tables.</td>
+            </tr>
+            <tr>
+              <td><code>plugins</code></td>
+              <td>list, scan, enable, disable, remove, health</td>
+              <td>Authed</td>
+              <td>Code exists but current local DB lacks the table.</td>
+            </tr>
+            <tr>
+              <td><code>profiles</code>, <code>formats</code>, <code>releases</code></td>
+              <td>
+                Profile CRUD/bundle preview/apply, custom format CRUD, release evaluate/history
+              </td>
+              <td>Authed</td>
+              <td>Profile UI is mostly inspection; backend is broader.</td>
+            </tr>
+            <tr>
+              <td><code>history</code>, <code>plexUsers</code>, <code>stats</code></td>
+              <td>
+                History filters/media lookup/counts, Plex user sync/stats, analytics aggregations
+              </td>
+              <td>Authed</td>
+              <td>Used by dashboard, detail pages, activity screens.</td>
+            </tr>
+            <tr>
+              <td><code>queue</code>, <code>scheduler</code>, <code>diagnostics</code></td>
+              <td>
+                Queue list/actions, scheduler jobs/status/config/pause/resume/retry, system
+                status/health/logs/tasks
+              </td>
+              <td>Authed except public health</td>
+              <td>Scheduler UI page is placeholder; System page uses diagnostics.</td>
+            </tr>
+            <tr>
+              <td>
+                <code>import</code>, <code>rootFolders</code>, <code>settings</code>,
+                <code>tmdb</code>
+              </td>
+              <td>
+                Radarr/Sonarr test/import, root folder CRUD/space, settings list/get/set, TMDB movie
+                search/details/popular/trending
+              </td>
+              <td>Import public; others authed</td>
+              <td>
+                TMDB requires <code>TMDB_API_KEY</code>; current <code>.env.local</code> only
+                defines an unused <code>DATABASE_URL</code> key.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="data">
+        <h2>Database And Local Data State</h2>
+        <div class="grid">
+          <div class="card span-6 callout bad">
+            <h3>Local database drift</h3>
+            <p>
+              <code>src/db/schema.ts</code> defines tables for plugins and notifications, and
+              migrations <code>0005</code> and <code>0006</code> create them. The current
+              <code>data/arr-hub.db</code> does not have those tables. It also has no
+              <code>__drizzle_migrations</code> table, so migration history is not tracked in this
+              local database.
+            </p>
+          </div>
+          <div class="card span-6 callout bad">
+            <h3>Local onboarding conflict</h3>
+            <p>
+              The local DB has <code>44</code> users and <code>66</code> API keys, but
+              <code>setup_state</code> has <code>0</code> rows. The app's auth guard treats missing
+              setup state as incomplete setup and redirects to onboarding; onboarding admin creation
+              rejects when a user already exists. This is likely a local runtime blocker.
+            </p>
+          </div>
+        </div>
+
+        <h3>Current local table counts from <code>data/arr-hub.db</code></h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Area</th>
+              <th>Tables and counts</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Auth</td>
+              <td><code>users=44</code>, <code>api_keys=66</code></td>
+            </tr>
+            <tr>
+              <td>Profiles and formats</td>
+              <td>
+                <code>quality_profiles=0</code>, <code>quality_items=0</code>,
+                <code>custom_formats=0</code>, <code>custom_format_specs=0</code>,
+                <code>custom_format_scores=0</code>
+              </td>
+            </tr>
+            <tr>
+              <td>Media library</td>
+              <td>
+                <code>movies=0</code>, <code>series=0</code>, <code>seasons=0</code>,
+                <code>episodes=0</code>, <code>root_folders=0</code>
+              </td>
+            </tr>
+            <tr>
+              <td>Integrations</td>
+              <td>
+                <code>indexers=0</code>, <code>download_clients=0</code>,
+                <code>media_servers=0</code>, all matching health tables <code>0</code>
+              </td>
+            </tr>
+            <tr>
+              <td>Activity</td>
+              <td>
+                <code>download_queue=0</code>, <code>plex_users=0</code>,
+                <code>session_history=0</code>, <code>release_decisions=0</code>
+              </td>
+            </tr>
+            <tr>
+              <td>Scheduler</td>
+              <td>
+                <code>scheduler_config=6</code>, <code>scheduler_jobs=52</code> with
+                <code>47 completed</code> and <code>5 pending</code>
+              </td>
+            </tr>
+            <tr>
+              <td>Setup/settings</td>
+              <td><code>setup_state=0</code>, <code>setup_log=0</code>, <code>settings=0</code></td>
+            </tr>
+            <tr>
+              <td>Missing from current local DB</td>
+              <td>
+                <code>plugins</code>, <code>notification_channels</code>,
+                <code>notification_deliveries</code>, <code>__drizzle_migrations</code>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>Schema coverage in source</h3>
+        <p>
+          Source schema covers users/API keys, quality profiles/items, custom formats/specs/scores,
+          movies/series/seasons/episodes, settings/root folders, indexers and health, download
+          clients and health, download queue, media servers/health/libraries, Plex users, session
+          history, notifications and deliveries, plugins, release decisions, scheduler config/jobs,
+          setup state, and setup log.
+        </p>
+      </section>
+
+      <section id="features">
+        <h2>Feature Set By Domain</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Domain</th>
+              <th>Status</th>
+              <th>Implemented capability</th>
+              <th>Important current caveat</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Authentication and security</td>
+              <td><span class="status good">Backend/UI live</span></td>
+              <td>
+                Single local admin, session tokens, API keys, revocation, password hashing, token
+                hashing, AES-256-GCM credential encryption, production-required
+                <code>ENCRYPTION_KEY</code>.
+              </td>
+              <td>
+                Dev fallback encryption key is used when unset outside production. Current local env
+                does not define <code>ENCRYPTION_KEY</code>.
+              </td>
+            </tr>
+            <tr>
+              <td>Onboarding</td>
+              <td><span class="status warn">Code live</span></td>
+              <td>
+                Quickstart and wizard can seed profiles, add root folders, validate/store optional
+                core integrations, import Radarr/Sonarr before setup activation.
+              </td>
+              <td>
+                Current local DB blocks onboarding because users exist but setup state does not.
+              </td>
+            </tr>
+            <tr>
+              <td>Profiles and release policy</td>
+              <td><span class="status good">Backend live</span></td>
+              <td>
+                Two TRaSH-inspired bundles, profile CRUD, default seeding, preview/reapply, custom
+                formats, score-based release evaluation, explainable decision reasons,
+                upgrade/cutoff checks.
+              </td>
+              <td>UI mainly previews/inspects; direct edit/apply controls are missing.</td>
+            </tr>
+            <tr>
+              <td>Movies</td>
+              <td><span class="status warn">Backend broader than UI</span></td>
+              <td>
+                CRUD, list/filter, lookup, acquisition search/evaluate/grab/searchAndGrab, queue
+                linking, watched-by detail page.
+              </td>
+              <td>
+                Current Movies UI only lists and shows detail; add/search/grab controls are absent.
+              </td>
+            </tr>
+            <tr>
+              <td>TV</td>
+              <td><span class="status warn">Backend broader than UI</span></td>
+              <td>
+                Series/seasons/episodes CRUD, calendar, monitor toggles, episode/season/series
+                acquisition including season-pack fallback, watched-by detail page.
+              </td>
+              <td>
+                Current TV UI only lists and shows detail; management/acquisition controls are
+                absent.
+              </td>
+            </tr>
+            <tr>
+              <td>Indexers</td>
+              <td><span class="status warn">Backend live, settings UI placeholder</span></td>
+              <td>
+                Torznab/Newznab types, encrypted API key, health checks, capabilities, parallel
+                enabled-indexer search, release sorting and error collection.
+              </td>
+              <td>
+                Can be configured during onboarding or API, but not through post-onboarding settings
+                UI.
+              </td>
+            </tr>
+            <tr>
+              <td>Download clients</td>
+              <td><span class="status warn">Backend live, settings UI placeholder</span></td>
+              <td>
+                qBittorrent and SABnzbd adapters, encrypted credentials/API key, health checks, add
+                download, queue sync/upsert, remove downloads, protocol-affinity selection.
+              </td>
+              <td>
+                Docker qBittorrent smoke failed auth in this run. Post-onboarding settings UI is
+                placeholder.
+              </td>
+            </tr>
+            <tr>
+              <td>Media servers</td>
+              <td><span class="status warn">Backend live, settings UI placeholder</span></td>
+              <td>
+                Plex adapter, Jellyfin adapter, encrypted token, health checks, library
+                discovery/upsert, library sync/refresh, active sessions, shared users.
+              </td>
+              <td>
+                Plex is first-class. Jellyfin is experimental and shared users returns empty.
+                Post-onboarding settings UI is placeholder.
+              </td>
+            </tr>
+            <tr>
+              <td>Acquisition pipeline</td>
+              <td><span class="status good">Backend live</span></td>
+              <td>
+                Searches enabled indexers, evaluates releases, records decisions, picks matching
+                download client, grabs releases, links queue rows to movies/series/episodes.
+              </td>
+              <td>
+                Depends on configured profiles, indexers, and download clients; UI exposure is
+                incomplete.
+              </td>
+            </tr>
+            <tr>
+              <td>Scheduler</td>
+              <td><span class="status warn">Backend live, UI placeholder</span></td>
+              <td>
+                Recurring configs, dedupe keys, pending/running/completed/dead state, exponential
+                backoff, pause/resume, manual retry, 5-second loop dispatching RSS, cutoff, download
+                monitor, TV jobs.
+              </td>
+              <td>Settings Scheduler page has no controls; System page shows diagnostics only.</td>
+            </tr>
+            <tr>
+              <td>Queue/activity</td>
+              <td><span class="status good">Live</span></td>
+              <td>
+                Queue list/retry/remove/blocklist, status/media filters, release blocklist decision
+                recording, alternate search enqueue.
+              </td>
+              <td>Queue actions depend on live download client connectivity.</td>
+            </tr>
+            <tr>
+              <td>Plex monitoring and analytics</td>
+              <td><span class="status good">Code live</span></td>
+              <td>
+                WebSocket notification URL construction, active session reconciliation, session
+                start/stop/new content triggers, watched-session detection, session history
+                persistence, per-user stats, charts.
+              </td>
+              <td>
+                Live Plex validation requires real claimed server and token; not verified in this
+                run.
+              </td>
+            </tr>
+            <tr>
+              <td>Notifications</td>
+              <td><span class="status warn">Code live, local DB missing tables</span></td>
+              <td>
+                Monitoring trigger bus, notification channel CRUD, in-app/webhook delivery, delivery
+                recording, background worker.
+              </td>
+              <td>Will fail against current local DB until notification tables exist.</td>
+            </tr>
+            <tr>
+              <td>Plugins</td>
+              <td><span class="status warn">Code live, local DB missing table</span></td>
+              <td>
+                Trusted local folder scan, manifest validation, adapter contract validation, dynamic
+                ESM import, register/unregister plugin adapters, enable/disable/remove/health.
+              </td>
+              <td>
+                Will fail against current local DB until plugins table exists. No author
+                documentation found beyond code/UI copy.
+              </td>
+            </tr>
+            <tr>
+              <td>Radarr/Sonarr import</td>
+              <td><span class="status good">Code live during setup</span></td>
+              <td>
+                Connection tests, Radarr movie import, Sonarr series/season import, transactions,
+                credentials not stored.
+              </td>
+              <td>
+                Import is intentionally setup-only. Sonarr import seeds seasons but not episode
+                rows.
+              </td>
+            </tr>
+            <tr>
+              <td>TMDB</td>
+              <td><span class="status warn">Backend live if env configured</span></td>
+              <td>Movie search/details/popular/trending client and router.</td>
+              <td>
+                Requires <code>TMDB_API_KEY</code>; current <code>.env.local</code> does not define
+                it.
+              </td>
+            </tr>
+            <tr>
+              <td>Diagnostics</td>
+              <td><span class="status good">Live</span></td>
+              <td>
+                System status, table counts, memory/CPU, aggregate health, in-memory logs, scheduler
+                task summary, public health endpoint for Docker.
+              </td>
+              <td>Logs are not persisted and are not a general application log sink yet.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="testing">
+        <h2>Testing Coverage</h2>
+        <div class="grid">
+          <div class="card span-6">
+            <h3>Covered by tests</h3>
+            <p>
+              Bootstrap safety, crypto, auth, config/settings, movies, series, profiles/defaults,
+              release policy, title parsing, indexers, download clients through adapter interop,
+              media servers, adapter registry, plugin loader, scheduler, acquisition pipeline,
+              queue, download monitor, diagnostics, Plex session monitor, Plex users, session
+              history, stats, notifications, tRPC init, and tRPC router integration.
+            </p>
+          </div>
+          <div class="card span-6">
+            <h3>Not covered or weakly covered</h3>
+            <ul>
+              <li>No Playwright/Cypress/browser E2E tests found.</li>
+              <li>No React component tests found.</li>
+              <li>No coverage reporting config found.</li>
+              <li>Live adapter tests are opt-in and skipped without env vars.</li>
+              <li>Docker-backed live adapter smoke is currently failing on qBittorrent auth.</li>
+              <li>No CI workflow files found under <code>.github</code>.</li>
+            </ul>
+          </div>
+        </div>
+
+        <h3>Test files found</h3>
+        <p class="small">
+          30 first-party <code>*.test.ts</code> files were found under <code>src</code>. The suite
+          has deterministic service tests and one live adapter interop file with four skipped tests
+          unless live qBittorrent/SABnzbd/Torznab/Plex variables are set.
+        </p>
+      </section>
+
+      <section id="deployment">
+        <h2>Deployment And Operations</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Area</th>
+              <th>Status</th>
+              <th>Details</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Dockerfile</td>
+              <td><span class="status good">Present</span></td>
+              <td>
+                Multi-stage Bun build to Node 22 runtime, rebuilds <code>better-sqlite3</code>,
+                exposes port 3000, volume <code>/data</code>, healthcheck against
+                <code>/api/system/health</code>, migrates before startup.
+              </td>
+            </tr>
+            <tr>
+              <td>Compose</td>
+              <td><span class="status good">Present</span></td>
+              <td>
+                <code>compose.yml</code> publishes port 3000, sets
+                <code>DATABASE_PATH=/data/arr-hub.db</code>, requires
+                <code>ENCRYPTION_KEY</code> and <code>INITIAL_ADMIN_PASSWORD</code>, uses named
+                volume <code>arr-hub-data</code>.
+              </td>
+            </tr>
+            <tr>
+              <td>Local dev</td>
+              <td><span class="status warn">Config drift</span></td>
+              <td>
+                <code>bun run dev</code> starts Vite on port 3000, but the default local DB is
+                currently inconsistent with source schema/setup state.
+              </td>
+            </tr>
+            <tr>
+              <td>Environment</td>
+              <td><span class="status warn">Partially documented</span></td>
+              <td>
+                README documents <code>ENCRYPTION_KEY</code>, <code>INITIAL_ADMIN_PASSWORD</code>,
+                <code>DATABASE_PATH</code>, <code>PORT</code>. Source also uses
+                <code>TMDB_API_KEY</code>. Current <code>.env.local</code> only contains an unused
+                <code>DATABASE_URL</code> key.
+              </td>
+            </tr>
+            <tr>
+              <td>Database migrations</td>
+              <td><span class="status warn">Files present, local DB untracked</span></td>
+              <td>
+                Migrations exist, but current local DB has no migration tracking table and is
+                missing latest source tables.
+              </td>
+            </tr>
+            <tr>
+              <td>CI</td>
+              <td><span class="status bad">Not found</span></td>
+              <td>No first-party GitHub Actions workflow files were found.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="gaps">
+        <h2>Prioritized Gaps And Risks</h2>
+        <div class="grid">
+          <div class="card span-12 callout bad">
+            <h3>1. Repair local database state before trusting manual app testing</h3>
+            <p>
+              The checked/default local SQLite DB is both behind schema and logically stuck in
+              setup. A clean reset, Drizzle push, migration baseline, or manual setup-state repair
+              is needed before judging UI flows in the browser against <code>data/arr-hub.db</code>.
+            </p>
+          </div>
+          <div class="card span-6">
+            <h3>2. Finish post-onboarding integration settings UI</h3>
+            <p>
+              Indexers, Download Clients, and Media Servers have real services and routers, but the
+              settings pages are placeholders. This is the largest visible product gap.
+            </p>
+          </div>
+          <div class="card span-6">
+            <h3>3. Expose media acquisition workflows in UI</h3>
+            <p>
+              Movies/TV backend supports add/search/evaluate/grab/search-and-grab, but list/detail
+              pages currently do not surface those workflows. README claims more UI than exists.
+            </p>
+          </div>
+          <div class="card span-6">
+            <h3>4. Fix Docker-backed qBittorrent smoke</h3>
+            <p>
+              The docker smoke script passed SABnzbd and then failed qBittorrent auth. This could be
+              a harness issue with the current linuxserver/qbittorrent image or an adapter/login
+              compatibility issue. It blocks claiming end-to-end qBittorrent Docker interop today.
+            </p>
+          </div>
+          <div class="card span-6">
+            <h3>5. Add browser-level coverage</h3>
+            <p>
+              There are many service tests, but no E2E coverage for onboarding, auth redirects,
+              placeholder-vs-real pages, dashboard polling, or settings workflows.
+            </p>
+          </div>
+          <div class="card span-6">
+            <h3>6. Add CI</h3>
+            <p>
+              The repo has strong local scripts but no first-party workflow files to enforce
+              typecheck/lint/test/build on PRs.
+            </p>
+          </div>
+          <div class="card span-6">
+            <h3>7. Reduce build warnings and chunk weight</h3>
+            <p>
+              Build passes, but the main and stats chunks are large. The lint warnings are not
+              correctness failures, but they are noisy enough to obscure real regressions over time.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section id="files">
+        <h2>Source Evidence Map</h2>
+        <div class="grid">
+          <div class="card span-6">
+            <h3>Core configuration</h3>
+            <ul>
+              <li><code>package.json</code> - scripts, dependencies, pre-commit hook.</li>
+              <li>
+                <code>vite.config.ts</code> - TanStack Start, Nitro, Tailwind, React compiler.
+              </li>
+              <li><code>vitest.config.ts</code> - test include <code>src/**/*.test.ts</code>.</li>
+              <li>
+                <code>drizzle.config.ts</code> - SQLite migrations using <code>DATABASE_PATH</code>.
+              </li>
+              <li><code>Dockerfile</code>, <code>compose.yml</code> - container path.</li>
+              <li>
+                <code>README.md</code> - docs and current-focus notes, some UI claims now stale.
+              </li>
+            </ul>
+          </div>
+          <div class="card span-6">
+            <h3>Runtime wiring</h3>
+            <ul>
+              <li><code>src/effect/layers.ts</code> - application service layer graph.</li>
+              <li>
+                <code>src/effect/runtime.ts</code> - runtime startup, scheduler loop, notification
+                worker, Plex monitor startup.
+              </li>
+              <li><code>src/integrations/trpc/router.ts</code> - root tRPC router.</li>
+              <li>
+                <code>src/integrations/trpc/init.ts</code> - auth middleware and domain error
+                mapping.
+              </li>
+              <li><code>src/routes/__root.tsx</code> - shell, sidebar, auth guard, providers.</li>
+            </ul>
+          </div>
+          <div class="card span-6">
+            <h3>Services</h3>
+            <p class="small">
+              Major services live under <code>src/effect/services</code>: Auth, Crypto, Db,
+              Onboarding, ProfileDefaultsEngine, ProfileService, MovieService, SeriesService,
+              IndexerService, DownloadClientService, MediaServerService, ReleasePolicyEngine,
+              AcquisitionPipeline, SchedulerService, SchedulerLoop, DownloadMonitor, QueueService,
+              PlexSessionMonitor, SessionHistoryService, PlexUserService, StatsService,
+              NotificationService, PluginLoader, DiagnosticsService, ImportService, RootFolder,
+              Settings, TMDB, and built-in adapters.
+            </p>
+          </div>
+          <div class="card span-6">
+            <h3>Routes</h3>
+            <p class="small">
+              Application pages live under <code>src/routes</code>. Sidebar navigation is defined in
+              <code>src/components/sidebar/nav-data.ts</code>. Several settings routes are
+              intentionally or accidentally placeholder-only at this point.
+            </p>
+          </div>
+          <div class="card span-12">
+            <h3>Audit method</h3>
+            <p class="small">
+              I inspected first-party source with <code>rg</code>, <code>find</code>,
+              <code>sed</code>, Git status/log commands, Drizzle migrations, router/service files,
+              route files, local SQLite metadata/counts, scripts, Docker assets, and package
+              scripts. I ran the verification commands listed above. I did not change source code
+              other than creating this HTML report, and I did not reset or mutate the local
+              database.
+            </p>
+          </div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
