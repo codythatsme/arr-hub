@@ -185,6 +185,30 @@ const BAKABT_HTML_RESULTS = `
   </table>
 </body></html>`
 
+const NEBULANCE_JSON_RESULTS = JSON.stringify({
+  jsonrpc: "2.0",
+  result: {
+    items: [
+      {
+        rls_name: "Nebulance.Show.S01E01.1080p.WEB-DL",
+        cat: "episode",
+        size: "1500000000",
+        seed: "12",
+        leech: "3",
+        snatch: "9",
+        download: "/download.php?id=77",
+        file_list: ["Nebulance.Show.S01E01.mkv"],
+        group_name: "Nebulance Show",
+        group_id: "77",
+        series_id: "12345",
+        rls_utc: "2026-05-09T10:00:00Z",
+        tags: ["scene"],
+      },
+    ],
+  },
+  id: 1,
+})
+
 const IPTORRENTS_HTML_RESULTS = `
 <html><body>
   <table id="torrents">
@@ -3035,6 +3059,77 @@ search:
       uploadFactor: 1,
     })
     expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-09T00:00:00.000Z")
+  })
+
+  it("parses Nebulance JSON-RPC API results with API key auth", async () => {
+    const requests: Array<{ url: string; init: RequestInit | undefined }> = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      requests.push({ url: String(input), init })
+      return new Response(NEBULANCE_JSON_RESULTS, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 109,
+      name: "Nebulance",
+      type: "cardigann_yaml",
+      definitionKey: "nebulance",
+      baseUrl: "https://nebulance.io/",
+      apiKey: "nbl-api-key",
+      priority: 45,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({
+        term: "Nebulance Show S01E01",
+        type: "tv",
+        categories: [5040],
+        imdbId: "tt7654321",
+        season: 1,
+        episode: 1,
+      }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const request = requests[0]
+    expect(request?.url).toBe("https://nebulance.io/api.php")
+    expect(request?.init?.method).toBe("POST")
+    expect(new Headers(request?.init?.headers).get("content-type")).toBe("application/json")
+    expect(JSON.parse(String(request?.init?.body))).toEqual({
+      jsonrpc: "2.0",
+      method: "getTorrents",
+      params: [
+        "nbl-api-key",
+        {
+          age: ">0",
+          release: "Nebulance Show S01E01",
+          imdb: "tt7654321",
+          season: 1,
+          episode: 1,
+        },
+        100,
+        0,
+      ],
+      id: 1,
+    })
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "Nebulance.Show.S01E01.1080p.WEB-DL",
+      downloadUrl: "https://nebulance.io/download.php?id=77",
+      infoUrl: "https://nebulance.io/torrents.php?id=77",
+      category: "5000",
+      size: 1_500_000_000,
+      seeders: 12,
+      leechers: 3,
+      indexerId: 109,
+      indexerName: "Nebulance",
+      indexerPriority: 45,
+      downloadFactor: 0,
+      uploadFactor: 1,
+    })
+    expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-09T10:00:00.000Z")
   })
 
   it("parses IPTorrents HTML results with cookie auth and user-agent headers", async () => {

@@ -81,6 +81,7 @@ caps:
       "animetosho",
       "animetorrents",
       "bakabt",
+      "nebulance",
       "anidex",
       "subsplease",
       "torrents-csv",
@@ -191,6 +192,29 @@ caps:
           { id: 7030, name: "Manga" },
           { id: 2000, name: "Anime Movie" },
           { id: 3020, name: "Music Video" },
+        ]),
+      },
+    })
+    expect(
+      BUILT_IN_CARDIGANN_DEFINITIONS.find((definition) => definition.definitionKey === "nebulance"),
+    ).toMatchObject({
+      displayName: "Nebulance",
+      baseUrl: "https://nebulance.io/",
+      privacy: "private",
+      supportsRss: false,
+      supportsSearch: true,
+      tags: ["private", "tv", "json", "api"],
+      authFields: expect.arrayContaining([
+        expect.objectContaining({ name: "apiKey", type: "password", required: true }),
+      ]),
+      capabilities: {
+        searchTypes: ["search", "tvsearch"],
+        categories: expect.arrayContaining([
+          { id: 5000, name: "Season" },
+          { id: 5000, name: "Episode" },
+          { id: 5030, name: "TV SD" },
+          { id: 5040, name: "TV HD" },
+          { id: 5045, name: "TV UHD" },
         ]),
       },
     })

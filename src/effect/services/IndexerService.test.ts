@@ -119,19 +119,19 @@ describe("IndexerService", () => {
       const second = yield* svc.refreshDefinitions()
 
       expect(first).toMatchObject({
-        total: 31,
-        created: 31,
+        total: 32,
+        created: 32,
         updated: 0,
         unchanged: 0,
       })
       expect(first.definitions.map((definition) => definition.action)).toEqual(
-        Array(31).fill("created"),
+        Array(32).fill("created"),
       )
       expect(second).toMatchObject({
-        total: 31,
+        total: 32,
         created: 0,
         updated: 0,
-        unchanged: 31,
+        unchanged: 32,
       })
       expect(second.definitions.every((definition) => definition.previousVersion !== null)).toBe(
         true,
@@ -417,6 +417,7 @@ describe("IndexerService", () => {
         "iptorrents",
         "knaben",
         "morethantv",
+        "nebulance",
         "nyaa",
         "open-tv-torrents",
         "pretome",
@@ -472,6 +473,17 @@ describe("IndexerService", () => {
           tags: ["private", "anime", "movies", "tv", "music", "books", "html"],
         },
       )
+      expect(
+        definitions.find((definition) => definition.definitionKey === "nebulance"),
+      ).toMatchObject({
+        displayName: "Nebulance",
+        protocol: "torrent",
+        implementation: "cardigann_yaml",
+        baseUrl: "https://nebulance.io/",
+        privacy: "private",
+        supportsRss: false,
+        tags: ["private", "tv", "json", "api"],
+      })
       expect(definitions.find((definition) => definition.definitionKey === "anidex")).toMatchObject(
         {
           displayName: "Anidex",

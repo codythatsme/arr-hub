@@ -611,6 +611,91 @@ search:
       text: "1"
 `
 
+const NEBULANCE = `
+id: nebulance
+name: Nebulance
+description: Private ratioless TV tracker exposed through a first-pass JSON-RPC Cardigann definition.
+type: private
+links:
+  - https://nebulance.io/
+version: builtin-cardigann-1
+rss: false
+tags:
+  - private
+  - tv
+  - json
+  - api
+settings:
+  - name: apiKey
+    label: API key
+    type: password
+    required: true
+    helpText: Nebulance API key.
+caps:
+  categorymappings:
+    - id: season
+      cat: TV
+      desc: Season
+      newznab: 5000
+    - id: episode
+      cat: TV
+      desc: Episode
+      newznab: 5000
+    - id: "2"
+      cat: TV/SD
+      desc: TV SD
+      newznab: 5030
+    - id: "3"
+      cat: TV/HD
+      desc: TV HD
+      newznab: 5040
+    - id: "4"
+      cat: TV/UHD
+      desc: TV UHD
+      newznab: 5045
+  modes:
+    search: [q]
+    tv-search: [q, season, ep, imdbid]
+search:
+  paths:
+    - path: api.php
+      method: post
+      response:
+        type: json
+      headers:
+        content-type: application/json
+      body: |
+        {"jsonrpc":"2.0","method":"getTorrents","params":["{{ .Config.APIKey | jsonescape }}",{"age":">0"{{ if .Keywords }},"release":"{{ .Keywords | jsonescape }}"{{ end }}{{ if .Query.IMDBID }},"imdb":"{{ .Query.IMDBID | jsonescape }}"{{ end }}{{ if .Query.Season }},"season":{{ .Query.Season }}{{ end }}{{ if .Query.Ep }},"episode":{{ .Query.Ep }}{{ end }}},{{ .Query.Limit | default "100" }},{{ .Query.Offset | default "0" }}],"id":1}
+  rows:
+    selector: $.result.items
+    missingAttributeEqualsNoResults: true
+  fields:
+    groupid:
+      selector: group_id
+    title:
+      selector: rls_name
+    details:
+      text: "torrents.php?id={{ .Result.groupid }}"
+    download:
+      selector: download
+    category:
+      selector: cat
+    size:
+      selector: size
+    grabs:
+      selector: snatch
+    seeders:
+      selector: seed
+    leechers:
+      selector: leech
+    date:
+      selector: rls_utc
+    downloadvolumefactor:
+      text: "0"
+    uploadvolumefactor:
+      text: "1"
+`
+
 const ANIDEX = `
 id: anidex
 name: Anidex
@@ -4887,6 +4972,7 @@ const BUILT_IN_CARDIGANN_SOURCES = [
   ANIME_TOSHO,
   ANIME_TORRENTS,
   BAKABT,
+  NEBULANCE,
   ANIDEX,
   SUBSPLEASE,
   TORRENTS_CSV,
