@@ -916,6 +916,11 @@ function validatedTerms(value: string, allowed: string): string {
 
 type JsonPathToken = "*" | number | string
 
+interface JsonRowMatch {
+  readonly value: unknown
+  readonly parent: unknown
+}
+
 interface JsonSelectorFilter {
   readonly name: string
   readonly selector: string
@@ -1857,13 +1862,13 @@ function rowMatchesJsonCardigannFilter(
 }
 
 function filterJsonRows(
-  rows: ReadonlyArray<unknown>,
+  rows: ReadonlyArray<JsonRowMatch>,
   filters: ReadonlyArray<CardigannFilter>,
   variables: Record<string, TemplateValue>,
-): ReadonlyArray<unknown> {
+): ReadonlyArray<JsonRowMatch> {
   if (filters.length === 0) return rows
   return rows.filter((row) =>
-    filters.every((filter) => rowMatchesJsonCardigannFilter(row, filter, variables)),
+    filters.every((filter) => rowMatchesJsonCardigannFilter(row.value, filter, variables)),
   )
 }
 
@@ -2024,12 +2029,17 @@ function jsonFieldValue(
   row: unknown,
   field: CardigannFieldSelector,
   variables: Record<string, TemplateValue>,
+  parent: unknown = row,
 ): string {
   let value = ""
   if (field.text !== undefined) {
     value = renderTemplate(field.text, variables)
   } else if (field.selector !== undefined) {
-    const selected = selectJsonSelectorValues(row, renderTemplate(field.selector, variables))
+    const rawSelector = renderTemplate(field.selector, variables).trim()
+    const selected = selectJsonSelectorValues(
+      rawSelector.startsWith("..") ? parent : row,
+      rawSelector.replace(/^\.+/, ""),
+    )
     if (selected !== null) value = jsonSelectionToFieldString(selected)
   }
 
@@ -2268,7 +2278,7 @@ function parseJsonRows(
   json: unknown,
   rows: CardigannRowsSelector,
   variables: Record<string, TemplateValue>,
-): ReadonlyArray<unknown> {
+): ReadonlyArray<JsonRowMatch> {
   const selectorText = renderTemplate(rows.selector, variables)
   const selector = parseJsonSelector(selectorText)
   if (selector === null) throw new Error(`Invalid Cardigann JSON rows selector: ${rows.selector}`)
@@ -2290,11 +2300,23 @@ function parseJsonRows(
     selector.filters.length === 0
       ? selectedRows
       : selectedRows.filter((row) => jsonSelectorMatches(row, selector.filters))
-  const attributeRows =
+  const attributeRows: ReadonlyArray<JsonRowMatch> =
     rows.attribute === undefined
-      ? filteredRows
-      : filteredRows.flatMap((row) => jsonRowAttributeValues(row, rows, variables))
-  if (rows.multiple === true) return attributeRows.flatMap(jsonMultipleRowValues)
+      ? filteredRows.map((row) => ({ value: row, parent: row }))
+      : filteredRows.flatMap((row) =>
+          jsonRowAttributeValues(row, rows, variables).map((value) => ({
+            value,
+            parent: row,
+          })),
+        )
+  if (rows.multiple === true) {
+    return attributeRows.flatMap((row) =>
+      jsonMultipleRowValues(row.value).map((value) => ({
+        value,
+        parent: row.parent,
+      })),
+    )
+  }
   return attributeRows
 }
 
@@ -2358,7 +2380,7 @@ function parseJsonReleases(
     const variables = { ...request.variables }
     for (const [rawName, field] of Object.entries(definition.search.fields)) {
       const { name, modifiers } = cardigannFieldNameParts(rawName)
-      const value = jsonFieldValue(row, field, variables)
+      const value = jsonFieldValue(row.value, field, variables, row.parent)
       if (!shouldAssignCardigannResultField(resultFields, name, value, field, modifiers)) {
         continue
       }

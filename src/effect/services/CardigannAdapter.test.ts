@@ -742,18 +742,17 @@ search:
             data: {
               results: [
                 {
+                  category: "Movies",
                   torrents: {
                     hd: {
                       title: "Nested JSON Movie 2026 1080p WEB-DL",
                       download: "/download/nested-hd",
-                      category: "Movies",
                       size: "1.4 GB",
                       seeders: 32,
                     },
                     remux: {
                       title: "Nested JSON Movie 2026 2160p Remux",
                       download: "/download/nested-remux",
-                      category: "Movies",
                       size: "55 GB",
                       seeders: 12,
                     },
@@ -801,7 +800,7 @@ search:
     download:
       selector: download
     category:
-      selector: category
+      selector: ..category
     size:
       selector: size
     seeders:
