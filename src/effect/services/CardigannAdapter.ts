@@ -15,6 +15,7 @@ import {
   type CardigannLoginRuntime,
   type CardigannResponseType,
   type CardigannRuntimeDefinition,
+  type CardigannRowsSelector,
   type CardigannSearchPath,
   getBuiltInCardigannRuntimeDefinition,
   parseCardigannRuntimeDefinitionYaml,
@@ -1394,16 +1395,24 @@ function htmlRowFilterText(row: HtmlElementMatch): string {
   return `${htmlTextContent(row.innerHtml)} ${Object.values(row.attributes).join(" ")}`
 }
 
-function rowMatchesAndMatch(
-  row: HtmlElementMatch,
+function textMatchesAndMatch(
+  value: string,
   filter: CardigannFilter,
   variables: Record<string, TemplateValue>,
 ): boolean {
   const terms = normalizedTextTokens(rowAndMatchSearchText(filter, variables))
   if (terms.length === 0) return true
 
-  const rowTerms = new Set(normalizedTextTokens(htmlRowFilterText(row)))
+  const rowTerms = new Set(normalizedTextTokens(value))
   return terms.every((term) => rowTerms.has(term))
+}
+
+function rowMatchesAndMatch(
+  row: HtmlElementMatch,
+  filter: CardigannFilter,
+  variables: Record<string, TemplateValue>,
+): boolean {
+  return textMatchesAndMatch(htmlRowFilterText(row), filter, variables)
 }
 
 function rowMatchesCardigannFilter(
@@ -1430,6 +1439,41 @@ function filterHtmlRows(
   if (filters.length === 0) return rows
   return rows.filter((row) =>
     filters.every((filter) => rowMatchesCardigannFilter(row, filter, variables)),
+  )
+}
+
+function jsonRowFilterText(row: unknown): string {
+  try {
+    return jsonValueToString(row)
+  } catch {
+    return ""
+  }
+}
+
+function rowMatchesJsonCardigannFilter(
+  row: unknown,
+  filter: CardigannFilter,
+  variables: Record<string, TemplateValue>,
+): boolean {
+  switch (filter.name) {
+    case "andmatch":
+      return textMatchesAndMatch(jsonRowFilterText(row), filter, variables)
+    case "hexdump":
+    case "strdump":
+      return true
+    default:
+      return true
+  }
+}
+
+function filterJsonRows(
+  rows: ReadonlyArray<unknown>,
+  filters: ReadonlyArray<CardigannFilter>,
+  variables: Record<string, TemplateValue>,
+): ReadonlyArray<unknown> {
+  if (filters.length === 0) return rows
+  return rows.filter((row) =>
+    filters.every((filter) => rowMatchesJsonCardigannFilter(row, filter, variables)),
   )
 }
 
@@ -1554,6 +1598,50 @@ function htmlFieldValue(
   return applyCardigannFieldFilters(value.trim(), field.filters, variables).trim()
 }
 
+function jsonSelectionToFieldString(values: ReadonlyArray<unknown>): string {
+  const selected =
+    values.length === 1 && Array.isArray(values[0]) ? (values[0] as ReadonlyArray<unknown>) : values
+  return selected.map((item) => jsonValueToString(item)).join(",")
+}
+
+function jsonCaseValue(
+  value: string,
+  cases: Readonly<Record<string, string>> | undefined,
+  variables: Record<string, TemplateValue>,
+): string {
+  if (cases === undefined) return value
+
+  for (const [expected, template] of Object.entries(cases)) {
+    if (expected === "*" || value === expected) return renderTemplate(template, variables)
+  }
+
+  return value
+}
+
+function jsonFieldValue(
+  row: unknown,
+  field: CardigannFieldSelector,
+  variables: Record<string, TemplateValue>,
+): string {
+  let value = ""
+  if (field.text !== undefined) {
+    value = renderTemplate(field.text, variables)
+  } else if (field.selector !== undefined) {
+    const tokens = parseJsonPath(renderTemplate(field.selector, variables))
+    if (tokens !== null) {
+      value = jsonSelectionToFieldString(selectJsonPathValues(row, tokens))
+    }
+  }
+
+  value = jsonCaseValue(value, field.case, variables)
+
+  if (value.trim().length === 0 && field.defaultValue !== undefined) {
+    value = renderTemplate(field.defaultValue, variables)
+  }
+
+  return applyCardigannFieldFilters(value.trim(), field.filters, variables).trim()
+}
+
 function htmlDocumentMatch(html: string): HtmlElementMatch {
   return {
     tagName: null,
@@ -1634,6 +1722,48 @@ function releaseCategory(definition: CardigannRuntimeDefinition, trackerCategory
   return mapping ? String(mapping.newznabCategory) : trimmed
 }
 
+function releaseFromResultFields(
+  resultFields: Readonly<Record<string, string>>,
+  dateValue: string,
+  request: CardigannSearchRequest,
+  definition: CardigannRuntimeDefinition,
+  config: IndexerConfig,
+  now: number,
+): ReleaseCandidate {
+  const publishedAt = parseHtmlDate(dateValue)
+  const ageDays = Math.max(0, Math.floor((now - publishedAt.getTime()) / 86_400_000))
+  const downloadUrl = absoluteUrl(
+    fieldByName(resultFields, ["download", "downloadurl", "link"]),
+    request.url,
+  )
+  const infoUrl = fieldByName(resultFields, ["details", "info", "comments", "guid"])
+
+  return {
+    title: fieldByName(resultFields, ["title"]),
+    indexerId: config.id,
+    indexerName: config.name,
+    indexerPriority: config.priority,
+    size: parseSizeBytes(fieldByName(resultFields, ["size"])),
+    seeders:
+      definition.protocol === "torrent"
+        ? firstNumber(fieldByName(resultFields, ["seeders", "seeds"]))
+        : null,
+    leechers:
+      definition.protocol === "torrent"
+        ? firstNumber(fieldByName(resultFields, ["leechers", "peers"]))
+        : null,
+    age: ageDays,
+    downloadUrl,
+    infoUrl: infoUrl.length > 0 ? absoluteUrl(infoUrl, request.url) : null,
+    category: releaseCategory(definition, fieldByName(resultFields, ["category"])),
+    protocol: definition.protocol,
+    publishedAt,
+    infohash: fieldByName(resultFields, ["infohash"]).trim() || null,
+    downloadFactor: Number(fieldByName(resultFields, ["downloadvolumefactor"])) || 1,
+    uploadFactor: Number(fieldByName(resultFields, ["uploadvolumefactor"])) || 1,
+  }
+}
+
 function absoluteUrl(value: string, baseUrl: URL): string {
   if (value.trim().length === 0) return ""
   try {
@@ -1674,38 +1804,53 @@ function parseHtmlReleases(
       }
     }
 
-    const publishedAt = parseHtmlDate(dateValue)
-    const ageDays = Math.max(0, Math.floor((now - publishedAt.getTime()) / 86_400_000))
-    const downloadUrl = absoluteUrl(
-      fieldByName(resultFields, ["download", "downloadurl", "link"]),
-      request.url,
-    )
-    const infoUrl = fieldByName(resultFields, ["details", "info", "comments", "guid"])
+    return releaseFromResultFields(resultFields, dateValue, request, definition, config, now)
+  })
+}
 
-    return {
-      title: fieldByName(resultFields, ["title"]),
-      indexerId: config.id,
-      indexerName: config.name,
-      indexerPriority: config.priority,
-      size: parseSizeBytes(fieldByName(resultFields, ["size"])),
-      seeders:
-        definition.protocol === "torrent"
-          ? firstNumber(fieldByName(resultFields, ["seeders", "seeds"]))
-          : null,
-      leechers:
-        definition.protocol === "torrent"
-          ? firstNumber(fieldByName(resultFields, ["leechers", "peers"]))
-          : null,
-      age: ageDays,
-      downloadUrl,
-      infoUrl: infoUrl.length > 0 ? absoluteUrl(infoUrl, request.url) : null,
-      category: releaseCategory(definition, fieldByName(resultFields, ["category"])),
-      protocol: definition.protocol,
-      publishedAt,
-      infohash: fieldByName(resultFields, ["infohash"]).trim() || null,
-      downloadFactor: Number(fieldByName(resultFields, ["downloadvolumefactor"])) || 1,
-      uploadFactor: Number(fieldByName(resultFields, ["uploadvolumefactor"])) || 1,
+function parseJsonRows(
+  json: unknown,
+  rows: CardigannRowsSelector,
+  variables: Record<string, TemplateValue>,
+): ReadonlyArray<unknown> {
+  const tokens = parseJsonPath(renderTemplate(rows.selector, variables))
+  if (tokens === null) return []
+
+  const selected = selectJsonPathValues(json, tokens)
+  if (selected.length === 1 && Array.isArray(selected[0])) {
+    return selected[0] as ReadonlyArray<unknown>
+  }
+  return selected
+}
+
+function parseJsonReleases(
+  text: string,
+  request: CardigannSearchRequest,
+  definition: CardigannRuntimeDefinition,
+  config: IndexerConfig,
+): ReadonlyArray<ReleaseCandidate> {
+  const rowSelector = definition.search.rows
+  if (rowSelector === null) return []
+
+  const json = JSON.parse(text) as unknown
+  const rows = filterJsonRows(
+    parseJsonRows(json, rowSelector, request.variables),
+    rowSelector.filters,
+    request.variables,
+  )
+  const now = Date.now()
+
+  return rows.map((row): ReleaseCandidate => {
+    const resultFields: Record<string, string> = {}
+    const variables = { ...request.variables }
+    for (const [name, field] of Object.entries(definition.search.fields)) {
+      const value = jsonFieldValue(row, field, variables)
+      resultFields[name] = value
+      variables[`.Result.${name}`] = value
     }
+
+    const dateValue = fieldByName(resultFields, ["date", "pubdate", "publishdate"])
+    return releaseFromResultFields(resultFields, dateValue, request, definition, config, now)
   })
 }
 
@@ -2337,9 +2482,12 @@ export function createCardigannYamlAdapter(config: IndexerConfig): IndexerAdapte
           authenticatedRequests,
           (request) =>
             Effect.gen(function* () {
-              if (request.responseType === "html") {
+              if (request.responseType === "html" || request.responseType === "json") {
                 const response = yield* fetchIndexerResponseText(request.url, config, request.init)
-                const loginTestMessage = loginTestFailureMessage(response.text, definition.login)
+                const loginTestMessage =
+                  request.responseType === "html"
+                    ? loginTestFailureMessage(response.text, definition.login)
+                    : null
                 if (loginTestMessage !== null) {
                   return yield* Effect.fail(
                     new IndexerError({
@@ -2353,14 +2501,19 @@ export function createCardigannYamlAdapter(config: IndexerConfig): IndexerAdapte
                 }
 
                 return yield* Effect.try({
-                  try: () => parseHtmlReleases(response.text, request, definition, config),
+                  try: () =>
+                    request.responseType === "html"
+                      ? parseHtmlReleases(response.text, request, definition, config)
+                      : parseJsonReleases(response.text, request, definition, config),
                   catch: (error) =>
                     new IndexerError({
                       indexerId: config.id,
                       indexerName: config.name,
                       reason: "invalid_response",
                       message:
-                        error instanceof Error ? error.message : "invalid Cardigann HTML response",
+                        error instanceof Error
+                          ? error.message
+                          : `invalid Cardigann ${request.responseType.toUpperCase()} response`,
                       retryable: true,
                     }),
                 })

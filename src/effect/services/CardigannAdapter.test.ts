@@ -18,6 +18,30 @@ const RSS_XML = `<?xml version="1.0" encoding="UTF-8"?>
   </channel>
 </rss>`
 
+const JSON_RESULTS = JSON.stringify({
+  data: {
+    results: [
+      {
+        title: "JSON Movie 2026 1080p WEB-DL",
+        links: {
+          download: "/download/json",
+          details: "/details/json",
+        },
+        category: {
+          name: "Movies",
+        },
+        stats: {
+          size: "1250 MB",
+          seeders: 88,
+          leechers: 4,
+        },
+        published: "2026-05-08T00:00:00.000Z",
+        infohash: "0123456789abcdef0123456789abcdef01234567",
+      },
+    ],
+  },
+})
+
 const HTML_RESULTS = `<!doctype html>
 <html>
   <body>
@@ -273,6 +297,94 @@ describe("CardigannAdapter", () => {
       category: "2000",
       protocol: "torrent",
     })
+  })
+
+  it("parses first-pass Cardigann JSON selector results", async () => {
+    let requestUrl: string | undefined
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      requestUrl = String(input)
+      return new Response(JSON_RESULTS, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 57,
+      name: "JSON Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "json-cardigann",
+      definitionYaml: `
+id: json-cardigann
+name: JSON Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+      newznab: 2000
+  modes:
+    search: [q]
+search:
+  paths:
+    - path: /api/search
+      response:
+        type: json
+      inputs:
+        q: "{{ .Keywords }}"
+        cat: "{{ .Categories }}"
+  rows:
+    selector: $.data.results
+  fields:
+    title:
+      selector: title
+    details:
+      selector: links.details
+    download:
+      selector: links.download
+    category:
+      selector: category.name
+      case:
+        Movies: movies
+    size:
+      selector: stats.size
+    seeders:
+      selector: stats.seeders
+    leechers:
+      selector: stats.leechers
+    infohash:
+      selector: infohash
+    date:
+      selector: published
+`,
+      baseUrl: "https://tracker.example",
+      apiKey: "",
+      priority: 35,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "JSON Movie", type: "general", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const url = new URL(requestUrl ?? "")
+    expect(url.pathname).toBe("/api/search")
+    expect(url.searchParams.get("q")).toBe("JSON Movie")
+    expect(url.searchParams.get("cat")).toBe("movies")
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "JSON Movie 2026 1080p WEB-DL",
+      downloadUrl: "https://tracker.example/download/json",
+      infoUrl: "https://tracker.example/details/json",
+      category: "2000",
+      size: 1_250_000_000,
+      seeders: 88,
+      leechers: 4,
+      infohash: "0123456789abcdef0123456789abcdef01234567",
+    })
+    expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-08T00:00:00.000Z")
   })
 
   it("returns definition capabilities without a network request when testing connection", async () => {
