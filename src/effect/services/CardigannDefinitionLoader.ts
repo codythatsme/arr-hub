@@ -3856,6 +3856,213 @@ search:
         tr: "1"
 `
 
+const REVOLUTION_TT = `
+id: revolutiontt
+name: RevolutionTT
+description: Private general tracker exposed through a first-pass POST-login HTML Cardigann definition.
+type: private
+links:
+  - https://revott.me/
+version: builtin-cardigann-1
+rss: false
+tags:
+  - private
+  - general
+  - movies
+  - tv
+  - music
+  - books
+  - html
+settings:
+  - name: username
+    label: Username
+    type: text
+    required: true
+  - name: password
+    label: Password
+    type: password
+    required: true
+caps:
+  categorymappings:
+    - id: "23"
+      cat: TV/Anime
+      desc: Anime
+      newznab: 5070
+    - id: "22"
+      cat: PC/0day
+      desc: Apps
+      newznab: 4010
+    - id: "1"
+      cat: PC/ISO
+      desc: Apps ISO
+      newznab: 4020
+    - id: "36"
+      cat: Books
+      desc: Books
+      newznab: 7000
+    - id: "36"
+      cat: Books/EBook
+      desc: Ebooks
+      newznab: 7020
+    - id: "4"
+      cat: PC/Games
+      desc: Games
+      newznab: 4050
+    - id: "21"
+      cat: PC/Games
+      desc: Games PC
+      newznab: 4050
+    - id: "16"
+      cat: Console/PS3
+      desc: Games PS3
+      newznab: 1080
+    - id: "40"
+      cat: Console/Wii
+      desc: Games Wii
+      newznab: 1030
+    - id: "39"
+      cat: Console/Xbox 360
+      desc: Games Xbox 360
+      newznab: 1050
+    - id: "35"
+      cat: Console/NDS
+      desc: Games NDS
+      newznab: 1010
+    - id: "34"
+      cat: Console/PSP
+      desc: Games PSP
+      newznab: 1020
+    - id: "2"
+      cat: PC/Mac
+      desc: Mac
+      newznab: 4030
+    - id: "10"
+      cat: Movies/BluRay
+      desc: Movies BluRay
+      newznab: 2050
+    - id: "20"
+      cat: Movies/DVD
+      desc: Movies DVD
+      newznab: 2070
+    - id: "12"
+      cat: Movies/HD
+      desc: Movies HD
+      newznab: 2040
+    - id: "44"
+      cat: Movies/Other
+      desc: Movies Other
+      newznab: 2020
+    - id: "11"
+      cat: Movies/SD
+      desc: Movies SD
+      newznab: 2030
+    - id: "19"
+      cat: Movies/SD
+      desc: Movies XviD
+      newznab: 2030
+    - id: "6"
+      cat: Audio
+      desc: Music
+      newznab: 3000
+    - id: "8"
+      cat: Audio/Lossless
+      desc: Music Lossless
+      newznab: 3040
+    - id: "46"
+      cat: Audio/Other
+      desc: Music Other
+      newznab: 3050
+    - id: "29"
+      cat: Audio/Video
+      desc: Music Video
+      newznab: 3020
+    - id: "43"
+      cat: TV/Other
+      desc: TV Other
+      newznab: 5050
+    - id: "42"
+      cat: TV/HD
+      desc: TV HD
+      newznab: 5040
+    - id: "45"
+      cat: TV/Other
+      desc: TV Other Packs
+      newznab: 5050
+    - id: "41"
+      cat: TV/SD
+      desc: TV SD
+      newznab: 5030
+    - id: "7"
+      cat: TV/SD
+      desc: TV XviD
+      newznab: 5030
+    - id: "9"
+      cat: XXX
+      desc: XXX
+      newznab: 6000
+    - id: "49"
+      cat: XXX
+      desc: XXX Other
+      newznab: 6000
+    - id: "47"
+      cat: XXX/DVD
+      desc: XXX DVD
+      newznab: 6010
+    - id: "48"
+      cat: XXX
+      desc: XXX Packs
+      newznab: 6000
+  modes:
+    search: [q]
+    movie-search: [q, imdbid]
+    tv-search: [q, season, ep]
+login:
+  method: post
+  path: takelogin.php
+  inputs:
+    username: "{{ .Config.Username }}"
+    password: "{{ .Config.Password }}"
+search:
+  paths:
+    - path: 'browse.php?incldead=1&titleonly={{ if .Query.IMDBID }}0{{ else }}1{{ end }}&search={{ if .Query.IMDBID }}{{ .Query.IMDBID | urlencode }}{{ else }}{{ .Keywords | urlencode }}{{ end }}{{ range .Categories }}&c{{ . }}=1{{ end }}'
+      response:
+        type: html
+  rows:
+    selector: 'table#torrents-table tr:has(a[href^="download.php"])'
+  fields:
+    title:
+      selector: '.br_right > a b'
+    details:
+      selector: '.br_right > a'
+      attribute: href
+    download:
+      selector: 'td:nth-child(4) > a'
+      attribute: href
+    category:
+      selector: '.br_type > a'
+      attribute: href
+      filters:
+        - name: querystring
+          args: cat
+    date:
+      selector: 'td:nth-child(6) nobr'
+      filters:
+        - name: dateparse
+          args: "yyyy-MM-ddHH:mm:ss"
+    size:
+      selector: 'td:nth-child(7)'
+    grabs:
+      selector: 'td:nth-child(8)'
+    seeders:
+      selector: 'td:nth-child(9)'
+    leechers:
+      selector: 'td:nth-child(10)'
+    downloadvolumefactor:
+      text: "1"
+    uploadvolumefactor:
+      text: "1"
+`
+
 const MORE_THAN_TV = `
 id: morethantv
 name: MoreThanTV
@@ -4072,6 +4279,7 @@ const BUILT_IN_CARDIGANN_SOURCES = [
   FUNFILE,
   IMMORTAL_SEED,
   X_SPEEDS,
+  REVOLUTION_TT,
   MORE_THAN_TV,
   HDACCESS,
   TORRENT_NETWORK,

@@ -97,6 +97,7 @@ caps:
       "funfile",
       "immortalseed",
       "xspeeds",
+      "revolutiontt",
       "morethantv",
       "hdaccess",
       "torrent-network",
@@ -561,6 +562,32 @@ caps:
           { id: 5040, name: "TV HD" },
           { id: 3040, name: "Music FLAC" },
           { id: 3030, name: "Books Audiobooks" },
+        ]),
+      },
+    })
+    expect(
+      BUILT_IN_CARDIGANN_DEFINITIONS.find(
+        (definition) => definition.definitionKey === "revolutiontt",
+      ),
+    ).toMatchObject({
+      displayName: "RevolutionTT",
+      baseUrl: "https://revott.me/",
+      privacy: "private",
+      supportsRss: false,
+      supportsSearch: true,
+      tags: ["private", "general", "movies", "tv", "music", "books", "html"],
+      authFields: expect.arrayContaining([
+        expect.objectContaining({ name: "username", type: "text", required: true }),
+        expect.objectContaining({ name: "password", type: "password", required: true }),
+      ]),
+      capabilities: {
+        searchTypes: ["search", "movie", "tvsearch"],
+        categories: expect.arrayContaining([
+          { id: 2050, name: "Movies BluRay" },
+          { id: 2040, name: "Movies HD" },
+          { id: 5040, name: "TV HD" },
+          { id: 3040, name: "Music Lossless" },
+          { id: 7020, name: "Ebooks" },
         ]),
       },
     })

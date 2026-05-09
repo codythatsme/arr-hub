@@ -464,6 +464,40 @@ const XSPEEDS_HTML_RESULTS = `
   </table>
 </body></html>`
 
+const REVOLUTIONTT_HTML_RESULTS = `
+<html><body>
+  <table id="torrents-table">
+    <tbody>
+      <tr>
+        <th>Type</th>
+        <th>Name</th>
+        <th>Comments</th>
+        <th>Download</th>
+        <th>Uploader</th>
+        <th>Added</th>
+        <th>Size</th>
+        <th>Snatched</th>
+        <th>Seeders</th>
+        <th>Leechers</th>
+      </tr>
+      <tr>
+        <td class="br_type"><a href="browse.php?cat=12">Movies HD</a></td>
+        <td class="br_right">
+          <a href="details.php?id=141"><b>RevolutionTT Movie 2026 1080p BluRay</b></a>
+        </td>
+        <td>4</td>
+        <td><a href="download.php?id=141">Download</a></td>
+        <td>Uploader</td>
+        <td><nobr>2026-05-1021:15:00</nobr></td>
+        <td>7.2 GB <a href="filelist.php?id=141">18 files</a></td>
+        <td>33</td>
+        <td>70</td>
+        <td>5</td>
+      </tr>
+    </tbody>
+  </table>
+</body></html>`
+
 const RETROFLIX_JSON_RESULTS = JSON.stringify([
   {
     download_volume_factor: 0,
@@ -3442,6 +3476,76 @@ search:
       uploadFactor: 2,
     })
     expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-10T19:05:00.000Z")
+  })
+
+  it("parses RevolutionTT HTML results after POST login", async () => {
+    const requests: Array<{ url: string; init: RequestInit | undefined }> = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(String(input))
+      requests.push({ url: String(input), init })
+      if (url.pathname === "/takelogin.php") {
+        return new Response('<html><body><a href="/logout.php">Logout</a></body></html>', {
+          status: 200,
+          headers: { "set-cookie": "rev_session=abc; Path=/" },
+        })
+      }
+      return new Response(REVOLUTIONTT_HTML_RESULTS, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 105,
+      name: "RevolutionTT",
+      type: "cardigann_yaml",
+      definitionKey: "revolutiontt",
+      baseUrl: "https://revott.me/",
+      apiKey: "",
+      configValues: {
+        username: "alice",
+        password: "secret",
+      },
+      priority: 41,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({
+        term: "RevolutionTT.Movie",
+        type: "movie",
+        categories: [2040],
+      }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    const loginRequest = requests[0]
+    expect(loginRequest?.url).toBe("https://revott.me/takelogin.php")
+    expect(loginRequest?.init?.method).toBe("POST")
+    const loginBody = new URLSearchParams(String(loginRequest?.init?.body ?? ""))
+    expect(loginBody.get("username")).toBe("alice")
+    expect(loginBody.get("password")).toBe("secret")
+
+    const searchRequest = requests[1]
+    expect(searchRequest?.url).toBe(
+      "https://revott.me/browse.php?incldead=1&titleonly=1&search=RevolutionTT.Movie&c12=1",
+    )
+    expect(new Headers(searchRequest?.init?.headers).get("cookie")).toBe("rev_session=abc")
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "RevolutionTT Movie 2026 1080p BluRay",
+      downloadUrl: "https://revott.me/download.php?id=141",
+      infoUrl: "https://revott.me/details.php?id=141",
+      category: "2040",
+      size: 7_200_000_000,
+      seeders: 70,
+      leechers: 5,
+      indexerId: 105,
+      indexerName: "RevolutionTT",
+      indexerPriority: 41,
+      downloadFactor: 1,
+      uploadFactor: 1,
+    })
+    expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-10T21:15:00.000Z")
   })
 
   it("parses RetroFlix SpeedApp JSON results with bearer auth", async () => {

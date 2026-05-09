@@ -119,8 +119,8 @@ describe("IndexerService", () => {
       const second = yield* svc.refreshDefinitions()
 
       expect(first).toMatchObject({
-        total: 27,
-        created: 27,
+        total: 28,
+        created: 28,
         updated: 0,
         unchanged: 0,
       })
@@ -152,12 +152,13 @@ describe("IndexerService", () => {
         "created",
         "created",
         "created",
+        "created",
       ])
       expect(second).toMatchObject({
-        total: 27,
+        total: 28,
         created: 0,
         updated: 0,
-        unchanged: 27,
+        unchanged: 28,
       })
       expect(second.definitions.every((definition) => definition.previousVersion !== null)).toBe(
         true,
@@ -445,6 +446,7 @@ describe("IndexerService", () => {
         "open-tv-torrents",
         "public-domain-movie-torrents",
         "retroflix",
+        "revolutiontt",
         "scenetime",
         "speedapp",
         "speedcd",
@@ -664,6 +666,17 @@ describe("IndexerService", () => {
         protocol: "torrent",
         implementation: "cardigann_yaml",
         baseUrl: "https://www.xspeeds.eu/",
+        privacy: "private",
+        supportsRss: false,
+        tags: ["private", "general", "movies", "tv", "music", "books", "html"],
+      })
+      expect(
+        definitions.find((definition) => definition.definitionKey === "revolutiontt"),
+      ).toMatchObject({
+        displayName: "RevolutionTT",
+        protocol: "torrent",
+        implementation: "cardigann_yaml",
+        baseUrl: "https://revott.me/",
         privacy: "private",
         supportsRss: false,
         tags: ["private", "general", "movies", "tv", "music", "books", "html"],
