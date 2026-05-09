@@ -343,6 +343,38 @@ const HTML_SELECTOR_PSEUDO_RESULTS = `<!doctype html>
   </body>
 </html>`
 
+const HTML_ATTRIBUTE_OPERATOR_RESULTS = `<!doctype html>
+<html>
+  <body>
+    <table>
+      <tbody>
+        <tr class="torrent" data-flags="vip freeleech" data-language="en-US" data-status="dead">
+          <td><a class="title">Wrong Attribute Movie 2026 1080p WEB-DL</a></td>
+          <td><a class="download" href="/download/wrong-attribute">Download</a></td>
+          <td><span class="category" data-value="movies">Movies</span></td>
+        </tr>
+        <tr class="torrent" data-flags="vip freeleech" data-language="en-GB" data-status="alive">
+          <td><a class="title">Attribute Movie 2026 1080p WEB-DL</a></td>
+          <td>
+            <a
+              class="download"
+              rel="nofollow external"
+              data-protocol="torrent-main"
+              href="/download/attribute-final"
+            >Download</a>
+          </td>
+          <td><span class="category" data-value="movies">Movies</span></td>
+        </tr>
+        <tr class="torrent" data-flags="internal" data-language="en-AU" data-status="alive">
+          <td><a class="title">Wrong Internal Attribute Movie 2026 1080p WEB-DL</a></td>
+          <td><a class="download" href="/download/wrong-internal-attribute">Download</a></td>
+          <td><span class="category" data-value="movies">Movies</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </body>
+</html>`
+
 const HTML_SELECTOR_POSITION_RESULTS = `<!doctype html>
 <html>
   <body>
@@ -2076,6 +2108,66 @@ search:
     expect(releases[0]).toMatchObject({
       title: "Wanted Movie 2026 1080p WEB-DL",
       downloadUrl: "https://tracker.example/download/wanted-pseudo",
+      category: "2000",
+    })
+  })
+
+  it("matches Cardigann HTML selectors with expanded attribute operators", async () => {
+    const fetchMock = vi.fn(
+      async () => new Response(HTML_ATTRIBUTE_OPERATOR_RESULTS, { status: 200 }),
+    )
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 72,
+      name: "HTML Attribute Operator Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "html-attribute-operator-cardigann",
+      definitionYaml: `
+id: html-attribute-operator-cardigann
+name: HTML Attribute Operator Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+      newznab: 2000
+  modes:
+    search: [q]
+search:
+  paths:
+    - path: /browse
+      response:
+        type: html
+  rows:
+    selector: tr.torrent[data-flags~=freeleech][data-language|=en][data-status!=dead]
+  fields:
+    title:
+      selector: a.title
+    download:
+      selector: a.download[rel~=nofollow][data-protocol|=torrent][data-disabled!=true]
+      attribute: href
+    category:
+      selector: span.category[data-value=movies]
+`,
+      baseUrl: "https://tracker.example",
+      apiKey: "",
+      priority: 35,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Attribute Movie", type: "general", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "Attribute Movie 2026 1080p WEB-DL",
+      downloadUrl: "https://tracker.example/download/attribute-final",
       category: "2000",
     })
   })

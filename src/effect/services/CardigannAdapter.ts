@@ -1559,7 +1559,7 @@ function parseSimpleHtmlSelectorToken(token: string): SimpleHtmlSelector | null 
   const idMatch = baseToken.match(/#([\w-]+)/)
   const classes = Array.from(baseToken.matchAll(/\.([\w-]+)/g)).map((match) => match[1] ?? "")
   const attributes = Array.from(
-    baseToken.matchAll(/\[([\w:-]+)(?:\s*([*^$]?=)\s*["']?([^"'\]]*)["']?)?\]/g),
+    baseToken.matchAll(/\[([\w:-]+)(?:\s*([!~|*^$]?=)\s*["']?([^"'\]]*)["']?)?\]/g),
   ).map((match) => ({
     name: match[1] ?? "",
     operator: match[2] ?? null,
@@ -1629,12 +1629,16 @@ function htmlAttributeMatches(
 
   return selector.attributes.every((attribute) => {
     const actual = attributes[attribute.name.toLowerCase()]
-    if (actual === undefined) return false
+    if (actual === undefined) return attribute.operator === "!="
     if (attribute.operator === null) return true
     if (attribute.operator === "=") return actual === attribute.value
+    if (attribute.operator === "!=") return actual !== attribute.value
     if (attribute.operator === "^=") return actual.startsWith(attribute.value)
     if (attribute.operator === "$=") return actual.endsWith(attribute.value)
     if (attribute.operator === "*=") return actual.includes(attribute.value)
+    if (attribute.operator === "~=") return actual.split(/\s+/).includes(attribute.value)
+    if (attribute.operator === "|=")
+      return actual === attribute.value || actual.startsWith(`${attribute.value}-`)
     return false
   })
 }
