@@ -19,7 +19,7 @@ What exists today:
 
 Primary blockers:
 
-- The operator UI now exposes the existing backend workflows, but persisted browser smoke tests are still missing and deeper workflows still depend on backend work listed below.
+- The operator UI now exposes the existing backend workflows and has persisted browser smoke coverage, but deeper workflows still depend on backend work listed below.
 - Metadata is thin. Movies have a TMDB client, but TV has no real metadata provider, Sonarr import does not import episodes, and there is no metadata refresh lifecycle.
 - Completed download handling is not a real media import pipeline. It mostly marks rows as available; it does not inspect, move, hardlink, rename, validate, or import files.
 - The release decision engine is far smaller than Sonarr/Radarr. It lacks many required rejection rules, blocklist enforcement, size/age/retention/free-space checks, language/release profiles, proper title matching, and TV/anime edge cases.
@@ -33,6 +33,7 @@ Commands run from `/Users/codythatsme/Developer/arr-hub`:
 
 - `bun run typecheck`: passed.
 - `bun run test`: passed, 29 test files plus 1 skipped live suite, 285 passed and 4 skipped tests.
+- `bun run test:e2e`: passed, 1 Chromium smoke test covering onboarding, settings, add movie, add TV, manual search display, and queue page.
 - `bun run lint`: passed with warnings and 0 errors.
 - `bun run build`: passed with chunk-size and external dependency warnings.
 
@@ -52,8 +53,9 @@ Completed in atomic commits after this plan was written:
 - `0b5d2a1553` added TV manual add/edit/delete/monitor/season/episode search UI.
 - `688ac6f283` added profile create/edit/delete/apply-bundle UI.
 - `ab7f7dbffa` added queue delete-files and clear-error actions.
+- `f8c3a19976` added persisted Playwright operator smoke tests and deterministic e2e fixtures.
 
-Milestone 1 is functionally implemented for the current backend, except persisted browser smoke tests. Later milestones remain open and are still required before ARR Hub can honestly claim Sonarr/Radarr/Prowlarr replacement-grade behavior.
+Milestone 1 is complete against the current backend surface. Later milestones remain open and are still required before ARR Hub can honestly claim Sonarr/Radarr/Prowlarr replacement-grade behavior.
 
 ## Current Functionality Inventory
 
@@ -600,7 +602,7 @@ Tasks:
 2. Done: add Movies UI with TMDB search, add, edit, delete, monitor toggle, profile/root folder assignment, manual search/evaluate/grab.
 3. Done: add TV UI using existing local series model with manual series/season/episode scaffolding, edit, delete, monitor toggles, and manual episode/season/series search.
 4. Done: add profile CRUD/apply-bundle UI.
-5. Remaining: add persisted e2e browser smoke tests for onboarding, integration settings, add movie, add TV, manual search display, queue page.
+5. Done: add persisted e2e browser smoke tests for onboarding, integration settings, add movie, add TV, manual search display, queue page.
 
 Acceptance:
 
@@ -708,10 +710,11 @@ Update `README.md` after each milestone:
 
 ## Immediate Next Step For The Next Agent
 
-Finish the remaining Milestone 1 test gap, then start Milestone 2.
+Start Milestone 2: TV metadata provider support and Sonarr episode import completion.
 
 Recommended order:
 
-1. Add persisted browser smoke tests for onboarding, integration settings, add movie, add TV, manual search display, and queue page. The repo does not currently include a browser e2e runner, so choose one explicitly before adding tests.
-2. Start Milestone 2 TV metadata provider work and complete Sonarr episode import.
-3. Do not begin Prowlarr-scale indexer work before metadata and import behavior are much closer to replacement-grade.
+1. Add a TV metadata provider service and document required credentials or fixture strategy.
+2. Build an add-series flow that hydrates seasons and episodes from provider metadata.
+3. Complete Sonarr import for episodes, existing files, availability, monitored state, and air dates.
+4. Do not begin Prowlarr-scale indexer work before metadata and import behavior are much closer to replacement-grade.

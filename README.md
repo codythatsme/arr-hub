@@ -6,7 +6,7 @@ ARR Hub is a unified, self-hosted media automation app inspired by the arr ecosy
 
 - Adapter-driven integrations (download clients, indexers, media servers)
 - Shared release policy engine + scheduler pipelines
-- Functional operator UI slice for integrations, movies, security, and queue validation
+- Operator UI for onboarding, settings, profiles, movies, TV, manual search, scheduler, and queue actions
 
 See [ISSUE_VALIDATION_PLAN_2026-03-06.md](./ISSUE_VALIDATION_PLAN_2026-03-06.md) for detailed roadmap status.
 
@@ -72,9 +72,30 @@ container image. Do not bind-mount host `node_modules` into the container.
 - **Settings → Indexers**: list/add/test indexers
 - **Settings → Download Clients**: list/add/test download clients
 - **Settings → Media Servers**: list/add/test media servers
+- **Settings → Scheduler**: inspect jobs, pause/resume, run jobs, retry failures
+- **Settings → General**: update app name and release channel settings
+- **Settings → Media Management**: update naming/file-handling settings and root folders
+- **Settings → Profiles**: create/edit/delete quality profiles and apply starter bundles
 - **Settings → Security**: login + API key list/create/revoke
 - **Movies**: add/list/evaluate/search+grab/manual grab
-- **Activity → Queue**: live queue polling + remove
+- **TV Shows**: manual add/list/edit/monitor/search+grab flows using local series data
+- **Activity → Queue**: live queue polling, retry, remove, delete-files, and clear-error actions
+
+## Current Limitations
+
+ARR Hub is not yet a full Sonarr/Radarr/Prowlarr replacement. TV metadata is
+manual/local, Sonarr import does not yet preserve episodes and episode files,
+completed downloads are not moved or hardlinked through a real import pipeline,
+and the release decision engine is still much smaller than the mature Arr apps.
+ARR Hub currently consumes Torznab/Newznab endpoints; it does not provide a
+Prowlarr-scale indexer catalogue, indexer proxy, app sync, or stats surface.
+
+## API Compatibility
+
+ARR Hub does not currently expose Sonarr, Radarr, or Prowlarr compatible REST
+APIs. The web app uses internal tRPC procedures plus `/api/system/health`, so
+existing Arr ecosystem tools should not treat ARR Hub as a drop-in compatible
+server yet.
 
 ## Scripts
 
@@ -86,9 +107,13 @@ bun run test
 bun run typecheck
 bun run lint
 bun run fmt:check
+bun run test:e2e
 bun run test:live-adapters
 bun run test:live-adapters:docker
 ```
+
+`test:e2e` runs a Playwright Chromium smoke test against an ephemeral SQLite
+database with deterministic metadata fixtures.
 
 `test:live-adapters` is an opt-in interop check against real services. Tests
 are skipped unless their matching environment variables are set:
