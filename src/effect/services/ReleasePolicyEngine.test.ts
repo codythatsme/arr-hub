@@ -5,9 +5,12 @@ import {
   customFormats,
   customFormatScores,
   customFormatSpecs,
+  downloadClients,
+  downloadQueue,
   episodes,
   movies,
   releaseBlocklist,
+  rootFolders,
   seasons,
   series,
 } from "#/db/schema"
@@ -193,6 +196,85 @@ describe("ReleasePolicyEngine", () => {
       expect(results).toHaveLength(1)
       expect(results[0].decision).toBe("rejected")
       expect(results[0].reasons[0].rule).toBe("torrent_no_seeders")
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("rejects releases already active in the queue", () =>
+    Effect.gen(function* () {
+      const profileId = yield* setupProfile()
+      const db = yield* Db
+      const [movie] = yield* db
+        .insert(movies)
+        .values({ tmdbId: 1002, title: "Movie", year: 2024, qualityProfileId: profileId })
+        .returning({ id: movies.id })
+      const [client] = yield* db
+        .insert(downloadClients)
+        .values({
+          name: "qBit",
+          type: "qbittorrent",
+          host: "localhost",
+          port: 8080,
+          username: "admin",
+          passwordEncrypted: "enc",
+        })
+        .returning({ id: downloadClients.id })
+      yield* db.insert(downloadQueue).values({
+        downloadClientId: client.id,
+        movieId: movie.id,
+        externalId: "active-hash",
+        title: "Movie.2024.1080p.BluRay.x264-GRP",
+        status: "downloading",
+        sizeBytes: 1_000_000_000,
+      })
+
+      const engine = yield* ReleasePolicyEngine
+      const results = yield* engine.evaluate(
+        [makeCandidate({ title: "Movie.2024.1080p.BluRay.x264-GRP" })],
+        profileId,
+        { mediaId: movie.id, mediaType: "movie" },
+      )
+
+      expect(results).toHaveLength(1)
+      expect(results[0].decision).toBe("rejected")
+      expect(results[0].reasons[0].rule).toBe("queue_conflict")
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("rejects releases larger than recorded root folder free space", () =>
+    Effect.gen(function* () {
+      const profileId = yield* setupProfile()
+      const db = yield* Db
+      yield* db.insert(rootFolders).values({
+        path: "/media/movies",
+        freeSpaceBytes: 500_000_000,
+        totalSpaceBytes: 2_000_000_000,
+      })
+      const [movie] = yield* db
+        .insert(movies)
+        .values({
+          tmdbId: 1003,
+          title: "Movie",
+          year: 2024,
+          qualityProfileId: profileId,
+          rootFolderPath: "/media/movies",
+        })
+        .returning({ id: movies.id })
+
+      const engine = yield* ReleasePolicyEngine
+      const results = yield* engine.evaluate(
+        [
+          makeCandidate({
+            title: "Movie.2024.1080p.BluRay.x264-GRP",
+            size: 1_000_000_000,
+          }),
+        ],
+        profileId,
+        { mediaId: movie.id, mediaType: "movie" },
+      )
+
+      expect(results).toHaveLength(1)
+      expect(results[0].decision).toBe("rejected")
+      expect(results[0].reasons[0].rule).toBe("insufficient_free_space")
     }).pipe(Effect.provide(TestLayer)),
   )
 

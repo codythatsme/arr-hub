@@ -1,13 +1,15 @@
 import { SqlError } from "@effect/sql/SqlError"
-import { and, eq } from "drizzle-orm"
+import { and, eq, inArray } from "drizzle-orm"
 import { Context, Effect, Layer } from "effect"
 
 import {
   customFormatSpecs,
+  downloadQueue,
   episodes,
   movies,
   releaseBlocklist,
   releaseDecisions,
+  rootFolders,
   seasons,
   series,
 } from "#/db/schema"
@@ -25,7 +27,11 @@ import { NotFoundError } from "#/effect/errors"
 
 import { Db } from "./Db"
 import { ProfileService, type ProfileWithDetails } from "./ProfileService"
-import { evaluateReleaseSpecifications, type ReleaseTarget } from "./releasePolicy/specifications"
+import {
+  evaluateReleaseSpecifications,
+  type ReleaseConstraints,
+  type ReleaseTarget,
+} from "./releasePolicy/specifications"
 import { TitleParserService } from "./TitleParserService"
 
 // ── Quality helpers (module-scope — no closure needed) ──
@@ -134,13 +140,20 @@ function loadReleaseTarget(
   if (context.mediaType === "movie") {
     return Effect.gen(function* () {
       const rows = yield* db
-        .select({ title: movies.title, year: movies.year })
+        .select({ title: movies.title, year: movies.year, rootFolderPath: movies.rootFolderPath })
         .from(movies)
         .where(eq(movies.id, context.mediaId))
         .limit(1)
       const row = rows[0]
       return row
-        ? { title: row.title, year: row.year, seasonNumber: null, episodeNumber: null }
+        ? {
+            title: row.title,
+            year: row.year,
+            seasonNumber: null,
+            episodeNumber: null,
+            seriesId: null,
+            rootFolderPath: row.rootFolderPath,
+          }
         : null
     })
   }
@@ -151,6 +164,8 @@ function loadReleaseTarget(
         .select({
           title: series.title,
           year: series.year,
+          seriesId: series.id,
+          rootFolderPath: series.rootFolderPath,
           seasonNumber: seasons.seasonNumber,
           episodeNumber: episodes.episodeNumber,
         })
@@ -168,6 +183,8 @@ function loadReleaseTarget(
       .select({
         title: series.title,
         year: series.year,
+        seriesId: series.id,
+        rootFolderPath: series.rootFolderPath,
         seasonNumber: seasons.seasonNumber,
       })
       .from(seasons)
@@ -176,6 +193,60 @@ function loadReleaseTarget(
       .limit(1)
     const row = rows[0]
     return row ? { ...row, episodeNumber: null } : null
+  })
+}
+
+const ACTIVE_QUEUE_STATUSES = ["queued", "downloading", "importing"] as const
+
+function loadReleaseConstraints(
+  db: Context.Tag.Service<typeof Db>,
+  context: EvaluationContext,
+  target: ReleaseTarget | null,
+): Effect.Effect<ReleaseConstraints, SqlError> {
+  return Effect.gen(function* () {
+    const freeSpaceRows =
+      target?.rootFolderPath === null || target?.rootFolderPath === undefined
+        ? []
+        : yield* db
+            .select({ freeSpaceBytes: rootFolders.freeSpaceBytes })
+            .from(rootFolders)
+            .where(eq(rootFolders.path, target.rootFolderPath))
+            .limit(1)
+
+    const activeQueueRows =
+      context.mediaType === "movie"
+        ? yield* db
+            .select({ title: downloadQueue.title, episodeIds: downloadQueue.episodeIds })
+            .from(downloadQueue)
+            .where(
+              and(
+                eq(downloadQueue.movieId, context.mediaId),
+                inArray(downloadQueue.status, [...ACTIVE_QUEUE_STATUSES]),
+              ),
+            )
+        : target?.seriesId === null || target?.seriesId === undefined
+          ? []
+          : yield* db
+              .select({ title: downloadQueue.title, episodeIds: downloadQueue.episodeIds })
+              .from(downloadQueue)
+              .where(
+                and(
+                  eq(downloadQueue.seriesId, target.seriesId),
+                  inArray(downloadQueue.status, [...ACTIVE_QUEUE_STATUSES]),
+                ),
+              )
+
+    const activeQueueTitles = activeQueueRows
+      .filter((row) => {
+        if (context.mediaType !== "episode") return true
+        return row.episodeIds?.includes(context.mediaId) ?? false
+      })
+      .map((row) => row.title)
+
+    return {
+      activeQueueTitles,
+      freeSpaceBytes: freeSpaceRows[0]?.freeSpaceBytes ?? null,
+    }
   })
 }
 
@@ -213,6 +284,7 @@ export const ReleasePolicyEngineLive = Layer.effect(
           // 1. Load profile
           const profile = yield* profileService.getById(profileId)
           const target = yield* loadReleaseTarget(db, context)
+          const constraints = yield* loadReleaseConstraints(db, context, target)
           const blockedRows = yield* db
             .select()
             .from(releaseBlocklist)
@@ -296,6 +368,7 @@ export const ReleasePolicyEngineLive = Layer.effect(
               parsed,
               evaluation: context,
               target,
+              constraints,
             })
             if (specificationReasons.length > 0) {
               decisions.push({

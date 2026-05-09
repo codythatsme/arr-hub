@@ -11,6 +11,13 @@ export interface ReleaseTarget {
   readonly year: number | null
   readonly seasonNumber: number | null
   readonly episodeNumber: number | null
+  readonly seriesId: number | null
+  readonly rootFolderPath: string | null
+}
+
+export interface ReleaseConstraints {
+  readonly activeQueueTitles: ReadonlyArray<string>
+  readonly freeSpaceBytes: number | null
 }
 
 interface SpecificationContext {
@@ -18,6 +25,7 @@ interface SpecificationContext {
   readonly parsed: ParsedTitle
   readonly evaluation: EvaluationContext
   readonly target: ReleaseTarget | null
+  readonly constraints: ReleaseConstraints
 }
 
 const MIN_IMPORTABLE_SIZE_BYTES = 50 * 1024 * 1024
@@ -123,10 +131,33 @@ function torrentHealthSpecification(ctx: SpecificationContext): DecisionReason |
   return null
 }
 
+function queueConflictSpecification(ctx: SpecificationContext): DecisionReason | null {
+  const candidateTitle = normalizeTitle(ctx.candidate.title)
+  const conflict = ctx.constraints.activeQueueTitles.find(
+    (title) => normalizeTitle(title) === candidateTitle,
+  )
+  return conflict
+    ? reject("queue_conflict", `release is already active in queue: ${conflict}`)
+    : null
+}
+
+function freeSpaceSpecification(ctx: SpecificationContext): DecisionReason | null {
+  if (ctx.constraints.freeSpaceBytes === null) return null
+  if (ctx.candidate.size > ctx.constraints.freeSpaceBytes) {
+    return reject(
+      "insufficient_free_space",
+      `release size ${ctx.candidate.size} > free space ${ctx.constraints.freeSpaceBytes}`,
+    )
+  }
+  return null
+}
+
 const RELEASE_SPECIFICATIONS = [
   titleAndEpisodeSpecification,
   sizeSpecification,
   torrentHealthSpecification,
+  queueConflictSpecification,
+  freeSpaceSpecification,
 ] as const
 
 export function evaluateReleaseSpecifications(
