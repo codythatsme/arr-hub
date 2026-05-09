@@ -387,6 +387,120 @@ search:
     expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-08T00:00:00.000Z")
   })
 
+  it("applies Cardigann preprocessing filters before JSON parsing", async () => {
+    const fetchMock = vi.fn(async () => new Response(`callback(${JSON_RESULTS});`, { status: 200 }))
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 58,
+      name: "Preprocessed JSON Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "preprocessed-json-cardigann",
+      definitionYaml: `
+id: preprocessed-json-cardigann
+name: Preprocessed JSON Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+      newznab: 2000
+  modes:
+    search: [q]
+search:
+  preprocessingfilters:
+    - name: regexp
+      args: 'callback\\(([\\s\\S]*)\\);'
+  paths:
+    - path: /api/jsonp
+      response:
+        type: json
+      inputs:
+        q: "{{ .Keywords }}"
+  rows:
+    selector: $.data.results
+  fields:
+    title:
+      selector: title
+    download:
+      selector: links.download
+    category:
+      selector: category.name
+`,
+      baseUrl: "https://tracker.example",
+      apiKey: "",
+      priority: 30,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "JSON Movie", type: "general", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "JSON Movie 2026 1080p WEB-DL",
+      downloadUrl: "https://tracker.example/download/json",
+      category: "2000",
+    })
+  })
+
+  it("applies Cardigann preprocessing filters before XML parsing", async () => {
+    const fetchMock = vi.fn(async () => new Response(`noise:${RSS_XML}:noise`, { status: 200 }))
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 59,
+      name: "Preprocessed XML Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "preprocessed-xml-cardigann",
+      definitionYaml: `
+id: preprocessed-xml-cardigann
+name: Preprocessed XML Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+      newznab: 2000
+  modes:
+    search: [q]
+search:
+  preprocessingfilters:
+    - name: regexp
+      args: '[\\s\\S]*(<rss[\\s\\S]*</rss>)[\\s\\S]*'
+  paths:
+    - path: /api/xml
+      response:
+        type: torznab
+      inputs:
+        q: "{{ .Keywords }}"
+`,
+      baseUrl: "https://tracker.example",
+      apiKey: "",
+      priority: 25,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Example Movie", type: "general", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(releases[0]).toMatchObject({
+      title: "Example Movie 2026 1080p WEB-DL",
+      category: "2000",
+      seeders: 44,
+    })
+  })
+
   it("returns definition capabilities without a network request when testing connection", async () => {
     const fetchMock = vi.fn()
     vi.stubGlobal("fetch", fetchMock)

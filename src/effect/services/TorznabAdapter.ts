@@ -310,25 +310,30 @@ export function fetchIndexerText(
   return fetchIndexerResponseText(url, config, init).pipe(Effect.map((response) => response.text))
 }
 
+export function parseIndexerXmlText(
+  text: string,
+  config: IndexerConfig,
+): Effect.Effect<unknown, IndexerError> {
+  return Effect.try({
+    try: () => xmlParser.parse(text),
+    catch: (error) =>
+      new IndexerError({
+        indexerId: config.id,
+        indexerName: config.name,
+        reason: "invalid_response",
+        message: error instanceof Error ? error.message : "invalid XML response",
+        retryable: true,
+      }),
+  })
+}
+
 export function fetchIndexerXml(
   url: URL,
   config: IndexerConfig,
   init: RequestInit = {},
 ): Effect.Effect<unknown, IndexerError> {
   return fetchIndexerText(url, config, init).pipe(
-    Effect.flatMap((text) =>
-      Effect.try({
-        try: () => xmlParser.parse(text),
-        catch: (error) =>
-          new IndexerError({
-            indexerId: config.id,
-            indexerName: config.name,
-            reason: "invalid_response",
-            message: error instanceof Error ? error.message : "invalid XML response",
-            retryable: true,
-          }),
-      }),
-    ),
+    Effect.flatMap((text) => parseIndexerXmlText(text, config)),
   )
 }
 

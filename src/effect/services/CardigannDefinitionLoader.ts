@@ -73,6 +73,7 @@ export interface CardigannFieldSelector {
 export interface CardigannSearchRuntime {
   readonly allowEmptyInputs: boolean
   readonly keywordFilters: ReadonlyArray<CardigannFilter>
+  readonly preprocessingFilters: ReadonlyArray<CardigannFilter>
   readonly inputs: Readonly<Record<string, string>>
   readonly headers: Readonly<Record<string, string>>
   readonly rows: CardigannRowsSelector | null
@@ -497,6 +498,7 @@ function parseSearchRuntime(
   return {
     allowEmptyInputs: optionalBoolean(search, "allowEmptyInputs") ?? false,
     keywordFilters: parseFilters(search.keywordsfilters ?? search.keywordsFilters),
+    preprocessingFilters: parseFilters(search.preprocessingfilters ?? search.preprocessingFilters),
     inputs: parseInputMap(search.inputs),
     headers: parseHeaderMap(search.headers),
     rows: parseRows(search.rows),

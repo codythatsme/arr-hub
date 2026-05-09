@@ -430,6 +430,9 @@ search:
     - name: trim
     - name: re_replace
       args: ["\\\\s+", "+"]
+  preprocessingfilters:
+    - name: regexp
+      args: '<rss[\\s\\S]*</rss>'
   inputs:
     apikey: "{{ .Config.APIKey }}"
   paths:
@@ -449,6 +452,7 @@ search:
         { name: "trim", args: [] },
         { name: "re_replace", args: ["\\s+", "+"] },
       ],
+      preprocessingFilters: [{ name: "regexp", args: ["<rss[\\s\\S]*</rss>"] }],
       inputs: { apikey: "{{ .Config.APIKey }}" },
       headers: {},
       rows: null,
@@ -497,6 +501,7 @@ search:
     expect(runtime.search).toEqual({
       allowEmptyInputs: false,
       keywordFilters: [],
+      preprocessingFilters: [],
       inputs: { page: "1", freeleech: "true" },
       headers: {},
       rows: null,

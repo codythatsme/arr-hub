@@ -24,7 +24,7 @@ import type { IndexerAdapter } from "./IndexerAdapter"
 import {
   checkTorznabError,
   fetchIndexerResponseText,
-  fetchIndexerXml,
+  parseIndexerXmlText,
   parseTorznabReleases,
 } from "./TorznabAdapter"
 
@@ -1177,6 +1177,14 @@ function applyCardigannFieldFilters(
     (current, filter) => applyCardigannKeywordFilter(current, filter, variables),
     value,
   )
+}
+
+function applyCardigannPreprocessingFilters(
+  text: string,
+  definition: CardigannRuntimeDefinition,
+  variables: Record<string, TemplateValue>,
+): string {
+  return applyCardigannFieldFilters(text, definition.search.preprocessingFilters, variables)
 }
 
 function simpleSelectorTokens(selector: string): ReadonlyArray<string> {
@@ -2484,9 +2492,14 @@ export function createCardigannYamlAdapter(config: IndexerConfig): IndexerAdapte
             Effect.gen(function* () {
               if (request.responseType === "html" || request.responseType === "json") {
                 const response = yield* fetchIndexerResponseText(request.url, config, request.init)
+                const responseText = applyCardigannPreprocessingFilters(
+                  response.text,
+                  definition,
+                  request.variables,
+                )
                 const loginTestMessage =
                   request.responseType === "html"
-                    ? loginTestFailureMessage(response.text, definition.login)
+                    ? loginTestFailureMessage(responseText, definition.login)
                     : null
                 if (loginTestMessage !== null) {
                   return yield* Effect.fail(
@@ -2503,8 +2516,8 @@ export function createCardigannYamlAdapter(config: IndexerConfig): IndexerAdapte
                 return yield* Effect.try({
                   try: () =>
                     request.responseType === "html"
-                      ? parseHtmlReleases(response.text, request, definition, config)
-                      : parseJsonReleases(response.text, request, definition, config),
+                      ? parseHtmlReleases(responseText, request, definition, config)
+                      : parseJsonReleases(responseText, request, definition, config),
                   catch: (error) =>
                     new IndexerError({
                       indexerId: config.id,
@@ -2519,7 +2532,13 @@ export function createCardigannYamlAdapter(config: IndexerConfig): IndexerAdapte
                 })
               }
 
-              const parsed = yield* fetchIndexerXml(request.url, config, request.init)
+              const response = yield* fetchIndexerResponseText(request.url, config, request.init)
+              const responseText = applyCardigannPreprocessingFilters(
+                response.text,
+                definition,
+                request.variables,
+              )
+              const parsed = yield* parseIndexerXmlText(responseText, config)
               yield* checkTorznabError(parsed, config)
               return parseTorznabReleases(parsed, {
                 ...config,
