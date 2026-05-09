@@ -800,6 +800,65 @@ const FILELIST_JSON_RESULTS = JSON.stringify([
   },
 ])
 
+const ALPHA_RATIO_JSON_RESULTS = JSON.stringify({
+  status: "success",
+  response: {
+    results: [
+      {
+        artist: "Alpha",
+        groupId: "901",
+        groupName: "AlphaRatio Movie",
+        groupYear: "2026",
+        torrents: [
+          {
+            torrentId: 9011,
+            format: "H.264",
+            encoding: "1080p",
+            media: "WEB",
+            hasCue: false,
+            time: "2026-05-10T09:10:00.000Z",
+            size: "8123456000",
+            fileCount: 6,
+            snatches: 22,
+            seeders: "71",
+            leechers: "3",
+            category: "MovieHD",
+            isFreeLeech: false,
+            isNeutralLeech: false,
+            isPersonalFreeLeech: false,
+            canUseToken: true,
+          },
+        ],
+      },
+      {
+        groupId: "902",
+        groupName: "AlphaRatio Series",
+        groupYear: "2026",
+        torrents: [
+          {
+            torrentId: 9012,
+            format: "H.265",
+            encoding: "2160p",
+            media: "WEB",
+            hasCue: true,
+            time: "2026-05-09T11:30:00.000Z",
+            size: "2123456000",
+            fileCount: 2,
+            snatches: 9,
+            seeders: "24",
+            leechers: "1",
+            category: "TvUHD",
+            isFreeLeech: true,
+            isNeutralLeech: true,
+            isPersonalFreeLeech: false,
+            canUseToken: false,
+          },
+        ],
+      },
+    ],
+  },
+})
+
 const REVOLUTIONTT_HTML_RESULTS = `
 <html><body>
   <table id="torrents-table">
@@ -4557,6 +4616,95 @@ search:
       uploadFactor: 2,
     })
     expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-10T14:30:00.000Z")
+  })
+
+  it("parses AlphaRatio Gazelle JSON results after POST login", async () => {
+    const requests: Array<{ url: string; init: RequestInit | undefined }> = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(String(input))
+      requests.push({ url: String(input), init })
+      if (url.pathname === "/login.php") {
+        return new Response(JSON.stringify({ status: "success" }), {
+          status: 200,
+          headers: { "set-cookie": "ar_session=abc; Path=/" },
+        })
+      }
+      return new Response(ALPHA_RATIO_JSON_RESULTS, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 110,
+      name: "AlphaRatio",
+      type: "cardigann_yaml",
+      definitionKey: "alpharatio",
+      baseUrl: "https://alpharatio.cc/",
+      apiKey: "",
+      configValues: {
+        username: "alice",
+        password: "secret",
+        useFreeleechToken: "1",
+        freeleechOnly: "true",
+        excludeScene: "true",
+      },
+      priority: 46,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({
+        term: "AlphaRatio Movie",
+        type: "movie",
+        categories: [2040],
+        imdbId: "tt7654321",
+      }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    const loginRequest = requests[0]
+    expect(loginRequest?.url).toBe("https://alpharatio.cc/login.php")
+    expect(loginRequest?.init?.method).toBe("POST")
+    const loginBody = new URLSearchParams(String(loginRequest?.init?.body ?? ""))
+    expect(loginBody.get("username")).toBe("alice")
+    expect(loginBody.get("password")).toBe("secret")
+    expect(loginBody.get("keeplogged")).toBe("1")
+
+    const searchRequest = requests[1]
+    const searchUrl = new URL(searchRequest?.url ?? "")
+    expect(searchUrl.origin).toBe("https://alpharatio.cc")
+    expect(searchUrl.pathname).toBe("/ajax.php")
+    expect(searchUrl.searchParams.get("action")).toBe("browse")
+    expect(searchUrl.searchParams.get("order_by")).toBe("time")
+    expect(searchUrl.searchParams.get("order_way")).toBe("desc")
+    expect(searchUrl.searchParams.get("searchstr")).toBe("AlphaRatio Movie")
+    expect(searchUrl.searchParams.get("taglist")).toBe("tt7654321")
+    expect(searchUrl.searchParams.get("filter_cat[9]")).toBe("1")
+    expect(searchUrl.searchParams.get("freetorrent")).toBe("1")
+    expect(searchUrl.searchParams.get("scene")).toBe("0")
+    expect(new Headers(searchRequest?.init?.headers).get("cookie")).toBe("ar_session=abc")
+    expect(releases).toHaveLength(2)
+    expect(releases[0]).toMatchObject({
+      title: "AlphaRatio Movie (2026) [H.264 1080p] [WEB]",
+      downloadUrl: "https://alpharatio.cc/torrents.php?action=download&id=9011&usetoken=1",
+      infoUrl: "https://alpharatio.cc/torrents.php?id=901&torrentid=9011",
+      category: "2040",
+      size: 8_123_456_000,
+      seeders: 71,
+      leechers: 3,
+      indexerId: 110,
+      indexerName: "AlphaRatio",
+      indexerPriority: 46,
+      downloadFactor: 1,
+      uploadFactor: 1,
+    })
+    expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-10T09:10:00.000Z")
+    expect(releases[1]).toMatchObject({
+      title: "AlphaRatio Series (2026) [H.265 2160p] [WEB] [Cue]",
+      category: "5045",
+      downloadFactor: 0,
+      uploadFactor: 0,
+    })
   })
 
   it("parses RevolutionTT HTML results after POST login", async () => {

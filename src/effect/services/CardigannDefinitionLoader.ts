@@ -5609,6 +5609,307 @@ search:
       text: "{{ if .Result.doubleflag }}2{{ else }}1{{ end }}"
 `
 
+const ALPHA_RATIO = `
+id: alpharatio
+name: AlphaRatio
+description: Private 0day and general tracker exposed through a first-pass Gazelle JSON Cardigann definition.
+type: private
+links:
+  - https://alpharatio.cc/
+version: builtin-cardigann-1
+rss: false
+tags:
+  - private
+  - general
+  - movies
+  - tv
+  - music
+  - books
+  - games
+  - apps
+  - json
+  - gazelle
+settings:
+  - name: username
+    label: Username
+    type: text
+    required: true
+  - name: password
+    label: Password
+    type: password
+    required: true
+  - name: useFreeleechToken
+    label: Use Freeleech Tokens
+    type: select
+    default: "0"
+    required: false
+    options:
+      - value: "0"
+        label: Never
+      - value: "1"
+        label: Preferred
+      - value: "2"
+        label: Required
+  - name: freeleechOnly
+    label: Freeleech only
+    type: checkbox
+    default: false
+    required: false
+  - name: excludeScene
+    label: Exclude Scene
+    type: checkbox
+    default: false
+    required: false
+caps:
+  categorymappings:
+    - id: "1"
+      cat: TV/SD
+      desc: TvSD
+      newznab: 5030
+    - id: "2"
+      cat: TV/HD
+      desc: TvHD
+      newznab: 5040
+    - id: "3"
+      cat: TV/UHD
+      desc: TvUHD
+      newznab: 5045
+    - id: "4"
+      cat: TV/SD
+      desc: TvDVDRip
+      newznab: 5030
+    - id: "5"
+      cat: TV/SD
+      desc: TvPackSD
+      newznab: 5030
+    - id: "6"
+      cat: TV/HD
+      desc: TvPackHD
+      newznab: 5040
+    - id: "7"
+      cat: TV/UHD
+      desc: TvPackUHD
+      newznab: 5045
+    - id: "8"
+      cat: Movies/SD
+      desc: MovieSD
+      newznab: 2030
+    - id: "9"
+      cat: Movies/HD
+      desc: MovieHD
+      newznab: 2040
+    - id: "10"
+      cat: Movies/UHD
+      desc: MovieUHD
+      newznab: 2045
+    - id: "11"
+      cat: Movies/SD
+      desc: MoviePackSD
+      newznab: 2030
+    - id: "12"
+      cat: Movies/HD
+      desc: MoviePackHD
+      newznab: 2040
+    - id: "13"
+      cat: Movies/UHD
+      desc: MoviePackUHD
+      newznab: 2045
+    - id: "14"
+      cat: XXX
+      desc: MovieXXX
+      newznab: 6000
+    - id: "15"
+      cat: Movies/BluRay
+      desc: Bluray
+      newznab: 2050
+    - id: "16"
+      cat: TV/Anime
+      desc: AnimeSD
+      newznab: 5070
+    - id: "17"
+      cat: TV/Anime
+      desc: AnimeHD
+      newznab: 5070
+    - id: "18"
+      cat: PC/Games
+      desc: GamesPC
+      newznab: 4050
+    - id: "19"
+      cat: Console/Xbox
+      desc: GamesxBox
+      newznab: 1000
+    - id: "20"
+      cat: Console/PS
+      desc: GamesPS
+      newznab: 1000
+    - id: "21"
+      cat: Console/Nintendo
+      desc: GamesNin
+      newznab: 1000
+    - id: "22"
+      cat: PC/0day
+      desc: AppsWindows
+      newznab: 4010
+    - id: "23"
+      cat: PC/Mac
+      desc: AppsMAC
+      newznab: 4020
+    - id: "24"
+      cat: PC/0day
+      desc: AppsLinux
+      newznab: 4010
+    - id: "25"
+      cat: PC/Phone-Other
+      desc: AppsMobile
+      newznab: 4040
+    - id: "26"
+      cat: XXX
+      desc: 0dayXXX
+      newznab: 6000
+    - id: "27"
+      cat: Books
+      desc: eBook
+      newznab: 7000
+    - id: "28"
+      cat: Audio/Audiobook
+      desc: AudioBook
+      newznab: 3030
+    - id: "29"
+      cat: Audio/Other
+      desc: Music
+      newznab: 3000
+    - id: "30"
+      cat: Other
+      desc: Misc
+      newznab: 8000
+  modes:
+    search: [q]
+    movie-search: [q, imdbid]
+    tv-search: [q, season, ep, imdbid]
+    music-search: [q]
+    book-search: [q]
+login:
+  method: post
+  path: login.php
+  inputs:
+    username: "{{ .Config.Username }}"
+    password: "{{ .Config.Password }}"
+    keeplogged: "1"
+search:
+  paths:
+    - path: /ajax.php
+      response:
+        type: json
+      inputs:
+        action: browse
+        order_by: time
+        order_way: desc
+        searchstr: "{{ .Keywords }}"
+        taglist: "{{ .Query.IMDBID }}"
+        freetorrent: "{{ if .Config.FreeleechOnly }}1{{ end }}"
+        scene: "{{ if .Config.ExcludeScene }}0{{ end }}"
+        $raw: '{{ range .Categories }}filter_cat[{{ . }}]=1&{{ end }}'
+  rows:
+    selector: $.response.results, $.Response.Results
+    attribute: torrents, Torrents
+    multiple: true
+    missingAttributeEqualsNoResults: true
+  fields:
+    id:
+      selector: torrentId, TorrentId
+    groupid:
+      selector: ..groupId
+    artist:
+      selector: ..artist, ..Artist
+      optional: true
+      filters:
+        - name: htmldecode
+    groupname:
+      selector: ..groupName
+      filters:
+        - name: htmldecode
+    groupyear:
+      selector: ..groupYear
+    format:
+      selector: format, Format
+    encoding:
+      selector: encoding, Encoding
+    media:
+      selector: media, Media
+    hascue:
+      selector: hasCue, HasCue
+      filters:
+        - name: regexp
+          args: "true"
+    title:
+      text: "{{ if .Result.artist }}{{ .Result.artist }} - {{ end }}{{ .Result.groupname }} ({{ .Result.groupyear }}) [{{ .Result.format }} {{ .Result.encoding }}] [{{ .Result.media }}]{{ if .Result.hascue }} [Cue]{{ end }}"
+    details:
+      text: "/torrents.php?id={{ .Result.groupid }}&torrentid={{ .Result.id }}"
+    download:
+      text: '/torrents.php?action=download&id={{ .Result.id }}{{ if ne .Config.UseFreeleechToken "0" }}&usetoken=1{{ end }}'
+    category:
+      selector: category, Category
+      default: "1"
+      case:
+        "TvSD": "1"
+        "TvHD": "2"
+        "TvUHD": "3"
+        "TvDVDRip": "4"
+        "TvPackSD": "5"
+        "TvPackHD": "6"
+        "TvPackUHD": "7"
+        "MovieSD": "8"
+        "MovieHD": "9"
+        "MovieUHD": "10"
+        "MoviePackSD": "11"
+        "MoviePackHD": "12"
+        "MoviePackUHD": "13"
+        "MovieXXX": "14"
+        "Bluray": "15"
+        "AnimeSD": "16"
+        "AnimeHD": "17"
+        "GamesPC": "18"
+        "GamesxBox": "19"
+        "GamesPS": "20"
+        "GamesNin": "21"
+        "AppsWindows": "22"
+        "AppsMAC": "23"
+        "AppsLinux": "24"
+        "AppsMobile": "25"
+        "0dayXXX": "26"
+        "eBook": "27"
+        "AudioBook": "28"
+        "Music": "29"
+        "Misc": "30"
+        "Select Category": "1"
+    date:
+      selector: time, Time
+    size:
+      selector: size, Size
+    files:
+      selector: fileCount, FileCount
+    grabs:
+      selector: snatches, Snatches
+    seeders:
+      selector: seeders, Seeders
+    leechers:
+      selector: leechers, Leechers
+    freeflags:
+      selector: isFreeLeech, IsFreeLeech, isNeutralLeech, IsNeutralLeech, isPersonalFreeLeech, IsPersonalFreeLeech
+      filters:
+        - name: regexp
+          args: "true"
+    neutralflag:
+      selector: isNeutralLeech, IsNeutralLeech
+      filters:
+        - name: regexp
+          args: "true"
+    downloadvolumefactor:
+      text: "{{ if .Result.freeflags }}0{{ else }}1{{ end }}"
+    uploadvolumefactor:
+      text: "{{ if .Result.neutralflag }}0{{ else }}1{{ end }}"
+`
+
 const REVOLUTION_TT = `
 id: revolutiontt
 name: RevolutionTT
@@ -6332,6 +6633,7 @@ const BUILT_IN_CARDIGANN_SOURCES = [
   PIXELHD,
   SECRET_CINEMA,
   FILELIST,
+  ALPHA_RATIO,
   REVOLUTION_TT,
   PRETOME,
   MORE_THAN_TV,

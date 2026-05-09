@@ -108,6 +108,7 @@ caps:
       "pixelhd",
       "secret-cinema",
       "filelist",
+      "alpharatio",
       "revolutiontt",
       "pretome",
       "morethantv",
@@ -877,6 +878,51 @@ caps:
           { id: 5040, name: "Seriale HD" },
           { id: 7000, name: "Docs" },
           { id: 5020, name: "K-Drama" },
+        ]),
+      },
+    })
+    expect(
+      BUILT_IN_CARDIGANN_DEFINITIONS.find(
+        (definition) => definition.definitionKey === "alpharatio",
+      ),
+    ).toMatchObject({
+      displayName: "AlphaRatio",
+      baseUrl: "https://alpharatio.cc/",
+      privacy: "private",
+      supportsRss: false,
+      supportsSearch: true,
+      tags: [
+        "private",
+        "general",
+        "movies",
+        "tv",
+        "music",
+        "books",
+        "games",
+        "apps",
+        "json",
+        "gazelle",
+      ],
+      authFields: expect.arrayContaining([
+        expect.objectContaining({ name: "username", type: "text", required: true }),
+        expect.objectContaining({ name: "password", type: "password", required: true }),
+        expect.objectContaining({
+          name: "useFreeleechToken",
+          type: "select",
+          defaultValue: "0",
+        }),
+        expect.objectContaining({ name: "freeleechOnly", type: "checkbox", defaultValue: "false" }),
+        expect.objectContaining({ name: "excludeScene", type: "checkbox", defaultValue: "false" }),
+      ]),
+      capabilities: {
+        searchTypes: ["search", "movie", "tvsearch"],
+        categories: expect.arrayContaining([
+          { id: 5040, name: "TvHD" },
+          { id: 2040, name: "MovieHD" },
+          { id: 2045, name: "MovieUHD" },
+          { id: 4050, name: "GamesPC" },
+          { id: 3030, name: "AudioBook" },
+          { id: 8000, name: "Misc" },
         ]),
       },
     })

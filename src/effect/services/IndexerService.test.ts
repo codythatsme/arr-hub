@@ -119,19 +119,19 @@ describe("IndexerService", () => {
       const second = yield* svc.refreshDefinitions()
 
       expect(first).toMatchObject({
-        total: 40,
-        created: 40,
+        total: 41,
+        created: 41,
         updated: 0,
         unchanged: 0,
       })
       expect(first.definitions.map((definition) => definition.action)).toEqual(
-        Array(40).fill("created"),
+        Array(41).fill("created"),
       )
       expect(second).toMatchObject({
-        total: 40,
+        total: 41,
         created: 0,
         updated: 0,
-        unchanged: 40,
+        unchanged: 41,
       })
       expect(second.definitions.every((definition) => definition.previousVersion !== null)).toBe(
         true,
@@ -401,6 +401,7 @@ describe("IndexerService", () => {
 
       const definitions = yield* svc.listDefinitions()
       expect(definitions.map((definition) => definition.definitionKey).toSorted()).toEqual([
+        "alpharatio",
         "anidex",
         "animetorrents",
         "animetosho",
@@ -772,6 +773,28 @@ describe("IndexerService", () => {
         privacy: "private",
         supportsRss: false,
         tags: ["private", "general", "movies", "tv", "music", "books", "json", "api"],
+      })
+      expect(
+        definitions.find((definition) => definition.definitionKey === "alpharatio"),
+      ).toMatchObject({
+        displayName: "AlphaRatio",
+        protocol: "torrent",
+        implementation: "cardigann_yaml",
+        baseUrl: "https://alpharatio.cc/",
+        privacy: "private",
+        supportsRss: false,
+        tags: [
+          "private",
+          "general",
+          "movies",
+          "tv",
+          "music",
+          "books",
+          "games",
+          "apps",
+          "json",
+          "gazelle",
+        ],
       })
       expect(
         definitions.find((definition) => definition.definitionKey === "revolutiontt"),
