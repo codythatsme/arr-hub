@@ -327,6 +327,62 @@ search:
     expect(url.searchParams.get("q")).toBe("Scalar Movie")
   })
 
+  it("skips global Cardigann inputs when a path disables inherited inputs", async () => {
+    let requestUrl: string | undefined
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      requestUrl = String(input)
+      return new Response(RSS_XML, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 14,
+      name: "No Inherited Inputs Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "no-inherited-inputs-cardigann",
+      definitionYaml: `
+id: no-inherited-inputs-cardigann
+name: No Inherited Inputs Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+  modes:
+    movie-search: [q]
+search:
+  inputs:
+    apikey: "{{ .Config.APIKey }}"
+    t: "{{ .Query.Type }}"
+  paths:
+    - path: /search
+      inheritinputs: false
+      response:
+        type: torznab
+      inputs:
+        q: "{{ .Keywords }}"
+`,
+      baseUrl: "https://tracker.example/root",
+      apiKey: "api-key",
+      priority: 15,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    await Effect.runPromise(
+      adapter.search({ term: "No Inherited Inputs Movie", type: "movie", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const url = new URL(requestUrl ?? "")
+    expect(url.pathname).toBe("/search")
+    expect(url.searchParams.get("q")).toBe("No Inherited Inputs Movie")
+    expect(url.searchParams.has("apikey")).toBe(false)
+    expect(url.searchParams.has("t")).toBe(false)
+  })
+
   it("fails when the configured definition key is unknown", async () => {
     const adapter = createCardigannYamlAdapter({
       id: 9,

@@ -320,12 +320,14 @@ function resolveSearchRequests(
     )
     const targetParams = path.method === "get" ? url.searchParams : new URLSearchParams()
     const headers = new Headers()
-    appendInputs(
-      targetParams,
-      definition.search.inputs,
-      variables,
-      definition.search.allowEmptyInputs,
-    )
+    if (path.inheritInputs) {
+      appendInputs(
+        targetParams,
+        definition.search.inputs,
+        variables,
+        definition.search.allowEmptyInputs,
+      )
+    }
     appendInputs(targetParams, path.inputs, variables, definition.search.allowEmptyInputs)
     appendHeaders(headers, definition.search.headers, variables, definition.search.allowEmptyInputs)
     appendHeaders(headers, path.headers, variables, definition.search.allowEmptyInputs)

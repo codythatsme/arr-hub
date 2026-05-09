@@ -17,6 +17,7 @@ export type CardigannResponseType = "torznab" | "newznab" | "rss"
 export interface CardigannSearchPath {
   readonly path: string
   readonly method: "get" | "post"
+  readonly inheritInputs: boolean
   readonly inputs: Readonly<Record<string, string>>
   readonly headers: Readonly<Record<string, string>>
   readonly categories: ReadonlyArray<string>
@@ -451,6 +452,8 @@ function parseSearchPaths(
     return {
       path: requiredString(path, "path"),
       method: parseMethod(optionalString(path, "method") ?? "get"),
+      inheritInputs:
+        optionalBoolean(path, "inheritinputs") ?? optionalBoolean(path, "inheritInputs") ?? true,
       inputs: parseInputMap(path.inputs),
       headers: parseInputMap(path.headers),
       categories: parseOptionalStringArray(path.categories),

@@ -216,6 +216,7 @@ search:
   paths:
     - path: /api
       categories: [movies]
+      inheritinputs: false
       response:
         type: torznab
       inputs:
@@ -231,6 +232,7 @@ search:
         {
           path: "/api",
           method: "get",
+          inheritInputs: false,
           inputs: { t: "search", q: "{{ .Keywords }}" },
           headers: {},
           categories: ["movies"],
@@ -275,6 +277,7 @@ search:
         {
           path: "/api",
           method: "get",
+          inheritInputs: true,
           inputs: { t: "search", limit: "100" },
           headers: {},
           categories: ["1"],
