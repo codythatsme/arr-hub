@@ -76,6 +76,26 @@ const HTML_AFTER_RESULTS = `<!doctype html>
   </body>
 </html>`
 
+const HTML_REMOVE_RESULTS = `<!doctype html>
+<html>
+  <body>
+    <table class="results">
+      <tbody>
+        <tr class="torrent">
+          <td class="name">
+            <a href="/details/4">
+              <span class="badge">Freeleech</span>
+              Clean Movie 2026 1080p WEB-DL
+            </a>
+          </td>
+          <td class="actions"><a class="download" href="/download/4">Download</a></td>
+          <td class="size">4 GB</td>
+        </tr>
+      </tbody>
+    </table>
+  </body>
+</html>`
+
 describe("CardigannAdapter", () => {
   afterEach(() => {
     vi.unstubAllGlobals()
@@ -420,6 +440,72 @@ search:
       category: "2000",
     })
     expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-03T00:00:00.000Z")
+  })
+
+  it("removes Cardigann HTML field descendants before extracting text", async () => {
+    const fetchMock = vi.fn(async () => new Response(HTML_REMOVE_RESULTS, { status: 200 }))
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 28,
+      name: "Remove Selector HTML Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "remove-selector-html-cardigann",
+      definitionYaml: `
+id: remove-selector-html-cardigann
+name: Remove Selector HTML Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+      newznab: 2000
+  modes:
+    search: [q]
+search:
+  paths:
+    - path: /browse
+      response:
+        type: html
+  rows:
+    selector: tr.torrent
+  fields:
+    title:
+      selector: td.name a
+      remove: span.badge
+    details:
+      selector: td.name a
+      attribute: href
+    download:
+      selector: td.actions a.download
+      attribute: href
+    size:
+      selector: td.size
+    category:
+      text: Movies
+`,
+      baseUrl: "https://tracker.example",
+      apiKey: "",
+      priority: 35,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Clean Movie", type: "general", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "Clean Movie 2026 1080p WEB-DL",
+      downloadUrl: "https://tracker.example/download/4",
+      infoUrl: "https://tracker.example/details/4",
+      size: 4_000_000_000,
+      category: "2000",
+    })
   })
 
   it("builds Cardigann-style POST search requests from definition paths", async () => {

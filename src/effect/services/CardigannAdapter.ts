@@ -55,6 +55,7 @@ interface CardigannLoginRequest {
 interface HtmlElementMatch {
   readonly attributes: Readonly<Record<string, string>>
   readonly innerHtml: string
+  readonly outerHtml: string
 }
 
 interface SimpleHtmlSelector {
@@ -785,7 +786,7 @@ function findHtmlElementsForToken(
 
     const attributes = parseHtmlAttributes(match[2] ?? "")
     if (htmlAttributeMatches(attributes, selector)) {
-      matches.push({ attributes, innerHtml: match[3] ?? "" })
+      matches.push({ attributes, innerHtml: match[3] ?? "", outerHtml: match[0] })
     }
   }
   return matches
@@ -795,7 +796,9 @@ function findHtmlElements(html: string, selectorText: string): ReadonlyArray<Htm
   const tokens = simpleSelectorTokens(selectorText)
   if (tokens.length === 0) return []
 
-  let matches: ReadonlyArray<HtmlElementMatch> = [{ attributes: {}, innerHtml: html }]
+  let matches: ReadonlyArray<HtmlElementMatch> = [
+    { attributes: {}, innerHtml: html, outerHtml: html },
+  ]
   for (const token of tokens) {
     matches = matches.flatMap((match) => findHtmlElementsForToken(match.innerHtml, token))
     if (matches.length === 0) return []
@@ -820,10 +823,20 @@ function mergeHtmlRows(
       innerHtml: [row.innerHtml, ...followingRows.map((followingRow) => followingRow.innerHtml)]
         .filter((value) => value.length > 0)
         .join("\n"),
+      outerHtml: [row.outerHtml, ...followingRows.map((followingRow) => followingRow.outerHtml)]
+        .filter((value) => value.length > 0)
+        .join("\n"),
     })
   }
 
   return merged
+}
+
+function removeHtmlElements(html: string, selectorText: string): string {
+  return findHtmlElements(html, selectorText).reduce(
+    (current, match) => current.split(match.outerHtml).join(""),
+    html,
+  )
 }
 
 function htmlTextContent(value: string): string {
@@ -847,9 +860,13 @@ function htmlFieldValue(
   if (field.text !== undefined) {
     value = renderTemplate(field.text, variables)
   } else if (selected) {
+    const selectedInnerHtml =
+      field.remove !== undefined
+        ? removeHtmlElements(selected.innerHtml, field.remove)
+        : selected.innerHtml
     value = field.attribute
       ? (selected.attributes[field.attribute.toLowerCase()] ?? "")
-      : htmlTextContent(selected.innerHtml)
+      : htmlTextContent(selectedInnerHtml)
   }
 
   if (value.trim().length === 0 && field.defaultValue !== undefined) {

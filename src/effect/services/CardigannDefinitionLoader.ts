@@ -45,6 +45,7 @@ export interface CardigannFieldSelector {
   readonly selector?: string
   readonly attribute?: string
   readonly text?: string
+  readonly remove?: string
   readonly defaultValue?: string
   readonly optional: boolean
   readonly filters: ReadonlyArray<CardigannFilter>
@@ -528,6 +529,7 @@ function parseFields(value: unknown): Readonly<Record<string, CardigannFieldSele
     const selector = optionalScalarStringFromAny(field, ["selector"])
     const attribute = optionalScalarStringFromAny(field, ["attribute"])
     const text = optionalScalarStringFromAny(field, ["text"])
+    const remove = optionalScalarStringFromAny(field, ["remove"])
     const defaultValue = optionalScalarStringFromAny(field, ["default", "defaultValue"])
     fields[fieldName] = {
       optional: optionalBoolean(field, "optional") ?? false,
@@ -535,6 +537,7 @@ function parseFields(value: unknown): Readonly<Record<string, CardigannFieldSele
       ...(selector !== null ? { selector } : {}),
       ...(attribute !== null ? { attribute } : {}),
       ...(text !== null ? { text } : {}),
+      ...(remove !== null ? { remove } : {}),
       ...(defaultValue !== null ? { defaultValue } : {}),
     }
   }

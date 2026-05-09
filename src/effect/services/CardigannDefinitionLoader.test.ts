@@ -453,6 +453,7 @@ search:
     title_default:
       selector: a.short-title
       optional: true
+      remove: span.badge
     title:
       selector: a.full-title
       optional: true
@@ -475,6 +476,11 @@ search:
       title: {
         selector: "a.full-title",
         defaultValue: "{{ .Result.title_default }}",
+        optional: true,
+      },
+      title_default: {
+        selector: "a.short-title",
+        remove: "span.badge",
         optional: true,
       },
       seeders: {
