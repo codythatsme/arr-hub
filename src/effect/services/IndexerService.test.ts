@@ -119,8 +119,8 @@ describe("IndexerService", () => {
       const second = yield* svc.refreshDefinitions()
 
       expect(first).toMatchObject({
-        total: 11,
-        created: 11,
+        total: 12,
+        created: 12,
         updated: 0,
         unchanged: 0,
       })
@@ -136,12 +136,13 @@ describe("IndexerService", () => {
         "created",
         "created",
         "created",
+        "created",
       ])
       expect(second).toMatchObject({
-        total: 11,
+        total: 12,
         created: 0,
         updated: 0,
-        unchanged: 11,
+        unchanged: 12,
       })
       expect(second.definitions.every((definition) => definition.previousVersion !== null)).toBe(
         true,
@@ -420,6 +421,7 @@ describe("IndexerService", () => {
         "nyaa",
         "open-tv-torrents",
         "public-domain-movie-torrents",
+        "subsplease",
         "torrent-network",
         "torrents-csv",
       ])
@@ -460,6 +462,16 @@ describe("IndexerService", () => {
         privacy: "public",
         supportsRss: false,
         tags: ["public", "general", "json"],
+      })
+      expect(
+        definitions.find((definition) => definition.definitionKey === "subsplease"),
+      ).toMatchObject({
+        displayName: "SubsPlease",
+        protocol: "torrent",
+        implementation: "cardigann_yaml",
+        baseUrl: "https://subsplease.org/",
+        privacy: "public",
+        tags: ["public", "anime", "json"],
       })
       expect(
         definitions.find((definition) => definition.definitionKey === "open-tv-torrents"),

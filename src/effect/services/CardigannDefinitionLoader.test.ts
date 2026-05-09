@@ -80,6 +80,7 @@ caps:
       "nyaa",
       "animetosho",
       "anidex",
+      "subsplease",
       "torrents-csv",
       "morethantv",
       "hdaccess",
@@ -121,6 +122,24 @@ caps:
           { id: 4050, name: "Games" },
           { id: 8000, name: "Other" },
         ]),
+      },
+    })
+    expect(
+      BUILT_IN_CARDIGANN_DEFINITIONS.find(
+        (definition) => definition.definitionKey === "subsplease",
+      ),
+    ).toMatchObject({
+      displayName: "SubsPlease",
+      baseUrl: "https://subsplease.org/",
+      privacy: "public",
+      supportsSearch: true,
+      tags: ["public", "anime", "json"],
+      capabilities: {
+        searchTypes: ["search", "movie", "tvsearch"],
+        categories: [
+          { id: 5070, name: "Anime" },
+          { id: 2020, name: "Anime Movies" },
+        ],
       },
     })
     expect(

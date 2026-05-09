@@ -56,6 +56,24 @@ const TORRENTS_CSV_JSON_RESULTS = JSON.stringify({
   ],
 })
 
+const SUBSPLEASE_JSON_RESULTS = JSON.stringify({
+  "spy-x-family": {
+    time: "12:34",
+    release_date: "2026-05-08T12:34:56+00:00",
+    show: "Spy x Family",
+    episode: "01",
+    downloads: [
+      {
+        res: "1080",
+        magnet:
+          "magnet:?xt=urn:btih:feedfacefeedfacefeedfacefeedfacefeedface&dn=Spy%20x%20Family&xl=1395864371",
+      },
+    ],
+    image_url: "/img/spy-x-family.png",
+    page: "spy-x-family",
+  },
+})
+
 const JSON_SELECTOR_FILTER_RESULTS = JSON.stringify({
   data: {
     results: [
@@ -2116,6 +2134,56 @@ search:
       indexerName: "TorrentsCSV",
       indexerPriority: 24,
     })
+  })
+
+  it("builds and parses SubsPlease JSON searches from the built-in definition", async () => {
+    let requestUrl: string | undefined
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      requestUrl = String(input)
+      return new Response(SUBSPLEASE_JSON_RESULTS, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 89,
+      name: "SubsPlease",
+      type: "cardigann_yaml",
+      definitionKey: "subsplease",
+      baseUrl: "https://subsplease.org",
+      apiKey: "",
+      priority: 25,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Spy Family", type: "tv", categories: [5070] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const url = new URL(requestUrl ?? "")
+    expect(url.origin).toBe("https://subsplease.org")
+    expect(url.pathname).toBe("/api/")
+    expect(url.searchParams.get("tz")).toBe("UTC")
+    expect(url.searchParams.get("f")).toBe("search")
+    expect(url.searchParams.get("s")).toBe("Spy Family")
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "[SubsPlease] Spy x Family - 01 (1080p)",
+      downloadUrl:
+        "magnet:?xt=urn:btih:feedfacefeedfacefeedfacefeedfacefeedface&dn=Spy%20x%20Family&xl=1395864371",
+      infoUrl: "https://subsplease.org/shows/spy-x-family/",
+      category: "5070",
+      size: 1_395_864_371,
+      seeders: 1,
+      leechers: 2,
+      indexerId: 89,
+      indexerName: "SubsPlease",
+      indexerPriority: 25,
+      downloadFactor: 0,
+      uploadFactor: 1,
+    })
+    expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-08T12:34:56.000Z")
   })
 
   it("parses first-pass Cardigann HTML selector results", async () => {

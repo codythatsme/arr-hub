@@ -433,6 +433,80 @@ search:
           args: yyyy-MM-dd HH:mm:ss UTC
 `
 
+const SUBSPLEASE = `
+id: subsplease
+name: SubsPlease
+description: Public anime release feed exposed through Cardigann JSON selectors.
+type: public
+links:
+  - https://subsplease.org/
+version: builtin-cardigann-1
+tags:
+  - public
+  - anime
+  - json
+caps:
+  categorymappings:
+    - id: "1"
+      cat: TV/Anime
+      desc: Anime
+      newznab: 5070
+    - id: "2"
+      cat: Movies/Other
+      desc: Anime Movies
+      newznab: 2020
+  modes:
+    search: [q]
+    movie-search: [q]
+    tv-search: [q, season, ep]
+search:
+  paths:
+    - path: /api/
+      response:
+        type: json
+      inputs:
+        tz: UTC
+        f: search
+        s: "{{ .Keywords }}"
+  rows:
+    selector: $.*
+    attribute: downloads
+    multiple: true
+    missingAttributeEqualsNoResults: true
+  fields:
+    show:
+      selector: ..show
+    episode:
+      selector: ..episode
+    page:
+      selector: ..page
+    resolution:
+      selector: res
+    title:
+      text: "[SubsPlease] {{ .Result.show }} - {{ .Result.episode }} ({{ .Result.resolution }}p)"
+    details:
+      text: "/shows/{{ .Result.page }}/"
+    magnet:
+      selector: magnet
+    category:
+      text: "1"
+    size:
+      selector: magnet
+      filters:
+        - name: querystring
+          args: xl
+    seeders:
+      text: "1"
+    leechers:
+      text: "2"
+    date:
+      selector: ..release_date
+    downloadvolumefactor:
+      text: "0"
+    uploadvolumefactor:
+      text: "1"
+`
+
 const TORRENTS_CSV = `
 id: torrents-csv
 name: TorrentsCSV
@@ -687,6 +761,7 @@ const BUILT_IN_CARDIGANN_SOURCES = [
   NYAA,
   ANIME_TOSHO,
   ANIDEX,
+  SUBSPLEASE,
   TORRENTS_CSV,
   MORE_THAN_TV,
   HDACCESS,
