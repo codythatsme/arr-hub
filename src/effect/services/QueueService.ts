@@ -27,6 +27,7 @@ export interface QueueItem {
   readonly progress: number
   readonly etaSeconds: number | null
   readonly errorMessage: string | null
+  readonly outputPath: string | null
   readonly addedAt: Date
   readonly updatedAt: Date
   readonly downloadClient: {
@@ -241,6 +242,7 @@ function toQueueItem(row: {
     progress: row.download_queue.progress,
     etaSeconds: row.download_queue.etaSeconds,
     errorMessage: row.download_queue.errorMessage,
+    outputPath: row.download_queue.outputPath,
     addedAt: row.download_queue.addedAt,
     updatedAt: row.download_queue.updatedAt,
     downloadClient: {

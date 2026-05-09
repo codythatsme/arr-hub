@@ -64,6 +64,13 @@
       "when": 1778302227399,
       "tag": "0008_light_randall_flagg",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1778303392940,
+      "tag": "0009_aromatic_whirlwind",
+      "breakpoints": true
     }
   ]
 }

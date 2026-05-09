@@ -84,6 +84,8 @@ interface QBitTorrent {
   readonly progress: number
   readonly eta: number
   readonly dlspeed: number
+  readonly content_path?: string
+  readonly save_path?: string
 }
 
 interface QBitMainData {
@@ -273,6 +275,13 @@ export function createQBittorrentAdapter(config: DownloadClientConfig): Download
   const mapTorrentStatus = (state: string): NormalizedDownloadStatus =>
     QBIT_STATUS_MAP[state] ?? "failed"
 
+  const torrentOutputPath = (torrent: QBitTorrent): string | null => {
+    const contentPath = torrent.content_path?.trim()
+    if (contentPath) return contentPath
+    const savePath = torrent.save_path?.trim()
+    return savePath || null
+  }
+
   return {
     testConnection: () =>
       Effect.gen(function* () {
@@ -360,6 +369,7 @@ export function createQBittorrentAdapter(config: DownloadClientConfig): Download
             progressFraction: t.progress,
             etaSeconds: t.eta === 8640000 ? null : t.eta,
             errorMessage: t.state === "error" || t.state === "missingFiles" ? t.state : null,
+            outputPath: torrentOutputPath(t),
             downloadClientId: config.id,
           }),
         )

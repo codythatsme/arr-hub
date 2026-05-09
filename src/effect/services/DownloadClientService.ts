@@ -354,6 +354,7 @@ export const DownloadClientServiceLive = Layer.effect(
             title: url,
             sizeBytes: 0,
             progress: 0,
+            outputPath: options?.savePath ?? null,
           })
 
           return hash
@@ -380,6 +381,26 @@ export const DownloadClientServiceLive = Layer.effect(
 
                 // Upsert queue rows
                 for (const status of statuses) {
+                  const updateData: {
+                    status: NormalizedDownloadStatus
+                    title: string
+                    sizeBytes: number
+                    progress: number
+                    etaSeconds: number | null
+                    errorMessage: string | null
+                    outputPath?: string
+                    updatedAt: Date
+                  } = {
+                    status: status.status,
+                    title: status.title,
+                    sizeBytes: status.sizeBytes,
+                    progress: status.progressFraction,
+                    etaSeconds: status.etaSeconds ?? null,
+                    errorMessage: status.errorMessage,
+                    updatedAt: new Date(),
+                  }
+                  if (status.outputPath !== null) updateData.outputPath = status.outputPath
+
                   yield* db
                     .insert(downloadQueue)
                     .values({
@@ -391,18 +412,11 @@ export const DownloadClientServiceLive = Layer.effect(
                       progress: status.progressFraction,
                       etaSeconds: status.etaSeconds ?? null,
                       errorMessage: status.errorMessage,
+                      outputPath: status.outputPath,
                     })
                     .onConflictDoUpdate({
                       target: downloadQueue.externalId,
-                      set: {
-                        status: status.status as NormalizedDownloadStatus,
-                        title: status.title,
-                        sizeBytes: status.sizeBytes,
-                        progress: status.progressFraction,
-                        etaSeconds: status.etaSeconds ?? null,
-                        errorMessage: status.errorMessage,
-                        updatedAt: new Date(),
-                      },
+                      set: updateData,
                     })
                 }
 

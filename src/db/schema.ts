@@ -324,6 +324,7 @@ export const downloadQueue = sqliteTable("download_queue", {
   progress: real().notNull().default(0.0),
   etaSeconds: integer("eta_seconds"),
   errorMessage: text("error_message"),
+  outputPath: text("output_path"),
   addedAt: integer("added_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),

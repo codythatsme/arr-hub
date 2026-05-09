@@ -234,6 +234,7 @@ const runDdl = Effect.gen(function* () {
     progress REAL NOT NULL DEFAULT 0.0,
     eta_seconds INTEGER,
     error_message TEXT,
+    output_path TEXT,
     added_at INTEGER NOT NULL DEFAULT (unixepoch()),
     updated_at INTEGER NOT NULL DEFAULT (unixepoch())
   )`

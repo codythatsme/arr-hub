@@ -40,6 +40,7 @@ export interface DownloadStatus {
   readonly progressFraction: number
   readonly etaSeconds: number | null
   readonly errorMessage: string | null
+  readonly outputPath: string | null
   readonly downloadClientId: number
 }
 

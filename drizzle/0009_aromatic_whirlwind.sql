@@ -1,0 +1,1 @@
+ALTER TABLE `download_queue` ADD `output_path` text;

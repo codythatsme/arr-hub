@@ -70,6 +70,7 @@ interface SabHistorySlot {
   readonly bytes: number
   readonly fail_message: string
   readonly category: string
+  readonly storage?: string
 }
 
 interface SabHistoryResponse {
@@ -276,6 +277,7 @@ export function createSABnzbdAdapter(config: DownloadClientConfig): DownloadClie
             progressFraction: Math.max(0, Math.min(1, progress)),
             etaSeconds: parseTimeleft(slot.timeleft),
             errorMessage: null,
+            outputPath: null,
             downloadClientId: config.id,
           }
         })
@@ -288,6 +290,7 @@ export function createSABnzbdAdapter(config: DownloadClientConfig): DownloadClie
           progressFraction: slot.status === "Completed" ? 1 : 0,
           etaSeconds: null,
           errorMessage: slot.fail_message || null,
+          outputPath: slot.storage?.trim() || null,
           downloadClientId: config.id,
         }))
 
