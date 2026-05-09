@@ -8,6 +8,9 @@ import { indexerDefinitionSources, indexerDefinitions } from "#/db/schema"
 
 import type { IndexerDefinitionSeed, IndexerDefinitionSyncAction } from "../domain/indexer"
 import type {
+  IndexerDefinitionSourceCatalogAction,
+  IndexerDefinitionSourceCatalogImportResult,
+  IndexerDefinitionSourceCatalogItem,
   IndexerDefinitionSource,
   IndexerDefinitionSourceRefreshFailure,
   IndexerDefinitionSourceRefreshResult,
@@ -28,6 +31,11 @@ interface IndexerDefinitionSourceUpdate {
   readonly name?: string
   readonly url?: string
   readonly enabled?: boolean
+  readonly pinnedSha256?: string | null
+}
+
+interface IndexerDefinitionSourceCatalogInput {
+  readonly url: string
   readonly pinnedSha256?: string | null
 }
 
@@ -55,6 +63,12 @@ export class IndexerDefinitionSourceService extends Context.Tag(
       NotFoundError | IndexerDefinitionSourceError | SqlError
     >
     readonly refreshEnabled: () => Effect.Effect<IndexerDefinitionSourceRefreshSummary, SqlError>
+    readonly importCatalog: (
+      input: IndexerDefinitionSourceCatalogInput,
+    ) => Effect.Effect<
+      IndexerDefinitionSourceCatalogImportResult,
+      IndexerDefinitionSourceError | SqlError
+    >
   }
 >() {}
 
@@ -70,6 +84,13 @@ class RemoteDefinitionHttpError extends Error {
   }
 }
 
+interface CatalogManifestEntry {
+  readonly name: string
+  readonly url: string
+  readonly pinnedSha256: string
+  readonly enabled: boolean
+}
+
 async function fetchDefinitionYaml(url: string): Promise<string> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
@@ -83,6 +104,10 @@ async function fetchDefinitionYaml(url: string): Promise<string> {
   } finally {
     clearTimeout(timer)
   }
+}
+
+function manifestSourceName(url: string): string {
+  return `Catalog manifest ${url}`
 }
 
 function toSource(row: typeof indexerDefinitionSources.$inferSelect): IndexerDefinitionSource {
@@ -110,6 +135,75 @@ function normalizeSha256(value: string | null | undefined): string | null | unde
   if (value === undefined || value === null) return value
   const trimmed = value.trim()
   return trimmed === "" ? null : trimmed.toLowerCase()
+}
+
+function requiredCatalogString(
+  value: Record<string, unknown>,
+  key: string,
+  entryIndex: number,
+): string {
+  const raw = value[key]
+  if (typeof raw !== "string" || raw.trim().length === 0) {
+    throw new Error(`catalog source ${entryIndex + 1} must include ${key}`)
+  }
+  return raw.trim()
+}
+
+function parseCatalogManifest(source: string): ReadonlyArray<CatalogManifestEntry> {
+  const root = JSON.parse(source) as Record<string, unknown>
+  if (!root || typeof root !== "object" || !Array.isArray(root.sources)) {
+    throw new Error("catalog manifest must include a sources array")
+  }
+
+  return root.sources.map((entry, index): CatalogManifestEntry => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+      throw new Error(`catalog source ${index + 1} must be an object`)
+    }
+    const record = entry as Record<string, unknown>
+    const name = requiredCatalogString(record, "name", index)
+    const url = requiredCatalogString(record, "url", index)
+    const rawSha256 =
+      typeof record.pinnedSha256 === "string"
+        ? record.pinnedSha256
+        : typeof record.sha256 === "string"
+          ? record.sha256
+          : null
+    const pinnedSha256 = normalizeSha256(rawSha256)
+
+    try {
+      if (!new URL(url).protocol) {
+        throw new Error("missing protocol")
+      }
+    } catch {
+      throw new Error(`catalog source ${index + 1} has an invalid url`)
+    }
+
+    if (!pinnedSha256 || !SHA256_PATTERN.test(pinnedSha256)) {
+      throw new Error(`catalog source ${index + 1} must include a pinned SHA-256 checksum`)
+    }
+
+    return {
+      name,
+      url,
+      pinnedSha256,
+      enabled: typeof record.enabled === "boolean" ? record.enabled : true,
+    }
+  })
+}
+
+function toManifestError(
+  manifestUrl: string,
+  reason: "connection_failed" | "invalid_response" | "checksum_mismatch",
+  message: string,
+  retryable: boolean,
+): IndexerDefinitionSourceError {
+  return new IndexerDefinitionSourceError({
+    sourceId: 0,
+    sourceName: manifestSourceName(manifestUrl),
+    reason,
+    message,
+    retryable,
+  })
 }
 
 function sourceErrorTagged(error: unknown): error is IndexerDefinitionSourceError {
@@ -344,6 +438,67 @@ export const IndexerDefinitionSourceServiceLive = Layer.effect(
       )
     }
 
+    const upsertCatalogSource = (entry: CatalogManifestEntry, now: Date) =>
+      Effect.gen(function* () {
+        const existingRows = yield* db
+          .select()
+          .from(indexerDefinitionSources)
+          .where(eq(indexerDefinitionSources.url, entry.url))
+        const existing = existingRows[0]
+
+        if (!existing) {
+          const rows = yield* db
+            .insert(indexerDefinitionSources)
+            .values({
+              name: entry.name,
+              url: entry.url,
+              enabled: entry.enabled,
+              pinnedSha256: entry.pinnedSha256,
+              updatedAt: now,
+            })
+            .returning()
+          const row = rows[0]
+          return {
+            sourceId: row.id,
+            name: row.name,
+            url: row.url,
+            pinnedSha256: row.pinnedSha256 ?? entry.pinnedSha256,
+            enabled: row.enabled,
+            action: "created",
+          } satisfies IndexerDefinitionSourceCatalogItem
+        }
+
+        const action: IndexerDefinitionSourceCatalogAction =
+          existing.name !== entry.name ||
+          existing.enabled !== entry.enabled ||
+          existing.pinnedSha256 !== entry.pinnedSha256
+            ? "updated"
+            : "unchanged"
+
+        const row =
+          action === "updated"
+            ? (yield* db
+                .update(indexerDefinitionSources)
+                .set({
+                  name: entry.name,
+                  enabled: entry.enabled,
+                  pinnedSha256: entry.pinnedSha256,
+                  updatedAt: now,
+                })
+                .where(eq(indexerDefinitionSources.id, existing.id))
+                .returning())[0]
+            : existing
+
+        return {
+          sourceId: row.id,
+          name: row.name,
+          url: row.url,
+          pinnedSha256: row.pinnedSha256 ?? entry.pinnedSha256,
+          enabled: row.enabled,
+          action,
+        } satisfies IndexerDefinitionSourceCatalogItem
+      })
+
     return {
       add: (input) =>
         Effect.gen(function* () {
@@ -443,6 +598,81 @@ export const IndexerDefinitionSourceServiceLive = Layer.effect(
             results,
             errors,
           } satisfies IndexerDefinitionSourceRefreshSummary
+        }),
+
+      importCatalog: (input) =>
+        Effect.gen(function* () {
+          const manifestYaml = yield* Effect.tryPromise({
+            try: () => fetchDefinitionYaml(input.url),
+            catch: (error) => {
+              if (error instanceof RemoteDefinitionHttpError) {
+                return toManifestError(
+                  input.url,
+                  error.status >= 500 ? "connection_failed" : "invalid_response",
+                  `HTTP ${error.status}: ${error.message}`,
+                  error.status >= 500,
+                )
+              }
+              if (error instanceof Error && error.name === "AbortError") {
+                return toManifestError(input.url, "connection_failed", "request timed out", true)
+              }
+              const message = error instanceof Error ? error.message : "unknown error"
+              return toManifestError(
+                input.url,
+                /fetch|network|ECONN|ENOTFOUND/i.test(message)
+                  ? "connection_failed"
+                  : "invalid_response",
+                message,
+                true,
+              )
+            },
+          })
+
+          const manifestSha256 = sha256Hex(manifestYaml)
+          const pinnedSha256 = normalizeSha256(input.pinnedSha256)
+          if (pinnedSha256 && !SHA256_PATTERN.test(pinnedSha256)) {
+            return yield* toManifestError(
+              input.url,
+              "checksum_mismatch",
+              "catalog manifest SHA-256 checksum is invalid",
+              false,
+            )
+          }
+          if (pinnedSha256 && pinnedSha256 !== manifestSha256) {
+            return yield* toManifestError(
+              input.url,
+              "checksum_mismatch",
+              `catalog manifest SHA-256 checksum mismatch: expected ${pinnedSha256}, got ${manifestSha256}`,
+              false,
+            )
+          }
+
+          const entries = yield* Effect.try({
+            try: () => parseCatalogManifest(manifestYaml),
+            catch: (error) =>
+              toManifestError(
+                input.url,
+                "invalid_response",
+                error instanceof Error ? error.message : "invalid catalog manifest",
+                false,
+              ),
+          })
+
+          const importedAt = new Date()
+          const sources = yield* Effect.forEach(entries, (entry) =>
+            upsertCatalogSource(entry, importedAt),
+          )
+
+          return {
+            importedAt,
+            manifestUrl: input.url,
+            manifestSha256,
+            total: sources.length,
+            created: sources.filter((source) => source.action === "created").length,
+            updated: sources.filter((source) => source.action === "updated").length,
+            unchanged: sources.filter((source) => source.action === "unchanged").length,
+            sources,
+          } satisfies IndexerDefinitionSourceCatalogImportResult
         }),
     }
   }),

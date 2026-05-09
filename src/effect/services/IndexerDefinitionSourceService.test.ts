@@ -63,6 +63,10 @@ function sha256Hex(value: string): string {
   return createHash("sha256").update(value, "utf8").digest("hex")
 }
 
+function catalogManifest(entries: ReadonlyArray<Record<string, unknown>>): string {
+  return JSON.stringify({ version: 1, sources: entries })
+}
+
 afterEach(() => {
   vi.unstubAllGlobals()
 })
@@ -176,6 +180,121 @@ describe("IndexerDefinitionSourceService", () => {
         const refreshed = yield* sources.getById(source.id)
         expect(refreshed.lastError).toBeNull()
         expect(refreshed.lastSha256).toBe(checksum)
+      }).pipe(Effect.provide(TestLayer)),
+    )
+  })
+
+  it("imports checksum-pinned definition sources from a catalog manifest", async () => {
+    const definitionYaml = remoteDefinitionYaml("remote-1")
+    const sourceChecksum = sha256Hex(definitionYaml)
+    const manifest = catalogManifest([
+      {
+        name: "Catalog Remote",
+        url: "https://definitions.example/catalog-remote.yml",
+        sha256: sourceChecksum.toUpperCase(),
+      },
+    ])
+    const manifestChecksum = sha256Hex(manifest)
+    vi.stubGlobal("fetch", async () => new Response(manifest, { status: 200 }))
+
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const sources = yield* IndexerDefinitionSourceService
+        const imported = yield* sources.importCatalog({
+          url: "https://catalog.example/index.json",
+          pinnedSha256: manifestChecksum,
+        })
+
+        expect(imported).toMatchObject({
+          manifestUrl: "https://catalog.example/index.json",
+          manifestSha256: manifestChecksum,
+          total: 1,
+          created: 1,
+          updated: 0,
+          unchanged: 0,
+        })
+        expect(imported.sources[0]).toMatchObject({
+          name: "Catalog Remote",
+          url: "https://definitions.example/catalog-remote.yml",
+          pinnedSha256: sourceChecksum,
+          enabled: true,
+          action: "created",
+        })
+
+        const listed = yield* sources.list()
+        expect(listed).toHaveLength(1)
+        expect(listed[0]).toMatchObject({
+          name: "Catalog Remote",
+          url: "https://definitions.example/catalog-remote.yml",
+          pinnedSha256: sourceChecksum,
+          enabled: true,
+        })
+
+        const unchanged = yield* sources.importCatalog({
+          url: "https://catalog.example/index.json",
+          pinnedSha256: manifestChecksum,
+        })
+        expect(unchanged).toMatchObject({
+          created: 0,
+          updated: 0,
+          unchanged: 1,
+        })
+      }).pipe(Effect.provide(TestLayer)),
+    )
+  })
+
+  it("rejects catalog manifests when the pinned checksum does not match", async () => {
+    const manifest = catalogManifest([
+      {
+        name: "Catalog Remote",
+        url: "https://definitions.example/catalog-remote.yml",
+        sha256: sha256Hex(remoteDefinitionYaml("remote-1")),
+      },
+    ])
+    vi.stubGlobal("fetch", async () => new Response(manifest, { status: 200 }))
+
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const sources = yield* IndexerDefinitionSourceService
+        const error = yield* Effect.flip(
+          sources.importCatalog({
+            url: "https://catalog.example/index.json",
+            pinnedSha256: "0".repeat(64),
+          }),
+        )
+
+        expect(error._tag).toBe("IndexerDefinitionSourceError")
+        if (error._tag === "IndexerDefinitionSourceError") {
+          expect(error.reason).toBe("checksum_mismatch")
+          expect(error.retryable).toBe(false)
+        }
+        expect(yield* sources.list()).toEqual([])
+      }).pipe(Effect.provide(TestLayer)),
+    )
+  })
+
+  it("requires catalog manifest entries to include source checksums", async () => {
+    const manifest = catalogManifest([
+      {
+        name: "Catalog Remote",
+        url: "https://definitions.example/catalog-remote.yml",
+      },
+    ])
+    vi.stubGlobal("fetch", async () => new Response(manifest, { status: 200 }))
+
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const sources = yield* IndexerDefinitionSourceService
+        const error = yield* Effect.flip(
+          sources.importCatalog({ url: "https://catalog.example/index.json" }),
+        )
+
+        expect(error._tag).toBe("IndexerDefinitionSourceError")
+        if (error._tag === "IndexerDefinitionSourceError") {
+          expect(error.reason).toBe("invalid_response")
+          expect(error.retryable).toBe(false)
+        }
+        expect(yield* sources.list()).toEqual([])
       }).pipe(Effect.provide(TestLayer)),
     )
   })

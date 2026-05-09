@@ -28,6 +28,15 @@ const sourceUpdateSchema = z.object({
     .optional(),
 })
 
+const catalogImportSchema = z.object({
+  url: z.string().url(),
+  pinnedSha256: z
+    .string()
+    .regex(/^[\da-f]{64}$/i)
+    .nullable()
+    .optional(),
+})
+
 export const indexerDefinitionSourcesRouter = {
   add: authedProcedure.input(sourceInputSchema).mutation(({ input }) =>
     runEffect(
@@ -90,6 +99,15 @@ export const indexerDefinitionSourcesRouter = {
       Effect.gen(function* () {
         const svc = yield* IndexerDefinitionSourceService
         return yield* svc.refreshEnabled()
+      }),
+    ),
+  ),
+
+  importCatalog: authedProcedure.input(catalogImportSchema).mutation(({ input }) =>
+    runEffect(
+      Effect.gen(function* () {
+        const svc = yield* IndexerDefinitionSourceService
+        return yield* svc.importCatalog(input)
       }),
     ),
   ),

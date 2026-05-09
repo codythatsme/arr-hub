@@ -42,3 +42,25 @@ export interface IndexerDefinitionSourceRefreshSummary {
   readonly results: ReadonlyArray<IndexerDefinitionSourceRefreshResult>
   readonly errors: ReadonlyArray<IndexerDefinitionSourceRefreshFailure>
 }
+
+export type IndexerDefinitionSourceCatalogAction = "created" | "updated" | "unchanged"
+
+export interface IndexerDefinitionSourceCatalogItem {
+  readonly sourceId: number
+  readonly name: string
+  readonly url: string
+  readonly pinnedSha256: string
+  readonly enabled: boolean
+  readonly action: IndexerDefinitionSourceCatalogAction
+}
+
+export interface IndexerDefinitionSourceCatalogImportResult {
+  readonly importedAt: Date
+  readonly manifestUrl: string
+  readonly manifestSha256: string
+  readonly total: number
+  readonly created: number
+  readonly updated: number
+  readonly unchanged: number
+  readonly sources: ReadonlyArray<IndexerDefinitionSourceCatalogItem>
+}
