@@ -158,6 +158,152 @@ search:
         c: "0_0"
 `
 
+const ANIME_TOSHO = `
+id: animetosho
+name: AnimeTosho
+description: Public anime Torznab-compatible feed mirrored through a Cardigann-style definition.
+type: public
+links:
+  - https://feed.animetosho.org
+version: builtin-cardigann-1
+tags:
+  - public
+  - anime
+  - torznab
+caps:
+  categorymappings:
+    - id: anime
+      cat: anime
+      desc: Anime
+      newznab: 5070
+    - id: anime-movie
+      cat: movies
+      desc: Anime Movies
+      newznab: 2020
+  modes:
+    search: [q]
+    movie-search: [q]
+    tv-search: [q, season, ep]
+search:
+  paths:
+    - path: /api
+      response:
+        type: torznab
+      inputs:
+        t: "{{ .Query.Type }}"
+        q: "{{ .Keywords }}"
+        cat: "{{ .Categories }}"
+        season: "{{ .Query.Season }}"
+        ep: "{{ .Query.Ep }}"
+        limit: "{{ .Query.Limit }}"
+`
+
+const MORE_THAN_TV = `
+id: morethantv
+name: MoreThanTV
+description: Private TV and movie tracker exposed through a Torznab-compatible endpoint.
+type: private
+links:
+  - https://www.morethantv.me
+version: builtin-cardigann-1
+tags:
+  - private
+  - movies
+  - tv
+  - torznab
+settings:
+  - name: apiKey
+    label: API key
+    type: password
+    required: true
+    helpText: MoreThanTV Torznab API key.
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+      newznab: 2000
+    - id: tv
+      cat: TV
+      desc: TV
+      newznab: 5000
+  modes:
+    search: [q]
+    movie-search: [q, imdbid]
+    tv-search: [q, season, ep, imdbid, tvdbid]
+search:
+  paths:
+    - path: /api/torznab
+      response:
+        type: torznab
+      inputs:
+        apikey: "{{ .Config.APIKey }}"
+        t: "{{ .Query.Type }}"
+        q: "{{ .Keywords }}"
+        cat: "{{ .Categories }}"
+        imdbid: "{{ .Query.IMDBID }}"
+        tvdbid: "{{ .Query.TVDBID }}"
+        season: "{{ .Query.Season }}"
+        ep: "{{ .Query.Ep }}"
+        limit: "{{ .Query.Limit }}"
+`
+
+const TORRENT_NETWORK = `
+id: torrent-network
+name: Torrent Network
+description: German private TV, movie, and general tracker exposed through a Torznab-compatible endpoint.
+type: private
+links:
+  - https://tntracker.org
+version: builtin-cardigann-1
+tags:
+  - private
+  - movies
+  - tv
+  - general
+  - de
+  - torznab
+settings:
+  - name: apiKey
+    label: API key
+    type: password
+    required: true
+    helpText: Torrent Network Torznab API key.
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+      newznab: 2000
+    - id: tv
+      cat: TV
+      desc: TV
+      newznab: 5000
+    - id: general
+      cat: Other
+      desc: General
+      newznab: 8000
+  modes:
+    search: [q]
+    movie-search: [q, imdbid]
+    tv-search: [q, season, ep, imdbid, tvdbid]
+search:
+  paths:
+    - path: /api/torznab/api
+      response:
+        type: torznab
+      inputs:
+        apikey: "{{ .Config.APIKey }}"
+        t: "{{ .Query.Type }}"
+        q: "{{ .Keywords }}"
+        cat: "{{ .Categories }}"
+        imdbid: "{{ .Query.IMDBID }}"
+        tvdbid: "{{ .Query.TVDBID }}"
+        season: "{{ .Query.Season }}"
+        ep: "{{ .Query.Ep }}"
+        limit: "{{ .Query.Limit }}"
+`
+
 const CATEGORY_NAME_TO_NEWZNAB: Readonly<Record<string, number>> = {
   anime: 5070,
   audio: 3000,
@@ -171,10 +317,18 @@ const CATEGORY_NAME_TO_NEWZNAB: Readonly<Record<string, number>> = {
   tv: 5000,
   "tv/hd": 5040,
   "tv/sd": 5030,
+  other: 8000,
   xxx: 6000,
 }
 
-const BUILT_IN_CARDIGANN_SOURCES = [PUBLIC_DOMAIN_MOVIE_TORRENTS, OPEN_TV_TORRENTS, NYAA] as const
+const BUILT_IN_CARDIGANN_SOURCES = [
+  PUBLIC_DOMAIN_MOVIE_TORRENTS,
+  OPEN_TV_TORRENTS,
+  NYAA,
+  ANIME_TOSHO,
+  MORE_THAN_TV,
+  TORRENT_NETWORK,
+] as const
 
 export const BUILT_IN_CARDIGANN_DEFINITIONS: ReadonlyArray<IndexerDefinitionSeed> =
   BUILT_IN_CARDIGANN_SOURCES.map(parseCardigannDefinitionYaml)

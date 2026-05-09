@@ -78,6 +78,9 @@ caps:
       "public-domain-movie-torrents",
       "open-tv-torrents",
       "nyaa",
+      "animetosho",
+      "morethantv",
+      "torrent-network",
     ])
     expect(
       BUILT_IN_CARDIGANN_DEFINITIONS.find(
@@ -94,6 +97,22 @@ caps:
         { id: 5070, name: "Anime Raw" },
       ],
     })
+    expect(
+      BUILT_IN_CARDIGANN_DEFINITIONS.find((definition) => definition.definitionKey === "animetosho")
+        ?.baseUrl,
+    ).toBe("https://feed.animetosho.org")
+    expect(
+      BUILT_IN_CARDIGANN_DEFINITIONS.find((definition) => definition.definitionKey === "morethantv")
+        ?.authFields,
+    ).toEqual([
+      {
+        name: "apiKey",
+        label: "API key",
+        type: "password",
+        required: true,
+        helpText: "MoreThanTV Torznab API key.",
+      },
+    ])
   })
 
   it("parses first-pass Cardigann search runtime metadata", () => {
