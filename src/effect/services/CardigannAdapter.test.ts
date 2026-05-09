@@ -124,6 +124,23 @@ const SCENEHD_JSON_RESULTS = JSON.stringify([
   },
 ])
 
+const TORRENT_SYNDIKAT_JSON_RESULTS = JSON.stringify({
+  rows: [
+    {
+      id: "8001",
+      name: "TorrentSyndikat Movie 2026 1080p WEB-DL",
+      category: 9,
+      added: 1_778_330_096,
+      size: 7_654_321_000,
+      numfiles: 6,
+      seeders: 42,
+      leechers: 5,
+      snatched: 23,
+      imdbId: 1234567,
+    },
+  ],
+})
+
 const KNABEN_JSON_RESULTS = JSON.stringify({
   hits: [
     {
@@ -2960,6 +2977,67 @@ search:
       uploadFactor: 1,
     })
     expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-09T11:22:33.000Z")
+  })
+
+  it("parses TorrentSyndikat API-key JSON searches from the built-in definition", async () => {
+    const requests: Array<{ url: string; init: RequestInit | undefined }> = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      requests.push({ url: String(input), init })
+      return new Response(TORRENT_SYNDIKAT_JSON_RESULTS, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 112,
+      name: "TorrentSyndikat",
+      type: "cardigann_yaml",
+      definitionKey: "torrentsyndikat",
+      baseUrl: "https://torrent-syndikat.org/",
+      apiKey: "ts-api-key",
+      configValues: {
+        productsOnly: "true",
+      },
+      priority: 48,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({
+        term: "TorrentSyndikat Movie",
+        type: "movie",
+        categories: [2040],
+        imdbId: "tt1234567",
+      }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const request = requests[0]
+    const url = new URL(request?.url ?? "")
+    expect(url.origin).toBe("https://torrent-syndikat.org")
+    expect(url.pathname).toBe("/api_9djWe8Tb2NE3p6opyqnh/v1/browse.php")
+    expect(url.searchParams.get("apikey")).toBe("ts-api-key")
+    expect(url.searchParams.get("limit")).toBe("50")
+    expect(url.searchParams.get("ponly")).toBe("true")
+    expect(url.searchParams.get("imdbId")).toBe("tt1234567")
+    expect(url.searchParams.has("searchstring")).toBe(false)
+    expect(url.searchParams.get("cats")).toBe("9,20")
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "TorrentSyndikat Movie 2026 1080p WEB-DL",
+      downloadUrl: "https://torrent-syndikat.org/download.php?id=8001&apikey=ts-api-key",
+      infoUrl: "https://torrent-syndikat.org/details.php?id=8001",
+      category: "2040",
+      size: 7_654_321_000,
+      seeders: 42,
+      leechers: 5,
+      indexerId: 112,
+      indexerName: "TorrentSyndikat",
+      indexerPriority: 48,
+      downloadFactor: 1,
+      uploadFactor: 1,
+    })
+    expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-09T12:34:56.000Z")
   })
 
   it("renders Cardigann raw JSON POST bodies for Knaben searches", async () => {

@@ -94,6 +94,7 @@ caps:
       "beyond-hd",
       "bit-hdtv",
       "torrentbytes",
+      "torrentsyndikat",
       "scenehd",
       "scenetime",
       "hd-space",
@@ -504,6 +505,37 @@ caps:
           { id: 2050, name: "Movies/Full Blu-ray" },
           { id: 5040, name: "TV/HD" },
           { id: 6040, name: "XXX/HD" },
+        ]),
+      },
+    })
+    expect(
+      BUILT_IN_CARDIGANN_DEFINITIONS.find(
+        (definition) => definition.definitionKey === "torrentsyndikat",
+      ),
+    ).toMatchObject({
+      displayName: "TorrentSyndikat",
+      baseUrl: "https://torrent-syndikat.org/",
+      privacy: "private",
+      supportsRss: false,
+      supportsSearch: true,
+      tags: ["private", "general", "movies", "tv", "music", "books", "json", "api"],
+      authFields: expect.arrayContaining([
+        expect.objectContaining({ name: "apiKey", type: "password", required: true }),
+        expect.objectContaining({
+          name: "productsOnly",
+          type: "checkbox",
+          defaultValue: "false",
+        }),
+      ]),
+      capabilities: {
+        searchTypes: ["search", "movie", "tvsearch"],
+        categories: expect.arrayContaining([
+          { id: 2045, name: "Filme / 2160p" },
+          { id: 2040, name: "Filme / 1080p" },
+          { id: 5045, name: "Serien / 2160p" },
+          { id: 5040, name: "Serien / 1080p" },
+          { id: 3040, name: "Audio / Musik / FLAC" },
+          { id: 7000, name: "Misc / eBooks" },
         ]),
       },
     })

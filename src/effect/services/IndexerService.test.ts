@@ -119,19 +119,19 @@ describe("IndexerService", () => {
       const second = yield* svc.refreshDefinitions()
 
       expect(first).toMatchObject({
-        total: 34,
-        created: 34,
+        total: 35,
+        created: 35,
         updated: 0,
         unchanged: 0,
       })
       expect(first.definitions.map((definition) => definition.action)).toEqual(
-        Array(34).fill("created"),
+        Array(35).fill("created"),
       )
       expect(second).toMatchObject({
-        total: 34,
+        total: 35,
         created: 0,
         updated: 0,
-        unchanged: 34,
+        unchanged: 35,
       })
       expect(second.definitions.every((definition) => definition.previousVersion !== null)).toBe(
         true,
@@ -434,6 +434,7 @@ describe("IndexerService", () => {
         "torrentbytes",
         "torrentday",
         "torrents-csv",
+        "torrentsyndikat",
         "xspeeds",
       ])
       expect(
@@ -625,6 +626,17 @@ describe("IndexerService", () => {
         privacy: "private",
         supportsRss: false,
         tags: ["private", "movies", "tv", "music", "json", "api"],
+      })
+      expect(
+        definitions.find((definition) => definition.definitionKey === "torrentsyndikat"),
+      ).toMatchObject({
+        displayName: "TorrentSyndikat",
+        protocol: "torrent",
+        implementation: "cardigann_yaml",
+        baseUrl: "https://torrent-syndikat.org/",
+        privacy: "private",
+        supportsRss: false,
+        tags: ["private", "general", "movies", "tv", "music", "books", "json", "api"],
       })
       expect(
         definitions.find((definition) => definition.definitionKey === "scenetime"),

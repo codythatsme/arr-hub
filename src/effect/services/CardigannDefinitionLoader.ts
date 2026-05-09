@@ -2836,6 +2836,236 @@ search:
       text: "1"
 `
 
+const TORRENT_SYNDIKAT = `
+id: torrentsyndikat
+name: TorrentSyndikat
+description: German private general tracker exposed through a first-pass API-key JSON Cardigann definition.
+type: private
+links:
+  - https://torrent-syndikat.org/
+version: builtin-cardigann-1
+rss: false
+tags:
+  - private
+  - general
+  - movies
+  - tv
+  - music
+  - books
+  - json
+  - api
+settings:
+  - name: apiKey
+    label: API key
+    type: password
+    required: true
+    helpText: TorrentSyndikat account API key.
+  - name: productsOnly
+    label: Products only
+    type: checkbox
+    default: false
+    helpText: Limit search to torrents linked to a product.
+caps:
+  categorymappings:
+    - id: "2"
+      cat: PC
+      desc: Apps / Windows
+      newznab: 4000
+    - id: "13"
+      cat: PC
+      desc: Apps / Linux
+      newznab: 4000
+    - id: "4"
+      cat: PC/Mac
+      desc: Apps / MacOS
+      newznab: 4030
+    - id: "6"
+      cat: PC
+      desc: Apps / Misc
+      newznab: 4000
+    - id: "50"
+      cat: PC/Games
+      desc: Spiele / Windows
+      newznab: 4050
+    - id: "51"
+      cat: PC/Games
+      desc: Spiele / MacOS
+      newznab: 4050
+    - id: "52"
+      cat: PC/Games
+      desc: Spiele / Linux
+      newznab: 4050
+    - id: "8"
+      cat: Console/Other
+      desc: Spiele / Playstation
+      newznab: 1090
+    - id: "7"
+      cat: Console/Other
+      desc: Spiele / Nintendo
+      newznab: 1090
+    - id: "32"
+      cat: Console/Other
+      desc: Spiele / XBOX
+      newznab: 1090
+    - id: "42"
+      cat: Movies/UHD
+      desc: Filme / 2160p
+      newznab: 2045
+    - id: "9"
+      cat: Movies/HD
+      desc: Filme / 1080p
+      newznab: 2040
+    - id: "20"
+      cat: Movies/HD
+      desc: Filme / 720p
+      newznab: 2040
+    - id: "10"
+      cat: Movies/SD
+      desc: Filme / SD
+      newznab: 2030
+    - id: "43"
+      cat: TV/UHD
+      desc: Serien / 2160p
+      newznab: 5045
+    - id: "53"
+      cat: TV/HD
+      desc: Serien / 1080p
+      newznab: 5040
+    - id: "54"
+      cat: TV/HD
+      desc: Serien / 720p
+      newznab: 5040
+    - id: "15"
+      cat: TV/SD
+      desc: Serien / SD
+      newznab: 5030
+    - id: "30"
+      cat: TV/Sport
+      desc: Serien / Sport
+      newznab: 5060
+    - id: "44"
+      cat: TV/UHD
+      desc: Serienpacks / 2160p
+      newznab: 5045
+    - id: "55"
+      cat: TV/HD
+      desc: Serienpacks / 1080p
+      newznab: 5040
+    - id: "56"
+      cat: TV/HD
+      desc: Serienpacks / 720p
+      newznab: 5040
+    - id: "27"
+      cat: TV/SD
+      desc: Serienpacks / SD
+      newznab: 5030
+    - id: "24"
+      cat: Audio/Lossless
+      desc: Audio / Musik / FLAC
+      newznab: 3040
+    - id: "25"
+      cat: Audio/MP3
+      desc: Audio / Musik / MP3
+      newznab: 3010
+    - id: "35"
+      cat: Audio/Other
+      desc: Audio / Other
+      newznab: 3050
+    - id: "18"
+      cat: Audio/Audiobook
+      desc: Audio / aBooks
+      newznab: 3030
+    - id: "33"
+      cat: Audio/Video
+      desc: Audio / Videos
+      newznab: 3020
+    - id: "17"
+      cat: Books
+      desc: Misc / eBooks
+      newznab: 7000
+    - id: "5"
+      cat: PC/Phone-Other
+      desc: Misc / Mobile
+      newznab: 4040
+    - id: "39"
+      cat: Other
+      desc: Misc / Bildung
+      newznab: 8000
+    - id: "36"
+      cat: TV/Foreign
+      desc: Englisch / Serien
+      newznab: 5020
+    - id: "57"
+      cat: TV/Foreign
+      desc: Englisch / Serienpacks
+      newznab: 5020
+    - id: "37"
+      cat: Movies/Foreign
+      desc: Englisch / Filme
+      newznab: 2010
+    - id: "47"
+      cat: Books
+      desc: Englisch / eBooks
+      newznab: 7000
+    - id: "48"
+      cat: Other
+      desc: Englisch / Bildung
+      newznab: 8000
+    - id: "49"
+      cat: TV/Sport
+      desc: Englisch / Sport
+      newznab: 5060
+  modes:
+    search: [q]
+    movie-search: [q, imdbid]
+    tv-search: [q, season, ep, imdbid]
+    music-search: [q]
+    book-search: [q]
+search:
+  paths:
+    - path: api_9djWe8Tb2NE3p6opyqnh/v1/browse.php
+      response:
+        type: json
+      inputs:
+        apikey: "{{ .Config.APIKey }}"
+        limit: "50"
+        ponly: "{{ if .Config.ProductsOnly }}true{{ else }}false{{ end }}"
+        imdbId: "{{ .Query.IMDBID }}"
+        searchstring: "{{ if .Query.IMDBID }}{{ else }}{{ .Keywords }}{{ end }}"
+        cats: "{{ .Categories | join ',' }}"
+  rows:
+    selector: $.rows
+  fields:
+    id:
+      selector: id
+    title:
+      selector: name
+    details:
+      text: "/details.php?id={{ .Result.id }}"
+    download:
+      text: "/download.php?id={{ .Result.id }}&apikey={{ .Config.APIKey }}"
+    category:
+      selector: category
+    date:
+      selector: added
+      filters:
+        - name: unixtime
+    size:
+      selector: size
+    files:
+      selector: numfiles
+    grabs:
+      selector: snatched
+    seeders:
+      selector: seeders
+    leechers:
+      selector: leechers
+    downloadvolumefactor:
+      text: "1"
+    uploadvolumefactor:
+      text: "1"
+`
+
 const SCENE_TIME = `
 id: scenetime
 name: SceneTime
@@ -5209,6 +5439,7 @@ const BUILT_IN_CARDIGANN_SOURCES = [
   BEYOND_HD,
   BIT_HDTV,
   TORRENT_BYTES,
+  TORRENT_SYNDIKAT,
   SCENE_HD,
   SCENE_TIME,
   HD_SPACE,
