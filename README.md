@@ -96,7 +96,7 @@ Current foundation:
 - External clients can query aggregate XML feeds with an ARR Hub API key:
   - `/api/indexers/aggregate/torznab?t=caps&apikey=...`
   - `/api/indexers/aggregate/newznab?t=search&q=example&apikey=...`
-- Radarr/Sonarr application records can persist encrypted remote credentials and sync aggregate Torznab/Newznab indexers into `/api/v3/indexer`; enabled apps can be refreshed from the scheduler and after indexer add/update/remove mutations, stale remote aggregate indexers are removed when protocols no longer have eligible local indexers, and the synced app payload uses a reachable ARR Hub URL plus ARR Hub API key.
+- Radarr/Sonarr application records can persist encrypted remote credentials and sync aggregate Torznab/Newznab indexers into `/api/v3/indexer`; enabled apps can be refreshed from the scheduler and after indexer add/update/remove mutations, stale remote aggregate indexers are removed when protocols no longer have eligible local indexers, and the synced app payload uses a reachable ARR Hub URL plus ARR Hub API key, app priority, and first-pass torrent seed criteria.
 
 This is not yet a Prowlarr-scale catalogue. The Cardigann/YAML loader currently
 supports curated fixtures plus manually configured URL-backed YAML sources; broad
