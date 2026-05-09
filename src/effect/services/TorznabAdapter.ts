@@ -180,6 +180,10 @@ function bodyText(body: BodyInit | null | undefined): string | null {
   return null
 }
 
+function headerRecord(headers: HeadersInit | undefined): Record<string, string> {
+  return Object.fromEntries(new Headers(headers).entries())
+}
+
 export function fetchIndexerXml(
   url: URL,
   config: IndexerConfig,
@@ -195,6 +199,7 @@ export function fetchIndexerXml(
         if (proxy?.type === "flaresolverr") {
           const method = (init.method ?? "GET").toUpperCase()
           const postData = bodyText(init.body)
+          const headers = headerRecord(init.headers)
           const res = await fetch(flaresolverrEndpoint(proxy), {
             method: "POST",
             headers: { "content-type": "application/json" },
@@ -202,6 +207,7 @@ export function fetchIndexerXml(
               cmd: method === "POST" ? "request.post" : "request.get",
               url: url.toString(),
               ...(method === "POST" && postData !== null ? { postData } : {}),
+              ...(Object.keys(headers).length > 0 ? { headers } : {}),
               maxTimeout: proxy.settings.flaresolverrTimeoutMs ?? 60_000,
             }),
             signal: controller.signal,

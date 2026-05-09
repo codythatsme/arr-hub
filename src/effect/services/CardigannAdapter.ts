@@ -163,6 +163,19 @@ function appendInputs(
   }
 }
 
+function appendHeaders(
+  headers: Headers,
+  inputs: Readonly<Record<string, string>>,
+  variables: Record<string, TemplateValue>,
+  allowEmptyInputs: boolean,
+): void {
+  for (const [key, template] of Object.entries(inputs)) {
+    const value = renderTemplate(template, variables)
+    if (value.length === 0 && !allowEmptyInputs) continue
+    headers.set(key, value)
+  }
+}
+
 function resolveSearchRequests(
   config: IndexerConfig,
   definition: CardigannRuntimeDefinition,
@@ -185,6 +198,7 @@ function resolveSearchRequests(
       baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`,
     )
     const targetParams = path.method === "get" ? url.searchParams : new URLSearchParams()
+    const headers = new Headers()
     appendInputs(
       targetParams,
       definition.search.inputs,
@@ -192,15 +206,18 @@ function resolveSearchRequests(
       definition.search.allowEmptyInputs,
     )
     appendInputs(targetParams, path.inputs, variables, definition.search.allowEmptyInputs)
+    appendHeaders(headers, definition.search.headers, variables, definition.search.allowEmptyInputs)
+    appendHeaders(headers, path.headers, variables, definition.search.allowEmptyInputs)
 
-    const init =
-      path.method === "post"
-        ? {
-            method: "POST",
-            headers: { "content-type": "application/x-www-form-urlencoded" },
-            body: targetParams,
-          }
-        : {}
+    const init: RequestInit = {}
+    if (path.method === "post") {
+      init.method = "POST"
+      init.body = targetParams
+      if (!headers.has("content-type")) {
+        headers.set("content-type", "application/x-www-form-urlencoded")
+      }
+    }
+    if (Array.from(headers).length > 0) init.headers = headers
     requests.set(`${path.method} ${url.toString()} ${targetParams.toString()}`, { url, init })
   }
 

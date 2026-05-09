@@ -119,6 +119,8 @@ caps:
   modes:
     movie-search: [q, imdbid]
 search:
+  headers:
+    Cookie: "{{ .Config.APIKey }}"
   paths:
     - path: /search
       method: post
@@ -149,6 +151,7 @@ search:
 
     const headers = new Headers(requestInit?.headers)
     expect(headers.get("content-type")).toBe("application/x-www-form-urlencoded")
+    expect(headers.get("cookie")).toBe("api-key")
     const body = new URLSearchParams(String(requestInit?.body))
     expect(body.get("apikey")).toBe("api-key")
     expect(body.get("t")).toBe("movie")

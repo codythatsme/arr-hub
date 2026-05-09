@@ -114,16 +114,41 @@ search:
     expect(runtime.search).toEqual({
       allowEmptyInputs: false,
       inputs: { apikey: "{{ .Config.APIKey }}" },
+      headers: {},
       paths: [
         {
           path: "/api",
           method: "get",
           inputs: { t: "search", q: "{{ .Keywords }}" },
+          headers: {},
           categories: ["movies"],
           responseType: "torznab",
         },
       ],
     })
+  })
+
+  it("parses Cardigann request header templates", () => {
+    const runtime = parseCardigannRuntimeDefinitionYaml(`
+id: header-cardigann
+name: Header Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+search:
+  headers:
+    Cookie: "{{ .Config.APIKey }}"
+  paths:
+    - path: /api
+      headers:
+        X-Requested-With: XMLHttpRequest
+`)
+
+    expect(runtime.search.headers).toEqual({ Cookie: "{{ .Config.APIKey }}" })
+    expect(runtime.search.paths[0]?.headers).toEqual({ "X-Requested-With": "XMLHttpRequest" })
   })
 
   it("exposes built-in runtime definitions by key", () => {

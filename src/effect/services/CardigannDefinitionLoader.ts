@@ -16,6 +16,7 @@ export interface CardigannSearchPath {
   readonly path: string
   readonly method: "get" | "post"
   readonly inputs: Readonly<Record<string, string>>
+  readonly headers: Readonly<Record<string, string>>
   readonly categories: ReadonlyArray<string>
   readonly responseType: CardigannResponseType
 }
@@ -23,6 +24,7 @@ export interface CardigannSearchPath {
 export interface CardigannSearchRuntime {
   readonly allowEmptyInputs: boolean
   readonly inputs: Readonly<Record<string, string>>
+  readonly headers: Readonly<Record<string, string>>
   readonly paths: ReadonlyArray<CardigannSearchPath>
 }
 
@@ -224,6 +226,7 @@ function parseSearchRuntime(
   return {
     allowEmptyInputs: optionalBoolean(search, "allowEmptyInputs") ?? false,
     inputs: parseInputMap(search.inputs),
+    headers: parseInputMap(search.headers),
     paths,
   }
 }
@@ -243,6 +246,7 @@ function parseSearchPaths(
       path: requiredString(path, "path"),
       method: parseMethod(optionalString(path, "method") ?? "get"),
       inputs: parseInputMap(path.inputs),
+      headers: parseInputMap(path.headers),
       categories: parseOptionalStringArray(path.categories),
       responseType: parseResponseType(optionalString(response, "type") ?? fallbackResponseType),
     }
