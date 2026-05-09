@@ -4056,6 +4056,99 @@ search:
     expect(releases[0]?.title).toBe("Example Movie 2026 1080p WEB-DL")
   })
 
+  it("submits Cardigann form login select and textarea defaults", async () => {
+    const requests: Array<{ url: string; init: RequestInit | undefined }> = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      requests.push({ url, init })
+      const pathname = new URL(url).pathname
+      if (pathname === "/login") {
+        return new Response(
+          `<html><body>
+            <form id="signin" action="/session">
+              <input type="hidden" name="csrf" value="token123">
+              <select name="layout">
+                <option value="compact">Compact</option>
+                <option value="full" selected>Full</option>
+              </select>
+              <select name="fallback">
+                <option value="first">First</option>
+                <option value="second">Second</option>
+              </select>
+              <select name="ignored" disabled>
+                <option value="nope" selected>Nope</option>
+              </select>
+              <textarea name="note">from landing page</textarea>
+            </form>
+          </body></html>`,
+          {
+            status: 200,
+            headers: { "set-cookie": "landing=abc; Path=/; HttpOnly" },
+          },
+        )
+      }
+      if (pathname === "/session") {
+        return new Response("ok", {
+          status: 200,
+          headers: { "set-cookie": "session=xyz; Path=/; HttpOnly" },
+        })
+      }
+      return new Response(RSS_XML, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 81,
+      name: "Form Control Login Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "form-control-login-cardigann",
+      definitionYaml: `
+id: form-control-login-cardigann
+name: Form Control Login Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+  modes:
+    movie-search: [q]
+login:
+  path: /login
+  method: form
+  form: form#signin
+  submitpath: /session
+search:
+  paths:
+    - path: /api
+      response:
+        type: torznab
+      inputs:
+        q: "{{ .Keywords }}"
+`,
+      baseUrl: "https://tracker.example/root",
+      apiKey: "",
+      priority: 15,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Form Control Movie", type: "movie", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    const submitBody = new URLSearchParams(String(requests[1]?.init?.body ?? ""))
+    expect(new URL(requests[1]?.url ?? "").pathname).toBe("/session")
+    expect(submitBody.get("csrf")).toBe("token123")
+    expect(submitBody.get("layout")).toBe("full")
+    expect(submitBody.get("fallback")).toBe("first")
+    expect(submitBody.get("note")).toBe("from landing page")
+    expect(submitBody.has("ignored")).toBe(false)
+    expect(releases[0]?.title).toBe("Example Movie 2026 1080p WEB-DL")
+  })
+
   it("executes Cardigann multipart form login requests", async () => {
     const requests: Array<{ url: string; init: RequestInit | undefined }> = []
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {

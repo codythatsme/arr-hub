@@ -3177,6 +3177,59 @@ function appendCaptchaFormParam(
   return null
 }
 
+function htmlSuccessfulControlName(element: HtmlElementMatch): string | null {
+  const name = element.attributes.name
+  if (name === undefined || name.length === 0 || element.attributes.disabled !== undefined)
+    return null
+  return name
+}
+
+function appendInputFormParams(params: URLSearchParams, form: HtmlElementMatch): void {
+  for (const input of findHtmlInputElements(form.innerHtml)) {
+    const name = htmlSuccessfulControlName(input)
+    if (name === null) continue
+
+    const type = htmlFormControlType(input)
+    if ((type === "checkbox" || type === "radio") && input.attributes.checked === undefined) {
+      continue
+    }
+
+    params.append(name, input.attributes.value ?? "")
+  }
+}
+
+function htmlOptionValue(option: HtmlElementMatch): string {
+  return option.attributes.value ?? htmlTextContent(option.innerHtml)
+}
+
+function appendSelectFormParams(params: URLSearchParams, form: HtmlElementMatch): void {
+  for (const select of findHtmlElements(form.innerHtml, "select")) {
+    const name = htmlSuccessfulControlName(select)
+    if (name === null) continue
+
+    const options = findHtmlElements(select.innerHtml, "option").filter(
+      (option) => option.attributes.disabled === undefined,
+    )
+    const selectedOptions = options.filter((option) => option.attributes.selected !== undefined)
+    const submittedOptions =
+      selectedOptions.length > 0
+        ? selectedOptions
+        : select.attributes.multiple === undefined
+          ? options.slice(0, 1)
+          : []
+    for (const option of submittedOptions) {
+      params.append(name, htmlOptionValue(option))
+    }
+  }
+}
+
+function appendTextareaFormParams(params: URLSearchParams, form: HtmlElementMatch): void {
+  for (const textarea of findHtmlElements(form.innerHtml, "textarea")) {
+    const name = htmlSuccessfulControlName(textarea)
+    if (name !== null) params.append(name, htmlTextContent(textarea.innerHtml))
+  }
+}
+
 function formParamsFromHtml(
   document: HtmlElementMatch,
   form: HtmlElementMatch,
@@ -3184,17 +3237,9 @@ function formParamsFromHtml(
   variables: Record<string, TemplateValue>,
 ): FormLoginParams | string {
   const params = new URLSearchParams()
-  for (const input of findHtmlInputElements(form.innerHtml)) {
-    const name = input.attributes.name
-    if (name === undefined || name.length === 0 || input.attributes.disabled !== undefined) continue
-
-    const type = (input.attributes.type ?? "").toLowerCase()
-    if ((type === "checkbox" || type === "radio") && input.attributes.checked === undefined) {
-      continue
-    }
-
-    params.set(name, input.attributes.value ?? "")
-  }
+  appendInputFormParams(params, form)
+  appendSelectFormParams(params, form)
+  appendTextareaFormParams(params, form)
 
   for (const [key, template] of Object.entries(login.inputs)) {
     const value = renderTemplate(template, variables)
