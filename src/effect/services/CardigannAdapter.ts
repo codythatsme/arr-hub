@@ -65,6 +65,7 @@ interface HtmlElementMatch {
   readonly firstChild?: boolean
   readonly lastChild?: boolean
   readonly childIndex?: number
+  readonly childCount?: number
 }
 
 interface SimpleHtmlSelector {
@@ -1816,6 +1817,8 @@ function htmlSelectorFiltersMatch(
         return element.lastChild === true
       case "nth-child":
         return htmlNthChildMatches(element.childIndex, filter.selector)
+      case "nth-last-child":
+        return htmlNthChildMatches(htmlNthLastChildIndex(element), filter.selector)
       default:
         return true
     }
@@ -1870,14 +1873,21 @@ function isDirectHtmlChildAt(html: string, index: number): boolean {
 function htmlChildPositionAt(
   html: string,
   index: number,
-): { readonly first: boolean; readonly last: boolean; readonly index: number | undefined } {
+): {
+  readonly first: boolean
+  readonly last: boolean
+  readonly index: number | undefined
+  readonly count: number | undefined
+} {
   let rootChildCount = 0
-  let targetDepth = -1
   let targetFound = false
+  let targetParentKey: number | null = null
   let first = false
   let last = true
   let childIndex: number | undefined
-  const stack: Array<{ tagName: string; childCount: number }> = []
+  let childCount: number | undefined
+  let nextFrameKey = 1
+  const stack: Array<{ tagName: string; childCount: number; key: number }> = []
 
   for (const match of html.matchAll(/<\/?([A-Za-z][\w:-]*)([^>]*)>/g)) {
     const raw = match[0]
@@ -1891,25 +1901,27 @@ function htmlChildPositionAt(
     }
 
     const matchIndex = match.index ?? 0
-    const depth = stack.length
-    if (targetFound && matchIndex > index && depth === targetDepth) {
-      last = false
-      break
+    const parent = stack.at(-1)
+    const parentKey = parent?.key ?? 0
+    const priorChildCount = parent?.childCount ?? rootChildCount
+    const currentChildIndex = priorChildCount + 1
+    if (parent) {
+      parent.childCount = currentChildIndex
+    } else {
+      rootChildCount = currentChildIndex
     }
 
-    const parent = stack.at(-1)
-    const priorChildCount = parent?.childCount ?? rootChildCount
-    if (parent) {
-      parent.childCount += 1
-    } else {
-      rootChildCount += 1
+    if (targetFound && parentKey === targetParentKey) {
+      childCount = currentChildIndex
+      if (matchIndex > index) last = false
     }
 
     if (matchIndex === index) {
       targetFound = true
-      targetDepth = depth
+      targetParentKey = parentKey
       first = priorChildCount === 0
-      childIndex = priorChildCount + 1
+      childIndex = currentChildIndex
+      childCount = currentChildIndex
     }
 
     const attributes = match[2] ?? ""
@@ -1921,12 +1933,13 @@ function htmlChildPositionAt(
       continue
     }
 
-    stack.push({ tagName, childCount: 0 })
+    stack.push({ tagName, childCount: 0, key: nextFrameKey })
+    nextFrameKey += 1
   }
 
   return targetFound
-    ? { first, last, index: childIndex }
-    : { first: false, last: false, index: undefined }
+    ? { first, last, index: childIndex, count: childCount }
+    : { first: false, last: false, index: undefined, count: undefined }
 }
 
 function htmlNthChildMatches(index: number | undefined, expression: string): boolean {
@@ -1956,6 +1969,11 @@ function htmlNthChildMatches(index: number | undefined, expression: string): boo
   return delta % coefficient === 0 && delta / coefficient >= 0
 }
 
+function htmlNthLastChildIndex(element: HtmlElementMatch): number | undefined {
+  if (element.childIndex === undefined || element.childCount === undefined) return undefined
+  return element.childCount - element.childIndex + 1
+}
+
 function findHtmlElementsForToken(
   html: string,
   selectorText: string,
@@ -1970,7 +1988,10 @@ function findHtmlElementsForToken(
   const matches: Array<HtmlElementMatch> = []
   const needsChildPosition = selector.filters.some(
     (filter) =>
-      filter.name === "first-child" || filter.name === "last-child" || filter.name === "nth-child",
+      filter.name === "first-child" ||
+      filter.name === "last-child" ||
+      filter.name === "nth-child" ||
+      filter.name === "nth-last-child",
   )
   const pushMatch = (
     match: RegExpMatchArray,
@@ -1996,6 +2017,7 @@ function findHtmlElementsForToken(
       firstChild: childPosition?.first,
       lastChild: childPosition?.last,
       childIndex: childPosition?.index,
+      childCount: childPosition?.count,
     }
     if (
       htmlAttributeMatches(attributes, selector) &&
