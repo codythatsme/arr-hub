@@ -18,6 +18,8 @@ interface IndexerFormState {
   readonly queryCooldownSeconds: string
   readonly queryLimitCount: string
   readonly queryLimitWindowSeconds: string
+  readonly grabLimitCount: string
+  readonly grabLimitWindowSeconds: string
   readonly categories: string
   readonly enabled: boolean
 }
@@ -33,6 +35,8 @@ const emptyForm: IndexerFormState = {
   queryCooldownSeconds: "",
   queryLimitCount: "",
   queryLimitWindowSeconds: "",
+  grabLimitCount: "",
+  grabLimitWindowSeconds: "",
   categories: "",
   enabled: true,
 }
@@ -98,6 +102,8 @@ function Indexers() {
     const queryCooldownSeconds = parseOptionalNumber(form.queryCooldownSeconds)
     const queryLimitCount = parseOptionalNumber(form.queryLimitCount)
     const queryLimitWindowSeconds = parseOptionalNumber(form.queryLimitWindowSeconds)
+    const grabLimitCount = parseOptionalNumber(form.grabLimitCount)
+    const grabLimitWindowSeconds = parseOptionalNumber(form.grabLimitWindowSeconds)
 
     if (form.id === null) {
       add.mutate({
@@ -110,6 +116,8 @@ function Indexers() {
         queryCooldownSeconds,
         queryLimitCount,
         queryLimitWindowSeconds,
+        grabLimitCount,
+        grabLimitWindowSeconds,
         categories,
         enabled: form.enabled,
       })
@@ -127,6 +135,8 @@ function Indexers() {
         queryCooldownSeconds,
         queryLimitCount,
         queryLimitWindowSeconds,
+        grabLimitCount,
+        grabLimitWindowSeconds,
         categories,
         enabled: form.enabled,
         ...(form.apiKey.trim().length > 0 ? { apiKey: form.apiKey.trim() } : {}),
@@ -177,6 +187,9 @@ function Indexers() {
                     {indexer.queryLimitCount !== null && indexer.queryLimitWindowSeconds !== null
                       ? ` · max ${indexer.queryLimitCount}/${indexer.queryLimitWindowSeconds}s`
                       : ""}
+                    {indexer.grabLimitCount !== null && indexer.grabLimitWindowSeconds !== null
+                      ? ` · max ${indexer.grabLimitCount} grabs/${indexer.grabLimitWindowSeconds}s`
+                      : ""}
                   </p>
                   {indexer.health?.errorMessage && (
                     <p className="text-destructive mt-2 text-xs">{indexer.health.errorMessage}</p>
@@ -216,6 +229,12 @@ function Indexers() {
                           indexer.queryLimitWindowSeconds === null
                             ? ""
                             : String(indexer.queryLimitWindowSeconds),
+                        grabLimitCount:
+                          indexer.grabLimitCount === null ? "" : String(indexer.grabLimitCount),
+                        grabLimitWindowSeconds:
+                          indexer.grabLimitWindowSeconds === null
+                            ? ""
+                            : String(indexer.grabLimitWindowSeconds),
                         categories: indexer.categories.join(", "),
                         enabled: indexer.enabled,
                       })
@@ -389,6 +408,31 @@ function Indexers() {
                   value={form.queryLimitWindowSeconds}
                   onChange={(event) =>
                     setForm({ ...form, queryLimitWindowSeconds: event.target.value })
+                  }
+                  type="number"
+                  min={0}
+                  placeholder="Seconds"
+                />
+              </Field>
+              <Field label="Grab limit">
+                <input
+                  className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                  value={form.grabLimitCount}
+                  onChange={(event) => setForm({ ...form, grabLimitCount: event.target.value })}
+                  type="number"
+                  min={0}
+                  placeholder="Max grabs"
+                />
+              </Field>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Grab window">
+                <input
+                  className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                  value={form.grabLimitWindowSeconds}
+                  onChange={(event) =>
+                    setForm({ ...form, grabLimitWindowSeconds: event.target.value })
                   }
                   type="number"
                   min={0}

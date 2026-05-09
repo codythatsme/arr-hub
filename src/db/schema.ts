@@ -278,6 +278,8 @@ export const indexers = sqliteTable("indexers", {
   queryCooldownSeconds: integer("query_cooldown_seconds"),
   queryLimitCount: integer("query_limit_count"),
   queryLimitWindowSeconds: integer("query_limit_window_seconds"),
+  grabLimitCount: integer("grab_limit_count"),
+  grabLimitWindowSeconds: integer("grab_limit_window_seconds"),
   categories: text({ mode: "json" })
     .$type<ReadonlyArray<number>>()
     .notNull()
@@ -364,11 +366,15 @@ export const indexerStats = sqliteTable("indexer_stats", {
   totalRss: integer("total_rss").notNull().default(0),
   successfulRss: integer("successful_rss").notNull().default(0),
   failedRss: integer("failed_rss").notNull().default(0),
+  totalGrabs: integer("total_grabs").notNull().default(0),
   averageResponseTimeMs: integer("average_response_time_ms"),
   lastSearchAt: integer("last_search_at", { mode: "timestamp" }),
   lastRssAt: integer("last_rss_at", { mode: "timestamp" }),
+  lastGrabAt: integer("last_grab_at", { mode: "timestamp" }),
   queryLimitWindowStartedAt: integer("query_limit_window_started_at", { mode: "timestamp" }),
   queryLimitWindowSearches: integer("query_limit_window_searches").notNull().default(0),
+  grabLimitWindowStartedAt: integer("grab_limit_window_started_at", { mode: "timestamp" }),
+  grabLimitWindowGrabs: integer("grab_limit_window_grabs").notNull().default(0),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),

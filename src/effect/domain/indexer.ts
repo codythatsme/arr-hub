@@ -132,11 +132,15 @@ export interface IndexerStats {
   readonly totalRss: number
   readonly successfulRss: number
   readonly failedRss: number
+  readonly totalGrabs: number
   readonly averageResponseTimeMs: number | null
   readonly lastSearchAt: Date | null
   readonly lastRssAt: Date | null
+  readonly lastGrabAt: Date | null
   readonly queryLimitWindowStartedAt: Date | null
   readonly queryLimitWindowSearches: number
+  readonly grabLimitWindowStartedAt: Date | null
+  readonly grabLimitWindowGrabs: number
 }
 
 export type SearchType = "movie" | "tv" | "general"
@@ -190,6 +194,8 @@ export interface IndexerWithHealth {
   readonly queryCooldownSeconds: number | null
   readonly queryLimitCount: number | null
   readonly queryLimitWindowSeconds: number | null
+  readonly grabLimitCount: number | null
+  readonly grabLimitWindowSeconds: number | null
   readonly categories: ReadonlyArray<number>
   readonly tags: ReadonlyArray<string>
   readonly capabilities: IndexerCapabilities | null

@@ -54,6 +54,8 @@ interface IndexerInput {
   readonly queryCooldownSeconds?: number | null
   readonly queryLimitCount?: number | null
   readonly queryLimitWindowSeconds?: number | null
+  readonly grabLimitCount?: number | null
+  readonly grabLimitWindowSeconds?: number | null
   readonly categories?: ReadonlyArray<number>
   readonly tags?: ReadonlyArray<string>
 }
@@ -73,6 +75,8 @@ interface IndexerUpdate {
   readonly queryCooldownSeconds?: number | null
   readonly queryLimitCount?: number | null
   readonly queryLimitWindowSeconds?: number | null
+  readonly grabLimitCount?: number | null
+  readonly grabLimitWindowSeconds?: number | null
   readonly categories?: ReadonlyArray<number>
   readonly tags?: ReadonlyArray<string>
 }
@@ -126,6 +130,8 @@ export class IndexerService extends Context.Tag("@arr-hub/IndexerService")<
     readonly search: (
       query: SearchQuery,
     ) => Effect.Effect<SearchResult, ValidationError | EncryptionError | SqlError>
+    readonly canGrab: (indexerId: number) => Effect.Effect<boolean, SqlError>
+    readonly recordGrab: (indexerId: number) => Effect.Effect<void, NotFoundError | SqlError>
     readonly seedBuiltInDefinitions: () => Effect.Effect<void, SqlError>
     readonly refreshDefinitions: () => Effect.Effect<IndexerDefinitionSyncResult, SqlError>
     readonly listDefinitions: () => Effect.Effect<ReadonlyArray<IndexerDefinition>, SqlError>
@@ -255,6 +261,8 @@ function toWithHealth(
     queryCooldownSeconds: row.queryCooldownSeconds,
     queryLimitCount: row.queryLimitCount,
     queryLimitWindowSeconds: row.queryLimitWindowSeconds,
+    grabLimitCount: row.grabLimitCount,
+    grabLimitWindowSeconds: row.grabLimitWindowSeconds,
     categories: row.categories,
     tags: row.tags,
     capabilities: row.capabilities ?? null,
@@ -318,11 +326,15 @@ function toStats(row: typeof indexerStats.$inferSelect, indexerName: string | nu
     totalRss: row.totalRss,
     successfulRss: row.successfulRss,
     failedRss: row.failedRss,
+    totalGrabs: row.totalGrabs,
     averageResponseTimeMs: row.averageResponseTimeMs,
     lastSearchAt: row.lastSearchAt,
     lastRssAt: row.lastRssAt,
+    lastGrabAt: row.lastGrabAt,
     queryLimitWindowStartedAt: row.queryLimitWindowStartedAt,
     queryLimitWindowSearches: row.queryLimitWindowSearches,
+    grabLimitWindowStartedAt: row.grabLimitWindowStartedAt,
+    grabLimitWindowGrabs: row.grabLimitWindowGrabs,
   }
 }
 
@@ -375,6 +387,24 @@ function isQueryLimitActive(
   return stats.queryLimitWindowSearches >= indexer.queryLimitCount
 }
 
+function isGrabLimitActive(
+  indexer: typeof indexers.$inferSelect,
+  stats: typeof indexerStats.$inferSelect | null,
+): boolean {
+  if (
+    indexer.grabLimitCount === null ||
+    indexer.grabLimitWindowSeconds === null ||
+    indexer.grabLimitCount <= 0 ||
+    indexer.grabLimitWindowSeconds <= 0
+  ) {
+    return false
+  }
+  if (!stats?.grabLimitWindowStartedAt) return false
+  const elapsedMs = Date.now() - stats.grabLimitWindowStartedAt.getTime()
+  if (elapsedMs >= indexer.grabLimitWindowSeconds * 1000) return false
+  return stats.grabLimitWindowGrabs >= indexer.grabLimitCount
+}
+
 function nextQueryLimitWindow(
   indexer: typeof indexers.$inferSelect,
   current: typeof indexerStats.$inferSelect | null,
@@ -400,6 +430,31 @@ function nextQueryLimitWindow(
   return {
     queryLimitWindowStartedAt: expired ? now : startedAt,
     queryLimitWindowSearches: (expired ? 0 : (current?.queryLimitWindowSearches ?? 0)) + 1,
+  }
+}
+
+function nextGrabLimitWindow(
+  indexer: typeof indexers.$inferSelect,
+  current: typeof indexerStats.$inferSelect | null,
+  now: Date,
+): Pick<typeof indexerStats.$inferInsert, "grabLimitWindowStartedAt" | "grabLimitWindowGrabs"> {
+  if (
+    indexer.grabLimitCount === null ||
+    indexer.grabLimitWindowSeconds === null ||
+    indexer.grabLimitCount <= 0 ||
+    indexer.grabLimitWindowSeconds <= 0
+  ) {
+    return { grabLimitWindowStartedAt: null, grabLimitWindowGrabs: 0 }
+  }
+
+  const startedAt = current?.grabLimitWindowStartedAt ?? null
+  const expired =
+    startedAt === null ||
+    now.getTime() - startedAt.getTime() >= indexer.grabLimitWindowSeconds * 1000
+
+  return {
+    grabLimitWindowStartedAt: expired ? now : startedAt,
+    grabLimitWindowGrabs: (expired ? 0 : (current?.grabLimitWindowGrabs ?? 0)) + 1,
   }
 }
 
@@ -662,6 +717,40 @@ export const IndexerServiceLive = Layer.effect(
           .where(eq(indexerStats.indexerId, indexerId))
       })
 
+    const recordIndexerGrab = (indexerId: number) =>
+      Effect.gen(function* () {
+        const now = new Date()
+        const rows = yield* db
+          .select({ indexer: indexers, stats: indexerStats })
+          .from(indexers)
+          .leftJoin(indexerStats, eq(indexers.id, indexerStats.indexerId))
+          .where(eq(indexers.id, indexerId))
+        const row = rows[0]
+        if (!row) return yield* new NotFoundError({ entity: "indexer", id: indexerId })
+
+        const grabLimitWindow = nextGrabLimitWindow(row.indexer, row.stats ?? null, now)
+
+        if (!row.stats) {
+          yield* db.insert(indexerStats).values({
+            indexerId,
+            totalGrabs: 1,
+            lastGrabAt: now,
+            ...grabLimitWindow,
+          })
+          return
+        }
+
+        yield* db
+          .update(indexerStats)
+          .set({
+            totalGrabs: row.stats.totalGrabs + 1,
+            lastGrabAt: now,
+            ...grabLimitWindow,
+            updatedAt: now,
+          })
+          .where(eq(indexerStats.indexerId, indexerId))
+      })
+
     const markIndexerSearchHealthy = (indexerId: number, responseTimeMs: number) =>
       db
         .insert(indexerHealth)
@@ -766,6 +855,8 @@ export const IndexerServiceLive = Layer.effect(
               queryCooldownSeconds: input.queryCooldownSeconds ?? null,
               queryLimitCount: input.queryLimitCount ?? null,
               queryLimitWindowSeconds: input.queryLimitWindowSeconds ?? null,
+              grabLimitCount: input.grabLimitCount ?? null,
+              grabLimitWindowSeconds: input.grabLimitWindowSeconds ?? null,
               categories: input.categories ?? [],
               tags: input.tags ?? [],
             })
@@ -822,6 +913,10 @@ export const IndexerServiceLive = Layer.effect(
           if (data.queryLimitCount !== undefined) updateData.queryLimitCount = data.queryLimitCount
           if (data.queryLimitWindowSeconds !== undefined) {
             updateData.queryLimitWindowSeconds = data.queryLimitWindowSeconds
+          }
+          if (data.grabLimitCount !== undefined) updateData.grabLimitCount = data.grabLimitCount
+          if (data.grabLimitWindowSeconds !== undefined) {
+            updateData.grabLimitWindowSeconds = data.grabLimitWindowSeconds
           }
           if (data.categories !== undefined) updateData.categories = data.categories
           if (data.tags !== undefined) updateData.tags = data.tags
@@ -1016,6 +1111,20 @@ export const IndexerServiceLive = Layer.effect(
 
           return { releases, errors } satisfies SearchResult
         }),
+
+      canGrab: (indexerId) =>
+        Effect.gen(function* () {
+          const rows = yield* db
+            .select({ indexer: indexers, stats: indexerStats })
+            .from(indexers)
+            .leftJoin(indexerStats, eq(indexers.id, indexerStats.indexerId))
+            .where(eq(indexers.id, indexerId))
+          const row = rows[0]
+          if (!row || !row.indexer.enabled) return false
+          return !isGrabLimitActive(row.indexer, row.stats ?? null)
+        }),
+
+      recordGrab: recordIndexerGrab,
 
       seedBuiltInDefinitions,
 

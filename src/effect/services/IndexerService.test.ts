@@ -37,6 +37,8 @@ describe("IndexerService", () => {
       expect(indexer.queryCooldownSeconds).toBeNull()
       expect(indexer.queryLimitCount).toBeNull()
       expect(indexer.queryLimitWindowSeconds).toBeNull()
+      expect(indexer.grabLimitCount).toBeNull()
+      expect(indexer.grabLimitWindowSeconds).toBeNull()
       expect(indexer.categories).toEqual([])
       expect(indexer.health).toBeNull()
     }).pipe(Effect.provide(TestLayer)),
@@ -63,6 +65,8 @@ describe("IndexerService", () => {
         queryCooldownSeconds: 30,
         queryLimitCount: 20,
         queryLimitWindowSeconds: 300,
+        grabLimitCount: 10,
+        grabLimitWindowSeconds: 600,
         categories: [2000, 5000],
       })
       expect(indexer.priority).toBe(10)
@@ -70,6 +74,8 @@ describe("IndexerService", () => {
       expect(indexer.queryCooldownSeconds).toBe(30)
       expect(indexer.queryLimitCount).toBe(20)
       expect(indexer.queryLimitWindowSeconds).toBe(300)
+      expect(indexer.grabLimitCount).toBe(10)
+      expect(indexer.grabLimitWindowSeconds).toBe(600)
       expect(indexer.categories).toEqual([2000, 5000])
     }).pipe(Effect.provide(TestLayer)),
   )
@@ -179,6 +185,8 @@ describe("IndexerService", () => {
         queryCooldownSeconds: 45,
         queryLimitCount: 3,
         queryLimitWindowSeconds: 120,
+        grabLimitCount: 2,
+        grabLimitWindowSeconds: 600,
       })
       expect(updated.name).toBe("Renamed")
       expect(updated.enabled).toBe(false)
@@ -187,6 +195,8 @@ describe("IndexerService", () => {
       expect(updated.queryCooldownSeconds).toBe(45)
       expect(updated.queryLimitCount).toBe(3)
       expect(updated.queryLimitWindowSeconds).toBe(120)
+      expect(updated.grabLimitCount).toBe(2)
+      expect(updated.grabLimitWindowSeconds).toBe(600)
     }).pipe(Effect.provide(TestLayer)),
   )
 
@@ -642,6 +652,30 @@ describe("IndexerService", () => {
         successfulSearches: 1,
         queryLimitWindowSearches: 1,
       })
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("tracks rolling grab limits for indexers", () =>
+    Effect.gen(function* () {
+      const svc = yield* IndexerService
+      const indexer = yield* svc.add({
+        ...VALID_INPUT,
+        grabLimitCount: 1,
+        grabLimitWindowSeconds: 60,
+      })
+
+      expect(yield* svc.canGrab(indexer.id)).toBe(true)
+
+      yield* svc.recordGrab(indexer.id)
+
+      expect(yield* svc.canGrab(indexer.id)).toBe(false)
+
+      const stats = yield* svc.listStats()
+      expect(stats.find((item) => item.indexerId === indexer.id)).toMatchObject({
+        totalGrabs: 1,
+        grabLimitWindowGrabs: 1,
+      })
+      expect(stats.find((item) => item.indexerId === indexer.id)?.lastGrabAt).toBeInstanceOf(Date)
     }).pipe(Effect.provide(TestLayer)),
   )
 

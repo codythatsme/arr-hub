@@ -41,6 +41,9 @@ export interface GrabResult {
 const wantedEpisodes = (eps: ReadonlyArray<typeof episodesTable.$inferSelect>) =>
   eps.filter((e) => e.monitored && !e.hasFile)
 
+const isAcceptedDecision = (decision: RankedDecision) =>
+  decision.decision === "accepted" || decision.decision === "upgrade"
+
 /** Build indexer search term from a series title. Identity for now — override later if needed. */
 const searchTermForSeries = (title: string) => title
 
@@ -325,6 +328,19 @@ export const AcquisitionPipelineLive = Layer.effect(
       return []
     }
 
+    const firstGrabbableDecision = (
+      decisions: ReadonlyArray<RankedDecision>,
+      predicate: (decision: RankedDecision) => boolean = () => true,
+    ) =>
+      Effect.gen(function* () {
+        for (const decision of decisions) {
+          if (!isAcceptedDecision(decision) || !predicate(decision)) continue
+          const canGrab = yield* indexerService.canGrab(decision.candidate.indexerId)
+          if (canGrab) return decision
+        }
+        return null
+      })
+
     const grabSeason = (
       seasonId: number,
     ): Effect.Effect<ReadonlyArray<GrabResult>, PipelineError> =>
@@ -353,9 +369,9 @@ export const AcquisitionPipelineLive = Layer.effect(
           )
           yield* policyEngine.recordDecisions(packDecisions, packEvalCtx)
 
-          const packBest = packDecisions.find(
+          const packBest = yield* firstGrabbableDecision(
+            packDecisions,
             (d) =>
-              (d.decision === "accepted" || d.decision === "upgrade") &&
               d.parsed !== null &&
               isSeasonPack(d.parsed) &&
               d.parsed.season === ctx.season.seasonNumber,
@@ -367,6 +383,7 @@ export const AcquisitionPipelineLive = Layer.effect(
               client.id,
               packBest.candidate.downloadUrl,
             )
+            yield* indexerService.recordGrab(packBest.candidate.indexerId)
 
             const coveredEpisodeIds = mapCandidateToEpisodes(packBest.parsed, ctx.episodes)
             yield* linkQueueToTv(hash, ctx.series.id, coveredEpisodeIds)
@@ -396,7 +413,7 @@ export const AcquisitionPipelineLive = Layer.effect(
           const decisions = yield* policyEngine.evaluate(releases, ctx.qualityProfileId, evalCtx)
           yield* policyEngine.recordDecisions(decisions, evalCtx)
 
-          const best = decisions.find((d) => d.decision === "accepted" || d.decision === "upgrade")
+          const best = yield* firstGrabbableDecision(decisions)
           if (!best) continue
 
           const client = yield* pickClient(best.candidate.protocol)
@@ -404,6 +421,7 @@ export const AcquisitionPipelineLive = Layer.effect(
             client.id,
             best.candidate.downloadUrl,
           )
+          yield* indexerService.recordGrab(best.candidate.indexerId)
           yield* linkQueueToTv(hash, ctx.series.id, [ep.id])
 
           results.push({ hash, candidateTitle: best.candidate.title })
@@ -442,7 +460,7 @@ export const AcquisitionPipelineLive = Layer.effect(
           })
 
           // Find first accepted/upgrade
-          const best = decisions.find((d) => d.decision === "accepted" || d.decision === "upgrade")
+          const best = yield* firstGrabbableDecision(decisions)
           if (!best) return null
 
           // Pick client matching the release protocol
@@ -453,6 +471,7 @@ export const AcquisitionPipelineLive = Layer.effect(
             client.id,
             best.candidate.downloadUrl,
           )
+          yield* indexerService.recordGrab(best.candidate.indexerId)
 
           // Link queue → movie
           yield* linkQueueToMovie(hash, movie.id)
@@ -523,7 +542,7 @@ export const AcquisitionPipelineLive = Layer.effect(
 
           yield* policyEngine.recordDecisions(decisions, evalCtx)
 
-          const best = decisions.find((d) => d.decision === "accepted" || d.decision === "upgrade")
+          const best = yield* firstGrabbableDecision(decisions)
           if (!best) return null
 
           const client = yield* pickClient(best.candidate.protocol)
@@ -531,6 +550,7 @@ export const AcquisitionPipelineLive = Layer.effect(
             client.id,
             best.candidate.downloadUrl,
           )
+          yield* indexerService.recordGrab(best.candidate.indexerId)
 
           yield* linkQueueToTv(hash, ctx.series.id, [ctx.episode.id])
 

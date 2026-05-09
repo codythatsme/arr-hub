@@ -53,6 +53,8 @@ const mockIndexerCatalogMethods = {
   listDefinitions: () => Effect.succeed([]),
   listStats: () => Effect.succeed([]),
   aggregateCapabilities: () => Effect.succeed({ searchTypes: [], categories: [] }),
+  canGrab: () => Effect.succeed(true),
+  recordGrab: () => Effect.void,
   addProxy: () => Effect.die("not implemented"),
   listProxies: () => Effect.succeed([]),
   updateProxy: () => Effect.die("not implemented"),
@@ -80,6 +82,20 @@ const MockIndexerServiceEmpty = Layer.succeed(IndexerService, {
   testConnection: () => Effect.die("not implemented"),
   search: () => Effect.succeed({ releases: [], errors: [] }),
   ...mockIndexerCatalogMethods,
+  listTypes: () => [],
+})
+
+const MockIndexerServiceGrabLimited = Layer.succeed(IndexerService, {
+  add: () => Effect.die("not implemented"),
+  list: () => Effect.die("not implemented"),
+  getById: () => Effect.die("not implemented"),
+  update: () => Effect.die("not implemented"),
+  remove: () => Effect.die("not implemented"),
+  testConnection: () => Effect.die("not implemented"),
+  search: () => Effect.succeed({ releases: [mockCandidate], errors: [] }),
+  ...mockIndexerCatalogMethods,
+  canGrab: () => Effect.succeed(false),
+  recordGrab: () => Effect.die("should not record exhausted grab"),
   listTypes: () => [],
 })
 
@@ -189,6 +205,19 @@ const RejectedLayer = AcquisitionPipelineLive.pipe(
   ),
 )
 
+const GrabLimitedLayer = AcquisitionPipelineLive.pipe(
+  Layer.provideMerge(
+    Layer.mergeAll(
+      MockDownloadClientService,
+      MockReleasePolicyEngine,
+      MockIndexerServiceGrabLimited,
+      MovieServiceLive,
+      SeriesServiceLive,
+      AdapterRegistryLive,
+    ).pipe(Layer.provideMerge(TestDbLive)),
+  ),
+)
+
 // ── Helpers ──
 
 function seedProfile() {
@@ -242,6 +271,15 @@ describe("AcquisitionPipeline", () => {
       const result = yield* pipeline.searchAndGrab(movie.id)
       expect(result).toBeNull()
     }).pipe(Effect.provide(RejectedLayer)),
+  )
+
+  it.effect("searchAndGrab returns null when accepted release has exhausted grab capacity", () =>
+    Effect.gen(function* () {
+      const movie = yield* addTestMovie(1)
+      const pipeline = yield* AcquisitionPipeline
+      const result = yield* pipeline.searchAndGrab(movie.id)
+      expect(result).toBeNull()
+    }).pipe(Effect.provide(GrabLimitedLayer)),
   )
 
   it.effect("searchAndGrab fails for unmonitored movie", () =>

@@ -127,6 +127,13 @@
       "when": 1778316632083,
       "tag": "0017_supreme_stone_men",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1778317566083,
+      "tag": "0018_exotic_cyclops",
+      "breakpoints": true
     }
   ]
 }

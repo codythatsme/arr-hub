@@ -22,6 +22,8 @@ const indexerInputSchema = z.object({
   queryCooldownSeconds: z.number().int().min(0).nullable().optional(),
   queryLimitCount: z.number().int().min(0).nullable().optional(),
   queryLimitWindowSeconds: z.number().int().min(0).nullable().optional(),
+  grabLimitCount: z.number().int().min(0).nullable().optional(),
+  grabLimitWindowSeconds: z.number().int().min(0).nullable().optional(),
   categories: z.array(z.number().int()).optional(),
   tags: z.array(z.string()).optional(),
 })
@@ -41,6 +43,8 @@ const indexerUpdateSchema = z.object({
   queryCooldownSeconds: z.number().int().min(0).nullable().optional(),
   queryLimitCount: z.number().int().min(0).nullable().optional(),
   queryLimitWindowSeconds: z.number().int().min(0).nullable().optional(),
+  grabLimitCount: z.number().int().min(0).nullable().optional(),
+  grabLimitWindowSeconds: z.number().int().min(0).nullable().optional(),
   categories: z.array(z.number().int()).optional(),
   tags: z.array(z.string()).optional(),
 })
