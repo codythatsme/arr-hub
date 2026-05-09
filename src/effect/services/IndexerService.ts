@@ -483,6 +483,20 @@ function releasePassesIndexerPolicy(
   return (release.seeders ?? -1) >= indexer.minimumSeeders
 }
 
+function searchQueryForIndexer(
+  indexer: typeof indexers.$inferSelect,
+  query: SearchQuery,
+): SearchQuery | null {
+  if (indexer.categories.length === 0) return query
+
+  if (query.categories && query.categories.length > 0) {
+    const allowed = query.categories.filter((category) => indexer.categories.includes(category))
+    return allowed.length > 0 ? { ...query, categories: allowed } : null
+  }
+
+  return { ...query, categories: indexer.categories }
+}
+
 function sameJson(left: unknown, right: unknown): boolean {
   return JSON.stringify(left) === JSON.stringify(right)
 }
@@ -1087,6 +1101,7 @@ export const IndexerServiceLive = Layer.effect(
           const results = yield* Effect.forEach(
             eligibleRows.filter(
               (row) =>
+                searchQueryForIndexer(row.indexer, query) !== null &&
                 !isBackoffActive(row.health) &&
                 !isQueryCooldownActive(row.indexer, row.stats) &&
                 !isQueryLimitActive(row.indexer, row.stats),
@@ -1101,6 +1116,8 @@ export const IndexerServiceLive = Layer.effect(
                   const proxy = yield* resolveOutboundProxy(indexer.proxyId)
                   const definitionYaml = yield* loadDefinitionYaml(indexer.definitionKey)
                   const factory = yield* registry.getIndexerFactory(indexer.type)
+                  const indexerQuery = searchQueryForIndexer(indexer, query)
+                  if (indexerQuery === null) return []
                   const config: IndexerConfig = {
                     id: indexer.id,
                     name: indexer.name,
@@ -1116,7 +1133,7 @@ export const IndexerServiceLive = Layer.effect(
                     proxy,
                   }
                   const adapter = factory(config)
-                  const releases = yield* adapter.search(query)
+                  const releases = yield* adapter.search(indexerQuery)
                   return releases.filter((release) => releasePassesIndexerPolicy(indexer, release))
                 }).pipe(
                   Effect.tap(() =>

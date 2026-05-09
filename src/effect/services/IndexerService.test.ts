@@ -310,6 +310,96 @@ describe("IndexerService", () => {
     }).pipe(Effect.provide(TestLayer)),
   )
 
+  it.effect("honors per-indexer category restrictions during search", () =>
+    Effect.gen(function* () {
+      const registry = yield* AdapterRegistry
+      const captured: Array<{
+        readonly name: string
+        readonly categories: ReadonlyArray<number> | undefined
+      }> = []
+      registry.registerIndexer(
+        "mock-category-restricted",
+        { displayName: "Mock Category Restricted", protocolAffinity: "torrent", authModel: "none" },
+        (config) => ({
+          testConnection: () => Effect.succeed({ searchTypes: ["search"], categories: [] }),
+          search: (query) => {
+            captured.push({ name: config.name, categories: query.categories })
+            return Effect.succeed([
+              {
+                title: `${config.name} Result`,
+                indexerId: config.id,
+                indexerName: config.name,
+                indexerPriority: config.priority,
+                size: 1_000,
+                seeders: 10,
+                leechers: 0,
+                age: 1,
+                downloadUrl: `https://example.com/${config.id}`,
+                infoUrl: null,
+                category: String(query.categories?.[0] ?? ""),
+                protocol: "torrent" as const,
+                publishedAt: new Date("2025-01-01T00:00:00Z"),
+                infohash: null,
+                downloadFactor: 1,
+                uploadFactor: 1,
+              },
+            ])
+          },
+        }),
+      )
+
+      const svc = yield* IndexerService
+      yield* svc.add({
+        ...VALID_INPUT,
+        name: "Movie Only",
+        type: "mock-category-restricted",
+        apiKey: "unused",
+        categories: [2000],
+      })
+      yield* svc.add({
+        ...VALID_INPUT,
+        name: "TV Only",
+        type: "mock-category-restricted",
+        apiKey: "unused",
+        categories: [5000],
+      })
+      yield* svc.add({
+        ...VALID_INPUT,
+        name: "Unrestricted",
+        type: "mock-category-restricted",
+        apiKey: "unused",
+        categories: [],
+      })
+
+      const movieSearch = yield* svc.search({
+        term: "example",
+        type: "movie",
+        categories: [2000],
+      })
+      expect(movieSearch.releases.map((release) => release.indexerName)).toEqual([
+        "Movie Only",
+        "Unrestricted",
+      ])
+      expect(captured).toEqual([
+        { name: "Movie Only", categories: [2000] },
+        { name: "Unrestricted", categories: [2000] },
+      ])
+      const movieStats = yield* svc.listStats()
+      expect(movieStats.map((item) => item.indexerName).toSorted()).toEqual([
+        "Movie Only",
+        "Unrestricted",
+      ])
+
+      captured.length = 0
+      yield* svc.search({ term: "example", type: "general" })
+      expect(captured).toEqual([
+        { name: "Movie Only", categories: [2000] },
+        { name: "TV Only", categories: [5000] },
+        { name: "Unrestricted", categories: undefined },
+      ])
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
   it.effect("seeds generic and Cardigann-style definitions", () =>
     Effect.gen(function* () {
       const svc = yield* IndexerService
