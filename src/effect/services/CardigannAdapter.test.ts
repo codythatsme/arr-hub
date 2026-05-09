@@ -387,6 +387,156 @@ search:
     expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-08T00:00:00.000Z")
   })
 
+  it("returns no releases when Cardigann JSON rows count is empty", async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ data: { total: 0 } })))
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 61,
+      name: "JSON Count Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "json-count-cardigann",
+      definitionYaml: `
+id: json-count-cardigann
+name: JSON Count Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings: []
+  modes:
+    search: [q]
+search:
+  paths:
+    - path: /api/search
+      response:
+        type: json
+  rows:
+    selector: $.data.results
+    count:
+      selector: $.data.total
+  fields:
+    title:
+      selector: title
+`,
+      baseUrl: "https://tracker.example",
+      apiKey: "",
+      priority: 35,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Missing Movie", type: "general", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(releases).toEqual([])
+  })
+
+  it("expands Cardigann JSON row attributes with multiple rows", async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            data: {
+              results: [
+                {
+                  torrents: {
+                    hd: {
+                      title: "Nested JSON Movie 2026 1080p WEB-DL",
+                      download: "/download/nested-hd",
+                      category: "Movies",
+                      size: "1.4 GB",
+                      seeders: 32,
+                    },
+                    remux: {
+                      title: "Nested JSON Movie 2026 2160p Remux",
+                      download: "/download/nested-remux",
+                      category: "Movies",
+                      size: "55 GB",
+                      seeders: 12,
+                    },
+                  },
+                },
+                { ignored: true },
+              ],
+            },
+          }),
+        ),
+    )
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 62,
+      name: "JSON Attribute Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "json-attribute-cardigann",
+      definitionYaml: `
+id: json-attribute-cardigann
+name: JSON Attribute Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+      newznab: 2000
+  modes:
+    search: [q]
+search:
+  paths:
+    - path: /api/search
+      response:
+        type: json
+  rows:
+    selector: $.data.results
+    attribute: torrents
+    multiple: true
+    missingAttributeEqualsNoResults: true
+  fields:
+    title:
+      selector: title
+    download:
+      selector: download
+    category:
+      selector: category
+    size:
+      selector: size
+    seeders:
+      selector: seeders
+`,
+      baseUrl: "https://tracker.example",
+      apiKey: "",
+      priority: 35,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Nested JSON Movie", type: "general", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(releases).toHaveLength(2)
+    expect(releases.map((release) => release.title)).toEqual([
+      "Nested JSON Movie 2026 1080p WEB-DL",
+      "Nested JSON Movie 2026 2160p Remux",
+    ])
+    expect(releases[0]).toMatchObject({
+      downloadUrl: "https://tracker.example/download/nested-hd",
+      category: "2000",
+      size: 1_400_000_000,
+      seeders: 32,
+    })
+    expect(releases[1]).toMatchObject({
+      downloadUrl: "https://tracker.example/download/nested-remux",
+      category: "2000",
+      size: 55_000_000_000,
+      seeders: 12,
+    })
+  })
+
   it("applies Cardigann preprocessing filters before JSON parsing", async () => {
     const fetchMock = vi.fn(async () => new Response(`callback(${JSON_RESULTS});`, { status: 200 }))
     vi.stubGlobal("fetch", fetchMock)

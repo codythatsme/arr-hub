@@ -620,6 +620,50 @@ search:
     expect(runtime.search.paths[0]?.responseType).toBe("html")
   })
 
+  it("parses Cardigann JSON row selector metadata", () => {
+    const runtime = parseCardigannRuntimeDefinitionYaml(`
+id: json-rows-cardigann
+name: JSON Rows Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+  modes:
+    search: [q]
+search:
+  paths:
+    - path: /api
+      response:
+        type: json
+  rows:
+    selector: $.data.results
+    attribute: torrents
+    multiple: true
+    missingattributeequalsnoresults: true
+    count:
+      selector: $.data.total
+  fields:
+    title:
+      selector: title
+`)
+
+    expect(runtime.search.rows).toEqual({
+      selector: "$.data.results",
+      attribute: "torrents",
+      multiple: true,
+      missingAttributeEqualsNoResults: true,
+      count: {
+        selector: "$.data.total",
+        optional: false,
+        filters: [],
+      },
+      filters: [],
+    })
+  })
+
   it("parses Cardigann request header templates", () => {
     const runtime = parseCardigannRuntimeDefinitionYaml(`
 id: header-cardigann

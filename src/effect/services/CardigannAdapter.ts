@@ -1828,13 +1828,62 @@ function parseJsonRows(
   variables: Record<string, TemplateValue>,
 ): ReadonlyArray<unknown> {
   const tokens = parseJsonPath(renderTemplate(rows.selector, variables))
-  if (tokens === null) return []
+  if (tokens === null) throw new Error(`Invalid Cardigann JSON rows selector: ${rows.selector}`)
 
   const selected = selectJsonPathValues(json, tokens)
-  if (selected.length === 1 && Array.isArray(selected[0])) {
-    return selected[0] as ReadonlyArray<unknown>
+  if (selected.length === 0) {
+    if (rows.missingAttributeEqualsNoResults === true) return []
+    throw new Error(`Cardigann JSON rows selector returned no results: ${rows.selector}`)
   }
+
+  const selectedRows =
+    selected.length === 1 && Array.isArray(selected[0])
+      ? (selected[0] as ReadonlyArray<unknown>)
+      : selected
+  const attributeRows =
+    rows.attribute === undefined
+      ? selectedRows
+      : selectedRows.flatMap((row) => jsonRowAttributeValues(row, rows, variables))
+  if (rows.multiple === true) return attributeRows.flatMap(jsonMultipleRowValues)
+  return attributeRows
+}
+
+function jsonRowAttributeValues(
+  row: unknown,
+  rows: CardigannRowsSelector,
+  variables: Record<string, TemplateValue>,
+): ReadonlyArray<unknown> {
+  const attribute = rows.attribute
+  if (attribute === undefined) return [row]
+
+  const tokens = parseJsonPath(renderTemplate(attribute, variables))
+  if (tokens === null)
+    throw new Error(`Invalid Cardigann JSON row attribute selector: ${attribute}`)
+
+  const selected = selectJsonPathValues(row, tokens)
+  if (selected.length === 0) {
+    if (rows.missingAttributeEqualsNoResults === true) return []
+    throw new Error(`Cardigann JSON row attribute selector returned no results: ${attribute}`)
+  }
+
   return selected
+}
+
+function jsonMultipleRowValues(row: unknown): ReadonlyArray<unknown> {
+  if (Array.isArray(row)) return row
+  if (isJsonRecord(row)) return Object.values(row)
+  return []
+}
+
+function jsonRowsCountIsEmpty(
+  json: unknown,
+  rows: CardigannRowsSelector,
+  variables: Record<string, TemplateValue>,
+): boolean {
+  if (rows.count === undefined) return false
+
+  const count = Number.parseInt(jsonFieldValue(json, rows.count, variables).replaceAll(",", ""), 10)
+  return Number.isFinite(count) && count < 1
 }
 
 function parseJsonReleases(
@@ -1847,6 +1896,8 @@ function parseJsonReleases(
   if (rowSelector === null) return []
 
   const json = JSON.parse(text) as unknown
+  if (jsonRowsCountIsEmpty(json, rowSelector, request.variables)) return []
+
   const rows = filterJsonRows(
     parseJsonRows(json, rowSelector, request.variables),
     rowSelector.filters,
