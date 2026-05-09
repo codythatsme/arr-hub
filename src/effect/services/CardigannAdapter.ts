@@ -73,6 +73,7 @@ interface SimpleHtmlSelector {
     readonly operator: string | null
     readonly value: string
   }>
+  readonly filters: ReadonlyArray<JsonSelectorFilter>
 }
 
 interface FormLoginParams {
@@ -1326,18 +1327,28 @@ function simpleSelectorTokens(selector: string): ReadonlyArray<string> {
   const tokens: Array<string> = []
   let current = ""
   let bracketDepth = 0
+  let parenDepth = 0
   let quote: string | null = null
 
   for (const char of selector.trim()) {
-    if ((char === `"` || char === `'`) && bracketDepth > 0) {
+    if ((char === `"` || char === `'`) && (bracketDepth > 0 || parenDepth > 0)) {
       quote = quote === char ? null : (quote ?? char)
     } else if (quote === null && char === "[") {
       bracketDepth += 1
     } else if (quote === null && char === "]") {
       bracketDepth = Math.max(0, bracketDepth - 1)
+    } else if (quote === null && char === "(") {
+      parenDepth += 1
+    } else if (quote === null && char === ")") {
+      parenDepth = Math.max(0, parenDepth - 1)
     }
 
-    if (quote === null && bracketDepth === 0 && (char === ">" || /\s/.test(char))) {
+    if (
+      quote === null &&
+      bracketDepth === 0 &&
+      parenDepth === 0 &&
+      (char === ">" || /\s/.test(char))
+    ) {
       const token = current.trim()
       if (token.length > 0) tokens.push(token.replace(/:(?:first|last)-child\b/g, ""))
       current = ""
@@ -1351,14 +1362,39 @@ function simpleSelectorTokens(selector: string): ReadonlyArray<string> {
   return tokens
 }
 
-function parseSimpleHtmlSelectorToken(token: string): SimpleHtmlSelector | null {
-  if (token.length === 0 || token.includes(":")) return null
+function htmlSelectorFilterStart(text: string): number {
+  let bracketDepth = 0
+  let quote: string | null = null
 
-  const tagMatch = token.match(/^[A-Za-z][\w:-]*/)
-  const idMatch = token.match(/#([\w-]+)/)
-  const classes = Array.from(token.matchAll(/\.([\w-]+)/g)).map((match) => match[1] ?? "")
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index] ?? ""
+    if ((char === `"` || char === "'") && bracketDepth > 0) {
+      quote = quote === char ? null : (quote ?? char)
+    } else if (quote === null && char === "[") {
+      bracketDepth += 1
+    } else if (quote === null && char === "]") {
+      bracketDepth = Math.max(0, bracketDepth - 1)
+    } else if (quote === null && bracketDepth === 0 && char === ":") {
+      return index
+    }
+  }
+
+  return -1
+}
+
+function parseSimpleHtmlSelectorToken(token: string): SimpleHtmlSelector | null {
+  if (token.length === 0) return null
+
+  const filterStart = htmlSelectorFilterStart(token)
+  const baseToken = filterStart < 0 ? token : token.slice(0, filterStart)
+  const filters = filterStart < 0 ? [] : parseJsonSelectorFilters(token.slice(filterStart))
+  if (filters === null) return null
+
+  const tagMatch = baseToken.match(/^[A-Za-z][\w:-]*/)
+  const idMatch = baseToken.match(/#([\w-]+)/)
+  const classes = Array.from(baseToken.matchAll(/\.([\w-]+)/g)).map((match) => match[1] ?? "")
   const attributes = Array.from(
-    token.matchAll(/\[([\w:-]+)(?:\s*([*^$]?=)\s*["']?([^"'\]]*)["']?)?\]/g),
+    baseToken.matchAll(/\[([\w:-]+)(?:\s*([*^$]?=)\s*["']?([^"'\]]*)["']?)?\]/g),
   ).map((match) => ({
     name: match[1] ?? "",
     operator: match[2] ?? null,
@@ -1370,6 +1406,7 @@ function parseSimpleHtmlSelectorToken(token: string): SimpleHtmlSelector | null 
     id: idMatch?.[1] ?? null,
     classes,
     attributes,
+    filters,
   }
 }
 
@@ -1437,6 +1474,38 @@ function htmlAttributeMatches(
   })
 }
 
+function unquotedHtmlSelectorFilterValue(value: string): string {
+  const quote = value[0]
+  return (quote === `"` || quote === "'") && value.endsWith(quote) ? value.slice(1, -1) : value
+}
+
+function htmlSelectorExists(element: HtmlElementMatch, selectorText: string): boolean {
+  return (
+    htmlElementSelfMatches(element, selectorText) ||
+    findHtmlElements(element.innerHtml, selectorText).length > 0
+  )
+}
+
+function htmlSelectorFiltersMatch(
+  element: HtmlElementMatch,
+  filters: ReadonlyArray<JsonSelectorFilter>,
+): boolean {
+  return filters.every((filter) => {
+    switch (filter.name) {
+      case "contains":
+        return htmlTextContent(element.innerHtml).includes(
+          unquotedHtmlSelectorFilterValue(filter.selector),
+        )
+      case "has":
+        return findHtmlElements(element.innerHtml, filter.selector).length > 0
+      case "not":
+        return !htmlSelectorExists(element, filter.selector)
+      default:
+        return true
+    }
+  })
+}
+
 function findHtmlElementsForToken(
   html: string,
   selectorText: string,
@@ -1453,16 +1522,20 @@ function findHtmlElementsForToken(
     if (selector.tag !== null && tagName !== selector.tag) continue
 
     const attributes = parseHtmlAttributes(match[2] ?? "")
-    if (htmlAttributeMatches(attributes, selector)) {
-      const sourceIndex = baseIndex + (match.index ?? 0)
-      matches.push({
-        tagName,
-        attributes,
-        innerHtml: match[3] ?? "",
-        outerHtml: match[0],
-        sourceIndex,
-        innerHtmlStartIndex: sourceIndex + match[0].indexOf(">") + 1,
-      })
+    const sourceIndex = baseIndex + (match.index ?? 0)
+    const element = {
+      tagName,
+      attributes,
+      innerHtml: match[3] ?? "",
+      outerHtml: match[0],
+      sourceIndex,
+      innerHtmlStartIndex: sourceIndex + match[0].indexOf(">") + 1,
+    }
+    if (
+      htmlAttributeMatches(attributes, selector) &&
+      htmlSelectorFiltersMatch(element, selector.filters)
+    ) {
+      matches.push(element)
     }
   }
   return matches
@@ -1668,7 +1741,10 @@ function htmlElementSelfMatches(element: HtmlElementMatch, selectorText: string)
   const selector = parseSimpleHtmlSelectorToken(tokens[0] ?? "")
   if (selector === null) return false
   if (selector.tag !== null && element.tagName !== selector.tag) return false
-  return htmlAttributeMatches(element.attributes, selector)
+  return (
+    htmlAttributeMatches(element.attributes, selector) &&
+    htmlSelectorFiltersMatch(element, selector.filters)
+  )
 }
 
 function htmlCaseValue(

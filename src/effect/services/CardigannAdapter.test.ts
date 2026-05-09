@@ -275,6 +275,31 @@ const HTML_ROW_FILTER_RESULTS = `<!doctype html>
   </body>
 </html>`
 
+const HTML_SELECTOR_PSEUDO_RESULTS = `<!doctype html>
+<html>
+  <body>
+    <table>
+      <tbody>
+        <tr class="torrent">
+          <td><a class="title">Wanted Movie 2026 1080p WEB-DL</a></td>
+          <td><a class="download" href="/download/wanted-pseudo">Download</a></td>
+          <td class="tag">Freeleech</td>
+        </tr>
+        <tr class="torrent">
+          <td><a class="title">Missing Download Movie 2026 1080p WEB-DL</a></td>
+          <td class="tag">Freeleech</td>
+        </tr>
+        <tr class="torrent">
+          <td><a class="title">Dead Movie 2026 1080p WEB-DL</a></td>
+          <td><a class="download" href="/download/dead-pseudo">Download</a></td>
+          <td class="tag">Freeleech</td>
+          <td><span class="dead">Dead</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </body>
+</html>`
+
 const HTML_NESTED_RESULTS = `<!doctype html>
 <html>
   <body>
@@ -1775,6 +1800,64 @@ search:
     expect(releases[0]).toMatchObject({
       title: "Wanted Movie 2026 1080p WEB-DL",
       downloadUrl: "https://tracker.example/download/wanted",
+      category: "2000",
+    })
+  })
+
+  it("filters Cardigann HTML selectors with contains, has, and not pseudo filters", async () => {
+    const fetchMock = vi.fn(async () => new Response(HTML_SELECTOR_PSEUDO_RESULTS, { status: 200 }))
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 69,
+      name: "HTML Selector Pseudo Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "html-selector-pseudo-cardigann",
+      definitionYaml: `
+id: html-selector-pseudo-cardigann
+name: HTML Selector Pseudo Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+      newznab: 2000
+  modes:
+    search: [q]
+search:
+  paths:
+    - path: /browse
+      response:
+        type: html
+  rows:
+    selector: tr.torrent:contains(Freeleech):has(a.download):not(span.dead)
+  fields:
+    title:
+      selector: a.title:contains(Wanted Movie)
+    download:
+      selector: a.download:contains(Download)
+      attribute: href
+    category:
+      text: Movies
+`,
+      baseUrl: "https://tracker.example",
+      apiKey: "",
+      priority: 35,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Wanted Movie", type: "general", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "Wanted Movie 2026 1080p WEB-DL",
+      downloadUrl: "https://tracker.example/download/wanted-pseudo",
       category: "2000",
     })
   })
