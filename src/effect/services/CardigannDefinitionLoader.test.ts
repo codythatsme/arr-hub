@@ -98,6 +98,7 @@ caps:
       "immortalseed",
       "xspeeds",
       "revolutiontt",
+      "pretome",
       "morethantv",
       "hdaccess",
       "torrent-network",
@@ -587,6 +588,31 @@ caps:
           { id: 2040, name: "Movies HD" },
           { id: 5040, name: "TV HD" },
           { id: 3040, name: "Music Lossless" },
+          { id: 7020, name: "Ebooks" },
+        ]),
+      },
+    })
+    expect(
+      BUILT_IN_CARDIGANN_DEFINITIONS.find((definition) => definition.definitionKey === "pretome"),
+    ).toMatchObject({
+      displayName: "PreToMe",
+      baseUrl: "https://pretome.info/",
+      privacy: "private",
+      supportsRss: false,
+      supportsSearch: true,
+      tags: ["private", "general", "movies", "tv", "music", "books", "html"],
+      authFields: expect.arrayContaining([
+        expect.objectContaining({ name: "username", type: "text", required: true }),
+        expect.objectContaining({ name: "password", type: "password", required: true }),
+        expect.objectContaining({ name: "pin", type: "password", required: true }),
+      ]),
+      capabilities: {
+        searchTypes: ["search", "movie", "tvsearch"],
+        categories: expect.arrayContaining([
+          { id: 4010, name: "Applications/Windows" },
+          { id: 2040, name: "Movies/720p" },
+          { id: 5040, name: "TV/HDTV" },
+          { id: 3040, name: "Music/FLAC" },
           { id: 7020, name: "Ebooks" },
         ]),
       },

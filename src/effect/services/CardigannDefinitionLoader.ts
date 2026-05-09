@@ -4063,6 +4063,295 @@ search:
       text: "1"
 `
 
+const PRETOME = `
+id: pretome
+name: PreToMe
+description: Private ratioless 0Day/general tracker exposed through a first-pass form-login HTML Cardigann definition.
+type: private
+links:
+  - https://pretome.info/
+version: builtin-cardigann-1
+rss: false
+tags:
+  - private
+  - general
+  - movies
+  - tv
+  - music
+  - books
+  - html
+settings:
+  - name: username
+    label: Username
+    type: text
+    required: true
+  - name: password
+    label: Password
+    type: password
+    required: true
+  - name: pin
+    label: PIN
+    type: password
+    required: true
+    helpText: PreToMe site PIN.
+caps:
+  categorymappings:
+    - id: "22"
+      cat: PC
+      desc: Applications
+      newznab: 4000
+    - id: "22"
+      cat: PC/0day
+      desc: Applications/Windows
+      newznab: 4010
+    - id: "22"
+      cat: PC/Mac
+      desc: Applications/MAC
+      newznab: 4030
+    - id: "22"
+      cat: PC
+      desc: Applications/Linux
+      newznab: 4000
+    - id: "27"
+      cat: Books/EBook
+      desc: Ebooks
+      newznab: 7020
+    - id: "4"
+      cat: Console
+      desc: Games
+      newznab: 1000
+    - id: "4"
+      cat: PC/Games
+      desc: Games/PC
+      newznab: 4050
+    - id: "4"
+      cat: PC/Games
+      desc: Games/RIP
+      newznab: 4050
+    - id: "4"
+      cat: PC/Games
+      desc: Games/ISO
+      newznab: 4050
+    - id: "4"
+      cat: Console/Xbox 360
+      desc: Games/XBOX360
+      newznab: 1050
+    - id: "4"
+      cat: Console/PS3
+      desc: Games/PS3
+      newznab: 1080
+    - id: "4"
+      cat: Console/Wii
+      desc: Games/Wii
+      newznab: 1030
+    - id: "4"
+      cat: Console/PSP
+      desc: Games/PSP
+      newznab: 1020
+    - id: "4"
+      cat: Console/Other
+      desc: Games/NSW
+      newznab: 1090
+    - id: "4"
+      cat: Console/NDS
+      desc: Games/NDS
+      newznab: 1010
+    - id: "4"
+      cat: Console/Xbox
+      desc: Games/Xbox
+      newznab: 1040
+    - id: "4"
+      cat: Console/Other
+      desc: Games/PS2
+      newznab: 1090
+    - id: "31"
+      cat: Other
+      desc: Miscellaneous
+      newznab: 8000
+    - id: "31"
+      cat: Books/EBook
+      desc: Miscellaneous/Ebook
+      newznab: 7020
+    - id: "31"
+      cat: Other/Misc
+      desc: Miscellaneous/RARFiX
+      newznab: 8010
+    - id: "19"
+      cat: Movies
+      desc: Movies
+      newznab: 2000
+    - id: "19"
+      cat: Movies
+      desc: Movies/x264
+      newznab: 2000
+    - id: "19"
+      cat: Movies/HD
+      desc: Movies/720p
+      newznab: 2040
+    - id: "19"
+      cat: Movies/SD
+      desc: Movies/XviD
+      newznab: 2030
+    - id: "19"
+      cat: Movies/HD
+      desc: Movies/BluRay
+      newznab: 2040
+    - id: "19"
+      cat: Movies/SD
+      desc: Movies/DVDRiP
+      newznab: 2030
+    - id: "19"
+      cat: Movies/HD
+      desc: Movies/1080p
+      newznab: 2040
+    - id: "19"
+      cat: Movies/SD
+      desc: Movies/DVD
+      newznab: 2030
+    - id: "19"
+      cat: Movies/SD
+      desc: Movies/DVDR
+      newznab: 2030
+    - id: "19"
+      cat: Movies
+      desc: Movies/WMV
+      newznab: 2000
+    - id: "19"
+      cat: Movies
+      desc: Movies/CAM
+      newznab: 2000
+    - id: "6"
+      cat: Audio
+      desc: Music
+      newznab: 3000
+    - id: "6"
+      cat: Audio/MP3
+      desc: Music/MP3
+      newznab: 3010
+    - id: "6"
+      cat: Audio/MP3
+      desc: Music/V2
+      newznab: 3010
+    - id: "6"
+      cat: Audio/Lossless
+      desc: Music/FLAC
+      newznab: 3040
+    - id: "6"
+      cat: Audio/MP3
+      desc: Music/320kbps
+      newznab: 3010
+    - id: "7"
+      cat: TV
+      desc: TV
+      newznab: 5000
+    - id: "7"
+      cat: TV/HD
+      desc: TV/x264
+      newznab: 5040
+    - id: "7"
+      cat: TV/HD
+      desc: TV/720p
+      newznab: 5040
+    - id: "7"
+      cat: TV/HD
+      desc: TV/HDTV
+      newznab: 5040
+    - id: "7"
+      cat: TV/SD
+      desc: TV/XviD
+      newznab: 5030
+    - id: "7"
+      cat: TV/HD
+      desc: TV/BluRay
+      newznab: 5040
+    - id: "7"
+      cat: TV/SD
+      desc: TV/DVDRiP
+      newznab: 5030
+    - id: "7"
+      cat: TV/SD
+      desc: TV/DVD
+      newznab: 5030
+    - id: "7"
+      cat: TV/Documentary
+      desc: TV/Documentary
+      newznab: 5080
+    - id: "7"
+      cat: TV/SD
+      desc: TV/PDTV
+      newznab: 5030
+    - id: "7"
+      cat: TV/SD
+      desc: TV/HD-DVD
+      newznab: 5030
+    - id: "51"
+      cat: XXX
+      desc: XXX
+      newznab: 6000
+    - id: "51"
+      cat: XXX/XviD
+      desc: XXX/XviD
+      newznab: 6030
+    - id: "51"
+      cat: XXX/DVD
+      desc: XXX/DVDRiP
+      newznab: 6010
+  modes:
+    search: [q]
+    movie-search: [q, imdbid]
+    tv-search: [q, season, ep, imdbid]
+    music-search: [q]
+    book-search: [q]
+login:
+  method: form
+  path: login.php
+  form: form
+  submitpath: takelogin.php
+  inputs:
+    username: "{{ .Config.Username }}"
+    password: "{{ .Config.Password }}"
+    login_pin: "{{ .Config.Pin }}"
+    returnto: /
+    login: Login
+  error:
+    - selector: 'table.body_table font[color~="red"]'
+search:
+  paths:
+    - path: 'browse.php?st=1&search={{ if .Query.IMDBID }}{{ .Query.IMDBID | urlencode }}{{ else }}{{ .Keywords | urlencode }}{{ end }}{{ if .Query.IMDBID }}&sd=1{{ end }}{{ range .Categories }}&cat[]={{ . }}{{ end }}&tags=&tf=all'
+      response:
+        type: html
+  rows:
+    selector: 'table tr.browse:has(a[href^="details.php?id="])'
+  fields:
+    title:
+      selector: a[href^="details.php?id="]
+      attribute: title
+    details:
+      selector: a[href^="details.php?id="]
+      attribute: href
+    download:
+      selector: a[href^="download.php"]
+      attribute: href
+    category:
+      selector: 'td:nth-of-type(1) a[href^="browse.php"]'
+    date:
+      selector: td:nth-of-type(6)
+      filters:
+        - name: timeago
+    size:
+      selector: td:nth-of-type(8)
+    grabs:
+      selector: td:nth-of-type(9)
+    seeders:
+      selector: td:nth-of-type(10)
+    leechers:
+      selector: td:nth-of-type(11)
+    downloadvolumefactor:
+      text: "0"
+    uploadvolumefactor:
+      text: "1"
+`
+
 const MORE_THAN_TV = `
 id: morethantv
 name: MoreThanTV
@@ -4280,6 +4569,7 @@ const BUILT_IN_CARDIGANN_SOURCES = [
   IMMORTAL_SEED,
   X_SPEEDS,
   REVOLUTION_TT,
+  PRETOME,
   MORE_THAN_TV,
   HDACCESS,
   TORRENT_NETWORK,

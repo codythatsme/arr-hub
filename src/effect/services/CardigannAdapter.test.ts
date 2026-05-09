@@ -498,6 +498,28 @@ const REVOLUTIONTT_HTML_RESULTS = `
   </table>
 </body></html>`
 
+const PRETOME_HTML_RESULTS = `
+<html><body>
+  <table>
+    <tbody>
+      <tr class="browse">
+        <td><a href="browse.php?cat[]=19&amp;tags=720p">Movies/720p</a></td>
+        <td>Type</td>
+        <td><a href="details.php?id=151" title="PreToMe Movie 2026 720p WEB-DL">PreToMe Movie</a></td>
+        <td>12</td>
+        <td>Comments</td>
+        <td>2 hours ago</td>
+        <td>Uploader</td>
+        <td>6.4 GB</td>
+        <td>22</td>
+        <td>41</td>
+        <td>3</td>
+        <td><a href="download.php?id=151">Download</a></td>
+      </tr>
+    </tbody>
+  </table>
+</body></html>`
+
 const RETROFLIX_JSON_RESULTS = JSON.stringify([
   {
     download_volume_factor: 0,
@@ -3546,6 +3568,102 @@ search:
       uploadFactor: 1,
     })
     expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-10T21:15:00.000Z")
+  })
+
+  it("parses PreToMe HTML results after form login", async () => {
+    const requests: Array<{ url: string; init: RequestInit | undefined }> = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(String(input))
+      requests.push({ url: String(input), init })
+      if (url.pathname === "/login.php") {
+        return new Response(
+          `<html><body>
+            <form action="takelogin.php" method="post">
+              <input type="hidden" name="returnto" value="/">
+              <input type="text" name="username">
+              <input type="password" name="password">
+              <input type="password" name="login_pin">
+            </form>
+          </body></html>`,
+          {
+            status: 200,
+            headers: { "set-cookie": "pretome_landing=abc; Path=/" },
+          },
+        )
+      }
+      if (url.pathname === "/takelogin.php") {
+        return new Response('<html><body><a href="logout.php">Logout</a></body></html>', {
+          status: 200,
+          headers: { "set-cookie": "pretome_session=xyz; Path=/" },
+        })
+      }
+      return new Response(PRETOME_HTML_RESULTS, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 106,
+      name: "PreToMe",
+      type: "cardigann_yaml",
+      definitionKey: "pretome",
+      baseUrl: "https://pretome.info/",
+      apiKey: "",
+      configValues: {
+        username: "alice",
+        password: "secret",
+        pin: "1234",
+      },
+      priority: 42,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({
+        term: "PreToMe Movie",
+        type: "movie",
+        categories: [2040],
+      }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    const landingRequest = requests[0]
+    expect(landingRequest?.url).toBe("https://pretome.info/login.php")
+    expect(landingRequest?.init?.method).toBeUndefined()
+
+    const loginRequest = requests[1]
+    expect(loginRequest?.url).toBe("https://pretome.info/takelogin.php")
+    expect(loginRequest?.init?.method).toBe("POST")
+    expect(new Headers(loginRequest?.init?.headers).get("cookie")).toBe("pretome_landing=abc")
+    const loginBody = new URLSearchParams(String(loginRequest?.init?.body ?? ""))
+    expect(loginBody.get("username")).toBe("alice")
+    expect(loginBody.get("password")).toBe("secret")
+    expect(loginBody.get("login_pin")).toBe("1234")
+    expect(loginBody.get("returnto")).toBe("/")
+    expect(loginBody.get("login")).toBe("Login")
+
+    const searchRequest = requests[2]
+    expect(searchRequest?.url).toBe(
+      "https://pretome.info/browse.php?st=1&search=PreToMe%20Movie&cat[]=19&tags=&tf=all",
+    )
+    expect(new Headers(searchRequest?.init?.headers).get("cookie")).toBe(
+      "pretome_landing=abc; pretome_session=xyz",
+    )
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "PreToMe Movie 2026 720p WEB-DL",
+      downloadUrl: "https://pretome.info/download.php?id=151",
+      infoUrl: "https://pretome.info/details.php?id=151",
+      category: "2040",
+      size: 6_400_000_000,
+      seeders: 41,
+      leechers: 3,
+      indexerId: 106,
+      indexerName: "PreToMe",
+      indexerPriority: 42,
+      downloadFactor: 0,
+      uploadFactor: 1,
+    })
   })
 
   it("parses RetroFlix SpeedApp JSON results with bearer auth", async () => {
