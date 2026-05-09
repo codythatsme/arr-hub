@@ -71,6 +71,13 @@
       "when": 1778303392940,
       "tag": "0009_aromatic_whirlwind",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1778304307583,
+      "tag": "0010_white_forge",
+      "breakpoints": true
     }
   ]
 }

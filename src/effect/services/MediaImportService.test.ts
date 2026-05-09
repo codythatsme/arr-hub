@@ -7,11 +7,14 @@ import { eq } from "drizzle-orm"
 import { Effect, Layer } from "effect"
 
 import {
+  downloadClients,
   episodes,
+  mediaFiles,
   movies,
   qualityItems,
   qualityProfiles,
   releaseDecisions,
+  remotePathMappings,
   seasons,
   series,
 } from "#/db/schema"
@@ -118,6 +121,56 @@ describe("MediaImportService", () => {
       expect(movieRows[0].existingQualityName).toBe("WEBDL1080p")
       expect(movieRows[0].existingQualityRank).toBe(55)
       expect(movieRows[0].existingFormatScore).toBe(120)
+
+      const fileRows = yield* db.select().from(mediaFiles)
+      expect(fileRows).toHaveLength(1)
+      expect(fileRows[0].mediaKind).toBe("movie")
+      expect(fileRows[0].mediaId).toBe(movieId)
+      expect(fileRows[0].path).toBe(result.targetPath)
+      expect(fileRows[0].sizeBytes).toBe(result.sizeBytes)
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.scoped("maps remote download paths before importing", () =>
+    Effect.gen(function* () {
+      const workspace = yield* withTempDir
+      const remoteRoot = "/remote/downloads"
+      const localRoot = path.join(workspace, "downloads")
+      const rootFolder = path.join(workspace, "library")
+      const localSource = path.join(localRoot, "Example.Movie.2026.1080p.WEB-DL.mkv")
+      yield* writeMediaFile(localSource, "full media")
+
+      const db = yield* Db
+      const client = yield* db
+        .insert(downloadClients)
+        .values({
+          name: "qBit",
+          type: "qbittorrent",
+          host: "download-host",
+          port: 8080,
+          username: "admin",
+          passwordEncrypted: "enc",
+        })
+        .returning({ id: downloadClients.id })
+      yield* db.insert(remotePathMappings).values({
+        downloadClientId: client[0].id,
+        remotePath: remoteRoot,
+        localPath: localRoot,
+      })
+      const { movieId } = yield* seedMovie(rootFolder, 13)
+
+      const importer = yield* MediaImportService
+      const result = yield* importer.importMovie({
+        movieId,
+        sourcePath: `${remoteRoot}/Example.Movie.2026.1080p.WEB-DL.mkv`,
+        releaseTitle: "Example.Movie.2026.1080p.WEB-DL-GRP",
+        downloadClientId: client[0].id,
+      })
+
+      expect(result.sourcePath).toBe(localSource)
+      expect(yield* pathExists(result.targetPath)).toBe(true)
+      const fileRows = yield* db.select().from(mediaFiles).where(eq(mediaFiles.mediaId, movieId))
+      expect(fileRows[0].sourcePath).toBe(localSource)
     }).pipe(Effect.provide(TestLayer)),
   )
 
@@ -199,6 +252,9 @@ describe("MediaImportService", () => {
         expect(row.existingQualityRank).toBe(25)
         expect(row.existingFormatScore).toBe(10)
       }
+      const fileRows = yield* db.select().from(mediaFiles)
+      expect(fileRows).toHaveLength(2)
+      expect(fileRows.map((row) => row.mediaKind)).toEqual(["episode", "episode"])
     }).pipe(Effect.provide(TestLayer)),
   )
 

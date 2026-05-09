@@ -3,10 +3,19 @@ import { access, copyFile, link, mkdir, readdir, rename, stat, unlink } from "no
 import path from "node:path"
 
 import { SqlError } from "@effect/sql/SqlError"
-import { and, asc, eq, inArray } from "drizzle-orm"
+import { and, asc, eq, inArray, isNull, or } from "drizzle-orm"
 import { Context, Effect, Layer } from "effect"
 
-import { episodes, movies, qualityItems, releaseDecisions, seasons, series } from "#/db/schema"
+import {
+  episodes,
+  mediaFiles,
+  movies,
+  qualityItems,
+  releaseDecisions,
+  remotePathMappings,
+  seasons,
+  series,
+} from "#/db/schema"
 import type { QualityName } from "#/effect/domain/quality"
 import {
   MediaImportError,
@@ -55,6 +64,7 @@ export interface MovieImportInput {
   readonly movieId: number
   readonly sourcePath: string | null
   readonly releaseTitle: string
+  readonly downloadClientId?: number | null
 }
 
 export interface EpisodeImportInput {
@@ -62,6 +72,7 @@ export interface EpisodeImportInput {
   readonly episodeIds: ReadonlyArray<number>
   readonly sourcePath: string | null
   readonly releaseTitle: string
+  readonly downloadClientId?: number | null
 }
 
 type MediaImportFailure = MediaImportError | NotFoundError | SettingsError | SqlError
@@ -167,6 +178,65 @@ function parseFileHandling(value: string): FileHandlingMode {
   return value === "move" || value === "hardlink" ? value : "copy"
 }
 
+function stripTrailingPathSeparators(value: string): string {
+  return value.replace(/[\\/]+$/g, "")
+}
+
+function applyRemotePathMapping(
+  sourcePath: string | null,
+  mappings: ReadonlyArray<typeof remotePathMappings.$inferSelect>,
+): string | null {
+  if (sourcePath === null || sourcePath.trim().length === 0) return sourcePath
+  const source = sourcePath.trim()
+  const sortedMappings = mappings
+    .filter((mapping) => mapping.remotePath.trim().length > 0)
+    .toSorted((a, b) => b.remotePath.length - a.remotePath.length)
+
+  for (const mapping of sortedMappings) {
+    const remotePath = stripTrailingPathSeparators(mapping.remotePath.trim())
+    const localPath = stripTrailingPathSeparators(mapping.localPath.trim())
+    if (remotePath.length === 0 || localPath.length === 0) continue
+    if (
+      source === remotePath ||
+      source.startsWith(`${remotePath}/`) ||
+      source.startsWith(`${remotePath}\\`)
+    ) {
+      const remainder = source.slice(remotePath.length).replace(/^[\\/]+/g, "")
+      return remainder.length > 0 ? path.join(localPath, remainder) : localPath
+    }
+  }
+
+  return source
+}
+
+function resolveSourcePath(
+  db: Context.Tag.Service<typeof Db>,
+  sourcePath: string | null,
+  downloadClientId: number | null,
+): Effect.Effect<string | null, SqlError> {
+  if (sourcePath === null || sourcePath.trim().length === 0) return Effect.succeed(sourcePath)
+
+  return Effect.gen(function* () {
+    const mappings =
+      downloadClientId === null
+        ? yield* db
+            .select()
+            .from(remotePathMappings)
+            .where(isNull(remotePathMappings.downloadClientId))
+        : yield* db
+            .select()
+            .from(remotePathMappings)
+            .where(
+              or(
+                eq(remotePathMappings.downloadClientId, downloadClientId),
+                isNull(remotePathMappings.downloadClientId),
+              ),
+            )
+
+    return applyRemotePathMapping(sourcePath, mappings)
+  })
+}
+
 function qualityRankFallback(
   db: Context.Tag.Service<typeof Db>,
   profileId: number | null,
@@ -222,6 +292,50 @@ function tvDecision(
       .limit(1)
     return rows[0] ?? null
   })
+}
+
+function upsertMediaFile(
+  db: Context.Tag.Service<typeof Db>,
+  input: {
+    readonly mediaKind: "movie" | "episode"
+    readonly mediaId: number
+    readonly path: string
+    readonly sourcePath: string
+    readonly sizeBytes: number
+    readonly qualityName: QualityName
+    readonly qualityRank: number | null
+    readonly formatScore: number
+  },
+): Effect.Effect<void, SqlError> {
+  const now = new Date()
+  return db
+    .insert(mediaFiles)
+    .values({
+      mediaKind: input.mediaKind,
+      mediaId: input.mediaId,
+      path: input.path,
+      sourcePath: input.sourcePath,
+      sizeBytes: input.sizeBytes,
+      qualityName: input.qualityName,
+      qualityRank: input.qualityRank,
+      formatScore: input.formatScore,
+      importedAt: now,
+      updatedAt: now,
+    })
+    .onConflictDoUpdate({
+      target: [mediaFiles.mediaKind, mediaFiles.mediaId],
+      set: {
+        path: input.path,
+        sourcePath: input.sourcePath,
+        sizeBytes: input.sizeBytes,
+        qualityName: input.qualityName,
+        qualityRank: input.qualityRank,
+        formatScore: input.formatScore,
+        importedAt: now,
+        updatedAt: now,
+      },
+    })
+    .pipe(Effect.asVoid)
 }
 
 function collectMediaFiles(
@@ -500,11 +614,16 @@ export const MediaImportServiceLive = Layer.effect(
           const movie = movieRows[0]
           if (!movie) return yield* new NotFoundError({ entity: "movie", id: input.movieId })
 
+          const resolvedSourcePath = yield* resolveSourcePath(
+            db,
+            input.sourcePath,
+            input.downloadClientId ?? null,
+          )
           const [handling, namingConvention, qualityName, candidates] = yield* Effect.all([
             loadHandling(),
             loadNaming(),
             parseQuality(input.releaseTitle),
-            collectMediaFiles(input.sourcePath),
+            collectMediaFiles(resolvedSourcePath),
           ])
           const candidate = candidates.toSorted(compareBySizeDesc)[0]
           const targetPath = yield* targetMoviePath(
@@ -534,6 +653,16 @@ export const MediaImportServiceLive = Layer.effect(
               existingFormatScore: formatScore,
             })
             .where(eq(movies.id, movie.id))
+          yield* upsertMediaFile(db, {
+            mediaKind: "movie",
+            mediaId: movie.id,
+            path: targetPath,
+            sourcePath: candidate.path,
+            sizeBytes: candidate.sizeBytes,
+            qualityName,
+            qualityRank,
+            formatScore,
+          })
 
           return {
             mediaKind: "movie" as const,
@@ -572,10 +701,15 @@ export const MediaImportServiceLive = Layer.effect(
             return yield* new NotFoundError({ entity: "episode", id: missingId })
           }
 
+          const resolvedSourcePath = yield* resolveSourcePath(
+            db,
+            input.sourcePath,
+            input.downloadClientId ?? null,
+          )
           const [handling, qualityName, candidates] = yield* Effect.all([
             loadHandling(),
             parseQuality(input.releaseTitle),
-            collectMediaFiles(input.sourcePath),
+            collectMediaFiles(resolvedSourcePath),
           ])
           const targets = yield* selectEpisodeFiles(episodeRows, candidates)
           const decision = yield* tvDecision(db, input.releaseTitle)
@@ -598,6 +732,16 @@ export const MediaImportServiceLive = Layer.effect(
                 existingFormatScore: formatScore,
               })
               .where(eq(episodes.id, target.episode.id))
+            yield* upsertMediaFile(db, {
+              mediaKind: "episode",
+              mediaId: target.episode.id,
+              path: targetPath,
+              sourcePath: target.candidate.path,
+              sizeBytes: target.candidate.sizeBytes,
+              qualityName,
+              qualityRank,
+              formatScore,
+            })
 
             results.push({
               mediaKind: "episode",

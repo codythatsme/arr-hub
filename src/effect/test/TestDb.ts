@@ -239,6 +239,32 @@ const runDdl = Effect.gen(function* () {
     updated_at INTEGER NOT NULL DEFAULT (unixepoch())
   )`
 
+  yield* sql`CREATE TABLE remote_path_mappings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    download_client_id INTEGER REFERENCES download_clients(id) ON DELETE CASCADE,
+    remote_path TEXT NOT NULL,
+    local_path TEXT NOT NULL,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    UNIQUE(download_client_id, remote_path)
+  )`
+
+  yield* sql`CREATE TABLE media_files (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    media_kind TEXT NOT NULL,
+    media_id INTEGER NOT NULL,
+    path TEXT NOT NULL UNIQUE,
+    source_path TEXT,
+    size_bytes INTEGER NOT NULL DEFAULT 0,
+    quality_name TEXT,
+    quality_rank INTEGER,
+    format_score INTEGER NOT NULL DEFAULT 0,
+    imported_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    UNIQUE(media_kind, media_id)
+  )`
+
   yield* sql`CREATE TABLE media_servers (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,

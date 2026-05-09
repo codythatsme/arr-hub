@@ -92,6 +92,7 @@ export const DownloadMonitorLive = Layer.effect(
           const completedRows = yield* db
             .select({
               id: downloadQueue.id,
+              downloadClientId: downloadQueue.downloadClientId,
               movieId: downloadQueue.movieId,
               seriesId: downloadQueue.seriesId,
               episodeIds: downloadQueue.episodeIds,
@@ -118,6 +119,7 @@ export const DownloadMonitorLive = Layer.effect(
                   movieId: row.movieId,
                   sourcePath: row.outputPath,
                   releaseTitle: row.title,
+                  downloadClientId: row.downloadClientId,
                 }),
               )
               if (imported._tag === "Left") {
@@ -139,6 +141,7 @@ export const DownloadMonitorLive = Layer.effect(
                   episodeIds: row.episodeIds,
                   sourcePath: row.outputPath,
                   releaseTitle: row.title,
+                  downloadClientId: row.downloadClientId,
                 }),
               )
               if (imported._tag === "Left") {

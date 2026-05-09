@@ -333,6 +333,50 @@ export const downloadQueue = sqliteTable("download_queue", {
     .default(sql`(unixepoch())`),
 })
 
+export const remotePathMappings = sqliteTable(
+  "remote_path_mappings",
+  {
+    id: integer().primaryKey({ autoIncrement: true }),
+    downloadClientId: integer("download_client_id").references(() => downloadClients.id, {
+      onDelete: "cascade",
+    }),
+    remotePath: text("remote_path").notNull(),
+    localPath: text("local_path").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+    updatedAt: integer("updated_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (t) => [unique().on(t.downloadClientId, t.remotePath)],
+)
+
+export const mediaFiles = sqliteTable(
+  "media_files",
+  {
+    id: integer().primaryKey({ autoIncrement: true }),
+    mediaKind: text("media_kind", { enum: ["movie", "episode"] }).notNull(),
+    mediaId: integer("media_id").notNull(),
+    path: text().notNull().unique(),
+    sourcePath: text("source_path"),
+    sizeBytes: integer("size_bytes").notNull().default(0),
+    qualityName: text("quality_name"),
+    qualityRank: integer("quality_rank"),
+    formatScore: integer("format_score").notNull().default(0),
+    importedAt: integer("imported_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+    updatedAt: integer("updated_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (t) => [unique().on(t.mediaKind, t.mediaId)],
+)
+
 // ── Media Servers ──
 
 export const mediaServers = sqliteTable("media_servers", {
