@@ -377,17 +377,22 @@ const HTML_ATTRIBUTE_OPERATOR_RESULTS = `<!doctype html>
           <td><a class="download" href="/download/wrong-attribute">Download</a></td>
           <td><span class="category" data-value="movies">Movies</span></td>
         </tr>
-        <tr class="torrent" data-flags="vip freeleech" data-language="en-GB" data-status="alive">
+        <tr class="torrent" data-flags="vip freeleech" data-language="EN-gb" data-status="alive">
           <td><a class="title">Attribute Movie 2026 1080p WEB-DL</a></td>
           <td>
             <a
               class="download"
               rel="nofollow external"
-              data-protocol="torrent-main"
+              data-protocol="Torrent-Main"
               href="/download/attribute-final"
             >Download</a>
           </td>
-          <td><span class="category" data-value="movies">Movies</span></td>
+          <td><span class="category" data-value="Movies">Movies</span></td>
+        </tr>
+        <tr class="torrent" data-flags="vip freeleech" data-language="fr" data-status="alive">
+          <td><a class="title">Wrong Language Attribute Movie 2026 1080p WEB-DL</a></td>
+          <td><a class="download" href="/download/wrong-language-attribute">Download</a></td>
+          <td><span class="category" data-value="Movies">Movies</span></td>
         </tr>
         <tr class="torrent" data-flags="internal" data-language="en-AU" data-status="alive">
           <td><a class="title">Wrong Internal Attribute Movie 2026 1080p WEB-DL</a></td>
@@ -2679,15 +2684,15 @@ search:
       response:
         type: html
   rows:
-    selector: tr.torrent[data-flags~=freeleech][data-language|=en][data-status!=dead]
+    selector: tr.torrent[data-flags~=freeleech][data-language|=en i][data-status!=dead]
   fields:
     title:
       selector: a.title
     download:
-      selector: a.download[rel~=nofollow][data-protocol|=torrent][data-disabled!=true]
+      selector: a.download[rel~=nofollow][data-protocol|=torrent i][data-disabled!=true]
       attribute: href
     category:
-      selector: span.category[data-value=movies]
+      selector: span.category[data-value=movies i]
 `,
       baseUrl: "https://tracker.example",
       apiKey: "",

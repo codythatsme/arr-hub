@@ -81,6 +81,7 @@ interface SimpleHtmlSelector {
     readonly name: string
     readonly operator: string | null
     readonly value: string
+    readonly caseInsensitive: boolean
   }>
   readonly filters: ReadonlyArray<JsonSelectorFilter>
 }
@@ -1635,11 +1636,14 @@ function parseSimpleHtmlSelectorToken(token: string): SimpleHtmlSelector | null 
   const idMatch = baseToken.match(/#([\w-]+)/)
   const classes = Array.from(baseToken.matchAll(/\.([\w-]+)/g)).map((match) => match[1] ?? "")
   const attributes = Array.from(
-    baseToken.matchAll(/\[([\w:-]+)(?:\s*([!~|*^$]?=)\s*["']?([^"'\]]*)["']?)?\]/g),
+    baseToken.matchAll(
+      /\[([\w:-]+)(?:\s*([!~|*^$]?=)\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=\]]+))(?:\s+([is]))?)?\]/gi,
+    ),
   ).map((match) => ({
     name: match[1] ?? "",
     operator: match[2] ?? null,
-    value: match[3] ?? "",
+    value: match[3] ?? match[4] ?? match[5] ?? "",
+    caseInsensitive: (match[6] ?? "").toLowerCase() === "i",
   }))
 
   return {
@@ -1685,14 +1689,18 @@ function htmlAttributeMatches(
     const actual = attributes[attribute.name.toLowerCase()]
     if (actual === undefined) return attribute.operator === "!="
     if (attribute.operator === null) return true
-    if (attribute.operator === "=") return actual === attribute.value
-    if (attribute.operator === "!=") return actual !== attribute.value
-    if (attribute.operator === "^=") return actual.startsWith(attribute.value)
-    if (attribute.operator === "$=") return actual.endsWith(attribute.value)
-    if (attribute.operator === "*=") return actual.includes(attribute.value)
-    if (attribute.operator === "~=") return actual.split(/\s+/).includes(attribute.value)
+    const actualValue = attribute.caseInsensitive ? actual.toLowerCase() : actual
+    const expectedValue = attribute.caseInsensitive
+      ? attribute.value.toLowerCase()
+      : attribute.value
+    if (attribute.operator === "=") return actualValue === expectedValue
+    if (attribute.operator === "!=") return actualValue !== expectedValue
+    if (attribute.operator === "^=") return actualValue.startsWith(expectedValue)
+    if (attribute.operator === "$=") return actualValue.endsWith(expectedValue)
+    if (attribute.operator === "*=") return actualValue.includes(expectedValue)
+    if (attribute.operator === "~=") return actualValue.split(/\s+/).includes(expectedValue)
     if (attribute.operator === "|=")
-      return actual === attribute.value || actual.startsWith(`${attribute.value}-`)
+      return actualValue === expectedValue || actualValue.startsWith(`${expectedValue}-`)
     return false
   })
 }
