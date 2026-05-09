@@ -297,6 +297,58 @@ const SPEEDCD_HTML_RESULTS = `
   </div>
 </body></html>`
 
+const HD_TORRENTS_HTML_RESULTS = `
+<html><body>
+  <table class="mainblockcontenttt">
+    <tbody>
+      <tr>
+        <td class="mainblockcontent">Type</td>
+        <td class="mainblockcontent">Comments</td>
+        <td class="mainblockcontent">Name</td>
+        <td class="mainblockcontent">Uploader</td>
+        <td class="mainblockcontent">Download</td>
+        <td class="mainblockcontent">Files</td>
+        <td class="mainblockcontent">Added</td>
+        <td class="mainblockcontent">Size</td>
+        <td class="mainblockcontent">Seeders</td>
+        <td class="mainblockcontent">Leechers</td>
+        <td class="mainblockcontent">Grabs</td>
+      </tr>
+      <tr>
+        <td class="mainblockcontent"><a href="torrents.php?category=70">Movie/UHD/Blu-Ray</a></td>
+        <td class="mainblockcontent">5</td>
+        <td class="mainblockcontent">
+          <a href="details.php?id=999" onmouseover="return overlib('src=\\'./posters/999.jpg\\'')">HD-Torrents Movie 2026 UHD BluRay</a>
+          <span>High bitrate encode</span>
+          <img src="/pic/free.png" alt="Free">
+          <img src="/pic/internal.png" alt="Internal">
+        </td>
+        <td class="mainblockcontent">Uploader</td>
+        <td class="mainblockcontent"><a href="download.php?id=999">Download</a></td>
+        <td class="mainblockcontent">42</td>
+        <td class="mainblockcontent"><span title="10 May 2026 15:30:00">2 hours ago</span></td>
+        <td class="mainblockcontent">12.5 GB</td>
+        <td class="mainblockcontent">99</td>
+        <td class="mainblockcontent">12</td>
+        <td class="mainblockcontent">34</td>
+      </tr>
+      <tr>
+        <td class="mainblockcontent"><a href="torrents.php?category=64">Movie/2160p</a></td>
+        <td class="mainblockcontent">0</td>
+        <td class="mainblockcontent"><a href="details.php?id=1000">HD-Torrents Movie 2026 2160p Quarter</a></td>
+        <td class="mainblockcontent">Uploader</td>
+        <td class="mainblockcontent"><a href="download.php?id=1000">Download</a></td>
+        <td class="mainblockcontent">18</td>
+        <td class="mainblockcontent"><span title="10 May 2026 16:00:00">1 hour ago</span></td>
+        <td class="mainblockcontent">8.4 GB</td>
+        <td class="mainblockcontent">44</td>
+        <td class="mainblockcontent">3</td>
+        <td class="mainblockcontent">9</td>
+      </tr>
+    </tbody>
+  </table>
+</body></html>`
+
 const RETROFLIX_JSON_RESULTS = JSON.stringify([
   {
     download_volume_factor: 0,
@@ -2981,6 +3033,86 @@ search:
       uploadFactor: 1,
     })
     expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-10T14:45:00.000Z")
+  })
+
+  it("parses HD-Torrents HTML results after POST login", async () => {
+    const requests: Array<{ url: string; init: RequestInit | undefined }> = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(String(input))
+      requests.push({ url: String(input), init })
+      if (url.pathname === "/login.php") {
+        return new Response(
+          "<html><body>If your browser doesn't have javascript enabled</body></html>",
+          {
+            status: 200,
+            headers: { "set-cookie": "hdt_session=abc; Path=/" },
+          },
+        )
+      }
+      return new Response(HD_TORRENTS_HTML_RESULTS, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 101,
+      name: "HD-Torrents",
+      type: "cardigann_yaml",
+      definitionKey: "hd-torrents",
+      baseUrl: "https://hdts.ru/",
+      apiKey: "",
+      configValues: {
+        username: "alice",
+        password: "secret",
+      },
+      priority: 37,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({
+        term: "HD.Torrents Movie",
+        type: "movie",
+        categories: [2050],
+        imdbId: "tt9990001",
+      }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    const loginRequest = requests[0]
+    expect(loginRequest?.url).toBe("https://hdts.ru/login.php")
+    expect(loginRequest?.init?.method).toBe("POST")
+    const loginBody = new URLSearchParams(String(loginRequest?.init?.body ?? ""))
+    expect(loginBody.get("uid")).toBe("alice")
+    expect(loginBody.get("pwd")).toBe("secret")
+
+    const searchRequest = requests[1]
+    expect(searchRequest?.url).toBe(
+      "https://hdts.ru/torrents.php?category[]=70&category[]=1&search=tt9990001%20HD%20Torrents%20Movie&active=0&options=0",
+    )
+    expect(new Headers(searchRequest?.init?.headers).get("cookie")).toBe("hdt_session=abc")
+    expect(releases).toHaveLength(2)
+    expect(releases[0]).toMatchObject({
+      title: "HD-Torrents Movie 2026 UHD BluRay",
+      downloadUrl: "https://hdts.ru/download.php?id=999",
+      infoUrl: "https://hdts.ru/details.php?id=999",
+      category: "2050",
+      size: 12_500_000_000,
+      seeders: 99,
+      leechers: 12,
+      indexerId: 101,
+      indexerName: "HD-Torrents",
+      indexerPriority: 37,
+      downloadFactor: 0,
+      uploadFactor: 1,
+    })
+    expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-10T15:30:00.000Z")
+    expect(releases[1]).toMatchObject({
+      title: "HD-Torrents Movie 2026 2160p Quarter",
+      category: "2045",
+      downloadFactor: 1,
+      uploadFactor: 1,
+    })
   })
 
   it("parses RetroFlix SpeedApp JSON results with bearer auth", async () => {

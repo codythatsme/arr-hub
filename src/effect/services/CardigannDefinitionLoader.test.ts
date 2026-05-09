@@ -93,6 +93,7 @@ caps:
       "scenetime",
       "hd-space",
       "speedcd",
+      "hd-torrents",
       "morethantv",
       "hdaccess",
       "torrent-network",
@@ -447,6 +448,32 @@ caps:
           { id: 5070, name: "TV/Anime" },
           { id: 4050, name: "Games/PC ISO" },
           { id: 7000, name: "Books-Mags" },
+        ]),
+      },
+    })
+    expect(
+      BUILT_IN_CARDIGANN_DEFINITIONS.find(
+        (definition) => definition.definitionKey === "hd-torrents",
+      ),
+    ).toMatchObject({
+      displayName: "HD-Torrents",
+      baseUrl: "https://hdts.ru/",
+      privacy: "private",
+      supportsRss: false,
+      supportsSearch: true,
+      tags: ["private", "movies", "tv", "music", "html"],
+      authFields: expect.arrayContaining([
+        expect.objectContaining({ name: "username", type: "text", required: true }),
+        expect.objectContaining({ name: "password", type: "password", required: true }),
+      ]),
+      capabilities: {
+        searchTypes: ["search", "movie", "tvsearch"],
+        categories: expect.arrayContaining([
+          { id: 2050, name: "Movie/Blu-Ray" },
+          { id: 2045, name: "Movie/UHD/Remux" },
+          { id: 5040, name: "TV Show/1080p/i" },
+          { id: 3020, name: "Music/2160p" },
+          { id: 6000, name: "XXX/2160p" },
         ]),
       },
     })

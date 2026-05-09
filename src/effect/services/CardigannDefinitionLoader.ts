@@ -2901,6 +2901,196 @@ search:
       text: "1"
 `
 
+const HD_TORRENTS = `
+id: hd-torrents
+name: HD-Torrents
+description: Private HD tracker exposed through a first-pass POST-login HTML Cardigann definition.
+type: private
+links:
+  - https://hdts.ru/
+version: builtin-cardigann-1
+rss: false
+tags:
+  - private
+  - movies
+  - tv
+  - music
+  - html
+settings:
+  - name: username
+    label: Username
+    type: text
+    required: true
+  - name: password
+    label: Password
+    type: password
+    required: true
+caps:
+  categorymappings:
+    - id: "70"
+      cat: Movies/BluRay
+      desc: Movie/UHD/Blu-Ray
+      newznab: 2050
+    - id: "1"
+      cat: Movies/BluRay
+      desc: Movie/Blu-Ray
+      newznab: 2050
+    - id: "71"
+      cat: Movies/UHD
+      desc: Movie/UHD/Remux
+      newznab: 2045
+    - id: "2"
+      cat: Movies/HD
+      desc: Movie/Remux
+      newznab: 2040
+    - id: "5"
+      cat: Movies/HD
+      desc: Movie/1080p/i
+      newznab: 2040
+    - id: "3"
+      cat: Movies/HD
+      desc: Movie/720p
+      newznab: 2040
+    - id: "64"
+      cat: Movies/UHD
+      desc: Movie/2160p
+      newznab: 2045
+    - id: "63"
+      cat: Audio
+      desc: Movie/Audio Track
+      newznab: 3000
+    - id: "72"
+      cat: TV/UHD
+      desc: TV Show/UHD/Blu-ray
+      newznab: 5045
+    - id: "59"
+      cat: TV/HD
+      desc: TV Show/Blu-ray
+      newznab: 5040
+    - id: "73"
+      cat: TV/UHD
+      desc: TV Show/UHD/Remux
+      newznab: 5045
+    - id: "60"
+      cat: TV/HD
+      desc: TV Show/Remux
+      newznab: 5040
+    - id: "30"
+      cat: TV/HD
+      desc: TV Show/1080p/i
+      newznab: 5040
+    - id: "38"
+      cat: TV/HD
+      desc: TV Show/720p
+      newznab: 5040
+    - id: "65"
+      cat: TV/UHD
+      desc: TV Show/2160p
+      newznab: 5045
+    - id: "44"
+      cat: Audio
+      desc: Music/Album
+      newznab: 3000
+    - id: "61"
+      cat: Audio/Video
+      desc: Music/Blu-Ray
+      newznab: 3020
+    - id: "62"
+      cat: Audio/Video
+      desc: Music/Remux
+      newznab: 3020
+    - id: "57"
+      cat: Audio/Video
+      desc: Music/1080p/i
+      newznab: 3020
+    - id: "45"
+      cat: Audio/Video
+      desc: Music/720p
+      newznab: 3020
+    - id: "66"
+      cat: Audio/Video
+      desc: Music/2160p
+      newznab: 3020
+    - id: "58"
+      cat: XXX
+      desc: XXX/Blu-ray
+      newznab: 6000
+    - id: "74"
+      cat: XXX
+      desc: XXX/UHD/Blu-ray
+      newznab: 6000
+    - id: "48"
+      cat: XXX
+      desc: XXX/1080p/i
+      newznab: 6000
+    - id: "47"
+      cat: XXX
+      desc: XXX/720p
+      newznab: 6000
+    - id: "67"
+      cat: XXX
+      desc: XXX/2160p
+      newznab: 6000
+  modes:
+    search: [q]
+    movie-search: [q, imdbid]
+    tv-search: [q, season, ep, imdbid]
+login:
+  method: post
+  path: login.php
+  inputs:
+    uid: "{{ .Config.Username }}"
+    pwd: "{{ .Config.Password }}"
+  error:
+    - selector: 'div > font[color="#FF0000"]'
+search:
+  paths:
+    - path: 'torrents.php?{{ range .Categories }}category[]={{ . }}&{{ end }}search={{ if .Query.IMDBID }}{{ .Query.IMDBID | urlencode }}%20{{ end }}{{ .Keywords | replace "." " " | urlencode }}&active=0&options=0'
+      response:
+        type: html
+  rows:
+    selector: 'table.mainblockcontenttt tr:has(a[href^="details.php?id="])'
+  fields:
+    title:
+      selector: td:nth-of-type(3) a[href^="details.php?id="]
+    details:
+      selector: td:nth-of-type(3) a[href^="details.php?id="]
+      attribute: href
+    download:
+      selector: td:nth-of-type(5) a[href^="download.php"]
+      attribute: href
+    category:
+      selector: td:nth-of-type(1) a[href*="category="]
+      attribute: href
+      filters:
+        - name: querystring
+          args: category
+    date:
+      selector: td:nth-of-type(7) span
+      attribute: title
+      filters:
+        - name: dateparse
+          args: "dd MMM yyyy HH:mm:ss"
+    size:
+      selector: td:nth-of-type(8)
+    seeders:
+      selector: td:nth-last-of-type(3)
+    leechers:
+      selector: td:nth-last-of-type(2)
+    downloadvolumefactor:
+      case:
+        'img[src$="no_ratio.png"]': "0"
+        'img[src$="free.png"]': "0"
+        'img[src$="50.png"]': "0.5"
+        'img[src$="25.png"]': "0.75"
+        'img[src$="75.png"]': "0.25"
+        tr: "1"
+    uploadvolumefactor:
+      case:
+        'img[src$="no_ratio.png"]': "0"
+        tr: "1"
+`
+
 const MORE_THAN_TV = `
 id: morethantv
 name: MoreThanTV
@@ -3113,6 +3303,7 @@ const BUILT_IN_CARDIGANN_SOURCES = [
   SCENE_TIME,
   HD_SPACE,
   SPEED_CD,
+  HD_TORRENTS,
   MORE_THAN_TV,
   HDACCESS,
   TORRENT_NETWORK,
