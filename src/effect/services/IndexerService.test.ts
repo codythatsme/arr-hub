@@ -119,19 +119,19 @@ describe("IndexerService", () => {
       const second = yield* svc.refreshDefinitions()
 
       expect(first).toMatchObject({
-        total: 37,
-        created: 37,
+        total: 38,
+        created: 38,
         updated: 0,
         unchanged: 0,
       })
       expect(first.definitions.map((definition) => definition.action)).toEqual(
-        Array(37).fill("created"),
+        Array(38).fill("created"),
       )
       expect(second).toMatchObject({
-        total: 37,
+        total: 38,
         created: 0,
         updated: 0,
-        unchanged: 37,
+        unchanged: 38,
       })
       expect(second.definitions.every((definition) => definition.previousVersion !== null)).toBe(
         true,
@@ -421,6 +421,7 @@ describe("IndexerService", () => {
         "nebulance",
         "nyaa",
         "open-tv-torrents",
+        "pixelhd",
         "pretome",
         "public-domain-movie-torrents",
         "retroflix",
@@ -737,6 +738,17 @@ describe("IndexerService", () => {
           tags: ["private", "movies", "tv", "music", "json", "api"],
         },
       )
+      expect(
+        definitions.find((definition) => definition.definitionKey === "pixelhd"),
+      ).toMatchObject({
+        displayName: "PiXELHD",
+        protocol: "torrent",
+        implementation: "cardigann_yaml",
+        baseUrl: "https://pixelhd.me/",
+        privacy: "private",
+        supportsRss: false,
+        tags: ["private", "movies", "html"],
+      })
       expect(
         definitions.find((definition) => definition.definitionKey === "revolutiontt"),
       ).toMatchObject({

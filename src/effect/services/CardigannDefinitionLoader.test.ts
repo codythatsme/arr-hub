@@ -105,6 +105,7 @@ caps:
       "xspeeds",
       "xthor",
       "hdbits",
+      "pixelhd",
       "revolutiontt",
       "pretome",
       "morethantv",
@@ -795,6 +796,24 @@ caps:
           { id: 3000, name: "Music" },
           { id: 5060, name: "Sport" },
         ]),
+      },
+    })
+    expect(
+      BUILT_IN_CARDIGANN_DEFINITIONS.find((definition) => definition.definitionKey === "pixelhd"),
+    ).toMatchObject({
+      displayName: "PiXELHD",
+      baseUrl: "https://pixelhd.me/",
+      privacy: "private",
+      supportsRss: false,
+      supportsSearch: true,
+      tags: ["private", "movies", "html"],
+      authFields: expect.arrayContaining([
+        expect.objectContaining({ name: "cookie", type: "cookie", required: true }),
+        expect.objectContaining({ name: "userAgent", type: "text", required: true }),
+      ]),
+      capabilities: {
+        searchTypes: ["search", "movie"],
+        categories: expect.arrayContaining([{ id: 2040, name: "Movies HD" }]),
       },
     })
     expect(

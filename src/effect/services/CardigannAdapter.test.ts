@@ -695,6 +695,25 @@ const HDBITS_JSON_RESULTS = JSON.stringify({
   ],
 })
 
+const PIXELHD_HTML_RESULTS = `
+<html><body>
+  <table>
+    <tbody>
+      <tr class="group_torrent">
+        <td><a href="torrents.php?id=321">PiXELHD Movie 2026 1080p MP4</a></td>
+        <td>Format</td>
+        <td><span class="time" title="May 10 2026, 19:05">10 minutes ago</span></td>
+        <td>3.5 GB</td>
+        <td>Uploader</td>
+        <td>18</td>
+        <td>44</td>
+        <td>5</td>
+        <td><a href="torrents.php?action=download&id=321">Download</a></td>
+      </tr>
+    </tbody>
+  </table>
+</body></html>`
+
 const REVOLUTIONTT_HTML_RESULTS = `
 <html><body>
   <table id="torrents-table">
@@ -4243,6 +4262,65 @@ search:
       uploadFactor: 1,
     })
     expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-09T12:34:56.000Z")
+  })
+
+  it("parses PiXELHD HTML results with cookie auth and user-agent headers", async () => {
+    const requests: Array<{ url: string; init: RequestInit | undefined }> = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      requests.push({ url: String(input), init })
+      return new Response(PIXELHD_HTML_RESULTS, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 107,
+      name: "PiXELHD",
+      type: "cardigann_yaml",
+      definitionKey: "pixelhd",
+      baseUrl: "https://pixelhd.me/",
+      apiKey: "",
+      configValues: {
+        cookie: "pixelhd_session=abc",
+        userAgent: "Mozilla/5.0 PixelHD",
+      },
+      priority: 43,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({
+        term: "PiXELHD Movie",
+        type: "movie",
+        categories: [2040],
+        imdbId: "tt2223334",
+      }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const request = requests[0]
+    expect(request?.url).toBe(
+      "https://pixelhd.me/torrents.php?order_by=time&order_way=desc&imdbid=tt2223334",
+    )
+    const headers = new Headers(request?.init?.headers)
+    expect(headers.get("cookie")).toBe("pixelhd_session=abc")
+    expect(headers.get("user-agent")).toBe("Mozilla/5.0 PixelHD")
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "PiXELHD Movie 2026 1080p MP4",
+      downloadUrl: "https://pixelhd.me/torrents.php?action=download&id=321",
+      infoUrl: "https://pixelhd.me/torrents.php?id=321",
+      category: "2040",
+      size: 3_500_000_000,
+      seeders: 44,
+      leechers: 5,
+      indexerId: 107,
+      indexerName: "PiXELHD",
+      indexerPriority: 43,
+      downloadFactor: 0,
+      uploadFactor: 1,
+    })
+    expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-10T19:05:00.000Z")
   })
 
   it("parses RevolutionTT HTML results after POST login", async () => {

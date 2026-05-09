@@ -5171,6 +5171,94 @@ search:
         "*": "1"
 `
 
+const PIXELHD = `
+id: pixelhd
+name: PiXELHD
+description: Private HD tracker exposed through a first-pass cookie-auth HTML Cardigann definition.
+type: private
+links:
+  - https://pixelhd.me/
+version: builtin-cardigann-1
+rss: false
+tags:
+  - private
+  - movies
+  - html
+settings:
+  - name: cookie
+    label: Cookie
+    type: cookie
+    required: true
+    helpText: Browser cookie for PiXELHD.
+  - name: userAgent
+    label: Cookie User-Agent
+    type: text
+    required: true
+    helpText: User-Agent associated with the browser cookie.
+caps:
+  categorymappings:
+    - id: "1"
+      cat: Movies/HD
+      desc: Movies HD
+      newznab: 2040
+  modes:
+    search: [q]
+    movie-search: [q, imdbid]
+login:
+  method: cookie
+  inputs:
+    cookie: "{{ .Config.Cookie }}"
+search:
+  headers:
+    user-agent: "{{ .Config.UserAgent }}"
+  paths:
+    - path: /torrents.php
+      response:
+        type: html
+      inputs:
+        order_by: time
+        order_way: desc
+        imdbid: "{{ .Query.IMDBID }}"
+        groupname: "{{ if .Query.IMDBID }}{{ else }}{{ .Keywords }}{{ end }}"
+  rows:
+    selector: 'tr.group_torrent:has(a[href^="torrents.php?id="])'
+  fields:
+    id:
+      selector: 'a[href^="torrents.php?id="]'
+      attribute: href
+      filters:
+        - name: querystring
+          args: id
+    title:
+      selector: 'a[href^="torrents.php?id="]'
+    details:
+      selector: 'a[href^="torrents.php?id="]'
+      attribute: href
+    download:
+      selector: 'a[href^="torrents.php?action=download"]'
+      attribute: href
+    category:
+      text: "1"
+    date:
+      selector: "td:nth-child(3) span.time"
+      attribute: title
+      filters:
+        - name: dateparse
+          args: "MMM dd yyyy, HH:mm"
+    size:
+      selector: "td:nth-child(4)"
+    grabs:
+      selector: "td:nth-child(6)"
+    seeders:
+      selector: "td:nth-child(7)"
+    leechers:
+      selector: "td:nth-child(8)"
+    downloadvolumefactor:
+      text: "0"
+    uploadvolumefactor:
+      text: "1"
+`
+
 const REVOLUTION_TT = `
 id: revolutiontt
 name: RevolutionTT
@@ -5891,6 +5979,7 @@ const BUILT_IN_CARDIGANN_SOURCES = [
   X_SPEEDS,
   XTHOR,
   HDBITS,
+  PIXELHD,
   REVOLUTION_TT,
   PRETOME,
   MORE_THAN_TV,
