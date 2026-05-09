@@ -12,6 +12,7 @@ import type {
   MediaServerType,
 } from "../domain/mediaServer"
 import { ValidationError } from "../errors"
+import { cardigannYamlMetadata, createCardigannYamlAdapter } from "./CardigannAdapter"
 import type { DownloadClientAdapter } from "./DownloadClientAdapter"
 import type { IndexerAdapter } from "./IndexerAdapter"
 import { createJellyfinAdapter, jellyfinMetadata } from "./JellyfinAdapter"
@@ -165,6 +166,7 @@ export const AdapterRegistryLive = Layer.sync(AdapterRegistry, () => {
   // Register built-in adapters
   registry.registerDownloadClient("qbittorrent", qbittorrentMetadata, createQBittorrentAdapter)
   registry.registerDownloadClient("sabnzbd", sabnzbdMetadata, createSABnzbdAdapter)
+  registry.registerIndexer("cardigann_yaml", cardigannYamlMetadata, createCardigannYamlAdapter)
   registry.registerIndexer("torznab", torznabMetadata, createTorznabAdapter)
   registry.registerIndexer("newznab", newznabMetadata, createTorznabAdapter)
   registry.registerMediaServer("plex", plexMetadata, createPlexAdapter)

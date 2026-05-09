@@ -4,10 +4,37 @@ import type {
   IndexerAuthField,
   IndexerAuthFieldType,
   IndexerCategoryMapping,
+  IndexerCapabilities,
   IndexerDefinitionSeed,
   IndexerPrivacy,
   IndexerProtocol,
 } from "../domain/indexer"
+
+export type CardigannResponseType = "torznab" | "newznab" | "rss"
+
+export interface CardigannSearchPath {
+  readonly path: string
+  readonly method: "get" | "post"
+  readonly inputs: Readonly<Record<string, string>>
+  readonly categories: ReadonlyArray<string>
+  readonly responseType: CardigannResponseType
+}
+
+export interface CardigannSearchRuntime {
+  readonly allowEmptyInputs: boolean
+  readonly inputs: Readonly<Record<string, string>>
+  readonly paths: ReadonlyArray<CardigannSearchPath>
+}
+
+export interface CardigannRuntimeDefinition {
+  readonly definitionKey: string
+  readonly displayName: string
+  readonly protocol: IndexerProtocol
+  readonly baseUrl: string | null
+  readonly categories: ReadonlyArray<IndexerCategoryMapping>
+  readonly capabilities: IndexerCapabilities
+  readonly search: CardigannSearchRuntime
+}
 
 const PUBLIC_DOMAIN_MOVIE_TORRENTS = `
 id: public-domain-movie-torrents
@@ -33,6 +60,19 @@ caps:
   modes:
     search: [q]
     movie-search: [q, imdbid]
+search:
+  paths:
+    - path: /api
+      response:
+        type: torznab
+      inputs:
+        apikey: "{{ .Config.APIKey }}"
+        t: "{{ .Query.Type }}"
+        q: "{{ .Keywords }}"
+        cat: "{{ .Categories }}"
+        imdbid: "{{ .Query.IMDBID }}"
+        tmdbid: "{{ .Query.TMDBID }}"
+        limit: "{{ .Query.Limit }}"
 `
 
 const OPEN_TV_TORRENTS = `
@@ -62,6 +102,21 @@ caps:
   modes:
     search: [q]
     tv-search: [q, season, ep, imdbid]
+search:
+  paths:
+    - path: /api
+      response:
+        type: torznab
+      inputs:
+        apikey: "{{ .Config.APIKey }}"
+        t: "{{ .Query.Type }}"
+        q: "{{ .Keywords }}"
+        cat: "{{ .Categories }}"
+        imdbid: "{{ .Query.IMDBID }}"
+        tvdbid: "{{ .Query.TVDBID }}"
+        season: "{{ .Query.Season }}"
+        ep: "{{ .Query.Ep }}"
+        limit: "{{ .Query.Limit }}"
 `
 
 const CATEGORY_NAME_TO_NEWZNAB: Readonly<Record<string, number>> = {
@@ -80,10 +135,24 @@ const CATEGORY_NAME_TO_NEWZNAB: Readonly<Record<string, number>> = {
   xxx: 6000,
 }
 
-export const BUILT_IN_CARDIGANN_DEFINITIONS: ReadonlyArray<IndexerDefinitionSeed> = [
-  parseCardigannDefinitionYaml(PUBLIC_DOMAIN_MOVIE_TORRENTS),
-  parseCardigannDefinitionYaml(OPEN_TV_TORRENTS),
-]
+const BUILT_IN_CARDIGANN_SOURCES = [PUBLIC_DOMAIN_MOVIE_TORRENTS, OPEN_TV_TORRENTS] as const
+
+export const BUILT_IN_CARDIGANN_DEFINITIONS: ReadonlyArray<IndexerDefinitionSeed> =
+  BUILT_IN_CARDIGANN_SOURCES.map(parseCardigannDefinitionYaml)
+
+export const BUILT_IN_CARDIGANN_RUNTIME_DEFINITIONS: ReadonlyArray<CardigannRuntimeDefinition> =
+  BUILT_IN_CARDIGANN_SOURCES.map(parseCardigannRuntimeDefinitionYaml)
+
+export function getBuiltInCardigannRuntimeDefinition(
+  definitionKey: string | null | undefined,
+): CardigannRuntimeDefinition | null {
+  if (!definitionKey) return null
+  return (
+    BUILT_IN_CARDIGANN_RUNTIME_DEFINITIONS.find(
+      (definition) => definition.definitionKey === definitionKey,
+    ) ?? null
+  )
+}
 
 export function parseCardigannDefinitionYaml(source: string): IndexerDefinitionSeed {
   const root = expectRecord(load(source), "definition")
@@ -120,6 +189,20 @@ export function parseCardigannDefinitionYaml(source: string): IndexerDefinitionS
   }
 }
 
+export function parseCardigannRuntimeDefinitionYaml(source: string): CardigannRuntimeDefinition {
+  const root = expectRecord(load(source), "definition")
+  const seed = parseCardigannDefinitionYaml(source)
+  return {
+    definitionKey: seed.definitionKey,
+    displayName: seed.displayName,
+    protocol: seed.protocol,
+    baseUrl: seed.baseUrl,
+    categories: seed.categories,
+    capabilities: seed.capabilities,
+    search: parseSearchRuntime(root, seed.protocol),
+  }
+}
+
 function parseSearchTypes(value: unknown): ReadonlyArray<string> {
   const caps = expectRecord(value, "caps")
   const modes = isRecord(caps.modes) ? caps.modes : {}
@@ -130,6 +213,51 @@ function parseSearchTypes(value: unknown): ReadonlyArray<string> {
     types.push("tvsearch")
   }
   return types
+}
+
+function parseSearchRuntime(
+  root: Record<string, unknown>,
+  protocol: IndexerProtocol,
+): CardigannSearchRuntime {
+  const search = expectRecord(root.search ?? {}, "search")
+  const paths = parseSearchPaths(search.paths ?? search.path, protocol)
+  return {
+    allowEmptyInputs: optionalBoolean(search, "allowEmptyInputs") ?? false,
+    inputs: parseInputMap(search.inputs),
+    paths,
+  }
+}
+
+function parseSearchPaths(
+  value: unknown,
+  protocol: IndexerProtocol,
+): ReadonlyArray<CardigannSearchPath> {
+  const fallbackResponseType: CardigannResponseType = protocol === "usenet" ? "newznab" : "torznab"
+  const pathValues =
+    typeof value === "string" ? [{ path: value }] : Array.isArray(value) ? value : []
+
+  return pathValues.map((item) => {
+    const path = typeof item === "string" ? { path: item } : expectRecord(item, "search path")
+    const response = isRecord(path.response) ? path.response : {}
+    return {
+      path: requiredString(path, "path"),
+      method: parseMethod(optionalString(path, "method") ?? "get"),
+      inputs: parseInputMap(path.inputs),
+      categories: parseOptionalStringArray(path.categories),
+      responseType: parseResponseType(optionalString(response, "type") ?? fallbackResponseType),
+    }
+  })
+}
+
+function parseInputMap(value: unknown): Readonly<Record<string, string>> {
+  if (value === undefined) return {}
+  const record = expectRecord(value, "inputs")
+  const inputs: Record<string, string> = {}
+  for (const [key, val] of Object.entries(record)) {
+    if (typeof val !== "string") throw new Error(`input ${key} must be a string`)
+    inputs[key] = val
+  }
+  return inputs
 }
 
 function parseAuthFields(value: unknown): ReadonlyArray<IndexerAuthField> {
@@ -196,9 +324,33 @@ function parseStringArray(value: unknown): ReadonlyArray<string> {
   })
 }
 
+function parseOptionalStringArray(value: unknown): ReadonlyArray<string> {
+  if (value === undefined) return []
+  if (!Array.isArray(value)) throw new Error("categories must be a list")
+  return value.map((item) => {
+    if (typeof item !== "string" || item.trim().length === 0) {
+      throw new Error("categories must contain non-empty strings")
+    }
+    return item.trim()
+  })
+}
+
 function parseProtocol(value: string): IndexerProtocol {
   if (value === "torrent" || value === "usenet") return value
   throw new Error(`unsupported indexer protocol: ${value}`)
+}
+
+function parseMethod(value: string): "get" | "post" {
+  const method = value.toLowerCase()
+  if (method === "get" || method === "post") return method
+  throw new Error(`unsupported Cardigann search method: ${value}`)
+}
+
+function parseResponseType(value: string): CardigannResponseType {
+  const type = value.toLowerCase()
+  if (type === "torznab" || type === "newznab" || type === "rss") return type
+  if (type === "xml") return "torznab"
+  throw new Error(`unsupported Cardigann response type: ${value}`)
 }
 
 function parsePrivacy(value: string): IndexerPrivacy {

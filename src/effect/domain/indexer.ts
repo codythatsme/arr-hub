@@ -142,6 +142,7 @@ export interface IndexerConfig {
   readonly id: number
   readonly name: string
   readonly type: IndexerType
+  readonly definitionKey?: string | null
   readonly baseUrl: string
   readonly apiKey: string
   readonly priority: number

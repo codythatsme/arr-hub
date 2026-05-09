@@ -221,6 +221,10 @@ function defaultDefinitionKey(type: string): string | null {
   return null
 }
 
+function requiresDefinitionKey(type: string): boolean {
+  return type === "cardigann_yaml"
+}
+
 function toWithHealth(
   row: typeof indexers.$inferSelect,
   health: typeof indexerHealth.$inferSelect | undefined,
@@ -394,6 +398,16 @@ export const IndexerServiceLive = Layer.effect(
             message: `unknown indexer definition: "${definitionKey}"`,
           })
         }
+      })
+
+    const validateDefinitionSelection = (type: string, definitionKey: string | null | undefined) =>
+      Effect.gen(function* () {
+        if (requiresDefinitionKey(type) && !definitionKey) {
+          return yield* new ValidationError({
+            message: `${type} indexers require a definition key`,
+          })
+        }
+        yield* validateDefinitionKey(definitionKey)
       })
 
     const validateProxyId = (proxyId: number | null | undefined) =>
@@ -570,7 +584,7 @@ export const IndexerServiceLive = Layer.effect(
         Effect.gen(function* () {
           yield* registry.getIndexerFactory(input.type)
           const definitionKey = input.definitionKey ?? defaultDefinitionKey(input.type)
-          yield* validateDefinitionKey(definitionKey)
+          yield* validateDefinitionSelection(input.type, definitionKey)
           yield* validateProxyId(input.proxyId)
           const encrypted = yield* crypto.encrypt(input.apiKey)
           const inserted = yield* db
@@ -612,7 +626,18 @@ export const IndexerServiceLive = Layer.effect(
           if (data.type !== undefined) {
             yield* registry.getIndexerFactory(data.type)
           }
-          yield* validateDefinitionKey(data.definitionKey)
+          if (data.type !== undefined || data.definitionKey !== undefined) {
+            const existing = yield* db
+              .select({ type: indexers.type, definitionKey: indexers.definitionKey })
+              .from(indexers)
+              .where(eq(indexers.id, id))
+            const current = existing[0]
+            if (!current) return yield* new NotFoundError({ entity: "indexer", id })
+            yield* validateDefinitionSelection(
+              data.type ?? current.type,
+              data.definitionKey !== undefined ? data.definitionKey : current.definitionKey,
+            )
+          }
           yield* validateProxyId(data.proxyId)
           const updateData: Record<string, unknown> = {}
           if (data.name !== undefined) updateData.name = data.name
@@ -664,6 +689,7 @@ export const IndexerServiceLive = Layer.effect(
             id: indexer.id,
             name: indexer.name,
             type: indexer.type,
+            definitionKey: indexer.definitionKey,
             baseUrl: indexer.baseUrl,
             apiKey,
             priority: indexer.priority,
@@ -750,6 +776,7 @@ export const IndexerServiceLive = Layer.effect(
                     id: indexer.id,
                     name: indexer.name,
                     type: indexer.type,
+                    definitionKey: indexer.definitionKey,
                     baseUrl: indexer.baseUrl,
                     apiKey,
                     priority: indexer.priority,

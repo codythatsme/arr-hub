@@ -2,7 +2,9 @@ import { describe, expect, it } from "@effect/vitest"
 
 import {
   BUILT_IN_CARDIGANN_DEFINITIONS,
+  getBuiltInCardigannRuntimeDefinition,
   parseCardigannDefinitionYaml,
+  parseCardigannRuntimeDefinitionYaml,
 } from "./CardigannDefinitionLoader"
 
 describe("CardigannDefinitionLoader", () => {
@@ -81,6 +83,55 @@ caps:
       "search",
       "tvsearch",
     ])
+  })
+
+  it("parses first-pass Cardigann search runtime metadata", () => {
+    const runtime = parseCardigannRuntimeDefinitionYaml(`
+id: runtime-cardigann
+name: Runtime Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+  modes:
+    search: [q]
+search:
+  inputs:
+    apikey: "{{ .Config.APIKey }}"
+  paths:
+    - path: /api
+      categories: [movies]
+      response:
+        type: torznab
+      inputs:
+        t: search
+        q: "{{ .Keywords }}"
+`)
+
+    expect(runtime.search).toEqual({
+      allowEmptyInputs: false,
+      inputs: { apikey: "{{ .Config.APIKey }}" },
+      paths: [
+        {
+          path: "/api",
+          method: "get",
+          inputs: { t: "search", q: "{{ .Keywords }}" },
+          categories: ["movies"],
+          responseType: "torznab",
+        },
+      ],
+    })
+  })
+
+  it("exposes built-in runtime definitions by key", () => {
+    const runtime = getBuiltInCardigannRuntimeDefinition("public-domain-movie-torrents")
+    expect(runtime?.search.paths[0]).toMatchObject({
+      path: "/api",
+      responseType: "torznab",
+    })
   })
 
   it("rejects unsupported protocols", () => {

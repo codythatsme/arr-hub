@@ -164,7 +164,10 @@ async function fetchTextViaSocksProxy(
   }
 }
 
-function fetchXml(url: URL, config: IndexerConfig): Effect.Effect<unknown, IndexerError> {
+export function fetchIndexerXml(
+  url: URL,
+  config: IndexerConfig,
+): Effect.Effect<unknown, IndexerError> {
   return Effect.tryPromise({
     try: async () => {
       const controller = new AbortController()
@@ -243,7 +246,7 @@ function fetchXml(url: URL, config: IndexerConfig): Effect.Effect<unknown, Index
   })
 }
 
-function checkTorznabError(
+export function checkTorznabError(
   parsed: unknown,
   config: IndexerConfig,
 ): Effect.Effect<void, IndexerError> {
@@ -295,7 +298,10 @@ function getAttr(item: Record<string, unknown>, name: string): string | undefine
   return found ? String(found["@_value"]) : undefined
 }
 
-function parseReleases(parsed: unknown, config: IndexerConfig): ReadonlyArray<ReleaseCandidate> {
+export function parseTorznabReleases(
+  parsed: unknown,
+  config: IndexerConfig,
+): ReadonlyArray<ReleaseCandidate> {
   const channel = (parsed as Record<string, unknown>)?.rss as Record<string, unknown> | undefined
   const items = (channel?.channel as Record<string, unknown> | undefined)?.item
   if (!Array.isArray(items)) return []
@@ -354,7 +360,7 @@ export function createTorznabAdapter(config: IndexerConfig): IndexerAdapter {
     testConnection: () =>
       Effect.gen(function* () {
         const url = buildUrl(config.baseUrl, config.apiKey, { t: "caps" })
-        const parsed = yield* fetchXml(url, config)
+        const parsed = yield* fetchIndexerXml(url, config)
         yield* checkTorznabError(parsed, config)
         return parseCaps(parsed)
       }),
@@ -373,9 +379,9 @@ export function createTorznabAdapter(config: IndexerConfig): IndexerAdapter {
           ep: query.episode,
         }
         const url = buildUrl(config.baseUrl, config.apiKey, params)
-        const parsed = yield* fetchXml(url, config)
+        const parsed = yield* fetchIndexerXml(url, config)
         yield* checkTorznabError(parsed, config)
-        return parseReleases(parsed, config)
+        return parseTorznabReleases(parsed, config)
       }),
   }
 }

@@ -62,6 +62,37 @@ describe("IndexerService", () => {
     }).pipe(Effect.provide(TestLayer)),
   )
 
+  it.effect("add supports Cardigann YAML indexers with a known definition", () =>
+    Effect.gen(function* () {
+      const svc = yield* IndexerService
+      const indexer = yield* svc.add({
+        ...VALID_INPUT,
+        name: "Cardigann",
+        type: "cardigann_yaml",
+        definitionKey: "public-domain-movie-torrents",
+      })
+
+      expect(indexer.type).toBe("cardigann_yaml")
+      expect(indexer.definitionKey).toBe("public-domain-movie-torrents")
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("add requires a definition key for Cardigann YAML indexers", () =>
+    Effect.gen(function* () {
+      const svc = yield* IndexerService
+      const error = yield* Effect.flip(
+        svc.add({
+          ...VALID_INPUT,
+          type: "cardigann_yaml",
+          definitionKey: null,
+        }),
+      )
+
+      expect(error._tag).toBe("ValidationError")
+      expect(error.message).toContain("require a definition key")
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
   it.effect("list returns all indexers ordered by priority", () =>
     Effect.gen(function* () {
       const svc = yield* IndexerService
