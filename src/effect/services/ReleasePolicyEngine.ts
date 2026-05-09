@@ -4,6 +4,7 @@ import { Context, Effect, Layer } from "effect"
 
 import {
   customFormatSpecs,
+  downloadClients,
   downloadQueue,
   episodes,
   movies,
@@ -12,8 +13,10 @@ import {
   rootFolders,
   seasons,
   series,
+  settings,
 } from "#/db/schema"
-import type { ReleaseCandidate } from "#/effect/domain/indexer"
+import type { DownloadProtocol } from "#/effect/domain/downloadClient"
+import type { IndexerProtocol, ReleaseCandidate } from "#/effect/domain/indexer"
 import type { QualityName, SpecField } from "#/effect/domain/quality"
 import type {
   DecisionReason,
@@ -25,6 +28,7 @@ import type {
 import type { ParseFailed } from "#/effect/errors"
 import { NotFoundError } from "#/effect/errors"
 
+import { AdapterRegistry } from "./AdapterRegistry"
 import { Db } from "./Db"
 import { ProfileService, type ProfileWithDetails } from "./ProfileService"
 import {
@@ -133,6 +137,15 @@ function blocklistMatch(
   )
 }
 
+function releaseTermMatches(title: string, term: string): boolean {
+  const normalizedTitle = title.toLowerCase().replace(/[._-]+/g, " ")
+  return normalizedTitle.includes(term.toLowerCase())
+}
+
+function preferredTermScore(title: string, terms: ReadonlyArray<string>): number {
+  return terms.reduce((score, term) => (releaseTermMatches(title, term) ? score + 10 : score), 0)
+}
+
 function loadReleaseTarget(
   db: Context.Tag.Service<typeof Db>,
   context: EvaluationContext,
@@ -197,13 +210,81 @@ function loadReleaseTarget(
 }
 
 const ACTIVE_QUEUE_STATUSES = ["queued", "downloading", "importing"] as const
+const RELEASE_SETTING_KEYS = [
+  "release.allowedProtocols",
+  "release.ignoredTerms",
+  "release.minimumAgeHours",
+  "release.minimumSeeders",
+  "release.preferredTerms",
+  "release.requiredTerms",
+  "release.retentionDays",
+] as const
+
+type ReleaseSettingKey = (typeof RELEASE_SETTING_KEYS)[number]
+
+const DEFAULT_RELEASE_SETTINGS: Record<ReleaseSettingKey, string> = {
+  "release.allowedProtocols": "torrent,usenet",
+  "release.ignoredTerms": "",
+  "release.minimumAgeHours": "0",
+  "release.minimumSeeders": "1",
+  "release.preferredTerms": "",
+  "release.requiredTerms": "",
+  "release.retentionDays": "0",
+}
+
+function parseTermList(value: string): ReadonlyArray<string> {
+  return value
+    .split(/[,\n]/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+}
+
+function parseNonNegativeInt(value: string, fallback: number): number {
+  const parsed = Number(value)
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : fallback
+}
+
+function parseAllowedProtocols(value: string): ReadonlyArray<IndexerProtocol> {
+  const protocols = value
+    .split(",")
+    .map((part) => part.trim())
+    .filter((part): part is IndexerProtocol => part === "torrent" || part === "usenet")
+  return protocols.length > 0 ? Array.from(new Set(protocols)) : ["torrent", "usenet"]
+}
 
 function loadReleaseConstraints(
   db: Context.Tag.Service<typeof Db>,
   context: EvaluationContext,
   target: ReleaseTarget | null,
+  adapterRegistry: Context.Tag.Service<typeof AdapterRegistry>,
 ): Effect.Effect<ReleaseConstraints, SqlError> {
   return Effect.gen(function* () {
+    const settingRows = yield* db
+      .select({ key: settings.key, value: settings.value })
+      .from(settings)
+      .where(inArray(settings.key, [...RELEASE_SETTING_KEYS]))
+    const settingValues = new Map(settingRows.map((row) => [row.key, row.value]))
+    const setting = (key: ReleaseSettingKey) =>
+      settingValues.get(key) ?? DEFAULT_RELEASE_SETTINGS[key]
+
+    const clientRows = yield* db
+      .select({ type: downloadClients.type })
+      .from(downloadClients)
+      .where(eq(downloadClients.enabled, true))
+    const protocolByClientType = new Map(
+      adapterRegistry
+        .listDownloadClientTypes()
+        .map((entry) => [entry.type, entry.metadata.protocolAffinity]),
+    )
+    const availableClientProtocols = Array.from(
+      new Set(
+        clientRows.flatMap((row): ReadonlyArray<DownloadProtocol | "any"> => {
+          const protocol = protocolByClientType.get(row.type)
+          return protocol ? [protocol] : []
+        }),
+      ),
+    )
+
     const freeSpaceRows =
       target?.rootFolderPath === null || target?.rootFolderPath === undefined
         ? []
@@ -245,7 +326,15 @@ function loadReleaseConstraints(
 
     return {
       activeQueueTitles,
+      allowedProtocols: parseAllowedProtocols(setting("release.allowedProtocols")),
+      availableClientProtocols,
       freeSpaceBytes: freeSpaceRows[0]?.freeSpaceBytes ?? null,
+      ignoredTerms: parseTermList(setting("release.ignoredTerms")),
+      minimumAgeHours: parseNonNegativeInt(setting("release.minimumAgeHours"), 0),
+      minimumSeeders: parseNonNegativeInt(setting("release.minimumSeeders"), 1),
+      preferredTerms: parseTermList(setting("release.preferredTerms")),
+      requiredTerms: parseTermList(setting("release.requiredTerms")),
+      retentionDays: parseNonNegativeInt(setting("release.retentionDays"), 0),
     }
   })
 }
@@ -277,6 +366,7 @@ export const ReleasePolicyEngineLive = Layer.effect(
     const db = yield* Db
     const profileService = yield* ProfileService
     const titleParser = yield* TitleParserService
+    const adapterRegistry = yield* AdapterRegistry
 
     return {
       evaluate: (candidates, profileId, context) =>
@@ -284,7 +374,7 @@ export const ReleasePolicyEngineLive = Layer.effect(
           // 1. Load profile
           const profile = yield* profileService.getById(profileId)
           const target = yield* loadReleaseTarget(db, context)
-          const constraints = yield* loadReleaseConstraints(db, context, target)
+          const constraints = yield* loadReleaseConstraints(db, context, target, adapterRegistry)
           const blockedRows = yield* db
             .select()
             .from(releaseBlocklist)
@@ -442,6 +532,16 @@ export const ReleasePolicyEngineLive = Layer.effect(
               if (formatMatchesSpecs(specs, parsed, candidate.title)) {
                 formatScore += scoreMap.get(formatId) ?? 0
               }
+            }
+
+            const preferredScore = preferredTermScore(candidate.title, constraints.preferredTerms)
+            if (preferredScore > 0) {
+              formatScore += preferredScore
+              reasons.push({
+                stage: "score",
+                rule: "preferred_terms",
+                detail: `+${preferredScore} from preferred terms`,
+              })
             }
 
             // Reject if below min format score

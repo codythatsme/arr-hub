@@ -1,4 +1,5 @@
-import type { ReleaseCandidate } from "#/effect/domain/indexer"
+import type { DownloadProtocol } from "#/effect/domain/downloadClient"
+import type { IndexerProtocol, ReleaseCandidate } from "#/effect/domain/indexer"
 import {
   isSeasonPack,
   type DecisionReason,
@@ -18,6 +19,14 @@ export interface ReleaseTarget {
 export interface ReleaseConstraints {
   readonly activeQueueTitles: ReadonlyArray<string>
   readonly freeSpaceBytes: number | null
+  readonly allowedProtocols: ReadonlyArray<IndexerProtocol>
+  readonly availableClientProtocols: ReadonlyArray<DownloadProtocol | "any">
+  readonly ignoredTerms: ReadonlyArray<string>
+  readonly minimumAgeHours: number
+  readonly minimumSeeders: number
+  readonly preferredTerms: ReadonlyArray<string>
+  readonly requiredTerms: ReadonlyArray<string>
+  readonly retentionDays: number
 }
 
 interface SpecificationContext {
@@ -30,6 +39,13 @@ interface SpecificationContext {
 
 const MIN_IMPORTABLE_SIZE_BYTES = 50 * 1024 * 1024
 const MAX_IMPORTABLE_SIZE_BYTES = 250 * 1024 * 1024 * 1024
+const HOURS_PER_DAY = 24
+
+const SAMPLE_RELEASE_RE = /(?:^|[.\-_\s])sample(?:[.\-_\s]|$)/i
+const HARDCODED_SUBTITLES_RE =
+  /(?:^|[.\-_\s])(?:hc|hardcoded)[.\-_\s]*(?:subs?|subtitles?)(?:[.\-_\s]|$)/i
+const RAW_DISK_RE =
+  /(?:^|[.\-_\s])(?:bdmv|video_ts|br[.\-_\s]?disk|bd[.\-_\s]?disk|dvd[.\-_\s]?r|rawhd)(?:[.\-_\s]|$)/i
 
 function normalizeTitle(value: string): string {
   return value
@@ -47,6 +63,17 @@ function titleMatches(parsedTitle: string, targetTitle: string): boolean {
 
 function reject(rule: string, detail: string): DecisionReason {
   return { stage: "filter", rule, detail }
+}
+
+function candidateAgeHours(candidate: ReleaseCandidate): number {
+  const publishedAt = candidate.publishedAt.getTime()
+  if (!Number.isFinite(publishedAt)) return candidate.age * HOURS_PER_DAY
+  return Math.max(0, (Date.now() - publishedAt) / 3_600_000)
+}
+
+function releaseContainsTerm(title: string, term: string): boolean {
+  const normalizedTitle = title.toLowerCase().replace(/[._-]+/g, " ")
+  return normalizedTitle.includes(term.toLowerCase())
 }
 
 function titleAndEpisodeSpecification(ctx: SpecificationContext): DecisionReason | null {
@@ -128,6 +155,93 @@ function torrentHealthSpecification(ctx: SpecificationContext): DecisionReason |
   ) {
     return reject("torrent_no_seeders", "torrent release has no seeders")
   }
+  if (
+    ctx.candidate.protocol === "torrent" &&
+    ctx.candidate.seeders !== null &&
+    ctx.candidate.seeders < ctx.constraints.minimumSeeders
+  ) {
+    return reject(
+      "torrent_seeders_below_minimum",
+      `torrent seeders ${ctx.candidate.seeders} < ${ctx.constraints.minimumSeeders}`,
+    )
+  }
+  return null
+}
+
+function protocolSpecification(ctx: SpecificationContext): DecisionReason | null {
+  if (!ctx.constraints.allowedProtocols.includes(ctx.candidate.protocol)) {
+    return reject("protocol_not_allowed", `${ctx.candidate.protocol} releases are disabled`)
+  }
+
+  const available = ctx.constraints.availableClientProtocols
+  if (
+    available.length > 0 &&
+    !available.includes("any") &&
+    !available.includes(ctx.candidate.protocol)
+  ) {
+    return reject(
+      "download_client_protocol_unavailable",
+      `no enabled download client supports ${ctx.candidate.protocol}`,
+    )
+  }
+
+  return null
+}
+
+function ageAndRetentionSpecification(ctx: SpecificationContext): DecisionReason | null {
+  const ageHours = candidateAgeHours(ctx.candidate)
+  if (ctx.constraints.minimumAgeHours > 0 && ageHours < ctx.constraints.minimumAgeHours) {
+    return reject(
+      "release_too_new",
+      `release age ${ageHours.toFixed(1)}h < ${ctx.constraints.minimumAgeHours}h`,
+    )
+  }
+
+  if (ctx.constraints.retentionDays > 0 && ctx.candidate.age > ctx.constraints.retentionDays) {
+    return reject(
+      "retention_exceeded",
+      `release age ${ctx.candidate.age}d > retention ${ctx.constraints.retentionDays}d`,
+    )
+  }
+
+  return null
+}
+
+function releaseTermsSpecification(ctx: SpecificationContext): DecisionReason | null {
+  const ignoredTerm = ctx.constraints.ignoredTerms.find((term) =>
+    releaseContainsTerm(ctx.candidate.title, term),
+  )
+  if (ignoredTerm) {
+    return reject("ignored_term", `release title contains ignored term "${ignoredTerm}"`)
+  }
+
+  const missingTerm = ctx.constraints.requiredTerms.find(
+    (term) => !releaseContainsTerm(ctx.candidate.title, term),
+  )
+  if (missingTerm) {
+    return reject(
+      "required_term_missing",
+      `release title is missing required term "${missingTerm}"`,
+    )
+  }
+
+  return null
+}
+
+function unsafeReleaseArtifactSpecification(ctx: SpecificationContext): DecisionReason | null {
+  if (SAMPLE_RELEASE_RE.test(ctx.candidate.title)) {
+    return reject("sample_release", "release appears to be a sample")
+  }
+  if (HARDCODED_SUBTITLES_RE.test(ctx.candidate.title)) {
+    return reject("hardcoded_subtitles", "release appears to contain hardcoded subtitles")
+  }
+  if (
+    RAW_DISK_RE.test(ctx.candidate.title) ||
+    ctx.parsed.qualityName === "BRDISK" ||
+    ctx.parsed.qualityName === "RAWHD"
+  ) {
+    return reject("raw_disk_release", "raw disk releases are not importable")
+  }
   return null
 }
 
@@ -155,6 +269,10 @@ function freeSpaceSpecification(ctx: SpecificationContext): DecisionReason | nul
 const RELEASE_SPECIFICATIONS = [
   titleAndEpisodeSpecification,
   sizeSpecification,
+  protocolSpecification,
+  ageAndRetentionSpecification,
+  releaseTermsSpecification,
+  unsafeReleaseArtifactSpecification,
   torrentHealthSpecification,
   queueConflictSpecification,
   freeSpaceSpecification,

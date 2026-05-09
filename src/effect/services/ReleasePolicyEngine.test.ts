@@ -13,17 +13,20 @@ import {
   rootFolders,
   seasons,
   series,
+  settings,
 } from "#/db/schema"
 import type { ReleaseCandidate } from "#/effect/domain/indexer"
 import type { EvaluationContext, ExistingFile } from "#/effect/domain/release"
 import { TestDbLive } from "#/effect/test/TestDb"
 
+import { AdapterRegistryLive } from "./AdapterRegistry"
 import { Db } from "./Db"
 import { ProfileService, ProfileServiceLive } from "./ProfileService"
 import { ReleasePolicyEngine, ReleasePolicyEngineLive } from "./ReleasePolicyEngine"
 import { TitleParserServiceLive } from "./TitleParserService"
 
 const TestLayer = Layer.mergeAll(ReleasePolicyEngineLive).pipe(
+  Layer.provideMerge(AdapterRegistryLive),
   Layer.provideMerge(TitleParserServiceLive),
   Layer.provideMerge(ProfileServiceLive),
   Layer.provideMerge(TestDbLive),
@@ -275,6 +278,129 @@ describe("ReleasePolicyEngine", () => {
       expect(results).toHaveLength(1)
       expect(results[0].decision).toBe("rejected")
       expect(results[0].reasons[0].rule).toBe("insufficient_free_space")
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("rejects releases without a matching enabled download client protocol", () =>
+    Effect.gen(function* () {
+      const profileId = yield* setupProfile()
+      const db = yield* Db
+      yield* db.insert(downloadClients).values({
+        name: "SAB",
+        type: "sabnzbd",
+        host: "localhost",
+        port: 8080,
+        username: "apikey",
+        passwordEncrypted: "enc",
+      })
+
+      const engine = yield* ReleasePolicyEngine
+      const results = yield* engine.evaluate(
+        [makeCandidate({ title: "Movie.2024.1080p.BluRay.x264-GRP", protocol: "torrent" })],
+        profileId,
+        baseContext,
+      )
+
+      expect(results).toHaveLength(1)
+      expect(results[0].decision).toBe("rejected")
+      expect(results[0].reasons[0].rule).toBe("download_client_protocol_unavailable")
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("rejects releases outside configured age and retention gates", () =>
+    Effect.gen(function* () {
+      const profileId = yield* setupProfile()
+      const db = yield* Db
+      yield* db.insert(settings).values([
+        { key: "release.minimumAgeHours", value: "12" },
+        { key: "release.retentionDays", value: "30" },
+      ])
+
+      const engine = yield* ReleasePolicyEngine
+      const tooNew = yield* engine.evaluate(
+        [
+          makeCandidate({
+            title: "Movie.2024.1080p.BluRay.x264-NEW",
+            age: 0,
+            publishedAt: new Date(Date.now() - 2 * 3_600_000),
+          }),
+        ],
+        profileId,
+        baseContext,
+      )
+      const tooOld = yield* engine.evaluate(
+        [
+          makeCandidate({
+            title: "Movie.2024.1080p.BluRay.x264-OLD",
+            age: 60,
+            publishedAt: new Date(Date.now() - 60 * 86_400_000),
+          }),
+        ],
+        profileId,
+        baseContext,
+      )
+
+      expect(tooNew[0].decision).toBe("rejected")
+      expect(tooNew[0].reasons[0].rule).toBe("release_too_new")
+      expect(tooOld[0].decision).toBe("rejected")
+      expect(tooOld[0].reasons[0].rule).toBe("retention_exceeded")
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("applies required, ignored, and preferred release terms", () =>
+    Effect.gen(function* () {
+      const profileId = yield* setupProfile()
+      const db = yield* Db
+      yield* db.insert(settings).values([
+        { key: "release.requiredTerms", value: "internal" },
+        { key: "release.ignoredTerms", value: "badgroup" },
+        { key: "release.preferredTerms", value: "proper" },
+      ])
+
+      const engine = yield* ReleasePolicyEngine
+      const results = yield* engine.evaluate(
+        [
+          makeCandidate({ title: "Movie.2024.1080p.BluRay.x264-GRP" }),
+          makeCandidate({ title: "Movie.2024.INTERNAL.1080p.BluRay.x264-BADGROUP" }),
+          makeCandidate({ title: "Movie.2024.INTERNAL.PROPER.1080p.BluRay.x264-GRP" }),
+        ],
+        profileId,
+        baseContext,
+      )
+
+      expect(
+        results.find((result) => result.candidate.title === "Movie.2024.1080p.BluRay.x264-GRP")
+          ?.reasons[0].rule,
+      ).toBe("required_term_missing")
+      expect(
+        results.find((result) => result.candidate.title.includes("BADGROUP"))?.reasons[0].rule,
+      ).toBe("ignored_term")
+      const preferred = results.find((result) => result.candidate.title.includes("PROPER"))
+      expect(preferred?.decision).toBe("accepted")
+      expect(preferred?.formatScore).toBe(10)
+      expect(preferred?.reasons.some((reason) => reason.rule === "preferred_terms")).toBe(true)
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("rejects unsafe release artifacts", () =>
+    Effect.gen(function* () {
+      const profileId = yield* setupProfile()
+      const engine = yield* ReleasePolicyEngine
+      const results = yield* engine.evaluate(
+        [
+          makeCandidate({ title: "Movie.2024.1080p.BluRay.x264.sample-GRP" }),
+          makeCandidate({ title: "Movie.2024.1080p.WEB-DL.HC.Subs.x264-GRP" }),
+          makeCandidate({ title: "Movie.2024.1080p.BD-DISK.x264-GRP" }),
+        ],
+        profileId,
+        baseContext,
+      )
+
+      expect(results.map((result) => result.reasons[0].rule).sort()).toEqual([
+        "hardcoded_subtitles",
+        "raw_disk_release",
+        "sample_release",
+      ])
     }).pipe(Effect.provide(TestLayer)),
   )
 

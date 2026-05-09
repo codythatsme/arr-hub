@@ -12,6 +12,13 @@ export type SettingKey =
   | "app.updateChannel"
   | "media.namingConvention"
   | "media.fileHandling"
+  | "release.allowedProtocols"
+  | "release.ignoredTerms"
+  | "release.minimumAgeHours"
+  | "release.minimumSeeders"
+  | "release.preferredTerms"
+  | "release.requiredTerms"
+  | "release.retentionDays"
   | "scheduler.paused"
 
 const SETTING_DEFINITIONS: Record<SettingKey, { readonly label: string; readonly group: string }> =
@@ -20,6 +27,13 @@ const SETTING_DEFINITIONS: Record<SettingKey, { readonly label: string; readonly
     "app.updateChannel": { label: "Update channel", group: "General" },
     "media.namingConvention": { label: "Naming convention", group: "Media Management" },
     "media.fileHandling": { label: "File handling", group: "Media Management" },
+    "release.allowedProtocols": { label: "Allowed protocols", group: "Release Decisions" },
+    "release.ignoredTerms": { label: "Ignored terms", group: "Release Decisions" },
+    "release.minimumAgeHours": { label: "Minimum age hours", group: "Release Decisions" },
+    "release.minimumSeeders": { label: "Minimum seeders", group: "Release Decisions" },
+    "release.preferredTerms": { label: "Preferred terms", group: "Release Decisions" },
+    "release.requiredTerms": { label: "Required terms", group: "Release Decisions" },
+    "release.retentionDays": { label: "Retention days", group: "Release Decisions" },
     "scheduler.paused": { label: "Scheduler paused", group: "Scheduler" },
   }
 
@@ -28,6 +42,13 @@ const DEFAULT_VALUES: Record<SettingKey, string> = {
   "app.updateChannel": "stable",
   "media.namingConvention": "{Title} ({Year})",
   "media.fileHandling": "copy",
+  "release.allowedProtocols": "torrent,usenet",
+  "release.ignoredTerms": "",
+  "release.minimumAgeHours": "0",
+  "release.minimumSeeders": "1",
+  "release.preferredTerms": "",
+  "release.requiredTerms": "",
+  "release.retentionDays": "0",
   "scheduler.paused": "false",
 }
 
@@ -68,6 +89,38 @@ function validateValue(key: SettingKey, value: string): Effect.Effect<string, Se
         message: "file handling must be copy, move, or hardlink",
       }),
     )
+  }
+  if (key === "release.allowedProtocols") {
+    const protocols = trimmed
+      .split(",")
+      .map((part) => part.trim())
+      .filter(Boolean)
+    if (
+      protocols.length === 0 ||
+      protocols.some((protocol) => !["torrent", "usenet"].includes(protocol))
+    ) {
+      return Effect.fail(
+        new SettingsError({
+          reason: "invalid_value",
+          message: "allowed protocols must contain torrent, usenet, or both",
+        }),
+      )
+    }
+  }
+  if (
+    key === "release.minimumAgeHours" ||
+    key === "release.minimumSeeders" ||
+    key === "release.retentionDays"
+  ) {
+    const value = Number(trimmed)
+    if (!Number.isInteger(value) || value < 0) {
+      return Effect.fail(
+        new SettingsError({
+          reason: "invalid_value",
+          message: `${key} must be a non-negative integer`,
+        }),
+      )
+    }
   }
   if (key === "scheduler.paused" && !["true", "false"].includes(trimmed)) {
     return Effect.fail(
