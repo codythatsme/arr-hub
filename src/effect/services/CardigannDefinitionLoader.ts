@@ -24,8 +24,14 @@ export interface CardigannSearchPath {
   readonly responseType: CardigannResponseType
 }
 
+export interface CardigannFilter {
+  readonly name: string
+  readonly args: ReadonlyArray<string>
+}
+
 export interface CardigannSearchRuntime {
   readonly allowEmptyInputs: boolean
+  readonly keywordFilters: ReadonlyArray<CardigannFilter>
   readonly inputs: Readonly<Record<string, string>>
   readonly headers: Readonly<Record<string, string>>
   readonly paths: ReadonlyArray<CardigannSearchPath>
@@ -426,6 +432,7 @@ function parseSearchRuntime(
   const paths = parseSearchPaths(search.paths ?? search.path, protocol)
   return {
     allowEmptyInputs: optionalBoolean(search, "allowEmptyInputs") ?? false,
+    keywordFilters: parseFilters(search.keywordsfilters ?? search.keywordsFilters),
     inputs: parseInputMap(search.inputs),
     headers: parseInputMap(search.headers),
     paths,
@@ -470,6 +477,26 @@ function parseInputMap(value: unknown): Readonly<Record<string, string>> {
     inputs[key] = inputScalarToString(val, `input ${key}`)
   }
   return inputs
+}
+
+function parseFilters(value: unknown): ReadonlyArray<CardigannFilter> {
+  if (value === undefined) return []
+  if (!Array.isArray(value)) throw new Error("filters must be a list")
+  return value.map((item) => {
+    const filter = expectRecord(item, "filter")
+    return {
+      name: requiredString(filter, "name").toLowerCase(),
+      args: parseFilterArgs(filter.args),
+    }
+  })
+}
+
+function parseFilterArgs(value: unknown): ReadonlyArray<string> {
+  if (value === undefined) return []
+  if (Array.isArray(value)) {
+    return value.map((item, index) => inputScalarToString(item, `filter arg ${index}`))
+  }
+  return [inputScalarToString(value, "filter arg")]
 }
 
 function inputScalarToString(value: unknown, label: string): string {

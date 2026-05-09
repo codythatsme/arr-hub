@@ -211,6 +211,10 @@ caps:
   modes:
     search: [q]
 search:
+  keywordsfilters:
+    - name: trim
+    - name: re_replace
+      args: ["\\\\s+", "+"]
   inputs:
     apikey: "{{ .Config.APIKey }}"
   paths:
@@ -226,6 +230,10 @@ search:
 
     expect(runtime.search).toEqual({
       allowEmptyInputs: false,
+      keywordFilters: [
+        { name: "trim", args: [] },
+        { name: "re_replace", args: ["\\s+", "+"] },
+      ],
       inputs: { apikey: "{{ .Config.APIKey }}" },
       headers: {},
       paths: [
@@ -271,6 +279,7 @@ search:
 
     expect(runtime.search).toEqual({
       allowEmptyInputs: false,
+      keywordFilters: [],
       inputs: { page: "1", freeleech: "true" },
       headers: {},
       paths: [

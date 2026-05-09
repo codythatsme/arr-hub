@@ -8,6 +8,7 @@ import type {
 } from "../domain/indexer"
 import { IndexerError } from "../errors"
 import {
+  type CardigannFilter,
   type CardigannRuntimeDefinition,
   type CardigannSearchPath,
   getBuiltInCardigannRuntimeDefinition,
@@ -134,6 +135,7 @@ function templateVariables(
   query: SearchQuery,
   queryType: string,
   trackerCategories: ReadonlyArray<string>,
+  keywords: string,
 ): Record<string, TemplateValue> {
   const categoryStrings = (query.categories ?? []).map(String)
   const term = query.term.trim()
@@ -151,7 +153,7 @@ function templateVariables(
     ".Query.Season": query.season ? String(query.season) : "",
     ".Query.Ep": query.episode ? String(query.episode) : "",
     ".Query.Episode": query.episode ? String(query.episode) : "",
-    ".Keywords": term,
+    ".Keywords": keywords,
     ".Categories": trackerCategories,
   }
 }
@@ -247,6 +249,68 @@ function renderTemplate(template: string, variables: Record<string, TemplateValu
   })
 }
 
+function trimCharacters(value: string, chars: string): string {
+  const escaped = chars.replaceAll(/[\\^$*+?.()|[\]{}-]/g, "\\$&")
+  return value.replace(new RegExp(`^[${escaped}]+|[${escaped}]+$`, "g"), "")
+}
+
+function applyCardigannKeywordFilter(
+  value: string,
+  filter: CardigannFilter,
+  variables: Record<string, TemplateValue>,
+): string {
+  const [first = "", second = ""] = filter.args
+
+  switch (filter.name) {
+    case "append":
+      return `${value}${renderTemplate(first, variables)}`
+    case "prepend":
+      return `${renderTemplate(first, variables)}${value}`
+    case "re_replace":
+      return first
+        ? value.replace(new RegExp(first, "g"), renderTemplate(second, variables))
+        : value
+    case "regexp": {
+      if (!first) return value
+      const match = new RegExp(first).exec(value)
+      return match?.[1] ?? match?.[0] ?? ""
+    }
+    case "replace":
+      return first ? value.split(first).join(renderTemplate(second, variables)) : value
+    case "tolower":
+    case "lower":
+    case "lowercase":
+      return value.toLowerCase()
+    case "toupper":
+    case "upper":
+    case "uppercase":
+      return value.toUpperCase()
+    case "trim":
+      return first ? trimCharacters(value, first) : value.trim()
+    case "urldecode":
+      try {
+        return decodeURIComponent(value)
+      } catch {
+        return value
+      }
+    case "urlencode":
+      return encodeURIComponent(value)
+    default:
+      return value
+  }
+}
+
+function applyCardigannKeywordFilters(
+  value: string,
+  filters: ReadonlyArray<CardigannFilter>,
+  variables: Record<string, TemplateValue>,
+): string {
+  return filters.reduce(
+    (current, filter) => applyCardigannKeywordFilter(current, filter, variables),
+    value,
+  )
+}
+
 function normalizeUrlSearchParamValue(value: string): string {
   if (!/%[\dA-Fa-f]{2}/.test(value)) return value
   try {
@@ -306,7 +370,22 @@ function resolveSearchRequests(
   if (queryType === null) return []
 
   const trackerCategories = mappedTrackerCategories(definition, query)
-  const variables = templateVariables(config, query, queryType, trackerCategories)
+  const rawKeywords = query.term.trim()
+  const initialVariables = templateVariables(
+    config,
+    query,
+    queryType,
+    trackerCategories,
+    rawKeywords,
+  )
+  const variables = {
+    ...initialVariables,
+    ".Keywords": applyCardigannKeywordFilters(
+      rawKeywords,
+      definition.search.keywordFilters,
+      initialVariables,
+    ),
+  }
   const baseUrl = config.baseUrl || definition.baseUrl
   if (!baseUrl) return []
 

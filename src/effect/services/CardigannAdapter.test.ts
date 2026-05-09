@@ -270,6 +270,64 @@ search:
     expect(headers.get("x-query-slug")).toBe("example-movie")
   })
 
+  it("applies Cardigann keyword filters before rendering Keywords", async () => {
+    let requestUrl: string | undefined
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      requestUrl = String(input)
+      return new Response(RSS_XML, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 15,
+      name: "Keyword Filtered Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "keyword-filtered-cardigann",
+      definitionYaml: `
+id: keyword-filtered-cardigann
+name: Keyword Filtered Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+  modes:
+    movie-search: [q]
+search:
+  keywordsfilters:
+    - name: trim
+    - name: re_replace
+      args: ["\\\\s+", "+"]
+    - name: append
+      args: "-{{ .Config.Region }}"
+  paths:
+    - path: /search
+      response:
+        type: torznab
+      inputs:
+        q: "{{ .Keywords }}"
+        raw: "{{ .Query.Keywords }}"
+`,
+      baseUrl: "https://tracker.example/root",
+      apiKey: "",
+      configValues: { region: "AU" },
+      priority: 15,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    await Effect.runPromise(
+      adapter.search({ term: "  Keyword Filter Movie  ", type: "movie", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const url = new URL(requestUrl ?? "")
+    expect(url.searchParams.get("q")).toBe("Keyword+Filter+Movie-AU")
+    expect(url.searchParams.get("raw")).toBe("Keyword Filter Movie")
+  })
+
   it("executes single-object Cardigann paths with scalar request inputs", async () => {
     let requestUrl: string | undefined
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
