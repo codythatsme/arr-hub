@@ -7,7 +7,7 @@ ARR Hub is a unified, self-hosted media automation app inspired by the arr ecosy
 - Adapter-driven integrations (download clients, indexers, media servers)
 - Shared release policy engine + scheduler pipelines
 - Operator UI for onboarding, settings, profiles, movies, TV, manual search, scheduler, and queue actions
-- Prowlarr replacement foundation; current indexer support consumes Torznab/Newznab upstreams, seeds generic/Cardigann-style definitions, and exposes first-pass aggregate feeds
+- Prowlarr replacement foundation; current indexer support consumes Torznab/Newznab upstreams, seeds generic/Cardigann-style definitions, exposes first-pass aggregate feeds, and can sync aggregate indexers into Radarr/Sonarr
 
 See [development-plan.md](./development-plan.md) for detailed replacement-readiness status.
 
@@ -95,12 +95,14 @@ Current foundation:
 - External clients can query aggregate XML feeds with an ARR Hub API key:
   - `/api/indexers/aggregate/torznab?t=caps&apikey=...`
   - `/api/indexers/aggregate/newznab?t=search&q=example&apikey=...`
+- Radarr/Sonarr application records can persist encrypted remote credentials and sync aggregate Torznab/Newznab indexers into `/api/v3/indexer`; the synced app payload uses a reachable ARR Hub URL plus ARR Hub API key.
 
 This is not yet a Prowlarr-scale catalogue. The Cardigann/YAML loader currently
 supports curated fixtures only; broad tracker coverage, full Cardigann selector/login
-parity, mature per-indexer policy controls, remote definition updates, and app sync
-remain planned work. Search failures now mark indexers unhealthy, short-backoff
-retryable failures, and disable indexers on authentication failures.
+parity, mature per-indexer policy controls, remote definition updates, and full
+Prowlarr app-sync parity remain planned work. Search failures now mark indexers
+unhealthy, short-backoff retryable failures, and disable indexers on authentication
+failures.
 
 ## Current Limitations
 
@@ -108,8 +110,8 @@ ARR Hub is not yet a full Sonarr/Radarr/Prowlarr replacement. TV metadata,
 completed-download imports, release decisions, and operator workflows have
 working first-pass implementations, but they still lack the full depth of the
 mature Arr apps. Prowlarr replacement is underway, but ARR Hub still does not
-ship a broad tracker catalogue, full Cardigann request runtime, app sync, or
-definition update pipeline.
+ship a broad tracker catalogue, full Cardigann request runtime, or definition
+update pipeline.
 
 ## API Compatibility
 
