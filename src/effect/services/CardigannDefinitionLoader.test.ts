@@ -788,6 +788,37 @@ search:
     })
   })
 
+  it("parses Cardigann login test selectors", () => {
+    const runtime = parseCardigannRuntimeDefinitionYaml(`
+id: login-test-cardigann
+name: Login Test Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+login:
+  method: cookie
+  inputs:
+    cookie: "{{ .Config.Cookie }}"
+  test:
+    path: /account
+    selector: a.logout
+search:
+  paths:
+    - path: /browse
+`)
+
+    expect(runtime.login).toMatchObject({
+      method: "cookie",
+      test: {
+        path: "/account",
+        selector: "a.logout",
+      },
+    })
+  })
+
   it("exposes built-in runtime definitions by key", () => {
     const runtime = getBuiltInCardigannRuntimeDefinition("public-domain-movie-torrents")
     expect(runtime?.search.paths[0]).toMatchObject({

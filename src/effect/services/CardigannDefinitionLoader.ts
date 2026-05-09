@@ -36,6 +36,11 @@ export interface CardigannLoginError {
   readonly message?: CardigannFieldSelector
 }
 
+export interface CardigannLoginTest {
+  readonly path?: string
+  readonly selector: string
+}
+
 export interface CardigannFilter {
   readonly name: string
   readonly args: ReadonlyArray<string>
@@ -77,6 +82,7 @@ export interface CardigannLoginRuntime {
   readonly selectors?: boolean
   readonly selectorInputs?: Readonly<Record<string, CardigannFieldSelector>>
   readonly getSelectorInputs?: Readonly<Record<string, CardigannFieldSelector>>
+  readonly test?: CardigannLoginTest
   readonly form?: string
   readonly submitPath?: string
 }
@@ -504,6 +510,7 @@ function parseLoginRuntime(value: unknown): CardigannLoginRuntime | null {
     login.getselectorinputs ?? login.getSelectorInputs,
     "login get selector inputs",
   )
+  const test = parseLoginTest(login.test)
   return {
     method,
     inputs: parseInputMap(login.inputs),
@@ -521,6 +528,7 @@ function parseLoginRuntime(value: unknown): CardigannLoginRuntime | null {
     ...(selectors ? { selectors } : {}),
     ...(Object.keys(selectorInputs).length > 0 ? { selectorInputs } : {}),
     ...(Object.keys(getSelectorInputs).length > 0 ? { getSelectorInputs } : {}),
+    ...(test !== undefined ? { test } : {}),
     ...(form !== null ? { form } : {}),
     ...(submitPath !== null ? { submitPath } : {}),
   }
@@ -621,6 +629,16 @@ function parseLoginErrors(value: unknown): ReadonlyArray<CardigannLoginError> {
       ...(message !== undefined ? { message } : {}),
     }
   })
+}
+
+function parseLoginTest(value: unknown): CardigannLoginTest | undefined {
+  if (value === undefined) return undefined
+  const test = expectRecord(value, "login test")
+  const path = optionalString(test, "path")
+  return {
+    selector: requiredString(test, "selector"),
+    ...(path !== null ? { path } : {}),
+  }
 }
 
 function parseCaseMap(value: unknown): Readonly<Record<string, string>> {

@@ -1304,6 +1304,84 @@ search:
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
+  it("fails Cardigann HTML search when login test selector is missing", async () => {
+    const fetchMock = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) =>
+        new Response('<html><body><form id="login">Please sign in</form></body></html>', {
+          status: 200,
+        }),
+    )
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 32,
+      name: "Login Test Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "login-test-cardigann",
+      definitionYaml: `
+id: login-test-cardigann
+name: Login Test Cardigann
+links:
+  - https://tracker.example
+settings:
+  - name: cookie
+    label: Cookie
+    type: cookie
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+  modes:
+    search: [q]
+login:
+  method: cookie
+  inputs:
+    cookie: "{{ .Config.Cookie }}"
+  test:
+    selector: a.logout
+search:
+  paths:
+    - path: /browse
+      response:
+        type: html
+      inputs:
+        q: "{{ .Keywords }}"
+  rows:
+    selector: tr.torrent
+  fields:
+    title:
+      selector: a.title
+    download:
+      selector: a.download
+      attribute: href
+`,
+      baseUrl: "https://tracker.example/root",
+      apiKey: "",
+      configValues: {
+        cookie: "session=expired",
+      },
+      priority: 15,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const exit = await Effect.runPromiseExit(
+      adapter.search({ term: "Logged Out Movie", type: "general", categories: [2000] }),
+    )
+    expect(Exit.isFailure(exit)).toBe(true)
+    if (Exit.isSuccess(exit)) throw new Error("expected login test failure")
+    const error = Option.getOrUndefined(Cause.failureOption(exit.cause))
+    expect(error).toMatchObject({
+      _tag: "IndexerError",
+      reason: "auth_failed",
+      message: "Cardigann login test failed: selector not found: a.logout",
+      retryable: false,
+    })
+    const requestInit = fetchMock.mock.calls[0]?.[1]
+    expect(new Headers(requestInit?.headers).get("cookie")).toBe("session=expired")
+  })
+
   it("applies Cardigann template filters to paths, raw params, and headers", async () => {
     let requestUrl: string | undefined
     let requestInit: RequestInit | undefined

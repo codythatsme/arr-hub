@@ -23,7 +23,6 @@ import type { IndexerAdapter } from "./IndexerAdapter"
 import {
   checkTorznabError,
   fetchIndexerResponseText,
-  fetchIndexerText,
   fetchIndexerXml,
   parseTorznabReleases,
 } from "./TorznabAdapter"
@@ -1205,6 +1204,13 @@ function loginErrorMessage(
   return message.length > 0 ? message : "Cardigann login failed"
 }
 
+function loginTestFailureMessage(html: string, login: CardigannLoginRuntime | null): string | null {
+  const test = login?.test
+  if (test === undefined) return null
+  if (findHtmlElements(html, test.selector).length > 0) return null
+  return `Cardigann login test failed: selector not found: ${test.selector}`
+}
+
 function resolveLoginRequests(
   config: IndexerConfig,
   definition: CardigannRuntimeDefinition,
@@ -1651,9 +1657,22 @@ export function createCardigannYamlAdapter(config: IndexerConfig): IndexerAdapte
           (request) =>
             Effect.gen(function* () {
               if (request.responseType === "html") {
-                const html = yield* fetchIndexerText(request.url, config, request.init)
+                const response = yield* fetchIndexerResponseText(request.url, config, request.init)
+                const loginTestMessage = loginTestFailureMessage(response.text, definition.login)
+                if (loginTestMessage !== null) {
+                  return yield* Effect.fail(
+                    new IndexerError({
+                      indexerId: config.id,
+                      indexerName: config.name,
+                      reason: "auth_failed",
+                      message: loginTestMessage,
+                      retryable: false,
+                    }),
+                  )
+                }
+
                 return yield* Effect.try({
-                  try: () => parseHtmlReleases(html, request, definition, config),
+                  try: () => parseHtmlReleases(response.text, request, definition, config),
                   catch: (error) =>
                     new IndexerError({
                       indexerId: config.id,
