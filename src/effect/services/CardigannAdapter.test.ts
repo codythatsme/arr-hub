@@ -326,6 +326,58 @@ search:
     expect(url.searchParams.get("q")).toBe("Range Search")
   })
 
+  it("renders Cardigann base template variables", async () => {
+    let requestUrl: string | undefined
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      requestUrl = String(input)
+      return new Response(RSS_XML, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 19,
+      name: "Base Variables Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "base-variables-cardigann",
+      definitionYaml: `
+id: base-variables-cardigann
+name: Base Variables Cardigann
+links:
+  - https://tracker.example/from-definition
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+  modes:
+    search: [q]
+search:
+  paths:
+    - path: /search/{{ .Today.Year }}
+      response:
+        type: torznab
+      inputs:
+        site: "{{ .Config.sitelink }}"
+        truthy: "{{ .True }}"
+        falseFallback: '{{ .False | default "fallback" }}'
+`,
+      baseUrl: "https://tracker.example/root",
+      apiKey: "",
+      priority: 15,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    await Effect.runPromise(adapter.search({ term: "Base Vars", type: "general" }))
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const url = new URL(requestUrl ?? "")
+    expect(url.pathname).toBe(`/search/${new Date().getFullYear()}`)
+    expect(url.searchParams.get("site")).toBe("https://tracker.example/root")
+    expect(url.searchParams.get("truthy")).toBe("True")
+    expect(url.searchParams.get("falseFallback")).toBe("fallback")
+  })
+
   it("narrows Cardigann Categories for each matching path", async () => {
     const requestUrls: Array<string> = []
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {

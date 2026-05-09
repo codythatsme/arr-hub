@@ -126,11 +126,15 @@ function configKeyVariants(key: string): ReadonlyArray<string> {
   return Array.from(variants)
 }
 
-function configTemplateVariables(config: IndexerConfig): Record<string, string> {
+function configTemplateVariables(config: IndexerConfig, siteLink: string): Record<string, string> {
   const variables: Record<string, string> = {
     ".Config.APIKey": config.apiKey,
     ".Config.ApiKey": config.apiKey,
     ".Config.apiKey": config.apiKey,
+    ".Config.sitelink": siteLink,
+    ".False": "",
+    ".Today.Year": String(new Date().getFullYear()),
+    ".True": "True",
   }
 
   for (const [key, value] of Object.entries(config.configValues ?? {})) {
@@ -148,11 +152,12 @@ function templateVariables(
   queryType: string,
   trackerCategories: ReadonlyArray<string>,
   keywords: string,
+  siteLink: string,
 ): Record<string, TemplateValue> {
   const categoryStrings = (query.categories ?? []).map(String)
   const term = query.term.trim()
   return {
-    ...configTemplateVariables(config),
+    ...configTemplateVariables(config, siteLink),
     ".Query.Type": queryType,
     ".Query.Q": term,
     ".Query.Keywords": term,
@@ -412,6 +417,9 @@ function resolveSearchRequests(
   if (queryType === null) return []
 
   const trackerCategories = mappedTrackerCategories(definition, query)
+  const baseUrl = config.baseUrl || definition.baseUrl
+  if (!baseUrl) return []
+
   const rawKeywords = query.term.trim()
   const initialVariables = templateVariables(
     config,
@@ -419,6 +427,7 @@ function resolveSearchRequests(
     queryType,
     trackerCategories,
     rawKeywords,
+    baseUrl,
   )
   const variables = {
     ...initialVariables,
@@ -428,9 +437,6 @@ function resolveSearchRequests(
       initialVariables,
     ),
   }
-  const baseUrl = config.baseUrl || definition.baseUrl
-  if (!baseUrl) return []
-
   const requests = new Map<string, CardigannSearchRequest>()
   for (const path of definition.search.paths) {
     const pathCategories = categoriesForPath(path, trackerCategories)
