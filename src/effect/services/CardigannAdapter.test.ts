@@ -506,6 +506,38 @@ const HTML_VOID_STATE_SELECTOR_RESULTS = `<!doctype html>
   </body>
 </html>`
 
+const HTML_FORM_PSEUDO_SELECTOR_RESULTS = `<!doctype html>
+<html>
+  <body>
+    <section class="results">
+      <article class="release">
+        <input class="title-source" type="text" value="Form Pseudo Movie 2026 1080p WEB-DL">
+        <button class="details-button" type="button" data-href="/details/form-pseudo">Details</button>
+        <input class="download-target" type="radio" checked value="/download/form-pseudo">
+        <select class="category">
+          <option>TV</option>
+          <option selected>Movies</option>
+        </select>
+        <textarea class="size-source">2.4 GB</textarea>
+      </article>
+      <article class="release">
+        <input class="title-source" type="password" value="Wrong Password Type Movie 2026 1080p WEB-DL">
+        <button class="details-button" type="button" data-href="/details/wrong-password">Details</button>
+        <input class="download-target" type="radio" checked value="/download/wrong-password">
+        <select class="category"><option selected>Movies</option></select>
+        <textarea class="size-source">500 MB</textarea>
+      </article>
+      <article class="release">
+        <input class="title-source" type="text" value="Wrong Checkbox Type Movie 2026 1080p WEB-DL">
+        <button class="details-button" type="button" data-href="/details/wrong-checkbox">Details</button>
+        <input class="download-target" type="checkbox" checked value="/download/wrong-checkbox">
+        <select class="category"><option selected>Movies</option></select>
+        <textarea class="size-source">600 MB</textarea>
+      </article>
+    </section>
+  </body>
+</html>`
+
 const HTML_CHILD_PSEUDO_SELECTOR_RESULTS = `<!doctype html>
 <html>
   <body>
@@ -2787,6 +2819,74 @@ search:
       title: "Void State Movie 2026 1080p WEB-DL",
       infoUrl: "https://tracker.example/details/void-state",
       downloadUrl: "https://tracker.example/download/void-state",
+      category: "2000",
+    })
+  })
+
+  it("matches Cardigann HTML form pseudo classes", async () => {
+    const fetchMock = vi.fn(
+      async () => new Response(HTML_FORM_PSEUDO_SELECTOR_RESULTS, { status: 200 }),
+    )
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 80,
+      name: "HTML Form Pseudo Selector Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "html-form-pseudo-selector-cardigann",
+      definitionYaml: `
+id: html-form-pseudo-selector-cardigann
+name: HTML Form Pseudo Selector Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+      newznab: 2000
+  modes:
+    search: [q]
+search:
+  paths:
+    - path: /browse
+      response:
+        type: html
+  rows:
+    selector: article.release:has(.title-source:input:text):has(.download-target:input:radio:checked):has(select.category:input option:selected)
+  fields:
+    title:
+      selector: .title-source:input:text
+      attribute: value
+    details:
+      selector: button.details-button:button
+      attribute: data-href
+    download:
+      selector: .download-target:input:radio:checked
+      attribute: value
+    size:
+      selector: textarea.size-source:input
+    category:
+      selector: select.category:input option:selected
+`,
+      baseUrl: "https://tracker.example",
+      apiKey: "",
+      priority: 35,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Form Pseudo", type: "general", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "Form Pseudo Movie 2026 1080p WEB-DL",
+      infoUrl: "https://tracker.example/details/form-pseudo",
+      downloadUrl: "https://tracker.example/download/form-pseudo",
+      size: 2_400_000_000,
       category: "2000",
     })
   })

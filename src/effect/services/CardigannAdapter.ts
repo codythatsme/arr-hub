@@ -1792,6 +1792,41 @@ function applyHtmlPositionalSelectorFilters(
   }, matches)
 }
 
+function htmlFormControlType(element: HtmlElementMatch): string {
+  const type = (element.attributes.type ?? "").trim().toLowerCase()
+  if (type.length > 0) return type
+  if (element.tagName === "input") return "text"
+  if (element.tagName === "button") return "submit"
+  return ""
+}
+
+function htmlElementMatchesFormPseudo(element: HtmlElementMatch, name: string): boolean {
+  const type = htmlFormControlType(element)
+  switch (name) {
+    case "input":
+      return (
+        element.tagName === "input" ||
+        element.tagName === "select" ||
+        element.tagName === "textarea" ||
+        element.tagName === "button"
+      )
+    case "button":
+      return element.tagName === "button" || (element.tagName === "input" && type === "button")
+    case "submit":
+    case "reset":
+      return (element.tagName === "input" || element.tagName === "button") && type === name
+    case "text":
+    case "password":
+    case "file":
+    case "checkbox":
+    case "radio":
+    case "image":
+      return element.tagName === "input" && type === name
+    default:
+      return false
+  }
+}
+
 function htmlSelectorFiltersMatch(
   element: HtmlElementMatch,
   filters: ReadonlyArray<JsonSelectorFilter>,
@@ -1815,6 +1850,17 @@ function htmlSelectorFiltersMatch(
         return Object.hasOwn(element.attributes, "disabled")
       case "enabled":
         return !Object.hasOwn(element.attributes, "disabled")
+      case "input":
+      case "button":
+      case "submit":
+      case "reset":
+      case "text":
+      case "password":
+      case "file":
+      case "checkbox":
+      case "radio":
+      case "image":
+        return htmlElementMatchesFormPseudo(element, filter.name)
       case "empty":
         return (
           htmlTextContent(element.innerHtml).length === 0 &&
