@@ -509,6 +509,30 @@ const HTML_MATCHING_PSEUDO_SELECTOR_RESULTS = `<!doctype html>
   </body>
 </html>`
 
+const HTML_CONTENT_STATE_PSEUDO_SELECTOR_RESULTS = `<!doctype html>
+<html>
+  <body>
+    <table>
+      <tbody>
+        <tr class="torrent">
+          <td class="title"><a class="title" href="/details/wrong-content-state">Wrong Content State Movie 2026 1080p WEB-DL</a></td>
+          <td class="marker">occupied</td>
+          <td class="notes"><span>VIP</span></td>
+          <td><a class="download" href="/download/wrong-content-state">Download</a></td>
+          <td><span class="category">Movies</span></td>
+        </tr>
+        <tr class="torrent">
+          <td class="title"><a class="title" href="/details/content-state">Content State Movie 2026 1080p WEB-DL</a></td>
+          <td class="marker"></td>
+          <td class="notes"><span>VIP</span></td>
+          <td><a class="download" href="/download/content-state">Download</a></td>
+          <td><span class="category">Movies</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </body>
+</html>`
+
 const HTML_SELECTOR_POSITION_RESULTS = `<!doctype html>
 <html>
   <body>
@@ -3203,6 +3227,70 @@ search:
       title: "Grouping Pseudo Movie 2026 1080p WEB-DL",
       infoUrl: "https://tracker.example/details/grouping-pseudo",
       downloadUrl: "https://tracker.example/download/grouping-pseudo",
+      category: "2000",
+    })
+  })
+
+  it("matches Cardigann HTML empty and parent pseudo classes", async () => {
+    const fetchMock = vi.fn(
+      async () => new Response(HTML_CONTENT_STATE_PSEUDO_SELECTOR_RESULTS, { status: 200 }),
+    )
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 94,
+      name: "HTML Content State Pseudo Selector Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "html-content-state-pseudo-selector-cardigann",
+      definitionYaml: `
+id: html-content-state-pseudo-selector-cardigann
+name: HTML Content State Pseudo Selector Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+      newznab: 2000
+  modes:
+    search: [q]
+search:
+  paths:
+    - path: /browse
+      response:
+        type: html
+  rows:
+    selector: tr.torrent:has(td.marker:empty):has(td.notes:parent)
+  fields:
+    title:
+      selector: a.title:parent
+    details:
+      selector: a.title:parent
+      attribute: href
+    download:
+      selector: a.download:parent
+      attribute: href
+    category:
+      selector: span.category:parent
+`,
+      baseUrl: "https://tracker.example",
+      apiKey: "",
+      priority: 37,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Content State Movie", type: "general", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "Content State Movie 2026 1080p WEB-DL",
+      infoUrl: "https://tracker.example/details/content-state",
+      downloadUrl: "https://tracker.example/download/content-state",
       category: "2000",
     })
   })
