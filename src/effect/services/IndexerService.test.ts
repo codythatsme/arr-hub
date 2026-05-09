@@ -119,8 +119,8 @@ describe("IndexerService", () => {
       const second = yield* svc.refreshDefinitions()
 
       expect(first).toMatchObject({
-        total: 25,
-        created: 25,
+        total: 26,
+        created: 26,
         updated: 0,
         unchanged: 0,
       })
@@ -150,12 +150,13 @@ describe("IndexerService", () => {
         "created",
         "created",
         "created",
+        "created",
       ])
       expect(second).toMatchObject({
-        total: 25,
+        total: 26,
         created: 0,
         updated: 0,
-        unchanged: 25,
+        unchanged: 26,
       })
       expect(second.definitions.every((definition) => definition.previousVersion !== null)).toBe(
         true,
@@ -435,6 +436,7 @@ describe("IndexerService", () => {
         "hd-space",
         "hd-torrents",
         "hdaccess",
+        "immortalseed",
         "iptorrents",
         "knaben",
         "morethantv",
@@ -638,6 +640,17 @@ describe("IndexerService", () => {
         protocol: "torrent",
         implementation: "cardigann_yaml",
         baseUrl: "https://www.funfile.org/",
+        privacy: "private",
+        supportsRss: false,
+        tags: ["private", "general", "movies", "tv", "music", "books", "html"],
+      })
+      expect(
+        definitions.find((definition) => definition.definitionKey === "immortalseed"),
+      ).toMatchObject({
+        displayName: "ImmortalSeed",
+        protocol: "torrent",
+        implementation: "cardigann_yaml",
+        baseUrl: "https://immortalseed.me/",
         privacy: "private",
         supportsRss: false,
         tags: ["private", "general", "movies", "tv", "music", "books", "html"],

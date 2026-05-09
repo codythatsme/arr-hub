@@ -3218,6 +3218,276 @@ search:
       text: "1"
 `
 
+const IMMORTAL_SEED = `
+id: immortalseed
+name: ImmortalSeed
+description: Private general tracker exposed through a first-pass POST-login HTML Cardigann definition.
+type: private
+links:
+  - https://immortalseed.me/
+version: builtin-cardigann-1
+rss: false
+tags:
+  - private
+  - general
+  - movies
+  - tv
+  - music
+  - books
+  - html
+settings:
+  - name: username
+    label: Username
+    type: text
+    required: true
+  - name: password
+    label: Password
+    type: password
+    required: true
+  - name: freeleechOnly
+    label: Freeleech only
+    type: checkbox
+    default: false
+    helpText: Show freeleech releases only.
+caps:
+  categorymappings:
+    - id: "3"
+      cat: Other
+      desc: Nuked
+      newznab: 8000
+    - id: "32"
+      cat: TV/Anime
+      desc: Anime
+      newznab: 5070
+    - id: "23"
+      cat: PC
+      desc: Apps
+      newznab: 4000
+    - id: "35"
+      cat: Audio/Audiobook
+      desc: Audiobooks
+      newznab: 3030
+    - id: "31"
+      cat: TV
+      desc: Childrens/Cartoons
+      newznab: 5000
+    - id: "54"
+      cat: TV/Documentary
+      desc: Documentary - HD
+      newznab: 5080
+    - id: "53"
+      cat: TV/Documentary
+      desc: Documentary - SD
+      newznab: 5080
+    - id: "22"
+      cat: Books/EBook
+      desc: Ebooks
+      newznab: 7020
+    - id: "41"
+      cat: Books/Comics
+      desc: Ebooks -- Comics
+      newznab: 7030
+    - id: "46"
+      cat: Books/Mags
+      desc: Ebooks -- Magazines
+      newznab: 7010
+    - id: "25"
+      cat: PC/Games
+      desc: Games
+      newznab: 4050
+    - id: "61"
+      cat: Console/NDS
+      desc: Games -- Nintendo
+      newznab: 1010
+    - id: "26"
+      cat: PC/Games
+      desc: Games -- PC
+      newznab: 4050
+    - id: "28"
+      cat: Console/PS3
+      desc: Games -- Playstation
+      newznab: 1080
+    - id: "29"
+      cat: Console/Xbox
+      desc: Games -- Xbox
+      newznab: 1040
+    - id: "49"
+      cat: PC/Phone-Other
+      desc: Mobile
+      newznab: 4040
+    - id: "51"
+      cat: PC/Phone-Android
+      desc: Mobile -- Android
+      newznab: 4070
+    - id: "50"
+      cat: PC/Phone-IOS
+      desc: Mobile -- IOS
+      newznab: 4060
+    - id: "52"
+      cat: PC/Phone-Other
+      desc: Mobile -- Windows
+      newznab: 4040
+    - id: "59"
+      cat: Movies/UHD
+      desc: Movies-4k
+      newznab: 2045
+    - id: "60"
+      cat: Movies/Foreign
+      desc: Movies-4k -- Non-English
+      newznab: 2010
+    - id: "16"
+      cat: Movies/HD
+      desc: Movies-HD
+      newznab: 2040
+    - id: "18"
+      cat: Movies/Foreign
+      desc: Movies-HD -- Non-English
+      newznab: 2010
+    - id: "17"
+      cat: Movies/SD
+      desc: Movies-Low Def
+      newznab: 2030
+    - id: "34"
+      cat: Movies/Foreign
+      desc: Movies-Low Def -- Non-English
+      newznab: 2010
+    - id: "62"
+      cat: Movies
+      desc: Movies-Packs
+      newznab: 2000
+    - id: "14"
+      cat: Movies/SD
+      desc: Movies-SD
+      newznab: 2030
+    - id: "33"
+      cat: Movies/Foreign
+      desc: Movies-SD -- Non-English
+      newznab: 2010
+    - id: "30"
+      cat: Audio/Other
+      desc: Music
+      newznab: 3050
+    - id: "37"
+      cat: Audio/Lossless
+      desc: Music -- FLAC
+      newznab: 3040
+    - id: "36"
+      cat: Audio/MP3
+      desc: Music -- MP3
+      newznab: 3010
+    - id: "39"
+      cat: Audio/Other
+      desc: Music -- Other
+      newznab: 3050
+    - id: "38"
+      cat: Audio/Video
+      desc: Music -- Video
+      newznab: 3020
+    - id: "45"
+      cat: Other
+      desc: Other
+      newznab: 8000
+    - id: "7"
+      cat: TV/Sport
+      desc: Sports Tv
+      newznab: 5060
+    - id: "44"
+      cat: TV/Sport
+      desc: Sports Tv -- Fitness-Instructional
+      newznab: 5060
+    - id: "58"
+      cat: TV/Sport
+      desc: Sports Tv -- Olympics
+      newznab: 5060
+    - id: "47"
+      cat: TV/SD
+      desc: TV - 480p
+      newznab: 5030
+    - id: "64"
+      cat: TV/UHD
+      desc: TV - 4K
+      newznab: 5045
+    - id: "8"
+      cat: TV/HD
+      desc: TV - High Definition
+      newznab: 5040
+    - id: "48"
+      cat: TV/SD
+      desc: TV SD - x264
+      newznab: 5030
+    - id: "9"
+      cat: TV/SD
+      desc: TV SD - XviD
+      newznab: 5030
+    - id: "63"
+      cat: TV/UHD
+      desc: TV Season Packs - 4K
+      newznab: 5045
+    - id: "4"
+      cat: TV/HD
+      desc: TV Season Packs - HD
+      newznab: 5040
+    - id: "6"
+      cat: TV/SD
+      desc: TV Season Packs - SD
+      newznab: 5030
+  modes:
+    search: [q]
+    movie-search: [q]
+    tv-search: [q, season, ep]
+login:
+  method: post
+  path: takelogin.php
+  inputs:
+    username: "{{ .Config.Username }}"
+    password: "{{ .Config.Password }}"
+search:
+  paths:
+    - path: 'browse.php?category=0&include_dead_torrents=yes&sort=added&order=desc{{ if .Keywords }}&do=search&keywords={{ .Keywords | replace "." " " | replace "-" " " | replace "_" " " | urlencode }}&search_type=t_name{{ end }}{{ if .Categories }}&selectedcats2={{ .Categories | join "," }}{{ end }}'
+      response:
+        type: html
+  rows:
+    selector: 'table#sortabletable > tbody > tr:has(a[href*="details.php?id="]){{ if .Config.FreeleechOnly }}:has(img[title^="Free Torrent"], img[title^="Sitewide Free Torrent"]){{ end }}'
+  fields:
+    title:
+      selector: 'div > a[href*="details.php?id="]'
+    details:
+      selector: 'div > a[href*="details.php?id="]'
+      attribute: href
+    download:
+      selector: 'a[href*="download.php"]'
+      attribute: href
+    category:
+      selector: td:nth-of-type(1) a
+      attribute: href
+      filters:
+        - name: querystring
+          args: category
+    date:
+      selector: 'td:nth-of-type(2) > div:last-child'
+      filters:
+        - name: dateparse
+          args: "yyyy-MM-dd HH:mm:ss"
+    size:
+      selector: td:nth-of-type(5)
+    grabs:
+      selector: td:nth-of-type(6)
+    seeders:
+      selector: td:nth-of-type(7)
+    leechers:
+      selector: td:nth-of-type(8)
+    downloadvolumefactor:
+      case:
+        'img[title^="Free Torrent"]': "0"
+        'img[title^="Sitewide Free Torrent"]': "0"
+        'img[title^="Silver Torrent"]': "0.5"
+        tr: "1"
+    uploadvolumefactor:
+      case:
+        'img[title^="x2 Torrent"]': "2"
+        tr: "1"
+`
+
 const MORE_THAN_TV = `
 id: morethantv
 name: MoreThanTV
@@ -3432,6 +3702,7 @@ const BUILT_IN_CARDIGANN_SOURCES = [
   SPEED_CD,
   HD_TORRENTS,
   FUNFILE,
+  IMMORTAL_SEED,
   MORE_THAN_TV,
   HDACCESS,
   TORRENT_NETWORK,

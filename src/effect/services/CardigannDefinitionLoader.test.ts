@@ -95,6 +95,7 @@ caps:
       "speedcd",
       "hd-torrents",
       "funfile",
+      "immortalseed",
       "morethantv",
       "hdaccess",
       "torrent-network",
@@ -499,6 +500,37 @@ caps:
           { id: 4050, name: "Games" },
           { id: 8010, name: "Miscellaneous" },
           { id: 5000, name: "TV" },
+        ]),
+      },
+    })
+    expect(
+      BUILT_IN_CARDIGANN_DEFINITIONS.find(
+        (definition) => definition.definitionKey === "immortalseed",
+      ),
+    ).toMatchObject({
+      displayName: "ImmortalSeed",
+      baseUrl: "https://immortalseed.me/",
+      privacy: "private",
+      supportsRss: false,
+      supportsSearch: true,
+      tags: ["private", "general", "movies", "tv", "music", "books", "html"],
+      authFields: expect.arrayContaining([
+        expect.objectContaining({ name: "username", type: "text", required: true }),
+        expect.objectContaining({ name: "password", type: "password", required: true }),
+        expect.objectContaining({
+          name: "freeleechOnly",
+          type: "checkbox",
+          defaultValue: "false",
+        }),
+      ]),
+      capabilities: {
+        searchTypes: ["search", "movie", "tvsearch"],
+        categories: expect.arrayContaining([
+          { id: 2045, name: "Movies-4k" },
+          { id: 2040, name: "Movies-HD" },
+          { id: 5040, name: "TV - High Definition" },
+          { id: 3040, name: "Music -- FLAC" },
+          { id: 7020, name: "Ebooks" },
         ]),
       },
     })
