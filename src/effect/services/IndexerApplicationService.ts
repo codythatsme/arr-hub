@@ -172,6 +172,15 @@ async function updateRemoteIndexer(baseUrl: string, apiKey: string, payload: Rem
   return RemoteIndexerSchema.parse(raw)
 }
 
+async function deleteRemoteIndexer(baseUrl: string, apiKey: string, remoteId: number) {
+  try {
+    await fetchRemoteJson(baseUrl, apiKey, `/api/v3/indexer/${remoteId}`, { method: "DELETE" })
+  } catch (error) {
+    if (error instanceof RemoteApplicationHttpError && error.status === 404) return
+    throw error
+  }
+}
+
 async function createOrUpdateRemoteIndexer(
   baseUrl: string,
   apiKey: string,
@@ -544,6 +553,9 @@ export const IndexerApplicationServiceLive = Layer.effect(
           },
         })
 
+    const deleteMapping = (mappingId: number) =>
+      db.delete(indexerApplicationMappings).where(eq(indexerApplicationMappings.id, mappingId))
+
     const syncApplication = (application: typeof indexerApplications.$inferSelect) => {
       const run = Effect.gen(function* () {
         const [apiKey, syncApiKey] = yield* Effect.all([
@@ -583,7 +595,27 @@ export const IndexerApplicationServiceLive = Layer.effect(
         const items: Array<IndexerApplicationSyncItem> = []
 
         for (const item of plannedItems) {
+          const mapping = existingMappings.find((remote) => remote.protocol === item.protocol)
+
           if (item.indexerCount === 0) {
+            if (mapping) {
+              yield* Effect.tryPromise({
+                try: () =>
+                  deleteRemoteIndexer(application.baseUrl, apiKey, mapping.remoteIndexerId),
+                catch: (error) => toApplicationError(application, error),
+              })
+              yield* deleteMapping(mapping.id)
+              items.push({
+                protocol: item.protocol,
+                action: "removed",
+                remoteIndexerId: mapping.remoteIndexerId,
+                remoteIndexerName: mapping.remoteIndexerName,
+                categories: [],
+                reason: "no enabled indexers for protocol",
+              })
+              continue
+            }
+
             items.push({
               protocol: item.protocol,
               action: "skipped",
@@ -596,6 +628,24 @@ export const IndexerApplicationServiceLive = Layer.effect(
           }
 
           if (item.categories.length === 0) {
+            if (mapping && settings.syncLevel === "full") {
+              yield* Effect.tryPromise({
+                try: () =>
+                  deleteRemoteIndexer(application.baseUrl, apiKey, mapping.remoteIndexerId),
+                catch: (error) => toApplicationError(application, error),
+              })
+              yield* deleteMapping(mapping.id)
+              items.push({
+                protocol: item.protocol,
+                action: "removed",
+                remoteIndexerId: mapping.remoteIndexerId,
+                remoteIndexerName: mapping.remoteIndexerName,
+                categories: [],
+                reason: "no categories match application sync filter",
+              })
+              continue
+            }
+
             items.push({
               protocol: item.protocol,
               action: "skipped",
@@ -609,7 +659,6 @@ export const IndexerApplicationServiceLive = Layer.effect(
 
           const implementation = implementationName(item.protocol)
           const schema = remoteSchemas.find((remote) => remote.implementation === implementation)
-          const mapping = existingMappings.find((remote) => remote.protocol === item.protocol)
           const existingRemote = findRemoteIndexer({
             protocol: item.protocol,
             application,
@@ -672,6 +721,7 @@ export const IndexerApplicationServiceLive = Layer.effect(
           syncedAt,
           created: items.filter((item) => item.action === "created").length,
           updated: items.filter((item) => item.action === "updated").length,
+          removed: items.filter((item) => item.action === "removed").length,
           skipped: items.filter((item) => item.action === "skipped").length,
           items,
         } satisfies IndexerApplicationSyncResult

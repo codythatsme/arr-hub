@@ -95,6 +95,11 @@ function stubRemoteApplication(options?: { readonly failHosts?: ReadonlyArray<st
       return jsonResponse(saved)
     }
 
+    if (url.pathname === "/api/v3/indexer/321" && method === "DELETE") {
+      remoteIndexers.splice(0, remoteIndexers.length)
+      return new Response(null, { status: 204 })
+    }
+
     return new Response("not found", { status: 404 })
   })
 
@@ -157,6 +162,7 @@ describe("IndexerApplicationService", () => {
         const result = yield* apps.sync(app.id)
         expect(result.created).toBe(1)
         expect(result.updated).toBe(0)
+        expect(result.removed).toBe(0)
         expect(result.skipped).toBe(1)
 
         const post = requests.find((request) => request.method === "POST")
@@ -178,6 +184,58 @@ describe("IndexerApplicationService", () => {
           remoteIndexerId: 321,
           remoteIndexerName: "ARR Hub Torznab (Aggregate)",
         })
+      }).pipe(Effect.provide(TestLayer)),
+    )
+  })
+
+  it("removes stale remote aggregate indexers during full sync", async () => {
+    const requests = stubRemoteApplication()
+
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const indexers = yield* IndexerService
+        const apps = yield* IndexerApplicationService
+
+        const indexer = yield* indexers.add({
+          name: "Torrent Movies",
+          type: "torznab",
+          baseUrl: "http://tracker.test",
+          apiKey: "tracker-secret",
+          categories: [2000],
+        })
+
+        const app = yield* apps.add({
+          name: "Radarr",
+          type: "radarr",
+          baseUrl: "http://radarr.test",
+          apiKey: "remote-key",
+          syncBaseUrl: "http://arr-hub.test",
+          syncApiKey: "arr-hub-key",
+        })
+
+        yield* apps.sync(app.id)
+        yield* indexers.remove(indexer.id)
+
+        const result = yield* apps.sync(app.id)
+        expect(result.created).toBe(0)
+        expect(result.updated).toBe(0)
+        expect(result.removed).toBe(1)
+        expect(result.skipped).toBe(1)
+        expect(result.items).toContainEqual({
+          protocol: "torrent",
+          action: "removed",
+          remoteIndexerId: 321,
+          remoteIndexerName: "ARR Hub Torznab (Aggregate)",
+          categories: [],
+          reason: "no enabled indexers for protocol",
+        })
+
+        const deleteRequest = requests.find((request) => request.method === "DELETE")
+        expect(deleteRequest?.url.pathname).toBe("/api/v3/indexer/321")
+        expect(deleteRequest?.url.searchParams.get("apikey")).toBe("remote-key")
+
+        const synced = yield* apps.getById(app.id)
+        expect(synced.mappings).toHaveLength(0)
       }).pipe(Effect.provide(TestLayer)),
     )
   })

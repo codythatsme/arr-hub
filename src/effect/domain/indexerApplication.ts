@@ -37,7 +37,7 @@ export interface IndexerApplication {
   readonly mappings: ReadonlyArray<IndexerApplicationMapping>
 }
 
-export type IndexerApplicationSyncAction = "created" | "updated" | "skipped"
+export type IndexerApplicationSyncAction = "created" | "updated" | "removed" | "skipped"
 
 export interface IndexerApplicationSyncItem {
   readonly protocol: IndexerProtocol
@@ -53,6 +53,7 @@ export interface IndexerApplicationSyncResult {
   readonly syncedAt: Date
   readonly created: number
   readonly updated: number
+  readonly removed: number
   readonly skipped: number
   readonly items: ReadonlyArray<IndexerApplicationSyncItem>
 }
