@@ -2,6 +2,7 @@ import { load } from "js-yaml"
 
 import type {
   IndexerAuthField,
+  IndexerAuthFieldOption,
   IndexerAuthFieldType,
   IndexerCategoryMapping,
   IndexerCapabilities,
@@ -472,12 +473,47 @@ function parseAuthFields(value: unknown): ReadonlyArray<IndexerAuthField> {
   if (!Array.isArray(value)) throw new Error("auth must be a list")
   return value.map((item) => {
     const field = expectRecord(item, "auth field")
+    const defaultValue = optionalScalarStringFromAny(field, ["default", "defaultValue"])
+    const helpText = optionalString(field, "helpText")
+    const options = parseAuthFieldOptions(field.options)
     return {
       name: requiredString(field, "name"),
       label: optionalString(field, "label") ?? requiredString(field, "name"),
       type: parseAuthFieldType(optionalString(field, "type") ?? "text"),
       required: optionalBoolean(field, "required") ?? false,
-      helpText: optionalString(field, "helpText") ?? undefined,
+      ...(helpText !== null ? { helpText } : {}),
+      ...(defaultValue !== null ? { defaultValue } : {}),
+      ...(options.length > 0 ? { options } : {}),
+    }
+  })
+}
+
+function parseAuthFieldOptions(value: unknown): ReadonlyArray<IndexerAuthFieldOption> {
+  if (value === undefined) return []
+
+  if (isRecord(value)) {
+    return Object.entries(value).map(([key, optionValue]) => {
+      const label = inputScalarToString(optionValue, `auth field option ${key}`).trim()
+      return {
+        value: key,
+        label: label.length > 0 ? label : key,
+      }
+    })
+  }
+
+  if (!Array.isArray(value)) throw new Error("auth field options must be a list or object")
+  return value.map((item) => {
+    if (!isRecord(item)) {
+      const optionValue = inputScalarToString(item, "auth field option").trim()
+      if (optionValue.length === 0) throw new Error("auth field option value is required")
+      return { value: optionValue, label: optionValue }
+    }
+
+    const optionValue = optionalScalarStringFromAny(item, ["value", "id", "key"])
+    if (optionValue === null) throw new Error("auth field option value is required")
+    return {
+      value: optionValue,
+      label: optionalScalarStringFromAny(item, ["label", "name", "text"]) ?? optionValue,
     }
   })
 }
@@ -568,9 +604,16 @@ function parsePrivacy(value: string): IndexerPrivacy {
 }
 
 function parseAuthFieldType(value: string): IndexerAuthFieldType {
-  if (value === "input") return "text"
-  if (value === "text" || value === "password" || value === "cookie" || value === "textarea") {
-    return value
+  const type = value.toLowerCase()
+  if (type === "input") return "text"
+  if (
+    type === "text" ||
+    type === "password" ||
+    type === "cookie" ||
+    type === "textarea" ||
+    type === "select"
+  ) {
+    return type
   }
   throw new Error(`unsupported auth field type: ${value}`)
 }
@@ -609,6 +652,19 @@ function optionalStringLike(record: Record<string, unknown>, key: string): strin
   const value = record[key]
   if (typeof value === "number" && Number.isFinite(value)) return String(value)
   return optionalString(record, key)
+}
+
+function optionalScalarStringFromAny(
+  record: Record<string, unknown>,
+  keys: ReadonlyArray<string>,
+): string | null {
+  for (const key of keys) {
+    const value = record[key]
+    if (value === undefined || value === null) continue
+    const text = inputScalarToString(value, key).trim()
+    if (text.length > 0) return text
+  }
+  return null
 }
 
 function optionalString(record: Record<string, unknown>, key: string): string | null {

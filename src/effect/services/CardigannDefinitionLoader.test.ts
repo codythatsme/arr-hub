@@ -115,6 +115,61 @@ caps:
     ])
   })
 
+  it("parses Cardigann select auth fields with options and defaults", () => {
+    const definition = parseCardigannDefinitionYaml(`
+id: select-auth-cardigann
+name: Select Auth Cardigann
+links:
+  - https://tracker.example
+settings:
+  - name: mode
+    label: Search mode
+    type: select
+    required: true
+    default: safe
+    options:
+      - value: safe
+        label: Safe search
+      - id: raw
+        name: Raw search
+      - 10
+  - name: region
+    label: Region
+    type: select
+    options:
+      us: United States
+      eu: Europe
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+`)
+
+    expect(definition.authFields[0]).toMatchObject({
+      name: "mode",
+      label: "Search mode",
+      type: "select",
+      required: true,
+      defaultValue: "safe",
+      options: [
+        { value: "safe", label: "Safe search" },
+        { value: "raw", label: "Raw search" },
+        { value: "10", label: "10" },
+      ],
+    })
+    expect(definition.authFields[1]).toMatchObject({
+      name: "region",
+      label: "Region",
+      type: "select",
+      required: false,
+      options: [
+        { value: "us", label: "United States" },
+        { value: "eu", label: "Europe" },
+      ],
+    })
+  })
+
   it("parses first-pass Cardigann search runtime metadata", () => {
     const runtime = parseCardigannRuntimeDefinitionYaml(`
 id: runtime-cardigann

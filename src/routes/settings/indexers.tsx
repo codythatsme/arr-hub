@@ -939,6 +939,22 @@ function Indexers() {
                         name={configFieldName(field)}
                         required={form.id === null && field.required}
                       />
+                    ) : field.type === "select" && field.options && field.options.length > 0 ? (
+                      <select
+                        className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                        name={configFieldName(field)}
+                        required={form.id === null && field.required}
+                        defaultValue={configFieldDefaultValue(field, form.id !== null)}
+                      >
+                        <option value="">
+                          {configFieldEmptyOptionLabel(field, form.id !== null)}
+                        </option>
+                        {field.options.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
                     ) : (
                       <input
                         className="mt-1 w-full rounded border bg-transparent px-3 py-2"
@@ -2266,6 +2282,15 @@ function collectConfigValues(
 
 function configFieldName(field: IndexerAuthField): string {
   return `configValues.${field.name}`
+}
+
+function configFieldDefaultValue(field: IndexerAuthField, editing: boolean): string {
+  return editing ? "" : (field.defaultValue ?? "")
+}
+
+function configFieldEmptyOptionLabel(field: IndexerAuthField, editing: boolean): string {
+  if (editing) return "Keep saved value"
+  return field.required ? "Select a value" : "No value"
 }
 
 function configFieldInputType(field: IndexerAuthField): "password" | "text" {
