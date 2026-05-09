@@ -53,6 +53,7 @@ interface CardigannLoginRequest {
 }
 
 interface HtmlElementMatch {
+  readonly tagName: string | null
   readonly attributes: Readonly<Record<string, string>>
   readonly innerHtml: string
   readonly outerHtml: string
@@ -786,7 +787,7 @@ function findHtmlElementsForToken(
 
     const attributes = parseHtmlAttributes(match[2] ?? "")
     if (htmlAttributeMatches(attributes, selector)) {
-      matches.push({ attributes, innerHtml: match[3] ?? "", outerHtml: match[0] })
+      matches.push({ tagName, attributes, innerHtml: match[3] ?? "", outerHtml: match[0] })
     }
   }
   return matches
@@ -797,7 +798,7 @@ function findHtmlElements(html: string, selectorText: string): ReadonlyArray<Htm
   if (tokens.length === 0) return []
 
   let matches: ReadonlyArray<HtmlElementMatch> = [
-    { attributes: {}, innerHtml: html, outerHtml: html },
+    { tagName: null, attributes: {}, innerHtml: html, outerHtml: html },
   ]
   for (const token of tokens) {
     matches = matches.flatMap((match) => findHtmlElementsForToken(match.innerHtml, token))
@@ -819,6 +820,7 @@ function mergeHtmlRows(
 
     const followingRows = rows.slice(index + 1, index + after + 1)
     merged.push({
+      tagName: row.tagName,
       attributes: row.attributes,
       innerHtml: [row.innerHtml, ...followingRows.map((followingRow) => followingRow.innerHtml)]
         .filter((value) => value.length > 0)
@@ -837,6 +839,36 @@ function removeHtmlElements(html: string, selectorText: string): string {
     (current, match) => current.split(match.outerHtml).join(""),
     html,
   )
+}
+
+function htmlElementSelfMatches(element: HtmlElementMatch, selectorText: string): boolean {
+  const tokens = simpleSelectorTokens(selectorText)
+  if (tokens.length !== 1) return false
+
+  const selector = parseSimpleHtmlSelectorToken(tokens[0] ?? "")
+  if (selector === null) return false
+  if (selector.tag !== null && element.tagName !== selector.tag) return false
+  return htmlAttributeMatches(element.attributes, selector)
+}
+
+function htmlCaseValue(
+  element: HtmlElementMatch,
+  innerHtml: string,
+  cases: Readonly<Record<string, string>> | undefined,
+  variables: Record<string, TemplateValue>,
+): string | null {
+  if (cases === undefined) return null
+
+  for (const [selector, template] of Object.entries(cases)) {
+    if (
+      htmlElementSelfMatches(element, selector) ||
+      findHtmlElements(innerHtml, selector).length > 0
+    ) {
+      return renderTemplate(template, variables)
+    }
+  }
+
+  return null
 }
 
 function htmlTextContent(value: string): string {
@@ -864,9 +896,11 @@ function htmlFieldValue(
       field.remove !== undefined
         ? removeHtmlElements(selected.innerHtml, field.remove)
         : selected.innerHtml
-    value = field.attribute
-      ? (selected.attributes[field.attribute.toLowerCase()] ?? "")
-      : htmlTextContent(selectedInnerHtml)
+    value =
+      htmlCaseValue(selected, selectedInnerHtml, field.case, variables) ??
+      (field.attribute
+        ? (selected.attributes[field.attribute.toLowerCase()] ?? "")
+        : htmlTextContent(selectedInnerHtml))
   }
 
   if (value.trim().length === 0 && field.defaultValue !== undefined) {

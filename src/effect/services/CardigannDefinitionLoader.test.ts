@@ -461,6 +461,11 @@ search:
     download:
       selector: a.download
       attribute: href
+    uploadvolumefactor:
+      selector: td.flags
+      case:
+        span.featured: "2"
+        '*': "1"
     seeders:
       text: "0"
 `)
@@ -482,6 +487,13 @@ search:
         selector: "a.short-title",
         remove: "span.badge",
         optional: true,
+      },
+      uploadvolumefactor: {
+        selector: "td.flags",
+        case: {
+          "span.featured": "2",
+          "*": "1",
+        },
       },
       seeders: {
         text: "0",

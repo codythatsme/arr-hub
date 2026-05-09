@@ -483,8 +483,13 @@ search:
       attribute: href
     size:
       selector: td.size
+    uploadvolumefactor:
+      selector: td.name
+      case:
+        span.badge: "2"
     category:
-      text: Movies
+      case:
+        tr.torrent: Movies
 `,
       baseUrl: "https://tracker.example",
       apiKey: "",
@@ -505,6 +510,7 @@ search:
       infoUrl: "https://tracker.example/details/4",
       size: 4_000_000_000,
       category: "2000",
+      uploadFactor: 2,
     })
   })
 

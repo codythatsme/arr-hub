@@ -46,6 +46,7 @@ export interface CardigannFieldSelector {
   readonly attribute?: string
   readonly text?: string
   readonly remove?: string
+  readonly case?: Readonly<Record<string, string>>
   readonly defaultValue?: string
   readonly optional: boolean
   readonly filters: ReadonlyArray<CardigannFilter>
@@ -530,6 +531,7 @@ function parseFields(value: unknown): Readonly<Record<string, CardigannFieldSele
     const attribute = optionalScalarStringFromAny(field, ["attribute"])
     const text = optionalScalarStringFromAny(field, ["text"])
     const remove = optionalScalarStringFromAny(field, ["remove"])
+    const cases = parseCaseMap(field.case)
     const defaultValue = optionalScalarStringFromAny(field, ["default", "defaultValue"])
     fields[fieldName] = {
       optional: optionalBoolean(field, "optional") ?? false,
@@ -538,10 +540,21 @@ function parseFields(value: unknown): Readonly<Record<string, CardigannFieldSele
       ...(attribute !== null ? { attribute } : {}),
       ...(text !== null ? { text } : {}),
       ...(remove !== null ? { remove } : {}),
+      ...(Object.keys(cases).length > 0 ? { case: cases } : {}),
       ...(defaultValue !== null ? { defaultValue } : {}),
     }
   }
   return fields
+}
+
+function parseCaseMap(value: unknown): Readonly<Record<string, string>> {
+  if (value === undefined) return {}
+  const record = expectRecord(value, "case")
+  const cases: Record<string, string> = {}
+  for (const [selector, caseValue] of Object.entries(record)) {
+    cases[selector] = inputScalarToString(caseValue, `case ${selector}`).trim()
+  }
+  return cases
 }
 
 function parseSearchPaths(
