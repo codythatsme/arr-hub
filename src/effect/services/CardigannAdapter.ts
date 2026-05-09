@@ -241,6 +241,18 @@ function escapeRegExp(value: string): string {
   return value.replaceAll(/[\\^$*+?.()|[\]{}-]/g, "\\$&")
 }
 
+function queryStringValue(value: string, key: string): string {
+  const trimmedKey = key.trim()
+  if (trimmedKey.length === 0) return value
+
+  const queryStart = value.indexOf("?")
+  let query = queryStart >= 0 ? value.slice(queryStart + 1) : value
+  const fragmentStart = query.indexOf("#")
+  if (fragmentStart >= 0) query = query.slice(0, fragmentStart)
+
+  return new URLSearchParams(query).get(trimmedKey) ?? ""
+}
+
 function applyTemplateFilter(
   value: TemplateValue | undefined,
   filter: string,
@@ -263,6 +275,8 @@ function applyTemplateFilter(
       return text.toLowerCase()
     case "prepend":
       return `${args[0] ?? ""}${text}`
+    case "querystring":
+      return queryStringValue(text, args[0] ?? "")
     case "replace":
       return args.length >= 2 ? text.split(args[0]).join(args[1]) : text
     case "trim":
@@ -442,6 +456,8 @@ function applyCardigannKeywordFilter(
       return `${value}${renderTemplate(first, variables)}`
     case "prepend":
       return `${renderTemplate(first, variables)}${value}`
+    case "querystring":
+      return queryStringValue(value, renderTemplate(first, variables))
     case "re_replace":
       return first
         ? value.replace(new RegExp(first, "g"), renderTemplate(second, variables))

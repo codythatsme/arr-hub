@@ -237,14 +237,16 @@ search:
         X-Header-List:
           - '{{ .Keywords | trim | lowercase }}'
         X-Query-Slug: '{{ .Keywords | trim | lowercase | replace " " "-" }}'
+        X-Link-Token: '{{ .Config.Link | querystring "token" }}'
       inputs:
-        $raw: 'q={{ .Keywords | trim | urlencode }}&imdb={{ .Query.IMDBIDShort | prepend "tt" }}&cat={{ .Categories | join "," }}'
+        $raw: 'q={{ .Keywords | trim | urlencode }}&imdb={{ .Query.IMDBIDShort | prepend "tt" }}&cat={{ .Categories | join "," }}&source={{ .Config.Link | querystring "source" }}'
 `,
       baseUrl: "https://tracker.example/root",
       apiKey: "api-key",
       configValues: {
         username: "alice",
         cookie: "session=secret",
+        link: "browse.php?source=web&token=abc%20123#row",
       },
       priority: 15,
       categories: [],
@@ -266,11 +268,13 @@ search:
     expect(url.searchParams.get("q")).toBe("Example Movie")
     expect(url.searchParams.get("imdb")).toBe("tt1234567")
     expect(url.searchParams.get("cat")).toBe("movies")
+    expect(url.searchParams.get("source")).toBe("web")
 
     const headers = new Headers(requestInit?.headers)
     expect(headers.get("x-auth")).toBe("alice:session=secret:api-key")
     expect(headers.get("x-header-list")).toBe("example movie")
     expect(headers.get("x-query-slug")).toBe("example-movie")
+    expect(headers.get("x-link-token")).toBe("abc 123")
   })
 
   it("expands Cardigann range templates for repeated category params", async () => {
@@ -687,6 +691,64 @@ search:
     const url = new URL(requestUrl ?? "")
     expect(url.searchParams.get("q")).toBe("Keyword+Filter+Movie-AU")
     expect(url.searchParams.get("raw")).toBe("Keyword Filter Movie")
+  })
+
+  it("applies Cardigann querystring keyword filters before rendering Keywords", async () => {
+    let requestUrl: string | undefined
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      requestUrl = String(input)
+      return new Response(RSS_XML, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 22,
+      name: "Querystring Keyword Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "querystring-keyword-cardigann",
+      definitionYaml: `
+id: querystring-keyword-cardigann
+name: Querystring Keyword Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+  modes:
+    movie-search: [q]
+search:
+  keywordsfilters:
+    - name: querystring
+      args: q
+  paths:
+    - path: /search
+      response:
+        type: torznab
+      inputs:
+        q: "{{ .Keywords }}"
+        raw: "{{ .Query.Keywords }}"
+`,
+      baseUrl: "https://tracker.example/root",
+      apiKey: "",
+      priority: 15,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    await Effect.runPromise(
+      adapter.search({
+        term: "browse.php?cat=movies&q=Encoded+Movie%202026#results",
+        type: "movie",
+        categories: [2000],
+      }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const url = new URL(requestUrl ?? "")
+    expect(url.searchParams.get("q")).toBe("Encoded Movie 2026")
+    expect(url.searchParams.get("raw")).toBe("browse.php?cat=movies&q=Encoded+Movie 2026#results")
   })
 
   it("executes single-object Cardigann paths with scalar request inputs", async () => {
