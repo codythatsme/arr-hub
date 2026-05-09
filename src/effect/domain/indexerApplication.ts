@@ -5,6 +5,7 @@ export type IndexerApplicationSyncLevel = "add_only" | "full"
 
 export interface IndexerApplicationSettings {
   readonly syncCategories?: ReadonlyArray<number>
+  readonly animeSyncCategories?: ReadonlyArray<number>
   readonly syncLevel?: IndexerApplicationSyncLevel
   readonly enableRss?: boolean
   readonly enableAutomaticSearch?: boolean

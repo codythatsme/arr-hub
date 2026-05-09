@@ -133,6 +133,7 @@ interface ApplicationFormState {
   readonly syncBaseUrl: string
   readonly syncApiKey: string
   readonly syncCategories: string
+  readonly animeSyncCategories: string
   readonly syncLevel: IndexerApplicationSyncLevel
   readonly priority: string
   readonly minimumSeeders: string
@@ -155,6 +156,7 @@ const emptyApplicationForm: ApplicationFormState = {
   syncBaseUrl: "",
   syncApiKey: "",
   syncCategories: "",
+  animeSyncCategories: "",
   syncLevel: "full",
   priority: "25",
   minimumSeeders: "0",
@@ -580,6 +582,7 @@ function Indexers() {
     setApplicationMessage(null)
     const settings = {
       syncCategories: parseCategories(applicationForm.syncCategories),
+      animeSyncCategories: parseCategories(applicationForm.animeSyncCategories),
       syncLevel: applicationForm.syncLevel,
       enableRss: applicationForm.enableRss,
       enableAutomaticSearch: applicationForm.enableAutomaticSearch,
@@ -1627,6 +1630,15 @@ function Indexers() {
                         : application.type === "radarr"
                           ? "2000"
                           : "5000"}
+                      {application.type === "sonarr" && (
+                        <>
+                          {" "}
+                          · anime{" "}
+                          {application.settings.animeSyncCategories?.length
+                            ? application.settings.animeSyncCategories.join(", ")
+                            : "5070"}
+                        </>
+                      )}
                     </p>
                     <p className="text-muted-foreground mt-1 text-xs">
                       RSS {application.settings.enableRss === false ? "off" : "on"} · automatic{" "}
@@ -1737,6 +1749,8 @@ function Indexers() {
                           : event.target.value === "radarr"
                             ? "2000"
                             : "5000",
+                      animeSyncCategories:
+                        event.target.value === "sonarr" ? applicationForm.animeSyncCategories : "",
                     })
                   }
                 >
@@ -1841,6 +1855,22 @@ function Indexers() {
                     placeholder={applicationForm.type === "radarr" ? "2000" : "5000"}
                   />
                 </Field>
+
+                {applicationForm.type === "sonarr" && (
+                  <Field label="Anime categories" hint="Comma-separated Sonarr anime categories.">
+                    <input
+                      className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                      value={applicationForm.animeSyncCategories}
+                      onChange={(event) =>
+                        setApplicationForm({
+                          ...applicationForm,
+                          animeSyncCategories: event.target.value,
+                        })
+                      }
+                      placeholder="5070"
+                    />
+                  </Field>
+                )}
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
@@ -2155,6 +2185,7 @@ function applicationToForm(application: IndexerApplication): ApplicationFormStat
     syncBaseUrl: application.syncBaseUrl,
     syncApiKey: "",
     syncCategories: application.settings.syncCategories?.join(", ") ?? "",
+    animeSyncCategories: application.settings.animeSyncCategories?.join(", ") ?? "",
     syncLevel: application.settings.syncLevel ?? "full",
     priority: String(application.settings.priority ?? 25),
     minimumSeeders: String(application.settings.minimumSeeders ?? 0),

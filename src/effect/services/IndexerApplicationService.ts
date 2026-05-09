@@ -296,6 +296,8 @@ const DEFAULT_APP_CATEGORIES: Record<IndexerApplicationType, ReadonlyArray<numbe
   sonarr: [5000],
 }
 
+const DEFAULT_SONARR_ANIME_CATEGORIES: ReadonlyArray<number> = [5070]
+
 const PROTOCOL_ORDER: ReadonlyArray<IndexerProtocol> = ["torrent", "usenet"]
 
 const MANAGED_REMOTE_FIELD_NAMES = new Set([
@@ -316,6 +318,7 @@ function normalizeSettings(
 ): Required<IndexerApplicationSettings> {
   return {
     syncCategories: settings.syncCategories ?? [],
+    animeSyncCategories: settings.animeSyncCategories ?? [],
     syncLevel: settings.syncLevel ?? DEFAULT_SYNC_LEVEL,
     enableRss: settings.enableRss ?? true,
     enableAutomaticSearch: settings.enableAutomaticSearch ?? true,
@@ -355,6 +358,23 @@ function filteredCategories(
     settings.syncCategories.length > 0
       ? settings.syncCategories
       : DEFAULT_APP_CATEGORIES[applicationType]
+  return categories
+    .filter((category) =>
+      requested.some((candidate) => candidate === category || candidate === rootCategory(category)),
+    )
+    .toSorted((a, b) => a - b)
+}
+
+function filteredAnimeCategories(
+  applicationType: IndexerApplicationType,
+  settings: Required<IndexerApplicationSettings>,
+  categories: ReadonlyArray<number>,
+): ReadonlyArray<number> {
+  if (applicationType !== "sonarr") return []
+  const requested =
+    settings.animeSyncCategories.length > 0
+      ? settings.animeSyncCategories
+      : DEFAULT_SONARR_ANIME_CATEGORIES
   return categories
     .filter((category) =>
       requested.some((candidate) => candidate === category || candidate === rootCategory(category)),
@@ -462,6 +482,7 @@ function buildRemoteIndexerPayload(input: {
   readonly settings: Required<IndexerApplicationSettings>
   readonly protocol: IndexerProtocol
   readonly categories: ReadonlyArray<number>
+  readonly animeCategories: ReadonlyArray<number>
   readonly schema: RemoteIndexer | undefined
   readonly syncApiKey: string
   readonly remoteId: number | null
@@ -476,7 +497,7 @@ function buildRemoteIndexerPayload(input: {
   setField(fields, "categories", input.categories)
 
   if (input.application.type === "sonarr") {
-    setField(fields, "animeCategories", input.categories)
+    setField(fields, "animeCategories", input.animeCategories)
   }
 
   if (input.protocol === "torrent") {
@@ -636,14 +657,22 @@ export const IndexerApplicationServiceLive = Layer.effect(
 
         const plannedItems = PROTOCOL_ORDER.map((protocol) => {
           const feed = protocolFeeds.get(protocol)
-          const categories = feed
-            ? filteredCategories(application.type, settings, Array.from(feed.categories))
+          const availableCategories = feed ? Array.from(feed.categories) : []
+          const animeCategories = feed
+            ? filteredAnimeCategories(application.type, settings, availableCategories)
             : []
-          return { protocol, categories, indexerCount: feed?.indexerCount ?? 0 }
+          const categories = feed
+            ? filteredCategories(application.type, settings, availableCategories).filter(
+                (category) => !animeCategories.includes(category),
+              )
+            : []
+          return { protocol, categories, animeCategories, indexerCount: feed?.indexerCount ?? 0 }
         })
 
         const remoteIndexersNeeded = plannedItems.some(
-          (item) => item.indexerCount > 0 && item.categories.length > 0,
+          (item) =>
+            item.indexerCount > 0 &&
+            (item.categories.length > 0 || item.animeCategories.length > 0),
         )
 
         const [remoteSchemas, remoteIndexers] = remoteIndexersNeeded
@@ -692,7 +721,7 @@ export const IndexerApplicationServiceLive = Layer.effect(
             continue
           }
 
-          if (item.categories.length === 0) {
+          if (item.categories.length === 0 && item.animeCategories.length === 0) {
             if (mapping && settings.syncLevel === "full") {
               yield* Effect.tryPromise({
                 try: () =>
@@ -749,6 +778,7 @@ export const IndexerApplicationServiceLive = Layer.effect(
             settings,
             protocol: item.protocol,
             categories: item.categories,
+            animeCategories: item.animeCategories,
             schema,
             syncApiKey,
             remoteId: existingRemote?.id ?? null,

@@ -69,6 +69,7 @@ function stubRemoteApplication(options?: { readonly failHosts?: ReadonlyArray<st
             { name: "apiPath", value: "/api" },
             { name: "apiKey", value: "" },
             { name: "categories", value: [] },
+            { name: "animeCategories", value: [] },
             { name: "minimumSeeders", value: 0 },
             { name: "additionalParameters", value: "" },
           ],
@@ -81,6 +82,7 @@ function stubRemoteApplication(options?: { readonly failHosts?: ReadonlyArray<st
             { name: "apiPath", value: "/api" },
             { name: "apiKey", value: "" },
             { name: "categories", value: [] },
+            { name: "animeCategories", value: [] },
             { name: "additionalParameters", value: "" },
           ],
         },
@@ -262,6 +264,51 @@ describe("IndexerApplicationService", () => {
           seedTimeMinutes: 1440,
           seasonPackSeedTimeMinutes: 10_080,
           rejectBlocklistedTorrentHashesWhileGrabbing: true,
+        })
+      }).pipe(Effect.provide(TestLayer)),
+    )
+  })
+
+  it("syncs separate Sonarr standard and anime category filters", async () => {
+    const requests = stubRemoteApplication()
+
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const indexers = yield* IndexerService
+        const apps = yield* IndexerApplicationService
+
+        yield* indexers.add({
+          name: "Torrent TV",
+          type: "torznab",
+          baseUrl: "http://tracker.test",
+          apiKey: "tracker-secret",
+          categories: [5000, 5030, 5070],
+        })
+
+        const app = yield* apps.add({
+          name: "Sonarr",
+          type: "sonarr",
+          baseUrl: "http://sonarr.test",
+          apiKey: "remote-key",
+          syncBaseUrl: "http://arr-hub.test",
+          syncApiKey: "arr-hub-key",
+          settings: {
+            syncCategories: [5030],
+            animeSyncCategories: [5070],
+          },
+        })
+
+        const result = yield* apps.sync(app.id)
+        expect(result.created).toBe(1)
+
+        const post = requests.find((request) => request.method === "POST")
+        expect(remoteField(post?.body ?? {}, "categories")).toEqual([5030])
+        expect(remoteField(post?.body ?? {}, "animeCategories")).toEqual([5070])
+
+        const synced = yield* apps.getById(app.id)
+        expect(synced.settings).toMatchObject({
+          syncCategories: [5030],
+          animeSyncCategories: [5070],
         })
       }).pipe(Effect.provide(TestLayer)),
     )

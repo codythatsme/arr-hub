@@ -8,6 +8,7 @@ import { authedProcedure, runEffect } from "../init"
 
 const indexerApplicationSettingsSchema = z.object({
   syncCategories: z.array(z.number().int()).optional(),
+  animeSyncCategories: z.array(z.number().int()).optional(),
   syncLevel: z.enum(["add_only", "full"]).optional(),
   enableRss: z.boolean().optional(),
   enableAutomaticSearch: z.boolean().optional(),
