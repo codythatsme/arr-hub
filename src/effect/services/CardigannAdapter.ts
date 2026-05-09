@@ -1333,6 +1333,47 @@ function formParamsFromHtml(
   return { params, queryParams }
 }
 
+function multipartBoundary(params: URLSearchParams): string {
+  let boundary = "----arrhub-cardigann-form-boundary"
+  const values = Array.from(params.entries()).flat().join("\n")
+  let suffix = 1
+  while (values.includes(boundary)) {
+    boundary = `----arrhub-cardigann-form-boundary-${suffix}`
+    suffix += 1
+  }
+  return boundary
+}
+
+function escapeMultipartName(value: string): string {
+  return value
+    .replaceAll("\\", "\\\\")
+    .replaceAll('"', '\\"')
+    .replaceAll(/[\r\n]/g, " ")
+}
+
+function multipartFormBody(params: URLSearchParams): {
+  readonly body: string
+  readonly contentType: string
+} {
+  const boundary = multipartBoundary(params)
+  const parts = Array.from(params.entries()).map(
+    ([key, value]) =>
+      `--${boundary}\r\nContent-Disposition: form-data; name="${escapeMultipartName(key)}"\r\n\r\n${value}`,
+  )
+  parts.push(`--${boundary}--`)
+
+  return {
+    body: parts.join("\r\n"),
+    contentType: `multipart/form-data; boundary=${boundary}`,
+  }
+}
+
+function isMultipartForm(form: HtmlElementMatch): boolean {
+  return (
+    (form.attributes.enctype ?? "").split(";", 1)[0]?.trim().toLowerCase() === "multipart/form-data"
+  )
+}
+
 function resolveFormSubmitUrl(
   landingUrl: URL,
   form: HtmlElementMatch,
@@ -1405,10 +1446,17 @@ function executeFormLoginRequests(
       }
       const body = formParams.params
       const submitHeaders = loginHeaders(login, path, variables)
-      if (!submitHeaders.has("content-type")) {
+      const submitBody = isMultipartForm(form) ? multipartFormBody(body) : null
+      if (submitBody !== null) {
+        submitHeaders.set("content-type", submitBody.contentType)
+      } else if (!submitHeaders.has("content-type")) {
         submitHeaders.set("content-type", "application/x-www-form-urlencoded")
       }
-      const submitInit: RequestInit = { method: "POST", body, headers: submitHeaders }
+      const submitInit: RequestInit = {
+        method: "POST",
+        body: submitBody?.body ?? body,
+        headers: submitHeaders,
+      }
 
       const submitResponse = yield* fetchIndexerResponseText(
         submitUrl,

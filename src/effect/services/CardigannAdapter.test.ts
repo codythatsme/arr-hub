@@ -1007,6 +1007,119 @@ search:
     expect(releases[0]?.title).toBe("Example Movie 2026 1080p WEB-DL")
   })
 
+  it("executes Cardigann multipart form login requests", async () => {
+    const requests: Array<{ url: string; init: RequestInit | undefined }> = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      requests.push({ url, init })
+      const pathname = new URL(url).pathname
+      if (pathname === "/login") {
+        return new Response(
+          `<html><body>
+            <form id="signin" action="/session" enctype="multipart/form-data">
+              <input type="hidden" name="csrf" value="token123">
+              <input type="text" name="username" value="landing-user">
+              <input type="checkbox" name="remember" value="1" checked>
+            </form>
+          </body></html>`,
+          {
+            status: 200,
+            headers: { "set-cookie": "landing=abc; Path=/; HttpOnly" },
+          },
+        )
+      }
+      if (pathname === "/session") {
+        return new Response("ok", {
+          status: 200,
+          headers: { "set-cookie": "multipart=session; Path=/; HttpOnly" },
+        })
+      }
+      return new Response(RSS_XML, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 31,
+      name: "Multipart Form Login Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "multipart-form-login-cardigann",
+      definitionYaml: `
+id: multipart-form-login-cardigann
+name: Multipart Form Login Cardigann
+links:
+  - https://tracker.example
+settings:
+  - name: username
+    label: Username
+  - name: password
+    label: Password
+    type: password
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+  modes:
+    movie-search: [q]
+login:
+  path: /login
+  method: form
+  form: form#signin
+  inputs:
+    username: "{{ .Config.Username }}"
+    password: "{{ .Config.Password }}"
+search:
+  paths:
+    - path: /api
+      response:
+        type: torznab
+      inputs:
+        q: "{{ .Keywords }}"
+`,
+      baseUrl: "https://tracker.example/root",
+      apiKey: "",
+      configValues: {
+        username: "alice",
+        password: "secret",
+      },
+      priority: 15,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Multipart Movie", type: "movie", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    const submitHeaders = new Headers(requests[1]?.init?.headers)
+    const contentType = submitHeaders.get("content-type") ?? ""
+    const boundary = contentType.match(/^multipart\/form-data; boundary=(.+)$/)?.[1]
+    const submitBody = String(requests[1]?.init?.body ?? "")
+
+    expect(new URL(requests[1]?.url ?? "").pathname).toBe("/session")
+    expect(requests[1]?.init?.method).toBe("POST")
+    expect(boundary).toBeTruthy()
+    expect(submitBody).toContain(
+      `--${boundary}\r\nContent-Disposition: form-data; name="csrf"\r\n\r\ntoken123`,
+    )
+    expect(submitBody).toContain(
+      `--${boundary}\r\nContent-Disposition: form-data; name="username"\r\n\r\nalice`,
+    )
+    expect(submitBody).toContain(
+      `--${boundary}\r\nContent-Disposition: form-data; name="password"\r\n\r\nsecret`,
+    )
+    expect(submitBody).toContain(
+      `--${boundary}\r\nContent-Disposition: form-data; name="remember"\r\n\r\n1`,
+    )
+    expect(submitHeaders.get("cookie")).toBe("landing=abc")
+
+    const searchHeaders = new Headers(requests[2]?.init?.headers)
+    expect(searchHeaders.get("cookie")).toBe("landing=abc; multipart=session")
+    expect(new URL(requests[2]?.url ?? "").searchParams.get("q")).toBe("Multipart Movie")
+    expect(releases[0]?.title).toBe("Example Movie 2026 1080p WEB-DL")
+  })
+
   it("executes Cardigann form login selector inputs", async () => {
     const requests: Array<{ url: string; init: RequestInit | undefined }> = []
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
