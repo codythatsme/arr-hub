@@ -55,6 +55,7 @@ export interface CardigannFilter {
 export interface CardigannRowsSelector {
   readonly selector: string
   readonly after?: number
+  readonly filters: ReadonlyArray<CardigannFilter>
 }
 
 export interface CardigannFieldSelector {
@@ -576,6 +577,7 @@ function parseRows(value: unknown): CardigannRowsSelector | null {
   const after = optionalNonNegativeInt(rows, "after")
   return {
     selector: requiredString(rows, "selector"),
+    filters: parseFilters(rows.filters),
     ...(after !== null ? { after } : {}),
   }
 }

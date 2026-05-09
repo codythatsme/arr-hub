@@ -1184,6 +1184,70 @@ function mergeHtmlRows(
   return merged
 }
 
+function normalizedTextTokens(value: string): ReadonlyArray<string> {
+  return (
+    value
+      .toLowerCase()
+      .replaceAll(/['’]s\b/g, "")
+      .match(/[a-z0-9]+/g) ?? []
+  ).filter((token) => token.length > 1 || /\d/.test(token))
+}
+
+function rowAndMatchSearchText(
+  filter: CardigannFilter,
+  variables: Record<string, TemplateValue>,
+): string {
+  const searchText =
+    templateValueToString(variables[".Keywords"]) ||
+    templateValueToString(variables[".Query.Q"]) ||
+    ""
+  const maxLength = Number.parseInt(renderTemplate(filter.args[0] ?? "", variables), 10)
+  return Number.isFinite(maxLength) && maxLength > 0 ? searchText.slice(0, maxLength) : searchText
+}
+
+function htmlRowFilterText(row: HtmlElementMatch): string {
+  return `${htmlTextContent(row.innerHtml)} ${Object.values(row.attributes).join(" ")}`
+}
+
+function rowMatchesAndMatch(
+  row: HtmlElementMatch,
+  filter: CardigannFilter,
+  variables: Record<string, TemplateValue>,
+): boolean {
+  const terms = normalizedTextTokens(rowAndMatchSearchText(filter, variables))
+  if (terms.length === 0) return true
+
+  const rowTerms = new Set(normalizedTextTokens(htmlRowFilterText(row)))
+  return terms.every((term) => rowTerms.has(term))
+}
+
+function rowMatchesCardigannFilter(
+  row: HtmlElementMatch,
+  filter: CardigannFilter,
+  variables: Record<string, TemplateValue>,
+): boolean {
+  switch (filter.name) {
+    case "andmatch":
+      return rowMatchesAndMatch(row, filter, variables)
+    case "hexdump":
+    case "strdump":
+      return true
+    default:
+      return true
+  }
+}
+
+function filterHtmlRows(
+  rows: ReadonlyArray<HtmlElementMatch>,
+  filters: ReadonlyArray<CardigannFilter>,
+  variables: Record<string, TemplateValue>,
+): ReadonlyArray<HtmlElementMatch> {
+  if (filters.length === 0) return rows
+  return rows.filter((row) =>
+    filters.every((filter) => rowMatchesCardigannFilter(row, filter, variables)),
+  )
+}
+
 function removeHtmlElements(html: string, selectorText: string): string {
   return findHtmlElements(html, selectorText).reduce(
     (current, match) => current.split(match.outerHtml).join(""),
@@ -1370,9 +1434,10 @@ function parseHtmlReleases(
     findHtmlElements(html, definition.search.rows.selector),
     definition.search.rows.after,
   )
+  const filteredRows = filterHtmlRows(rows, definition.search.rows.filters, request.variables)
   const now = Date.now()
 
-  return rows.map((row): ReleaseCandidate => {
+  return filteredRows.map((row): ReleaseCandidate => {
     const resultFields: Record<string, string> = {}
     const variables = { ...request.variables }
     for (const [name, field] of Object.entries(definition.search.fields)) {

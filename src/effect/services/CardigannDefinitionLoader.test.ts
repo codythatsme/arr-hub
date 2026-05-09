@@ -538,6 +538,9 @@ search:
   rows:
     selector: tr.torrent
     after: 1
+    filters:
+      - name: andmatch
+        args: 66
   fields:
     category:
       selector: a.category
@@ -565,7 +568,11 @@ search:
       text: "0"
 `)
 
-    expect(runtime.search.rows).toEqual({ selector: "tr.torrent", after: 1 })
+    expect(runtime.search.rows).toEqual({
+      selector: "tr.torrent",
+      after: 1,
+      filters: [{ name: "andmatch", args: ["66"] }],
+    })
     expect(runtime.search.fields).toMatchObject({
       category: {
         selector: "a.category",
