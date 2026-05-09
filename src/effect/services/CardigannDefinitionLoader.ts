@@ -325,6 +325,69 @@ search:
         limit: "{{ .Query.Limit }}"
 `
 
+const HDACCESS = `
+id: hdaccess
+name: HDAccess
+description: Private HD movie and TV tracker exposed through a Torznab-compatible endpoint.
+type: private
+links:
+  - https://hdaccess.net
+version: builtin-cardigann-1
+tags:
+  - private
+  - movies
+  - tv
+  - hd
+  - torznab
+settings:
+  - name: apiKey
+    label: API key
+    type: password
+    required: true
+    helpText: HDAccess Torznab API key.
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+      newznab: 2000
+    - id: movies-hd
+      cat: Movies/HD
+      desc: Movies HD
+      newznab: 2040
+    - id: movies-3d
+      cat: Movies/3D
+      desc: Movies 3D
+      newznab: 2060
+    - id: tv
+      cat: TV
+      desc: TV
+      newznab: 5000
+    - id: tv-hd
+      cat: TV/HD
+      desc: TV HD
+      newznab: 5040
+  modes:
+    search: [q]
+    movie-search: [q, imdbid]
+    tv-search: [q, season, ep, imdbid, tvdbid]
+search:
+  paths:
+    - path: /api
+      response:
+        type: torznab
+      inputs:
+        apikey: "{{ .Config.APIKey }}"
+        t: "{{ .Query.Type }}"
+        q: "{{ .Keywords }}"
+        cat: "{{ .Categories }}"
+        imdbid: "{{ .Query.IMDBID }}"
+        tvdbid: "{{ .Query.TVDBID }}"
+        season: "{{ .Query.Season }}"
+        ep: "{{ .Query.Ep }}"
+        limit: "{{ .Query.Limit }}"
+`
+
 const TORRENT_NETWORK = `
 id: torrent-network
 name: Torrent Network
@@ -411,6 +474,7 @@ const BUILT_IN_CARDIGANN_SOURCES = [
   NYAA,
   ANIME_TOSHO,
   MORE_THAN_TV,
+  HDACCESS,
   TORRENT_NETWORK,
 ] as const
 

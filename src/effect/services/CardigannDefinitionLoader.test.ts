@@ -80,6 +80,7 @@ caps:
       "nyaa",
       "animetosho",
       "morethantv",
+      "hdaccess",
       "torrent-network",
     ])
     expect(
@@ -113,6 +114,19 @@ caps:
         helpText: "MoreThanTV Torznab API key.",
       },
     ])
+    expect(
+      BUILT_IN_CARDIGANN_DEFINITIONS.find((definition) => definition.definitionKey === "hdaccess")
+        ?.capabilities,
+    ).toEqual({
+      searchTypes: ["search", "movie", "tvsearch"],
+      categories: [
+        { id: 2000, name: "Movies" },
+        { id: 2040, name: "Movies HD" },
+        { id: 2060, name: "Movies 3D" },
+        { id: 5000, name: "TV" },
+        { id: 5040, name: "TV HD" },
+      ],
+    })
   })
 
   it("parses Cardigann select auth fields with options and defaults", () => {

@@ -1751,6 +1751,46 @@ search:
     })
   })
 
+  it("builds HDAccess Torznab search requests from the built-in definition", async () => {
+    let requestUrl: string | undefined
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      requestUrl = String(input)
+      return new Response(RSS_XML, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 86,
+      name: "HDAccess",
+      type: "cardigann_yaml",
+      definitionKey: "hdaccess",
+      baseUrl: "https://hdaccess.net",
+      apiKey: "hda-key",
+      priority: 18,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Better Call Saul", type: "tv", categories: [5040] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const url = new URL(requestUrl ?? "")
+    expect(url.origin).toBe("https://hdaccess.net")
+    expect(url.pathname).toBe("/api")
+    expect(url.searchParams.get("apikey")).toBe("hda-key")
+    expect(url.searchParams.get("t")).toBe("tvsearch")
+    expect(url.searchParams.get("q")).toBe("Better Call Saul")
+    expect(url.searchParams.get("cat")).toBe("tv-hd")
+    expect(releases[0]).toMatchObject({
+      title: "Example Movie 2026 1080p WEB-DL",
+      indexerId: 86,
+      indexerName: "HDAccess",
+      indexerPriority: 18,
+    })
+  })
+
   it("parses first-pass Cardigann HTML selector results", async () => {
     let requestUrl: string | undefined
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
