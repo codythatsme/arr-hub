@@ -129,6 +129,27 @@ const IPTORRENTS_HTML_RESULTS = `
   </table>
 </body></html>`
 
+const RETROFLIX_JSON_RESULTS = JSON.stringify([
+  {
+    download_volume_factor: 0,
+    upload_volume_factor: 1,
+    url: "https://retroflix.club/torrent/321",
+    id: 321,
+    name: "Retro Movie 1976 1080p BluRay",
+    description: "Classic feature",
+    category: {
+      id: 401,
+      name: "Movies",
+    },
+    size: 1_234_000_000,
+    created_at: "2026-05-09T08:30:00+00:00",
+    times_completed: 14,
+    leechers: 3,
+    seeders: 19,
+    imdb_id: "tt7654321",
+  },
+])
+
 const JSON_SELECTOR_FILTER_RESULTS = JSON.stringify({
   data: {
     results: [
@@ -2413,6 +2434,59 @@ search:
       downloadFactor: 0,
       uploadFactor: 1,
     })
+  })
+
+  it("parses RetroFlix SpeedApp JSON results with bearer auth", async () => {
+    const requests: Array<{ url: string; init: RequestInit | undefined }> = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      requests.push({ url: String(input), init })
+      return new Response(RETROFLIX_JSON_RESULTS, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 93,
+      name: "RetroFlix",
+      type: "cardigann_yaml",
+      definitionKey: "retroflix",
+      baseUrl: "https://retroflix.club/",
+      apiKey: "retro-token",
+      priority: 29,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({
+        term: "Retro Movie",
+        type: "movie",
+        categories: [2000],
+        imdbId: "tt7654321",
+      }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const request = requests[0]
+    expect(request?.url).toBe(
+      "https://retroflix.club/api/torrent?itemsPerPage=100&sort=torrent.createdAt&direction=desc&imdbId=tt7654321&categories[]=401",
+    )
+    expect(new Headers(request?.init?.headers).get("authorization")).toBe("Bearer retro-token")
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "Retro Movie 1976 1080p BluRay",
+      downloadUrl: "https://retroflix.club/api/torrent/321/download",
+      infoUrl: "https://retroflix.club/torrent/321",
+      category: "2000",
+      size: 1_234_000_000,
+      seeders: 19,
+      leechers: 3,
+      indexerId: 93,
+      indexerName: "RetroFlix",
+      indexerPriority: 29,
+      downloadFactor: 0,
+      uploadFactor: 1,
+    })
+    expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-09T08:30:00.000Z")
   })
 
   it("parses first-pass Cardigann HTML selector results", async () => {

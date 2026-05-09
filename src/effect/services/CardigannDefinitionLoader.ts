@@ -1520,6 +1520,90 @@ search:
       text: "1"
 `
 
+const RETRO_FLIX = `
+id: retroflix
+name: RetroFlix
+description: Private classic movie, TV, and general tracker exposed through a first-pass SpeedApp JSON Cardigann definition.
+type: private
+links:
+  - https://retroflix.club/
+version: builtin-cardigann-1
+rss: false
+tags:
+  - private
+  - movies
+  - tv
+  - json
+settings:
+  - name: apiKey
+    label: API token
+    type: password
+    required: true
+    helpText: RetroFlix SpeedApp bearer token.
+caps:
+  categorymappings:
+    - id: "401"
+      cat: Movies
+      desc: Movies
+      newznab: 2000
+    - id: "402"
+      cat: TV
+      desc: TV Series
+      newznab: 5000
+    - id: "406"
+      cat: Audio/Video
+      desc: Music Videos
+      newznab: 3020
+    - id: "407"
+      cat: TV/Sport
+      desc: Sports
+      newznab: 5060
+    - id: "409"
+      cat: Books
+      desc: Books
+      newznab: 7000
+    - id: "408"
+      cat: Audio
+      desc: HQ Audio
+      newznab: 3000
+  modes:
+    search: [q]
+    movie-search: [q, imdbid]
+    tv-search: [q, season, ep, imdbid]
+search:
+  paths:
+    - path: 'api/torrent?itemsPerPage=100&sort=torrent.createdAt&direction=desc{{ if .Query.IMDBID }}&imdbId={{ .Query.IMDBID | urlencode }}{{ else }}&search={{ .Keywords | urlencode }}{{ end }}{{ if .Query.Season }}&season={{ .Query.Season }}{{ end }}{{ if .Query.Ep }}&episode={{ .Query.Ep }}{{ end }}{{ if .Categories }}&categories[]={{ .Categories | join "&categories[]=" }}{{ end }}'
+      response:
+        type: json
+      headers:
+        Authorization: "Bearer {{ .Config.APIKey }}"
+  rows:
+    selector: $
+  fields:
+    id:
+      selector: id
+    title:
+      selector: name
+    details:
+      selector: url
+    download:
+      text: "/api/torrent/{{ .Result.id }}/download"
+    category:
+      selector: category.id
+    size:
+      selector: size
+    seeders:
+      selector: seeders
+    leechers:
+      selector: leechers
+    date:
+      selector: created_at
+    downloadvolumefactor:
+      selector: download_volume_factor
+    uploadvolumefactor:
+      selector: upload_volume_factor
+`
+
 const MORE_THAN_TV = `
 id: morethantv
 name: MoreThanTV
@@ -1724,6 +1808,7 @@ const BUILT_IN_CARDIGANN_SOURCES = [
   KNABEN,
   TORRENT_DAY,
   IP_TORRENTS,
+  RETRO_FLIX,
   MORE_THAN_TV,
   HDACCESS,
   TORRENT_NETWORK,

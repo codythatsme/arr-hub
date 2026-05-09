@@ -119,8 +119,8 @@ describe("IndexerService", () => {
       const second = yield* svc.refreshDefinitions()
 
       expect(first).toMatchObject({
-        total: 15,
-        created: 15,
+        total: 16,
+        created: 16,
         updated: 0,
         unchanged: 0,
       })
@@ -140,12 +140,13 @@ describe("IndexerService", () => {
         "created",
         "created",
         "created",
+        "created",
       ])
       expect(second).toMatchObject({
-        total: 15,
+        total: 16,
         created: 0,
         updated: 0,
-        unchanged: 15,
+        unchanged: 16,
       })
       expect(second.definitions.every((definition) => definition.previousVersion !== null)).toBe(
         true,
@@ -426,6 +427,7 @@ describe("IndexerService", () => {
         "nyaa",
         "open-tv-torrents",
         "public-domain-movie-torrents",
+        "retroflix",
         "subsplease",
         "torrent-network",
         "torrentday",
@@ -511,6 +513,17 @@ describe("IndexerService", () => {
         privacy: "private",
         supportsRss: false,
         tags: ["private", "general", "movies", "tv", "html"],
+      })
+      expect(
+        definitions.find((definition) => definition.definitionKey === "retroflix"),
+      ).toMatchObject({
+        displayName: "RetroFlix",
+        protocol: "torrent",
+        implementation: "cardigann_yaml",
+        baseUrl: "https://retroflix.club/",
+        privacy: "private",
+        supportsRss: false,
+        tags: ["private", "movies", "tv", "json"],
       })
       expect(
         definitions.find((definition) => definition.definitionKey === "open-tv-torrents"),

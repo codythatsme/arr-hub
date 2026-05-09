@@ -85,6 +85,7 @@ caps:
       "knaben",
       "torrentday",
       "iptorrents",
+      "retroflix",
       "morethantv",
       "hdaccess",
       "torrent-network",
@@ -231,6 +232,28 @@ caps:
           { id: 5070, name: "Anime" },
           { id: 3030, name: "AudioBook" },
           { id: 6050, name: "XXX/Packs" },
+        ]),
+      },
+    })
+    expect(
+      BUILT_IN_CARDIGANN_DEFINITIONS.find((definition) => definition.definitionKey === "retroflix"),
+    ).toMatchObject({
+      displayName: "RetroFlix",
+      baseUrl: "https://retroflix.club/",
+      privacy: "private",
+      supportsRss: false,
+      supportsSearch: true,
+      tags: ["private", "movies", "tv", "json"],
+      authFields: expect.arrayContaining([
+        expect.objectContaining({ name: "apiKey", type: "password", required: true }),
+      ]),
+      capabilities: {
+        searchTypes: ["search", "movie", "tvsearch"],
+        categories: expect.arrayContaining([
+          { id: 2000, name: "Movies" },
+          { id: 5000, name: "TV Series" },
+          { id: 3020, name: "Music Videos" },
+          { id: 7000, name: "Books" },
         ]),
       },
     })
