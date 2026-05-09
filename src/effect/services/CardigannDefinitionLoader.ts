@@ -12,7 +12,7 @@ import type {
   IndexerProtocol,
 } from "../domain/indexer"
 
-export type CardigannResponseType = "torznab" | "newznab" | "rss"
+export type CardigannResponseType = "html" | "torznab" | "newznab" | "rss"
 
 export interface CardigannSearchPath {
   readonly path: string
@@ -29,11 +29,26 @@ export interface CardigannFilter {
   readonly args: ReadonlyArray<string>
 }
 
+export interface CardigannRowsSelector {
+  readonly selector: string
+}
+
+export interface CardigannFieldSelector {
+  readonly selector?: string
+  readonly attribute?: string
+  readonly text?: string
+  readonly defaultValue?: string
+  readonly optional: boolean
+  readonly filters: ReadonlyArray<CardigannFilter>
+}
+
 export interface CardigannSearchRuntime {
   readonly allowEmptyInputs: boolean
   readonly keywordFilters: ReadonlyArray<CardigannFilter>
   readonly inputs: Readonly<Record<string, string>>
   readonly headers: Readonly<Record<string, string>>
+  readonly rows: CardigannRowsSelector | null
+  readonly fields: Readonly<Record<string, CardigannFieldSelector>>
   readonly paths: ReadonlyArray<CardigannSearchPath>
 }
 
@@ -437,8 +452,38 @@ function parseSearchRuntime(
     keywordFilters: parseFilters(search.keywordsfilters ?? search.keywordsFilters),
     inputs: parseInputMap(search.inputs),
     headers: parseHeaderMap(search.headers),
+    rows: parseRows(search.rows),
+    fields: parseFields(search.fields),
     paths,
   }
+}
+
+function parseRows(value: unknown): CardigannRowsSelector | null {
+  if (value === undefined) return null
+  const rows = expectRecord(value, "rows")
+  return { selector: requiredString(rows, "selector") }
+}
+
+function parseFields(value: unknown): Readonly<Record<string, CardigannFieldSelector>> {
+  if (value === undefined) return {}
+  const record = expectRecord(value, "fields")
+  const fields: Record<string, CardigannFieldSelector> = {}
+  for (const [fieldName, fieldValue] of Object.entries(record)) {
+    const field = expectRecord(fieldValue, `field ${fieldName}`)
+    const selector = optionalScalarStringFromAny(field, ["selector"])
+    const attribute = optionalScalarStringFromAny(field, ["attribute"])
+    const text = optionalScalarStringFromAny(field, ["text"])
+    const defaultValue = optionalScalarStringFromAny(field, ["default", "defaultValue"])
+    fields[fieldName] = {
+      optional: optionalBoolean(field, "optional") ?? false,
+      filters: parseFilters(field.filters),
+      ...(selector !== null ? { selector } : {}),
+      ...(attribute !== null ? { attribute } : {}),
+      ...(text !== null ? { text } : {}),
+      ...(defaultValue !== null ? { defaultValue } : {}),
+    }
+  }
+  return fields
 }
 
 function parseSearchPaths(
@@ -697,6 +742,7 @@ function parseMethod(value: string): "get" | "post" {
 
 function parseResponseType(value: string): CardigannResponseType {
   const type = value.toLowerCase()
+  if (type === "html") return "html"
   if (type === "torznab" || type === "newznab" || type === "rss") return type
   if (type === "xml") return "torznab"
   throw new Error(`unsupported Cardigann response type: ${value}`)

@@ -18,6 +18,28 @@ const RSS_XML = `<?xml version="1.0" encoding="UTF-8"?>
   </channel>
 </rss>`
 
+const HTML_RESULTS = `<!doctype html>
+<html>
+  <body>
+    <table>
+      <tbody>
+        <tr class="torrent">
+          <td><a class="category" href="/browse?cat=movies">Movies</a></td>
+          <td><a class="short-title">Fallback Movie 2026 1080p WEB-DL</a></td>
+          <td>
+            <a class="details" href="/details/1">Details</a>
+            <a class="download" href="/download/1">Download</a>
+          </td>
+          <td class="size">1.5 GiB</td>
+          <td class="seeders">1,234</td>
+          <td class="leechers">56</td>
+          <td><time datetime="2026-05-01T00:00:00.000Z">May 1 2026</time></td>
+        </tr>
+      </tbody>
+    </table>
+  </body>
+</html>`
+
 describe("CardigannAdapter", () => {
   afterEach(() => {
     vi.unstubAllGlobals()
@@ -129,6 +151,104 @@ describe("CardigannAdapter", () => {
       indexerName: "Nyaa",
       indexerPriority: 20,
     })
+  })
+
+  it("parses first-pass Cardigann HTML selector results", async () => {
+    let requestUrl: string | undefined
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      requestUrl = String(input)
+      return new Response(HTML_RESULTS, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 13,
+      name: "HTML Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "html-cardigann",
+      definitionYaml: `
+id: html-cardigann
+name: HTML Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+      newznab: 2000
+  modes:
+    search: [q]
+search:
+  paths:
+    - path: /browse
+      response:
+        type: html
+      inputs:
+        q: "{{ .Keywords }}"
+        cat: "{{ .Categories }}"
+  rows:
+    selector: tr.torrent
+  fields:
+    category:
+      selector: a.category
+      attribute: href
+      filters:
+        - name: querystring
+          args: cat
+    title_default:
+      selector: a.short-title
+    title:
+      selector: a.full-title
+      optional: true
+      default: "{{ .Result.title_default }}"
+    details:
+      selector: a.details
+      attribute: href
+    download:
+      selector: a.download
+      attribute: href
+    size:
+      selector: td.size
+    seeders:
+      selector: td.seeders
+    leechers:
+      selector: td.leechers
+    date:
+      selector: time
+      attribute: datetime
+`,
+      baseUrl: "https://tracker.example",
+      apiKey: "",
+      priority: 35,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Fallback Movie", type: "general", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const url = new URL(requestUrl ?? "")
+    expect(url.pathname).toBe("/browse")
+    expect(url.searchParams.get("q")).toBe("Fallback Movie")
+    expect(url.searchParams.get("cat")).toBe("movies")
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "Fallback Movie 2026 1080p WEB-DL",
+      indexerId: 13,
+      indexerName: "HTML Cardigann",
+      indexerPriority: 35,
+      size: 1_610_612_736,
+      seeders: 1234,
+      leechers: 56,
+      downloadUrl: "https://tracker.example/download/1",
+      infoUrl: "https://tracker.example/details/1",
+      category: "2000",
+      protocol: "torrent",
+    })
+    expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-01T00:00:00.000Z")
   })
 
   it("builds Cardigann-style POST search requests from definition paths", async () => {

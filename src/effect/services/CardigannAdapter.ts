@@ -9,14 +9,21 @@ import type {
 } from "../domain/indexer"
 import { IndexerError } from "../errors"
 import {
+  type CardigannFieldSelector,
   type CardigannFilter,
+  type CardigannResponseType,
   type CardigannRuntimeDefinition,
   type CardigannSearchPath,
   getBuiltInCardigannRuntimeDefinition,
   parseCardigannRuntimeDefinitionYaml,
 } from "./CardigannDefinitionLoader"
 import type { IndexerAdapter } from "./IndexerAdapter"
-import { checkTorznabError, fetchIndexerXml, parseTorznabReleases } from "./TorznabAdapter"
+import {
+  checkTorznabError,
+  fetchIndexerText,
+  fetchIndexerXml,
+  parseTorznabReleases,
+} from "./TorznabAdapter"
 
 export const cardigannYamlMetadata: IndexerAdapterMetadata = {
   displayName: "Cardigann YAML",
@@ -35,6 +42,24 @@ type TemplateValue = string | ReadonlyArray<string>
 interface CardigannSearchRequest {
   readonly url: URL
   readonly init: RequestInit
+  readonly responseType: CardigannResponseType
+  readonly variables: Record<string, TemplateValue>
+}
+
+interface HtmlElementMatch {
+  readonly attributes: Readonly<Record<string, string>>
+  readonly innerHtml: string
+}
+
+interface SimpleHtmlSelector {
+  readonly tag: string | null
+  readonly id: string | null
+  readonly classes: ReadonlyArray<string>
+  readonly attributes: ReadonlyArray<{
+    readonly name: string
+    readonly operator: string | null
+    readonly value: string
+  }>
 }
 
 function loadRuntimeDefinition(
@@ -643,6 +668,267 @@ function appendHeaders(
   }
 }
 
+function applyCardigannFieldFilters(
+  value: string,
+  filters: ReadonlyArray<CardigannFilter>,
+  variables: Record<string, TemplateValue>,
+): string {
+  return filters.reduce(
+    (current, filter) => applyCardigannKeywordFilter(current, filter, variables),
+    value,
+  )
+}
+
+function simpleSelectorToken(selector: string): string {
+  const tokens = selector
+    .trim()
+    .split(/\s*>\s*|\s+/)
+    .map((token) => token.trim())
+    .filter((token) => token.length > 0)
+  return tokens.at(-1)?.replace(/:(?:first|last)-child\b/g, "") ?? ""
+}
+
+function parseSimpleHtmlSelector(selector: string): SimpleHtmlSelector | null {
+  const token = simpleSelectorToken(selector)
+  if (token.length === 0 || token.includes(":")) return null
+
+  const tagMatch = token.match(/^[A-Za-z][\w:-]*/)
+  const idMatch = token.match(/#([\w-]+)/)
+  const classes = Array.from(token.matchAll(/\.([\w-]+)/g)).map((match) => match[1] ?? "")
+  const attributes = Array.from(
+    token.matchAll(/\[([\w:-]+)(?:\s*([*^$]?=)\s*["']?([^"'\]]*)["']?)?\]/g),
+  ).map((match) => ({
+    name: match[1] ?? "",
+    operator: match[2] ?? null,
+    value: match[3] ?? "",
+  }))
+
+  return {
+    tag: tagMatch?.[0].toLowerCase() ?? null,
+    id: idMatch?.[1] ?? null,
+    classes,
+    attributes,
+  }
+}
+
+function parseHtmlAttributes(value: string): Readonly<Record<string, string>> {
+  const attributes: Record<string, string> = {}
+  for (const match of value.matchAll(
+    /([^\s"'<>/=]+)(?:\s*=\s*("([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g,
+  )) {
+    const name = (match[1] ?? "").toLowerCase()
+    if (name.length === 0) continue
+    attributes[name] = htmlDecode(match[3] ?? match[4] ?? match[5] ?? "")
+  }
+  return attributes
+}
+
+function htmlAttributeMatches(
+  attributes: Readonly<Record<string, string>>,
+  selector: SimpleHtmlSelector,
+): boolean {
+  if (selector.id !== null && attributes.id !== selector.id) return false
+
+  const classes = new Set((attributes.class ?? "").split(/\s+/).filter((item) => item.length > 0))
+  if (selector.classes.some((className) => !classes.has(className))) return false
+
+  return selector.attributes.every((attribute) => {
+    const actual = attributes[attribute.name.toLowerCase()]
+    if (actual === undefined) return false
+    if (attribute.operator === null) return true
+    if (attribute.operator === "=") return actual === attribute.value
+    if (attribute.operator === "^=") return actual.startsWith(attribute.value)
+    if (attribute.operator === "$=") return actual.endsWith(attribute.value)
+    if (attribute.operator === "*=") return actual.includes(attribute.value)
+    return false
+  })
+}
+
+function findHtmlElements(html: string, selectorText: string): ReadonlyArray<HtmlElementMatch> {
+  const selector = parseSimpleHtmlSelector(selectorText)
+  if (selector === null) return []
+
+  const tagPattern = selector.tag ? escapeRegExp(selector.tag) : "[A-Za-z][\\w:-]*"
+  const elementPattern = new RegExp(`<(${tagPattern})\\b([^>]*)>([\\s\\S]*?)<\\/\\1>`, "gi")
+  const matches: Array<HtmlElementMatch> = []
+  for (const match of html.matchAll(elementPattern)) {
+    const tagName = (match[1] ?? "").toLowerCase()
+    if (selector.tag !== null && tagName !== selector.tag) continue
+
+    const attributes = parseHtmlAttributes(match[2] ?? "")
+    if (htmlAttributeMatches(attributes, selector)) {
+      matches.push({ attributes, innerHtml: match[3] ?? "" })
+    }
+  }
+  return matches
+}
+
+function htmlTextContent(value: string): string {
+  return htmlDecode(
+    value
+      .replaceAll(/<script\b[\s\S]*?<\/script>/gi, " ")
+      .replaceAll(/<style\b[\s\S]*?<\/style>/gi, " ")
+      .replaceAll(/<[^>]+>/g, " ")
+      .replaceAll(/\s+/g, " ")
+      .trim(),
+  )
+}
+
+function htmlFieldValue(
+  row: HtmlElementMatch,
+  field: CardigannFieldSelector,
+  variables: Record<string, TemplateValue>,
+): string {
+  const selected = field.selector ? findHtmlElements(row.innerHtml, field.selector)[0] : row
+  let value = ""
+  if (field.text !== undefined) {
+    value = renderTemplate(field.text, variables)
+  } else if (selected) {
+    value = field.attribute
+      ? (selected.attributes[field.attribute.toLowerCase()] ?? "")
+      : htmlTextContent(selected.innerHtml)
+  }
+
+  if (value.trim().length === 0 && field.defaultValue !== undefined) {
+    value = renderTemplate(field.defaultValue, variables)
+  }
+
+  return applyCardigannFieldFilters(value.trim(), field.filters, variables).trim()
+}
+
+function fieldByName(
+  fields: Readonly<Record<string, string>>,
+  names: ReadonlyArray<string>,
+): string {
+  const lowerFields = new Map(
+    Object.entries(fields).map(([key, value]) => [key.toLowerCase(), value]),
+  )
+  for (const name of names) {
+    const value = fields[name] ?? lowerFields.get(name.toLowerCase())
+    if (value && value.length > 0) return value
+  }
+  return ""
+}
+
+function firstNumber(value: string): number {
+  const match = value.replaceAll(",", "").match(/-?\d+(?:\.\d+)?/)
+  return match ? Number(match[0]) : 0
+}
+
+function parseHtmlDate(value: string): Date {
+  const date = value.length > 0 ? new Date(value) : new Date()
+  return Number.isNaN(date.getTime()) ? new Date() : date
+}
+
+function parseSizeBytes(value: string): number {
+  const match = value.trim().match(/([\d.,]+)\s*([kmgtp]?i?b|[kmgtp]?b|bytes?)?/i)
+  if (!match) return 0
+
+  const rawAmount = match[1] ?? ""
+  const amountText =
+    rawAmount.includes(",") && rawAmount.includes(".")
+      ? rawAmount.replaceAll(",", "")
+      : rawAmount.replace(",", ".")
+  const amount = Number(amountText)
+  if (!Number.isFinite(amount)) return 0
+
+  const unit = (match[2] ?? "b").toLowerCase()
+  const factor =
+    unit === "kb"
+      ? 1_000
+      : unit === "kib"
+        ? 1_024
+        : unit === "mb"
+          ? 1_000_000
+          : unit === "mib"
+            ? 1_048_576
+            : unit === "gb"
+              ? 1_000_000_000
+              : unit === "gib"
+                ? 1_073_741_824
+                : unit === "tb"
+                  ? 1_000_000_000_000
+                  : unit === "tib"
+                    ? 1_099_511_627_776
+                    : 1
+  return Math.max(0, Math.round(amount * factor))
+}
+
+function releaseCategory(definition: CardigannRuntimeDefinition, trackerCategory: string): string {
+  const trimmed = trackerCategory.trim()
+  const mapping = definition.categories.find(
+    (category) =>
+      category.trackerCategory === trimmed ||
+      category.trackerCategoryDesc === trimmed ||
+      String(category.newznabCategory) === trimmed,
+  )
+  return mapping ? String(mapping.newznabCategory) : trimmed
+}
+
+function absoluteUrl(value: string, baseUrl: URL): string {
+  if (value.trim().length === 0) return ""
+  try {
+    return new URL(value, baseUrl).toString()
+  } catch {
+    return value
+  }
+}
+
+function parseHtmlReleases(
+  html: string,
+  request: CardigannSearchRequest,
+  definition: CardigannRuntimeDefinition,
+  config: IndexerConfig,
+): ReadonlyArray<ReleaseCandidate> {
+  if (definition.search.rows === null) return []
+
+  const rows = findHtmlElements(html, definition.search.rows.selector)
+  const now = Date.now()
+
+  return rows.map((row): ReleaseCandidate => {
+    const resultFields: Record<string, string> = {}
+    const variables = { ...request.variables }
+    for (const [name, field] of Object.entries(definition.search.fields)) {
+      const value = htmlFieldValue(row, field, variables)
+      resultFields[name] = value
+      variables[`.Result.${name}`] = value
+    }
+
+    const publishedAt = parseHtmlDate(fieldByName(resultFields, ["date", "pubdate", "publishdate"]))
+    const ageDays = Math.max(0, Math.floor((now - publishedAt.getTime()) / 86_400_000))
+    const downloadUrl = absoluteUrl(
+      fieldByName(resultFields, ["download", "downloadurl", "link"]),
+      request.url,
+    )
+    const infoUrl = fieldByName(resultFields, ["details", "info", "comments", "guid"])
+
+    return {
+      title: fieldByName(resultFields, ["title"]),
+      indexerId: config.id,
+      indexerName: config.name,
+      indexerPriority: config.priority,
+      size: parseSizeBytes(fieldByName(resultFields, ["size"])),
+      seeders:
+        definition.protocol === "torrent"
+          ? firstNumber(fieldByName(resultFields, ["seeders", "seeds"]))
+          : null,
+      leechers:
+        definition.protocol === "torrent"
+          ? firstNumber(fieldByName(resultFields, ["leechers", "peers"]))
+          : null,
+      age: ageDays,
+      downloadUrl,
+      infoUrl: infoUrl.length > 0 ? absoluteUrl(infoUrl, request.url) : null,
+      category: releaseCategory(definition, fieldByName(resultFields, ["category"])),
+      protocol: definition.protocol,
+      publishedAt,
+      infohash: fieldByName(resultFields, ["infohash"]).trim() || null,
+      downloadFactor: Number(fieldByName(resultFields, ["downloadvolumefactor"])) || 1,
+      uploadFactor: Number(fieldByName(resultFields, ["uploadvolumefactor"])) || 1,
+    }
+  })
+}
+
 function resolveSearchRequests(
   config: IndexerConfig,
   definition: CardigannRuntimeDefinition,
@@ -711,7 +997,12 @@ function resolveSearchRequests(
       }
     }
     if (Array.from(headers).length > 0) init.headers = headers
-    requests.set(`${path.method} ${url.toString()} ${targetParams.toString()}`, { url, init })
+    requests.set(`${path.method} ${url.toString()} ${targetParams.toString()}`, {
+      url,
+      init,
+      responseType: path.responseType,
+      variables: pathVariables,
+    })
   }
 
   return Array.from(requests.values())
@@ -735,6 +1026,22 @@ export function createCardigannYamlAdapter(config: IndexerConfig): IndexerAdapte
           requests,
           (request) =>
             Effect.gen(function* () {
+              if (request.responseType === "html") {
+                const html = yield* fetchIndexerText(request.url, config, request.init)
+                return yield* Effect.try({
+                  try: () => parseHtmlReleases(html, request, definition, config),
+                  catch: (error) =>
+                    new IndexerError({
+                      indexerId: config.id,
+                      indexerName: config.name,
+                      reason: "invalid_response",
+                      message:
+                        error instanceof Error ? error.message : "invalid Cardigann HTML response",
+                      retryable: true,
+                    }),
+                })
+              }
+
               const parsed = yield* fetchIndexerXml(request.url, config, request.init)
               yield* checkTorznabError(parsed, config)
               return parseTorznabReleases(parsed, {

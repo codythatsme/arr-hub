@@ -356,6 +356,8 @@ search:
       ],
       inputs: { apikey: "{{ .Config.APIKey }}" },
       headers: {},
+      rows: null,
+      fields: {},
       paths: [
         {
           path: "/api",
@@ -402,6 +404,8 @@ search:
       keywordFilters: [],
       inputs: { page: "1", freeleech: "true" },
       headers: {},
+      rows: null,
+      fields: {},
       paths: [
         {
           path: "/api",
@@ -414,6 +418,70 @@ search:
         },
       ],
     })
+  })
+
+  it("parses Cardigann HTML row and field selectors", () => {
+    const runtime = parseCardigannRuntimeDefinitionYaml(`
+id: html-cardigann
+name: HTML Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+  modes:
+    search: [q]
+search:
+  paths:
+    - path: /browse
+      response:
+        type: html
+      inputs:
+        q: "{{ .Keywords }}"
+  rows:
+    selector: tr.torrent
+  fields:
+    category:
+      selector: a.category
+      attribute: href
+      filters:
+        - name: querystring
+          args: cat
+    title_default:
+      selector: a.short-title
+      optional: true
+    title:
+      selector: a.full-title
+      optional: true
+      default: "{{ .Result.title_default }}"
+    download:
+      selector: a.download
+      attribute: href
+    seeders:
+      text: "0"
+`)
+
+    expect(runtime.search.rows).toEqual({ selector: "tr.torrent" })
+    expect(runtime.search.fields).toMatchObject({
+      category: {
+        selector: "a.category",
+        attribute: "href",
+        optional: false,
+        filters: [{ name: "querystring", args: ["cat"] }],
+      },
+      title: {
+        selector: "a.full-title",
+        defaultValue: "{{ .Result.title_default }}",
+        optional: true,
+      },
+      seeders: {
+        text: "0",
+        optional: false,
+      },
+    })
+    expect(runtime.search.paths[0]?.responseType).toBe("html")
   })
 
   it("parses Cardigann request header templates", () => {

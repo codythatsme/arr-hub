@@ -184,11 +184,11 @@ function headerRecord(headers: HeadersInit | undefined): Record<string, string> 
   return Object.fromEntries(new Headers(headers).entries())
 }
 
-export function fetchIndexerXml(
+export function fetchIndexerText(
   url: URL,
   config: IndexerConfig,
   init: RequestInit = {},
-): Effect.Effect<unknown, IndexerError> {
+): Effect.Effect<string, IndexerError> {
   return Effect.tryPromise({
     try: async () => {
       const controller = new AbortController()
@@ -215,8 +215,7 @@ export function fetchIndexerXml(
           if (!res.ok) {
             throw Object.assign(new Error(`HTTP ${res.status}`), { status: res.status })
           }
-          const text = parseFlaresolverrResponse(await res.json())
-          return xmlParser.parse(text)
+          return parseFlaresolverrResponse(await res.json())
         }
 
         if (proxy?.type === "socks4" || proxy?.type === "socks5") {
@@ -224,7 +223,7 @@ export function fetchIndexerXml(
           if (res.status < 200 || res.status >= 300) {
             throw Object.assign(new Error(`HTTP ${res.status}`), { status: res.status })
           }
-          return xmlParser.parse(res.text)
+          return res.text
         }
 
         const built = buildFetchInit(controller.signal, proxy)
@@ -236,8 +235,7 @@ export function fetchIndexerXml(
         if (!res.ok) {
           throw Object.assign(new Error(`HTTP ${res.status}`), { status: res.status })
         }
-        const text = await res.text()
-        return xmlParser.parse(text)
+        return await res.text()
       } finally {
         await dispatcher?.close().catch(() => undefined)
         clearTimeout(timeout)
@@ -272,6 +270,28 @@ export function fetchIndexerXml(
       })
     },
   })
+}
+
+export function fetchIndexerXml(
+  url: URL,
+  config: IndexerConfig,
+  init: RequestInit = {},
+): Effect.Effect<unknown, IndexerError> {
+  return fetchIndexerText(url, config, init).pipe(
+    Effect.flatMap((text) =>
+      Effect.try({
+        try: () => xmlParser.parse(text),
+        catch: (error) =>
+          new IndexerError({
+            indexerId: config.id,
+            indexerName: config.name,
+            reason: "invalid_response",
+            message: error instanceof Error ? error.message : "invalid XML response",
+            retryable: true,
+          }),
+      }),
+    ),
+  )
 }
 
 export function checkTorznabError(
