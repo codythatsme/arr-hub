@@ -872,6 +872,45 @@ function trimCharacters(value: string, chars: string): string {
   return value.replace(new RegExp(`^[${escaped}]+|[${escaped}]+$`, "g"), "")
 }
 
+function stripDiacritics(value: string): string {
+  return value
+    .normalize("NFD")
+    .replaceAll(/\p{Diacritic}/gu, "")
+    .normalize("NFC")
+}
+
+function validFilename(value: string): string {
+  const invalidCharacters = new Set(["<", ">", ":", '"', "/", "\\", "|", "?", "*"])
+  return Array.from(value, (char) =>
+    invalidCharacters.has(char) || char.charCodeAt(0) < 32 ? "_" : char,
+  )
+    .join("")
+    .trim()
+}
+
+function parseFuzzyDate(value: string): Date | null {
+  const normalized = value.trim().replaceAll(/\b(\d{1,2})(?:st|nd|rd|th)\b/gi, "$1")
+  const date = normalized.length > 0 ? new Date(normalized) : new Date()
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+function validatedTerms(value: string, allowed: string): string {
+  const delimiters = /[, /)(.;[\]"|:]+/
+  const valueTerms = new Set(
+    value
+      .toLowerCase()
+      .split(delimiters)
+      .map((term) => term.trim())
+      .filter((term) => term.length > 0),
+  )
+
+  return allowed
+    .split(delimiters)
+    .map((term) => term.trim())
+    .filter((term) => term.length > 0 && valueTerms.has(term.toLowerCase()))
+    .join(", ")
+}
+
 function applyCardigannKeywordFilter(
   value: string,
   filter: CardigannFilter,
@@ -889,10 +928,13 @@ function applyCardigannKeywordFilter(
     case "dateparse":
     case "timeparse":
       return first ? (parseDotNetDate(value, first)?.toUTCString() ?? value) : value
-    case "fuzzytime":
     case "reltime":
     case "timeago":
       return relativeTimeDate(value)?.toUTCString() ?? value
+    case "diacritics":
+      return first === "replace" ? stripDiacritics(value) : value
+    case "fuzzytime":
+      return parseFuzzyDate(value)?.toUTCString() ?? value
     case "prepend":
       return `${renderTemplate(first, variables)}${value}`
     case "querystring":
@@ -924,6 +966,8 @@ function applyCardigannKeywordFilter(
       return value.toUpperCase()
     case "trim":
       return first ? trimCharacters(value, first) : value.trim()
+    case "validate":
+      return validatedTerms(value, renderTemplate(first, variables))
     case "urldecode":
     case "urldecodecomponent":
       return urlDecode(value)
@@ -931,6 +975,8 @@ function applyCardigannKeywordFilter(
     case "urlencode":
     case "urlencodecomponent":
       return encodeURIComponent(value)
+    case "validfilename":
+      return validFilename(value)
     default:
       return value
   }

@@ -103,6 +103,22 @@ const HTML_DATE_HEADER_RESULTS = `<!doctype html>
   </body>
 </html>`
 
+const HTML_FIELD_FILTER_RESULTS = `<!doctype html>
+<html>
+  <body>
+    <table>
+      <tbody>
+        <tr class="torrent">
+          <td><a class="title">Crème Movie: 2026/1080p* WEB-DL</a></td>
+          <td><a class="download" href="/download/filtered">Download</a></td>
+          <td class="category">Movies HD English</td>
+          <td class="date">May 6th 2026 00:00 UTC</td>
+        </tr>
+      </tbody>
+    </table>
+  </body>
+</html>`
+
 const HTML_ROW_FILTER_RESULTS = `<!doctype html>
 <html>
   <body>
@@ -598,6 +614,76 @@ search:
     expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-04T00:00:00.000Z")
     expect(releases[1]?.publishedAt.toISOString()).toBe("2026-05-04T00:00:00.000Z")
     expect(releases[2]?.publishedAt.toISOString()).toBe("2026-05-05T00:00:00.000Z")
+  })
+
+  it("applies additional Cardigann field filters to HTML fields", async () => {
+    const fetchMock = vi.fn(async () => new Response(HTML_FIELD_FILTER_RESULTS, { status: 200 }))
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 55,
+      name: "Field Filter HTML Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "field-filter-html-cardigann",
+      definitionYaml: `
+id: field-filter-html-cardigann
+name: Field Filter HTML Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: Movies
+      cat: Movies
+      desc: Movies
+      newznab: 2000
+  modes:
+    search: [q]
+search:
+  paths:
+    - path: /browse
+      response:
+        type: html
+  rows:
+    selector: tr.torrent
+  fields:
+    title:
+      selector: a.title
+      filters:
+        - name: diacritics
+          args: replace
+        - name: validfilename
+    download:
+      selector: a.download
+      attribute: href
+    category:
+      selector: td.category
+      filters:
+        - name: validate
+          args: "Movies, TV"
+    date:
+      selector: td.date
+      filters:
+        - name: fuzzytime
+`,
+      baseUrl: "https://tracker.example",
+      apiKey: "",
+      priority: 35,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Creme Movie", type: "general", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "Creme Movie_ 2026_1080p_ WEB-DL",
+      downloadUrl: "https://tracker.example/download/filtered",
+      category: "2000",
+    })
+    expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-06T00:00:00.000Z")
   })
 
   it("applies Cardigann andmatch row filters to HTML results", async () => {
