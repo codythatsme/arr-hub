@@ -582,6 +582,37 @@ const HTML_NTH_LAST_CHILD_SELECTOR_RESULTS = `<!doctype html>
   </body>
 </html>`
 
+const HTML_OF_TYPE_SELECTOR_RESULTS = `<!doctype html>
+<html>
+  <body>
+    <div class="cards">
+      <article class="release">
+        <span class="label">Noise</span>
+        <a href="/details/wrong-of-type-first">Wrong First Of Type Movie 2026 1080p WEB-DL</a>
+        <span class="size">600 MB</span>
+        <a href="/download/wrong-of-type-first">Download</a>
+      </article>
+      <section class="ad">
+        <article class="release">
+          <a href="/details/wrong-nested-of-type">Wrong Nested Of Type Movie 2026 1080p WEB-DL</a>
+        </article>
+      </section>
+      <article class="release">
+        <span class="label">Noise</span>
+        <a href="/details/of-type">Of Type Movie 2026 1080p WEB-DL</a>
+        <span class="size">1.9 GB</span>
+        <a href="/download/of-type">Download</a>
+      </article>
+      <article class="release">
+        <span class="label">Noise</span>
+        <a href="/details/wrong-of-type-final">Wrong Final Of Type Movie 2026 1080p WEB-DL</a>
+        <span class="size">800 MB</span>
+        <a href="/download/wrong-of-type-final">Download</a>
+      </article>
+    </div>
+  </body>
+</html>`
+
 const HTML_NESTED_RESULTS = `<!doctype html>
 <html>
   <body>
@@ -2872,6 +2903,73 @@ search:
       infoUrl: "https://tracker.example/details/nth-last-child",
       downloadUrl: "https://tracker.example/download/nth-last-child",
       size: 1_800_000_000,
+      category: "2000",
+    })
+  })
+
+  it("matches Cardigann HTML of-type pseudo classes", async () => {
+    const fetchMock = vi.fn(
+      async () => new Response(HTML_OF_TYPE_SELECTOR_RESULTS, { status: 200 }),
+    )
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 77,
+      name: "HTML Of Type Selector Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "html-of-type-selector-cardigann",
+      definitionYaml: `
+id: html-of-type-selector-cardigann
+name: HTML Of Type Selector Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+      newznab: 2000
+  modes:
+    search: [q]
+search:
+  paths:
+    - path: /browse
+      response:
+        type: html
+  rows:
+    selector: div.cards > article.release:nth-of-type(2)
+  fields:
+    title:
+      selector: a:nth-last-of-type(2)
+    details:
+      selector: a:nth-last-of-type(2)
+      attribute: href
+    download:
+      selector: a:nth-of-type(2)
+      attribute: href
+    size:
+      selector: span:nth-of-type(2)
+    category:
+      text: Movies
+`,
+      baseUrl: "https://tracker.example",
+      apiKey: "",
+      priority: 35,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Of Type", type: "general", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "Of Type Movie 2026 1080p WEB-DL",
+      infoUrl: "https://tracker.example/details/of-type",
+      downloadUrl: "https://tracker.example/download/of-type",
+      size: 1_900_000_000,
       category: "2000",
     })
   })

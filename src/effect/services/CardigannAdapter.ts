@@ -66,6 +66,8 @@ interface HtmlElementMatch {
   readonly lastChild?: boolean
   readonly childIndex?: number
   readonly childCount?: number
+  readonly typeIndex?: number
+  readonly typeCount?: number
 }
 
 interface SimpleHtmlSelector {
@@ -1819,6 +1821,14 @@ function htmlSelectorFiltersMatch(
         return htmlNthChildMatches(element.childIndex, filter.selector)
       case "nth-last-child":
         return htmlNthChildMatches(htmlNthLastChildIndex(element), filter.selector)
+      case "first-of-type":
+        return element.typeIndex === 1
+      case "last-of-type":
+        return htmlNthLastOfTypeIndex(element) === 1
+      case "nth-of-type":
+        return htmlNthChildMatches(element.typeIndex, filter.selector)
+      case "nth-last-of-type":
+        return htmlNthChildMatches(htmlNthLastOfTypeIndex(element), filter.selector)
       default:
         return true
     }
@@ -1878,16 +1888,27 @@ function htmlChildPositionAt(
   readonly last: boolean
   readonly index: number | undefined
   readonly count: number | undefined
+  readonly typeIndex: number | undefined
+  readonly typeCount: number | undefined
 } {
   let rootChildCount = 0
+  const rootTypeChildCounts = new Map<string, number>()
   let targetFound = false
   let targetParentKey: number | null = null
+  let targetTagName: string | null = null
   let first = false
   let last = true
   let childIndex: number | undefined
   let childCount: number | undefined
+  let typeIndex: number | undefined
+  let typeCount: number | undefined
   let nextFrameKey = 1
-  const stack: Array<{ tagName: string; childCount: number; key: number }> = []
+  const stack: Array<{
+    tagName: string
+    childCount: number
+    typeChildCounts: Map<string, number>
+    key: number
+  }> = []
 
   for (const match of html.matchAll(/<\/?([A-Za-z][\w:-]*)([^>]*)>/g)) {
     const raw = match[0]
@@ -1904,24 +1925,32 @@ function htmlChildPositionAt(
     const parent = stack.at(-1)
     const parentKey = parent?.key ?? 0
     const priorChildCount = parent?.childCount ?? rootChildCount
+    const parentTypeChildCounts = parent?.typeChildCounts ?? rootTypeChildCounts
+    const priorTypeChildCount = parentTypeChildCounts.get(tagName) ?? 0
     const currentChildIndex = priorChildCount + 1
+    const currentTypeChildIndex = priorTypeChildCount + 1
     if (parent) {
       parent.childCount = currentChildIndex
     } else {
       rootChildCount = currentChildIndex
     }
+    parentTypeChildCounts.set(tagName, currentTypeChildIndex)
 
     if (targetFound && parentKey === targetParentKey) {
       childCount = currentChildIndex
       if (matchIndex > index) last = false
+      if (tagName === targetTagName) typeCount = currentTypeChildIndex
     }
 
     if (matchIndex === index) {
       targetFound = true
       targetParentKey = parentKey
+      targetTagName = tagName
       first = priorChildCount === 0
       childIndex = currentChildIndex
       childCount = currentChildIndex
+      typeIndex = currentTypeChildIndex
+      typeCount = currentTypeChildIndex
     }
 
     const attributes = match[2] ?? ""
@@ -1933,13 +1962,25 @@ function htmlChildPositionAt(
       continue
     }
 
-    stack.push({ tagName, childCount: 0, key: nextFrameKey })
+    stack.push({
+      tagName,
+      childCount: 0,
+      typeChildCounts: new Map(),
+      key: nextFrameKey,
+    })
     nextFrameKey += 1
   }
 
   return targetFound
-    ? { first, last, index: childIndex, count: childCount }
-    : { first: false, last: false, index: undefined, count: undefined }
+    ? { first, last, index: childIndex, count: childCount, typeIndex, typeCount }
+    : {
+        first: false,
+        last: false,
+        index: undefined,
+        count: undefined,
+        typeIndex: undefined,
+        typeCount: undefined,
+      }
 }
 
 function htmlNthChildMatches(index: number | undefined, expression: string): boolean {
@@ -1974,6 +2015,11 @@ function htmlNthLastChildIndex(element: HtmlElementMatch): number | undefined {
   return element.childCount - element.childIndex + 1
 }
 
+function htmlNthLastOfTypeIndex(element: HtmlElementMatch): number | undefined {
+  if (element.typeIndex === undefined || element.typeCount === undefined) return undefined
+  return element.typeCount - element.typeIndex + 1
+}
+
 function findHtmlElementsForToken(
   html: string,
   selectorText: string,
@@ -1991,7 +2037,11 @@ function findHtmlElementsForToken(
       filter.name === "first-child" ||
       filter.name === "last-child" ||
       filter.name === "nth-child" ||
-      filter.name === "nth-last-child",
+      filter.name === "nth-last-child" ||
+      filter.name === "first-of-type" ||
+      filter.name === "last-of-type" ||
+      filter.name === "nth-of-type" ||
+      filter.name === "nth-last-of-type",
   )
   const pushMatch = (
     match: RegExpMatchArray,
@@ -2018,6 +2068,8 @@ function findHtmlElementsForToken(
       lastChild: childPosition?.last,
       childIndex: childPosition?.index,
       childCount: childPosition?.count,
+      typeIndex: childPosition?.typeIndex,
+      typeCount: childPosition?.typeCount,
     }
     if (
       htmlAttributeMatches(attributes, selector) &&
