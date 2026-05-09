@@ -201,6 +201,20 @@ const runDdl = Effect.gen(function* () {
     capabilities TEXT NOT NULL DEFAULT '{"searchTypes":[],"categories":[]}',
     tags TEXT NOT NULL DEFAULT '[]',
     version TEXT NOT NULL DEFAULT 'builtin-1',
+    source_yaml TEXT,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+  )`
+
+  yield* sql`CREATE TABLE indexer_definition_sources (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    url TEXT NOT NULL UNIQUE,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    last_checked_at INTEGER,
+    last_error TEXT,
+    last_definition_key TEXT,
+    last_version TEXT,
     created_at INTEGER NOT NULL DEFAULT (unixepoch()),
     updated_at INTEGER NOT NULL DEFAULT (unixepoch())
   )`

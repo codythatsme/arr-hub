@@ -191,6 +191,19 @@ export class IndexerApplicationError extends Data.TaggedError("IndexerApplicatio
   readonly retryable: boolean
 }> {}
 
+export type IndexerDefinitionSourceErrorReason =
+  | "connection_failed"
+  | "invalid_response"
+  | "sync_failed"
+
+export class IndexerDefinitionSourceError extends Data.TaggedError("IndexerDefinitionSourceError")<{
+  readonly sourceId: number
+  readonly sourceName: string
+  readonly reason: IndexerDefinitionSourceErrorReason
+  readonly message: string
+  readonly retryable: boolean
+}> {}
+
 export type PluginErrorReason =
   | "manifest_invalid"
   | "contract_violation"

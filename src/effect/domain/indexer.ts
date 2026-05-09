@@ -68,6 +68,7 @@ export interface IndexerDefinitionSeed {
   readonly capabilities: IndexerCapabilities
   readonly tags: ReadonlyArray<string>
   readonly version: string
+  readonly sourceYaml?: string | null
 }
 
 export interface IndexerDefinition extends IndexerDefinitionSeed {
@@ -162,6 +163,7 @@ export interface IndexerConfig {
   readonly name: string
   readonly type: IndexerType
   readonly definitionKey?: string | null
+  readonly definitionYaml?: string | null
   readonly baseUrl: string
   readonly apiKey: string
   readonly priority: number

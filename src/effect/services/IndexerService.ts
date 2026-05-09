@@ -275,6 +275,7 @@ function toDefinition(row: typeof indexerDefinitions.$inferSelect): IndexerDefin
     capabilities: row.capabilities,
     tags: row.tags,
     version: row.version,
+    sourceYaml: row.sourceYaml,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   }
@@ -353,7 +354,8 @@ function definitionChanged(
     !sameJson(row.categories, definition.categories) ||
     !sameJson(row.capabilities, definition.capabilities) ||
     !sameJson(row.tags, definition.tags) ||
-    row.version !== definition.version
+    row.version !== definition.version ||
+    (row.sourceYaml ?? null) !== (definition.sourceYaml ?? null)
   )
 }
 
@@ -403,6 +405,7 @@ export const IndexerServiceLive = Layer.effect(
             capabilities: definition.capabilities,
             tags: definition.tags,
             version: definition.version,
+            sourceYaml: definition.sourceYaml ?? null,
             updatedAt: now,
           },
         })
@@ -511,6 +514,16 @@ export const IndexerServiceLive = Layer.effect(
           password,
           settings: proxy.settings,
         }
+      })
+
+    const loadDefinitionYaml = (definitionKey: string | null) =>
+      Effect.gen(function* () {
+        if (definitionKey === null) return null
+        const rows = yield* db
+          .select({ sourceYaml: indexerDefinitions.sourceYaml })
+          .from(indexerDefinitions)
+          .where(eq(indexerDefinitions.definitionKey, definitionKey))
+        return rows[0]?.sourceYaml ?? null
       })
 
     const recordIndexerActivity = (
@@ -750,12 +763,14 @@ export const IndexerServiceLive = Layer.effect(
 
           const apiKey = yield* crypto.decrypt(indexer.apiKeyEncrypted)
           const proxy = yield* resolveOutboundProxy(indexer.proxyId)
+          const definitionYaml = yield* loadDefinitionYaml(indexer.definitionKey)
           const factory = yield* registry.getIndexerFactory(indexer.type)
           const config: IndexerConfig = {
             id: indexer.id,
             name: indexer.name,
             type: indexer.type,
             definitionKey: indexer.definitionKey,
+            definitionYaml,
             baseUrl: indexer.baseUrl,
             apiKey,
             priority: indexer.priority,
@@ -837,12 +852,14 @@ export const IndexerServiceLive = Layer.effect(
                 return yield* Effect.gen(function* () {
                   const apiKey = yield* crypto.decrypt(indexer.apiKeyEncrypted)
                   const proxy = yield* resolveOutboundProxy(indexer.proxyId)
+                  const definitionYaml = yield* loadDefinitionYaml(indexer.definitionKey)
                   const factory = yield* registry.getIndexerFactory(indexer.type)
                   const config: IndexerConfig = {
                     id: indexer.id,
                     name: indexer.name,
                     type: indexer.type,
                     definitionKey: indexer.definitionKey,
+                    definitionYaml,
                     baseUrl: indexer.baseUrl,
                     apiKey,
                     priority: indexer.priority,

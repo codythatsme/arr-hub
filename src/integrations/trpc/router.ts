@@ -6,6 +6,7 @@ import { formatsRouter } from "./routers/formats"
 import { historyRouter } from "./routers/history"
 import { importRouter } from "./routers/import"
 import { indexerApplicationsRouter } from "./routers/indexerApplications"
+import { indexerDefinitionSourcesRouter } from "./routers/indexerDefinitionSources"
 import { indexersRouter } from "./routers/indexers"
 import { mediaManagementRouter } from "./routers/mediaManagement"
 import { mediaServersRouter } from "./routers/mediaServers"
@@ -34,6 +35,7 @@ export const trpcRouter = createTRPCRouter({
   settings: settingsRouter,
   formats: formatsRouter,
   indexers: indexersRouter,
+  indexerDefinitionSources: indexerDefinitionSourcesRouter,
   indexerApplications: indexerApplicationsRouter,
   downloadClients: downloadClientsRouter,
   mediaManagement: mediaManagementRouter,

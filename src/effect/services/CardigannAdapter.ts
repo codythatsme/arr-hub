@@ -11,6 +11,7 @@ import {
   type CardigannRuntimeDefinition,
   type CardigannSearchPath,
   getBuiltInCardigannRuntimeDefinition,
+  parseCardigannRuntimeDefinitionYaml,
 } from "./CardigannDefinitionLoader"
 import type { IndexerAdapter } from "./IndexerAdapter"
 import { checkTorznabError, fetchIndexerXml, parseTorznabReleases } from "./TorznabAdapter"
@@ -32,6 +33,20 @@ type TemplateValue = string | ReadonlyArray<string>
 function loadRuntimeDefinition(
   config: IndexerConfig,
 ): Effect.Effect<CardigannRuntimeDefinition, IndexerError> {
+  if (config.definitionYaml && config.definitionYaml.trim().length > 0) {
+    return Effect.try({
+      try: () => parseCardigannRuntimeDefinitionYaml(config.definitionYaml ?? ""),
+      catch: (error) =>
+        new IndexerError({
+          indexerId: config.id,
+          indexerName: config.name,
+          reason: "invalid_response",
+          message: error instanceof Error ? error.message : "invalid Cardigann definition YAML",
+          retryable: false,
+        }),
+    })
+  }
+
   const definition = getBuiltInCardigannRuntimeDefinition(config.definitionKey)
   if (definition) return Effect.succeed(definition)
 

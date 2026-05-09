@@ -320,6 +320,24 @@ export const indexerDefinitions = sqliteTable("indexer_definitions", {
     .notNull()
     .default(sql`'[]'`),
   version: text().notNull().default("builtin-1"),
+  sourceYaml: text("source_yaml"),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+})
+
+export const indexerDefinitionSources = sqliteTable("indexer_definition_sources", {
+  id: integer().primaryKey({ autoIncrement: true }),
+  name: text().notNull(),
+  url: text().notNull().unique(),
+  enabled: integer({ mode: "boolean" }).notNull().default(true),
+  lastCheckedAt: integer("last_checked_at", { mode: "timestamp" }),
+  lastError: text("last_error"),
+  lastDefinitionKey: text("last_definition_key"),
+  lastVersion: text("last_version"),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),
