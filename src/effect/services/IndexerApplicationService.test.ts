@@ -24,6 +24,10 @@ interface RemoteRequest {
   readonly body: Record<string, unknown> | null
 }
 
+type StubRemoteRequests = Array<RemoteRequest> & {
+  readonly remoteIndexers: Array<Record<string, unknown>>
+}
+
 function jsonResponse(body: unknown): Response {
   return new Response(JSON.stringify(body), {
     status: 200,
@@ -40,8 +44,10 @@ function remoteField(body: Record<string, unknown>, name: string): unknown {
 }
 
 function stubRemoteApplication(options?: { readonly failHosts?: ReadonlyArray<string> }) {
-  const requests: Array<RemoteRequest> = []
   const remoteIndexers: Array<Record<string, unknown>> = []
+  const requests: StubRemoteRequests = Object.assign([] as Array<RemoteRequest>, {
+    remoteIndexers,
+  })
   const failHosts = new Set(options?.failHosts ?? [])
 
   vi.stubGlobal("fetch", async (input: string | URL | Request, init?: RequestInit) => {
@@ -64,6 +70,7 @@ function stubRemoteApplication(options?: { readonly failHosts?: ReadonlyArray<st
             { name: "apiKey", value: "" },
             { name: "categories", value: [] },
             { name: "minimumSeeders", value: 0 },
+            { name: "additionalParameters", value: "" },
           ],
         },
         {
@@ -74,6 +81,7 @@ function stubRemoteApplication(options?: { readonly failHosts?: ReadonlyArray<st
             { name: "apiPath", value: "/api" },
             { name: "apiKey", value: "" },
             { name: "categories", value: [] },
+            { name: "additionalParameters", value: "" },
           ],
         },
       ])
@@ -104,6 +112,21 @@ function stubRemoteApplication(options?: { readonly failHosts?: ReadonlyArray<st
   })
 
   return requests
+}
+
+function setRemoteField(
+  indexer: Record<string, unknown>,
+  name: string,
+  value: unknown,
+): Record<string, unknown> {
+  const fields = (indexer.fields ?? []) as Array<Record<string, unknown>>
+  const field = fields.find((candidate) => candidate.name === name)
+  if (field) {
+    field.value = value
+  } else {
+    fields.push({ name, value })
+  }
+  return { ...indexer, fields }
 }
 
 afterEach(() => {
@@ -240,6 +263,64 @@ describe("IndexerApplicationService", () => {
           seasonPackSeedTimeMinutes: 10_080,
           rejectBlocklistedTorrentHashesWhileGrabbing: true,
         })
+      }).pipe(Effect.provide(TestLayer)),
+    )
+  })
+
+  it("preserves app-specific remote settings when updating aggregate app indexers", async () => {
+    const requests = stubRemoteApplication()
+
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const indexers = yield* IndexerService
+        const apps = yield* IndexerApplicationService
+
+        yield* indexers.add({
+          name: "Torrent TV",
+          type: "torznab",
+          baseUrl: "http://tracker.test",
+          apiKey: "tracker-secret",
+          categories: [5000],
+        })
+
+        const app = yield* apps.add({
+          name: "Sonarr",
+          type: "sonarr",
+          baseUrl: "http://sonarr.test",
+          apiKey: "remote-key",
+          syncBaseUrl: "http://arr-hub.test",
+          syncApiKey: "arr-hub-key",
+        })
+
+        yield* apps.sync(app.id)
+
+        requests.remoteIndexers[0] = setRemoteField(
+          {
+            ...requests.remoteIndexers[0],
+            tags: [7, 9],
+            downloadClientId: 12,
+            seasonSearchMaximumSingleEpisodeAge: 14,
+          },
+          "additionalParameters",
+          "&offset=1",
+        )
+        requests.remoteIndexers[0] = setRemoteField(
+          requests.remoteIndexers[0],
+          "baseUrl",
+          "http://user-edited.example",
+        )
+
+        const result = yield* apps.sync(app.id)
+        expect(result.updated).toBe(1)
+
+        const put = requests.findLast((request) => request.method === "PUT")
+        expect(put?.body?.tags).toEqual([7, 9])
+        expect(put?.body?.downloadClientId).toBe(12)
+        expect(put?.body?.seasonSearchMaximumSingleEpisodeAge).toBe(14)
+        expect(remoteField(put?.body ?? {}, "additionalParameters")).toBe("&offset=1")
+        expect(remoteField(put?.body ?? {}, "baseUrl")).toBe(
+          "http://arr-hub.test/api/indexers/aggregate/torznab",
+        )
       }).pipe(Effect.provide(TestLayer)),
     )
   })

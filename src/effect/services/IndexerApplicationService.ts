@@ -298,6 +298,19 @@ const DEFAULT_APP_CATEGORIES: Record<IndexerApplicationType, ReadonlyArray<numbe
 
 const PROTOCOL_ORDER: ReadonlyArray<IndexerProtocol> = ["torrent", "usenet"]
 
+const MANAGED_REMOTE_FIELD_NAMES = new Set([
+  "baseUrl",
+  "apiPath",
+  "apiKey",
+  "categories",
+  "animeCategories",
+  "minimumSeeders",
+  "seedCriteria.seedRatio",
+  "seedCriteria.seedTime",
+  "seedCriteria.seasonPackSeedTime",
+  "rejectBlocklistedTorrentHashesWhileGrabbing",
+])
+
 function normalizeSettings(
   settings: IndexerApplicationSettings,
 ): Required<IndexerApplicationSettings> {
@@ -410,6 +423,22 @@ function cloneSchemaFields(schema: RemoteIndexer | undefined): Array<RemoteField
   return fields
 }
 
+function preserveRemoteUserFields(
+  fields: Array<RemoteField>,
+  existingRemote: RemoteIndexer | undefined,
+): void {
+  for (const field of existingRemote?.fields ?? []) {
+    if (MANAGED_REMOTE_FIELD_NAMES.has(field.name)) continue
+    const existingIndex = fields.findIndex((candidate) => candidate.name === field.name)
+    const preserved = Object.assign({}, field)
+    if (existingIndex >= 0) {
+      fields[existingIndex] = preserved
+    } else {
+      fields.push(preserved)
+    }
+  }
+}
+
 function setField(fields: Array<RemoteField>, name: string, value: unknown): void {
   const existing = fields.find((field) => field.name === name)
   if (existing) {
@@ -417,6 +446,15 @@ function setField(fields: Array<RemoteField>, name: string, value: unknown): voi
     return
   }
   fields.push({ name, value })
+}
+
+function remoteArrayProperty(indexer: RemoteIndexer | undefined, name: string): Array<unknown> {
+  const value = indexer === undefined ? undefined : (indexer as Record<string, unknown>)[name]
+  return Array.isArray(value) ? [...value] : []
+}
+
+function remoteProperty(indexer: RemoteIndexer | undefined, name: string): unknown {
+  return indexer === undefined ? undefined : (indexer as Record<string, unknown>)[name]
 }
 
 function buildRemoteIndexerPayload(input: {
@@ -427,9 +465,11 @@ function buildRemoteIndexerPayload(input: {
   readonly schema: RemoteIndexer | undefined
   readonly syncApiKey: string
   readonly remoteId: number | null
+  readonly existingRemote?: RemoteIndexer
 }): RemoteIndexer {
   const implementation = implementationName(input.protocol)
   const fields = cloneSchemaFields(input.schema)
+  preserveRemoteUserFields(fields, input.existingRemote)
   setField(fields, "baseUrl", aggregateBaseUrl(input.application.syncBaseUrl, input.protocol))
   setField(fields, "apiPath", "/api")
   setField(fields, "apiKey", input.syncApiKey)
@@ -451,7 +491,7 @@ function buildRemoteIndexerPayload(input: {
     )
   }
 
-  return {
+  const payload = {
     id: input.remoteId ?? 0,
     name: `ARR Hub ${implementation} (Aggregate)`,
     implementation,
@@ -461,8 +501,23 @@ function buildRemoteIndexerPayload(input: {
     enableInteractiveSearch: input.settings.enableInteractiveSearch,
     priority: input.settings.priority,
     fields,
-    tags: [],
+    tags: remoteArrayProperty(input.existingRemote, "tags"),
   }
+
+  const downloadClientId = remoteProperty(input.existingRemote, "downloadClientId")
+  if (downloadClientId !== undefined) {
+    Object.assign(payload, { downloadClientId })
+  }
+
+  const seasonSearchMaximumSingleEpisodeAge = remoteProperty(
+    input.existingRemote,
+    "seasonSearchMaximumSingleEpisodeAge",
+  )
+  if (input.application.type === "sonarr" && seasonSearchMaximumSingleEpisodeAge !== undefined) {
+    Object.assign(payload, { seasonSearchMaximumSingleEpisodeAge })
+  }
+
+  return payload
 }
 
 function findRemoteIndexer(input: {
@@ -697,6 +752,7 @@ export const IndexerApplicationServiceLive = Layer.effect(
             schema,
             syncApiKey,
             remoteId: existingRemote?.id ?? null,
+            existingRemote,
           })
 
           const remoteIndexer = yield* Effect.tryPromise({
