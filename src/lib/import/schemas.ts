@@ -67,6 +67,54 @@ export type SonarrSeries = z.infer<typeof SonarrSeriesSchema>
 
 export const SonarrSeriesListSchema = z.array(SonarrSeriesSchema)
 
+export const SonarrEpisodeSchema = z
+  .object({
+    id: z.number(),
+    seriesId: z.number(),
+    tvdbId: z.number().nullish(),
+    seasonNumber: z.number(),
+    episodeNumber: z.number(),
+    absoluteEpisodeNumber: z.number().nullish(),
+    title: z.string().optional(),
+    airDate: z.string().nullish(),
+    airDateUtc: z.string().nullish(),
+    overview: z.string().nullish(),
+    monitored: z.boolean(),
+    hasFile: z.boolean().optional(),
+    episodeFileId: z.number().nullish(),
+  })
+  .passthrough()
+
+export type SonarrEpisode = z.infer<typeof SonarrEpisodeSchema>
+
+export const SonarrEpisodeListSchema = z.array(SonarrEpisodeSchema)
+
+const SonarrQualitySchema = z
+  .object({
+    quality: z
+      .object({
+        name: z.string().optional(),
+      })
+      .passthrough()
+      .optional(),
+  })
+  .passthrough()
+
+export const SonarrEpisodeFileSchema = z
+  .object({
+    id: z.number(),
+    seriesId: z.number(),
+    seasonNumber: z.number(),
+    relativePath: z.string().optional(),
+    path: z.string().optional(),
+    quality: SonarrQualitySchema.optional(),
+  })
+  .passthrough()
+
+export type SonarrEpisodeFile = z.infer<typeof SonarrEpisodeFileSchema>
+
+export const SonarrEpisodeFileListSchema = z.array(SonarrEpisodeFileSchema)
+
 export function posterOf(
   images: ReadonlyArray<{ coverType: string; remoteUrl?: string; url?: string }> | undefined,
 ): string | null {

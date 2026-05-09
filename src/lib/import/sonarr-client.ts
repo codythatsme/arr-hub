@@ -1,4 +1,10 @@
-import { RootFolderListSchema, SonarrSeriesListSchema, SystemStatusSchema } from "./schemas"
+import {
+  RootFolderListSchema,
+  SonarrEpisodeFileListSchema,
+  SonarrEpisodeListSchema,
+  SonarrSeriesListSchema,
+  SystemStatusSchema,
+} from "./schemas"
 
 const TIMEOUT_MS = 30_000
 
@@ -29,6 +35,22 @@ export async function testConnection(baseUrl: string, apiKey: string) {
 export async function fetchSeries(baseUrl: string, apiKey: string) {
   const raw = await fetchJson(buildUrl(baseUrl, "/api/v3/series", apiKey))
   return SonarrSeriesListSchema.parse(raw)
+}
+
+export async function fetchEpisodes(baseUrl: string, apiKey: string, seriesId: number) {
+  const url = buildUrl(baseUrl, "/api/v3/episode", apiKey)
+  const parsed = new URL(url)
+  parsed.searchParams.set("seriesId", String(seriesId))
+  const raw = await fetchJson(parsed.toString())
+  return SonarrEpisodeListSchema.parse(raw)
+}
+
+export async function fetchEpisodeFiles(baseUrl: string, apiKey: string, seriesId: number) {
+  const url = buildUrl(baseUrl, "/api/v3/episodefile", apiKey)
+  const parsed = new URL(url)
+  parsed.searchParams.set("seriesId", String(seriesId))
+  const raw = await fetchJson(parsed.toString())
+  return SonarrEpisodeFileListSchema.parse(raw)
 }
 
 export async function fetchRootFolders(baseUrl: string, apiKey: string) {

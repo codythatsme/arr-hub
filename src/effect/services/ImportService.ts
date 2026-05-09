@@ -4,10 +4,16 @@ import { eq } from "drizzle-orm"
 import { Context, Effect, Layer } from "effect"
 import { z } from "zod"
 
-import { qualityProfiles, movies, series, seasons } from "#/db/schema"
+import { episodes, qualityProfiles, movies, series, seasons } from "#/db/schema"
 
 import * as radarr from "../../lib/import/radarr-client"
-import { posterOf, type RadarrMovie, type SonarrSeries } from "../../lib/import/schemas"
+import {
+  posterOf,
+  type RadarrMovie,
+  type SonarrEpisode,
+  type SonarrEpisodeFile,
+  type SonarrSeries,
+} from "../../lib/import/schemas"
 import * as sonarr from "../../lib/import/sonarr-client"
 import { ImportError } from "../errors"
 import { Db } from "./Db"
@@ -81,6 +87,39 @@ function mapSonarrStatus(status: string): "continuing" | "ended" | "wanted" | "a
   return "wanted"
 }
 
+function parseSonarrDate(value: string | null | undefined): Date | null {
+  if (value === null || value === undefined || value.length === 0) return null
+  const parsed = new Date(value)
+  return Number.isNaN(parsed.getTime()) ? null : parsed
+}
+
+function fallbackEpisodeTvdbId(s: SonarrSeries, e: SonarrEpisode): number {
+  if (typeof e.tvdbId === "number" && e.tvdbId > 0) return e.tvdbId
+  return s.tvdbId * 100_000 + e.seasonNumber * 1_000 + e.episodeNumber
+}
+
+function combineRemotePath(root: string | undefined, relative: string | undefined): string | null {
+  if (relative === undefined || relative.length === 0) return null
+  if (root === undefined || root.length === 0) return relative
+  return `${root.replace(/[\\/]+$/, "")}/${relative.replace(/^[\\/]+/, "")}`
+}
+
+function episodeFilePath(s: SonarrSeries, file: SonarrEpisodeFile | undefined): string | null {
+  if (file === undefined) return null
+  if (file.path !== undefined && file.path.length > 0) return file.path
+  return combineRemotePath(s.path, file.relativePath)
+}
+
+function episodeFileQuality(file: SonarrEpisodeFile | undefined): string | null {
+  return file?.quality?.quality?.name ?? null
+}
+
+interface SonarrSeriesImportPayload {
+  readonly series: SonarrSeries
+  readonly episodes: ReadonlyArray<SonarrEpisode>
+  readonly episodeFiles: ReadonlyArray<SonarrEpisodeFile>
+}
+
 // ── Live implementation ──
 
 export const ImportServiceLive = Layer.effect(
@@ -90,12 +129,14 @@ export const ImportServiceLive = Layer.effect(
     const sql = yield* SqlClient.SqlClient
     const onboarding = yield* OnboardingService
 
-    const assertSetupActive = (): Effect.Effect<void, ImportError | SqlError> =>
+    const assertSetupActive = (
+      source: "radarr" | "sonarr",
+    ): Effect.Effect<void, ImportError | SqlError> =>
       Effect.gen(function* () {
         const status = yield* onboarding.getStatus()
         if (status.completed) {
           return yield* new ImportError({
-            source: "radarr",
+            source,
             reason: "setup_not_active",
             message: "library import is only available during setup",
           })
@@ -147,8 +188,27 @@ export const ImportServiceLive = Layer.effect(
         return "imported" as const
       })
 
-    const insertSonarrSeries = (s: SonarrSeries, defaultProfileId: number | null) =>
+    const fetchSonarrPayload = (s: SonarrSeries, input: ImportCredentials) =>
       Effect.gen(function* () {
+        const [episodeList, episodeFileList] = yield* Effect.all([
+          Effect.tryPromise({
+            try: () => sonarr.fetchEpisodes(input.url, input.apiKey, s.id),
+            catch: (e) => toImportError("sonarr", e),
+          }),
+          Effect.tryPromise({
+            try: () => sonarr.fetchEpisodeFiles(input.url, input.apiKey, s.id),
+            catch: (e) => toImportError("sonarr", e),
+          }),
+        ])
+        return { series: s, episodes: episodeList, episodeFiles: episodeFileList }
+      })
+
+    const insertSonarrSeries = (
+      payload: SonarrSeriesImportPayload,
+      defaultProfileId: number | null,
+    ) =>
+      Effect.gen(function* () {
+        const s = payload.series
         const existing = yield* db
           .select({ id: series.id })
           .from(series)
@@ -171,19 +231,54 @@ export const ImportServiceLive = Layer.effect(
             seasonFolder: s.seasonFolder ?? true,
           })
           .returning({ id: series.id })
-        for (const season of s.seasons) {
-          yield* db.insert(seasons).values({
-            seriesId: row.id,
-            seasonNumber: season.seasonNumber,
-            monitored: season.monitored,
-          })
+        const seasonNumbers = new Set([
+          ...s.seasons.map((season) => season.seasonNumber),
+          ...payload.episodes.map((episode) => episode.seasonNumber),
+        ])
+        const filesById = new Map(payload.episodeFiles.map((file) => [file.id, file] as const))
+
+        for (const seasonNumber of [...seasonNumbers].toSorted((a, b) => a - b)) {
+          const sourceSeason = s.seasons.find((season) => season.seasonNumber === seasonNumber)
+          const [seasonRow] = yield* db
+            .insert(seasons)
+            .values({
+              seriesId: row.id,
+              seasonNumber,
+              monitored: sourceSeason?.monitored ?? s.monitored,
+            })
+            .returning({ id: seasons.id })
+
+          for (const episode of payload.episodes.filter((e) => e.seasonNumber === seasonNumber)) {
+            const file =
+              episode.episodeFileId === null || episode.episodeFileId === undefined
+                ? undefined
+                : filesById.get(episode.episodeFileId)
+            yield* db.insert(episodes).values({
+              seasonId: seasonRow.id,
+              tvdbId: fallbackEpisodeTvdbId(s, episode),
+              title:
+                episode.title && episode.title.length > 0
+                  ? episode.title
+                  : `Episode ${episode.episodeNumber}`,
+              episodeNumber: episode.episodeNumber,
+              absoluteEpisodeNumber: episode.absoluteEpisodeNumber ?? null,
+              airDate: parseSonarrDate(episode.airDateUtc ?? episode.airDate),
+              overview: episode.overview ?? null,
+              hasFile:
+                episode.hasFile ??
+                (episode.episodeFileId !== null && episode.episodeFileId !== undefined),
+              filePath: episodeFilePath(s, file),
+              monitored: episode.monitored,
+              existingQualityName: episodeFileQuality(file),
+            })
+          }
         }
         return "imported" as const
       })
 
     const importFromRadarr = (input: ImportCredentials) =>
       Effect.gen(function* () {
-        yield* assertSetupActive()
+        yield* assertSetupActive("radarr")
         const list = yield* Effect.tryPromise({
           try: () => radarr.fetchMovies(input.url, input.apiKey),
           catch: (e) => toImportError("radarr", e),
@@ -215,18 +310,24 @@ export const ImportServiceLive = Layer.effect(
 
     const importFromSonarr = (input: ImportCredentials) =>
       Effect.gen(function* () {
-        yield* assertSetupActive()
+        yield* assertSetupActive("sonarr")
         const list = yield* Effect.tryPromise({
           try: () => sonarr.fetchSeries(input.url, input.apiKey),
           catch: (e) => toImportError("sonarr", e),
         })
+        const payloads = yield* Effect.all(
+          list.map((s) => fetchSonarrPayload(s, input)),
+          {
+            concurrency: 2,
+          },
+        )
         const defaultProfileId = yield* loadDefaultProfileId()
 
         const run = Effect.gen(function* () {
           let imported = 0
           let skipped = 0
-          for (const s of list) {
-            const result = yield* insertSonarrSeries(s, defaultProfileId)
+          for (const payload of payloads) {
+            const result = yield* insertSonarrSeries(payload, defaultProfileId)
             if (result === "imported") imported++
             else skipped++
           }
