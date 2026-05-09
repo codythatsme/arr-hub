@@ -119,19 +119,19 @@ describe("IndexerService", () => {
       const second = yield* svc.refreshDefinitions()
 
       expect(first).toMatchObject({
-        total: 43,
-        created: 43,
+        total: 44,
+        created: 44,
         updated: 0,
         unchanged: 0,
       })
       expect(first.definitions.map((definition) => definition.action)).toEqual(
-        Array(43).fill("created"),
+        Array(44).fill("created"),
       )
       expect(second).toMatchObject({
-        total: 43,
+        total: 44,
         created: 0,
         updated: 0,
-        unchanged: 43,
+        unchanged: 44,
       })
       expect(second.definitions.every((definition) => definition.previousVersion !== null)).toBe(
         true,
@@ -410,6 +410,7 @@ describe("IndexerService", () => {
         "bit-hdtv",
         "brokenstones",
         "cgpeers",
+        "dicmusic",
         "filelist",
         "funfile",
         "generic-newznab",
@@ -819,6 +820,17 @@ describe("IndexerService", () => {
         privacy: "private",
         supportsRss: false,
         tags: ["private", "apps", "games", "graphics", "json", "gazelle"],
+      })
+      expect(
+        definitions.find((definition) => definition.definitionKey === "dicmusic"),
+      ).toMatchObject({
+        displayName: "DICMusic",
+        protocol: "torrent",
+        implementation: "cardigann_yaml",
+        baseUrl: "https://dicmusic.com/",
+        privacy: "private",
+        supportsRss: false,
+        tags: ["private", "music", "apps", "json", "gazelle"],
       })
       expect(
         definitions.find((definition) => definition.definitionKey === "revolutiontt"),

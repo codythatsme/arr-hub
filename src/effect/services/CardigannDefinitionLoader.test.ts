@@ -111,6 +111,7 @@ caps:
       "alpharatio",
       "brokenstones",
       "cgpeers",
+      "dicmusic",
       "revolutiontt",
       "pretome",
       "morethantv",
@@ -983,6 +984,32 @@ caps:
           { id: 4010, name: "Plugins" },
           { id: 8000, name: "Tutorials" },
           { id: 8010, name: "Misc" },
+        ]),
+      },
+    })
+    expect(
+      BUILT_IN_CARDIGANN_DEFINITIONS.find((definition) => definition.definitionKey === "dicmusic"),
+    ).toMatchObject({
+      displayName: "DICMusic",
+      baseUrl: "https://dicmusic.com/",
+      privacy: "private",
+      supportsRss: false,
+      supportsSearch: true,
+      tags: ["private", "music", "apps", "json", "gazelle"],
+      authFields: expect.arrayContaining([
+        expect.objectContaining({ name: "username", type: "text", required: true }),
+        expect.objectContaining({ name: "password", type: "password", required: true }),
+        expect.objectContaining({
+          name: "useFreeleechToken",
+          type: "select",
+          defaultValue: "0",
+        }),
+      ]),
+      capabilities: {
+        searchTypes: ["search"],
+        categories: expect.arrayContaining([
+          { id: 3000, name: "Music" },
+          { id: 4000, name: "Applications" },
         ]),
       },
     })

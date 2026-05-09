@@ -6235,6 +6235,147 @@ search:
       text: "{{ if .Result.neutralflag }}0{{ else }}1{{ end }}"
 `
 
+const DICMUSIC = `
+id: dicmusic
+name: DICMusic
+description: Chinese private music tracker exposed through a first-pass Gazelle JSON Cardigann definition.
+type: private
+links:
+  - https://dicmusic.com/
+legacylinks:
+  - https://dicmusic.club/
+version: builtin-cardigann-1
+rss: false
+tags:
+  - private
+  - music
+  - apps
+  - json
+  - gazelle
+settings:
+  - name: username
+    label: Username
+    type: text
+    required: true
+  - name: password
+    label: Password
+    type: password
+    required: true
+  - name: useFreeleechToken
+    label: Use Freeleech Tokens
+    type: select
+    default: "0"
+    required: false
+    options:
+      - value: "0"
+        label: Never
+      - value: "1"
+        label: Preferred
+      - value: "2"
+        label: Required
+caps:
+  categorymappings:
+    - id: "1"
+      cat: Audio
+      desc: Music
+      newznab: 3000
+    - id: "2"
+      cat: PC
+      desc: Applications
+      newznab: 4000
+  modes:
+    search: [q]
+login:
+  method: post
+  path: login.php
+  inputs:
+    username: "{{ .Config.Username }}"
+    password: "{{ .Config.Password }}"
+    keeplogged: "1"
+search:
+  paths:
+    - path: /ajax.php
+      response:
+        type: json
+      inputs:
+        action: browse
+        order_by: time
+        order_way: desc
+        searchstr: "{{ .Keywords }}"
+        $raw: '{{ range .Categories }}filter_cat[{{ . }}]=1&{{ end }}'
+  rows:
+    selector: $.response.results, $.Response.Results
+    attribute: torrents, Torrents
+    multiple: true
+    missingAttributeEqualsNoResults: true
+  fields:
+    id:
+      selector: torrentId, TorrentId
+    groupid:
+      selector: ..groupId
+    artist:
+      selector: ..artist, ..Artist
+      optional: true
+      filters:
+        - name: htmldecode
+    groupname:
+      selector: ..groupName
+      filters:
+        - name: htmldecode
+    groupyear:
+      selector: ..groupYear
+    format:
+      selector: format, Format
+    encoding:
+      selector: encoding, Encoding
+    media:
+      selector: media, Media
+    hascue:
+      selector: hasCue, HasCue
+      filters:
+        - name: regexp
+          args: "true"
+    title:
+      text: "{{ if .Result.artist }}{{ .Result.artist }} - {{ end }}{{ .Result.groupname }} ({{ .Result.groupyear }}) [{{ .Result.format }} {{ .Result.encoding }}] [{{ .Result.media }}]{{ if .Result.hascue }} [Cue]{{ end }}"
+    details:
+      text: "/torrents.php?id={{ .Result.groupid }}&torrentid={{ .Result.id }}"
+    download:
+      text: '/torrents.php?action=download&id={{ .Result.id }}{{ if ne .Config.UseFreeleechToken "0" }}&usetoken=1{{ end }}'
+    category:
+      selector: category, Category
+      default: "1"
+      case:
+        "Music": "1"
+        "Applications": "2"
+        "Select Category": "1"
+    date:
+      selector: time, Time
+    size:
+      selector: size, Size
+    files:
+      selector: fileCount, FileCount
+    grabs:
+      selector: snatches, Snatches
+    seeders:
+      selector: seeders, Seeders
+    leechers:
+      selector: leechers, Leechers
+    freeflags:
+      selector: isFreeLeech, IsFreeLeech, isNeutralLeech, IsNeutralLeech, isPersonalFreeLeech, IsPersonalFreeLeech
+      filters:
+        - name: regexp
+          args: "true"
+    neutralflag:
+      selector: isNeutralLeech, IsNeutralLeech
+      filters:
+        - name: regexp
+          args: "true"
+    downloadvolumefactor:
+      text: "{{ if .Result.freeflags }}0{{ else }}1{{ end }}"
+    uploadvolumefactor:
+      text: "{{ if .Result.neutralflag }}0{{ else }}1{{ end }}"
+`
+
 const REVOLUTION_TT = `
 id: revolutiontt
 name: RevolutionTT
@@ -6961,6 +7102,7 @@ const BUILT_IN_CARDIGANN_SOURCES = [
   ALPHA_RATIO,
   BROKENSTONES,
   CGPEERS,
+  DICMUSIC,
   REVOLUTION_TT,
   PRETOME,
   MORE_THAN_TV,
