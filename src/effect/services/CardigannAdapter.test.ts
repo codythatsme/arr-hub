@@ -1329,6 +1329,119 @@ search:
     expect(releases[0]?.title).toBe("Example Movie 2026 1080p WEB-DL")
   })
 
+  it("solves Cardigann simpleCaptcha form logins", async () => {
+    const requests: Array<{ url: string; init: RequestInit | undefined }> = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      requests.push({ url, init })
+      const pathname = new URL(url).pathname
+      if (pathname === "/login") {
+        return new Response(
+          `<html><body>
+            <script src="/js/simpleCaptcha.js"></script>
+            <form id="signin" action="/session">
+              <input type="text" name="username" value="">
+              <input type="password" name="password" value="">
+            </form>
+          </body></html>`,
+          {
+            status: 200,
+            headers: { "set-cookie": "landing=abc; Path=/; HttpOnly" },
+          },
+        )
+      }
+      if (pathname === "/simpleCaptcha.php") {
+        return new Response(JSON.stringify({ images: [{ hash: "captcha-hash" }] }), {
+          status: 200,
+          headers: { "set-cookie": "captcha=seen; Path=/; HttpOnly" },
+        })
+      }
+      if (pathname === "/session") {
+        return new Response("ok", {
+          status: 200,
+          headers: { "set-cookie": "simple=session; Path=/; HttpOnly" },
+        })
+      }
+      return new Response(RSS_XML, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 33,
+      name: "SimpleCaptcha Form Login Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "simple-captcha-form-login-cardigann",
+      definitionYaml: `
+id: simple-captcha-form-login-cardigann
+name: SimpleCaptcha Form Login Cardigann
+links:
+  - https://tracker.example
+settings:
+  - name: username
+    label: Username
+  - name: password
+    label: Password
+    type: password
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+  modes:
+    movie-search: [q]
+login:
+  path: /login
+  method: form
+  form: form#signin
+  inputs:
+    username: "{{ .Config.Username }}"
+    password: "{{ .Config.Password }}"
+search:
+  paths:
+    - path: /api
+      response:
+        type: torznab
+      inputs:
+        q: "{{ .Keywords }}"
+`,
+      baseUrl: "https://tracker.example",
+      apiKey: "",
+      configValues: {
+        username: "alice",
+        password: "secret",
+      },
+      priority: 15,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Simple Captcha Movie", type: "movie", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(4)
+    const captchaUrl = new URL(requests[1]?.url ?? "")
+    expect(captchaUrl.pathname).toBe("/simpleCaptcha.php")
+    expect(captchaUrl.searchParams.get("numImages")).toBe("1")
+    const captchaHeaders = new Headers(requests[1]?.init?.headers)
+    expect(captchaHeaders.get("cookie")).toBe("landing=abc")
+    expect(captchaHeaders.get("referer")).toBe("https://tracker.example/login")
+
+    const submitBody = new URLSearchParams(String(requests[2]?.init?.body ?? ""))
+    expect(new URL(requests[2]?.url ?? "").pathname).toBe("/session")
+    expect(submitBody.get("username")).toBe("alice")
+    expect(submitBody.get("password")).toBe("secret")
+    expect(submitBody.get("captchaSelection")).toBe("captcha-hash")
+    expect(submitBody.get("submitme")).toBe("X")
+    const submitHeaders = new Headers(requests[2]?.init?.headers)
+    expect(submitHeaders.get("cookie")).toBe("landing=abc; captcha=seen")
+
+    const searchHeaders = new Headers(requests[3]?.init?.headers)
+    expect(searchHeaders.get("cookie")).toBe("landing=abc; captcha=seen; simple=session")
+    expect(new URL(requests[3]?.url ?? "").searchParams.get("q")).toBe("Simple Captcha Movie")
+    expect(releases[0]?.title).toBe("Example Movie 2026 1080p WEB-DL")
+  })
+
   it("fails Cardigann login when a configured error selector matches", async () => {
     const fetchMock = vi.fn(
       async () =>

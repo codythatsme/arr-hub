@@ -1437,6 +1437,27 @@ function resolveFormSubmitUrl(
   return new URL(renderTemplate(submitPath, variables), landingUrl)
 }
 
+function hasSimpleCaptcha(html: string): boolean {
+  return /<script\b[^>]*\bsrc\s*=\s*["'][^"']*simpleCaptcha[^"']*["'][^>]*>/i.test(html)
+}
+
+function simpleCaptchaSelection(responseText: string): string | null {
+  try {
+    const payload = JSON.parse(responseText) as { readonly images?: ReadonlyArray<unknown> }
+    const first = Array.isArray(payload.images) ? payload.images[0] : undefined
+    if (typeof first !== "object" || first === null || !("hash" in first)) return null
+
+    const hash = (first as { readonly hash?: unknown }).hash
+    return typeof hash === "string" && hash.trim().length > 0 ? hash.trim() : null
+  } catch {
+    return null
+  }
+}
+
+function simpleCaptchaUrl(baseUrl: string): URL {
+  return new URL("simpleCaptcha.php?numImages=1", baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`)
+}
+
 function executeFormLoginRequests(
   config: IndexerConfig,
   login: CardigannLoginRuntime,
@@ -1499,6 +1520,33 @@ function executeFormLoginRequests(
       }
       const body = formParams.params
       const submitHeaders = loginHeaders(login, path, variables)
+      if (hasSimpleCaptcha(landingResponse.text)) {
+        const captchaHeaders = loginHeaders(login, path, variables)
+        captchaHeaders.set("referer", landingUrl.toString())
+        const captchaResponse = yield* fetchIndexerResponseText(
+          simpleCaptchaUrl(baseUrl),
+          config,
+          withCookieHeader({ headers: captchaHeaders }, cookieJarValues(cookieJar)),
+        )
+        for (const cookie of cookiePairsFromHeaders(captchaResponse.headers)) {
+          addCookiePair(cookieJar, cookie)
+        }
+
+        const selection = simpleCaptchaSelection(captchaResponse.text)
+        if (selection === null) {
+          return yield* Effect.fail(
+            new IndexerError({
+              indexerId: config.id,
+              indexerName: config.name,
+              reason: "invalid_response",
+              message: "Cardigann simpleCaptcha response did not include an image hash",
+              retryable: false,
+            }),
+          )
+        }
+        body.set("captchaSelection", selection)
+        body.set("submitme", "X")
+      }
       const submitBody = isMultipartForm(form) ? multipartFormBody(body) : null
       if (submitBody !== null) {
         submitHeaders.set("content-type", submitBody.contentType)
