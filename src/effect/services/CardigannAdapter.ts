@@ -350,6 +350,45 @@ function urlDecode(value: string): string {
   }
 }
 
+function relativeTimeDate(value: string, now: number = Date.now()): Date | null {
+  const normalized = value.trim().toLowerCase()
+  if (normalized.length === 0) return null
+  if (normalized === "now" || normalized === "just now" || normalized === "today") {
+    return new Date(now)
+  }
+  if (normalized === "yesterday") return new Date(now - 86_400_000)
+
+  const match = normalized.match(
+    /^(?:about\s+|approximately\s+|approx\.?\s+)?(?:(in)\s+)?(\d+(?:\.\d+)?)\s*([a-z]+)\s*(?:ago)?$/,
+  )
+  if (!match) return null
+
+  const amount = Number(match[2])
+  if (!Number.isFinite(amount)) return null
+
+  const unit = match[3] ?? ""
+  const milliseconds =
+    unit === "s" || unit.startsWith("sec")
+      ? amount * 1_000
+      : unit === "m" || unit.startsWith("min")
+        ? amount * 60_000
+        : unit === "h" || unit.startsWith("hour") || unit.startsWith("hr")
+          ? amount * 3_600_000
+          : unit === "d" || unit.startsWith("day")
+            ? amount * 86_400_000
+            : unit === "w" || unit.startsWith("week")
+              ? amount * 7 * 86_400_000
+              : unit === "mo" || unit.startsWith("month")
+                ? amount * 30 * 86_400_000
+                : unit === "y" || unit.startsWith("year")
+                  ? amount * 365 * 86_400_000
+                  : Number.NaN
+  if (!Number.isFinite(milliseconds)) return null
+
+  const direction = match[1] === "in" ? 1 : -1
+  return new Date(now + direction * milliseconds)
+}
+
 const HTML_ENTITIES: Readonly<Record<string, string>> = {
   amp: "&",
   apos: "'",
@@ -601,6 +640,10 @@ function applyCardigannKeywordFilter(
       return htmlDecode(value)
     case "htmlencode":
       return htmlEncode(value)
+    case "fuzzytime":
+    case "reltime":
+    case "timeago":
+      return relativeTimeDate(value)?.toUTCString() ?? value
     case "prepend":
       return `${renderTemplate(first, variables)}${value}`
     case "querystring":
