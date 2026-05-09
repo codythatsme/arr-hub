@@ -79,6 +79,7 @@ caps:
       "open-tv-torrents",
       "nyaa",
       "animetosho",
+      "animetorrents",
       "anidex",
       "subsplease",
       "torrents-csv",
@@ -122,6 +123,41 @@ caps:
       BUILT_IN_CARDIGANN_DEFINITIONS.find((definition) => definition.definitionKey === "animetosho")
         ?.baseUrl,
     ).toBe("https://feed.animetosho.org")
+    expect(
+      BUILT_IN_CARDIGANN_DEFINITIONS.find(
+        (definition) => definition.definitionKey === "animetorrents",
+      ),
+    ).toMatchObject({
+      displayName: "AnimeTorrents",
+      baseUrl: "https://animetorrents.me/",
+      privacy: "private",
+      supportsRss: false,
+      supportsSearch: true,
+      tags: ["private", "anime", "movies", "tv", "music", "books", "html"],
+      authFields: expect.arrayContaining([
+        expect.objectContaining({ name: "cookie", type: "cookie", required: true }),
+        expect.objectContaining({
+          name: "freeleechOnly",
+          type: "checkbox",
+          defaultValue: "false",
+        }),
+        expect.objectContaining({
+          name: "downloadableOnly",
+          type: "checkbox",
+          defaultValue: "false",
+        }),
+      ]),
+      capabilities: {
+        searchTypes: ["search", "movie", "tvsearch"],
+        categories: expect.arrayContaining([
+          { id: 2040, name: "Anime Movie HD" },
+          { id: 5070, name: "Anime Series" },
+          { id: 7030, name: "Manga" },
+          { id: 3060, name: "Doujin Music" },
+          { id: 3030, name: "Audiobooks" },
+        ]),
+      },
+    })
     expect(
       BUILT_IN_CARDIGANN_DEFINITIONS.find((definition) => definition.definitionKey === "anidex"),
     ).toMatchObject({

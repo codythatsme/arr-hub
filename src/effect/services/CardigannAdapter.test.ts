@@ -107,6 +107,46 @@ const TORRENT_DAY_JSON_RESULTS = JSON.stringify([
   },
 ])
 
+const ANIME_TORRENTS_HTML_RESULTS = `
+<html><body>
+  <table>
+    <tbody>
+      <tr>
+        <th>Category</th><th>Name</th><th>Download</th><th>Info</th>
+        <th>Added</th><th>Size</th><th>Uploader</th><th>Peers</th>
+      </tr>
+      <tr>
+        <td><a href="/torrents.php?cat=6">Anime Movie HD</a></td>
+        <td>
+          <a href="/torrents.php?id=161">AnimeTorrents Movie 2026 1080p WEB-DL</a>
+          <a class="tortags" href="tags.php?tag=dual-audio">Dual Audio</a>
+          <img alt="Gold Torrent" src="/gold.png">
+          <img alt="2x Multiplier Torrent" src="/two-x.png">
+        </td>
+        <td><a href="/download.php?id=161">Download</a></td>
+        <td>Info</td>
+        <td>09 May 26</td>
+        <td>1.5 GB</td>
+        <td>Uploader</td>
+        <td>18 / 2 / 5</td>
+      </tr>
+      <tr>
+        <td><a href="/torrents.php?cat=7">Anime Series HD</a></td>
+        <td>
+          <a href="/torrents.php?id=162">AnimeTorrents Series 2026 1080p</a>
+          <img alt="Silver Torrent" src="/silver.png">
+        </td>
+        <td><a href="/download.php?id=162">Download</a></td>
+        <td>Info</td>
+        <td>09 May 26</td>
+        <td>2.4 GB</td>
+        <td>Uploader</td>
+        <td>7 / 1 / 3</td>
+      </tr>
+    </tbody>
+  </table>
+</body></html>`
+
 const IPTORRENTS_HTML_RESULTS = `
 <html><body>
   <table id="torrents">
@@ -2813,6 +2853,65 @@ search:
       uploadFactor: 1,
     })
     expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-09T10:00:00.000Z")
+  })
+
+  it("parses AnimeTorrents AJAX HTML results with cookie auth and freeleech filtering", async () => {
+    const requests: Array<{ url: string; init: RequestInit | undefined }> = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      requests.push({ url: String(input), init })
+      return new Response(ANIME_TORRENTS_HTML_RESULTS, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 107,
+      name: "AnimeTorrents",
+      type: "cardigann_yaml",
+      definitionKey: "animetorrents",
+      baseUrl: "https://animetorrents.me/",
+      apiKey: "",
+      configValues: {
+        cookie: "at_session=abc",
+        freeleechOnly: "true",
+      },
+      priority: 43,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({
+        term: "AnimeTorrents Movie",
+        type: "movie",
+        categories: [2040],
+      }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const request = requests[0]
+    expect(request?.url).toBe(
+      "https://animetorrents.me/ajax/torrents_data.php?total=100&cat=6&searchin=filename&search=AnimeTorrents%25Movie&page=1",
+    )
+    const requestHeaders = new Headers(request?.init?.headers)
+    expect(requestHeaders.get("cookie")).toBe("at_session=abc")
+    expect(requestHeaders.get("x-requested-with")).toBe("XMLHttpRequest")
+    expect(requestHeaders.get("referer")).toBe("https://animetorrents.me/torrents.php?cat=6")
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "AnimeTorrents Movie 2026 1080p WEB-DL",
+      downloadUrl: "https://animetorrents.me/download.php?id=161",
+      infoUrl: "https://animetorrents.me/torrents.php?id=161",
+      category: "2040",
+      size: 1_500_000_000,
+      seeders: 18,
+      leechers: 2,
+      indexerId: 107,
+      indexerName: "AnimeTorrents",
+      indexerPriority: 43,
+      downloadFactor: 0,
+      uploadFactor: 2,
+    })
+    expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-09T00:00:00.000Z")
   })
 
   it("parses IPTorrents HTML results with cookie auth and user-agent headers", async () => {

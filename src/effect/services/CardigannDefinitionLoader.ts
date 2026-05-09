@@ -276,6 +276,192 @@ search:
         limit: "{{ .Query.Limit }}"
 `
 
+const ANIME_TORRENTS = `
+id: animetorrents
+name: AnimeTorrents
+description: Private anime and manga tracker exposed through a first-pass cookie-auth AJAX HTML Cardigann definition.
+type: private
+links:
+  - https://animetorrents.me/
+version: builtin-cardigann-1
+rss: false
+tags:
+  - private
+  - anime
+  - movies
+  - tv
+  - music
+  - books
+  - html
+settings:
+  - name: cookie
+    label: Cookie
+    type: cookie
+    required: true
+    helpText: AnimeTorrents browser session cookie.
+  - name: freeleechOnly
+    label: Freeleech only
+    type: checkbox
+    default: false
+    helpText: Show gold freeleech torrents only.
+  - name: downloadableOnly
+    label: Downloadable only
+    type: checkbox
+    default: false
+    helpText: Search downloadable torrents only.
+caps:
+  categorymappings:
+    - id: "1"
+      cat: Movies/SD
+      desc: Anime Movie
+      newznab: 2030
+    - id: "6"
+      cat: Movies/HD
+      desc: Anime Movie HD
+      newznab: 2040
+    - id: "2"
+      cat: TV/Anime
+      desc: Anime Series
+      newznab: 5070
+    - id: "7"
+      cat: TV/Anime
+      desc: Anime Series HD
+      newznab: 5070
+    - id: "5"
+      cat: XXX/DVD
+      desc: Hentai (censored)
+      newznab: 6010
+    - id: "9"
+      cat: XXX/DVD
+      desc: Hentai (censored) HD
+      newznab: 6010
+    - id: "4"
+      cat: XXX/DVD
+      desc: Hentai (un-censored)
+      newznab: 6010
+    - id: "8"
+      cat: XXX/DVD
+      desc: Hentai (un-censored) HD
+      newznab: 6010
+    - id: "13"
+      cat: Books/Foreign
+      desc: Light Novel
+      newznab: 7060
+    - id: "3"
+      cat: Books/Comics
+      desc: Manga
+      newznab: 7030
+    - id: "10"
+      cat: Books/Comics
+      desc: Manga 18+
+      newznab: 7030
+    - id: "11"
+      cat: TV/Anime
+      desc: OVA
+      newznab: 5070
+    - id: "12"
+      cat: TV/Anime
+      desc: OVA HD
+      newznab: 5070
+    - id: "14"
+      cat: Books/Comics
+      desc: Doujin Anime
+      newznab: 7030
+    - id: "15"
+      cat: XXX/DVD
+      desc: Doujin Anime 18+
+      newznab: 6010
+    - id: "16"
+      cat: Audio/Foreign
+      desc: Doujin Music
+      newznab: 3060
+    - id: "17"
+      cat: Books/Comics
+      desc: Doujinshi
+      newznab: 7030
+    - id: "18"
+      cat: Books/Comics
+      desc: Doujinshi 18+
+      newznab: 7030
+    - id: "19"
+      cat: Audio
+      desc: OST
+      newznab: 3000
+    - id: "20"
+      cat: Audio/Audiobook
+      desc: Audiobooks
+      newznab: 3030
+  modes:
+    search: [q]
+    movie-search: [q]
+    tv-search: [q, season, ep]
+    music-search: [q]
+    book-search: [q]
+login:
+  method: cookie
+  inputs:
+    cookie: "{{ .Config.Cookie }}"
+search:
+  paths:
+    - path: 'ajax/torrents_data.php?total=100&cat={{ if .Categories }}{{ .Categories | join "," }}{{ else }}0{{ end }}&searchin=filename&search={{ re_replace .Keywords "[\\W]+" "%" | urlencode }}&page=1{{ if .Config.DownloadableOnly }}&dlable=1{{ end }}'
+      response:
+        type: html
+      headers:
+        X-Requested-With: XMLHttpRequest
+        Referer: '{{ .Config.sitelink }}torrents.php?cat={{ if .Categories }}{{ .Categories | join "," }}{{ else }}0{{ end }}{{ if .Config.DownloadableOnly }}&dlable=1{{ end }}'
+  rows:
+    selector: 'table tr:has(td:nth-of-type(2) a:nth-of-type(1)){{ if .Config.FreeleechOnly }}:has(img[alt="Gold Torrent"]){{ end }}'
+  fields:
+    title:
+      selector: td:nth-of-type(2) a:nth-of-type(1)
+    details:
+      selector: td:nth-of-type(2) a:nth-of-type(1)
+      attribute: href
+    download:
+      selector: td:nth-of-type(3) a
+      attribute: href
+    category:
+      selector: td:nth-of-type(1) a
+      attribute: href
+      filters:
+        - name: querystring
+          args: cat
+    date:
+      selector: td:nth-of-type(5)
+      filters:
+        - name: dateparse
+          args: "dd MMM yy"
+    size:
+      selector: td:nth-of-type(6)
+    grabs:
+      selector: td:nth-of-type(8)
+      filters:
+        - name: split
+          args: ["/", "2"]
+    seeders:
+      selector: td:nth-of-type(8)
+      filters:
+        - name: split
+          args: ["/", "0"]
+    leechers:
+      selector: td:nth-of-type(8)
+      filters:
+        - name: split
+          args: ["/", "1"]
+    downloadvolumefactor:
+      case:
+        'img[alt="Gold Torrent"]': "0"
+        'img[alt="Silver Torrent"]': "0.5"
+        tr: "1"
+    uploadvolumefactor:
+      selector: 'img[alt*="x Multiplier Torrent"]'
+      attribute: alt
+      optional: true
+      filters:
+        - name: regexp
+          args: '^([0-9.]+)x'
+`
+
 const ANIDEX = `
 id: anidex
 name: Anidex
@@ -4550,6 +4736,7 @@ const BUILT_IN_CARDIGANN_SOURCES = [
   OPEN_TV_TORRENTS,
   NYAA,
   ANIME_TOSHO,
+  ANIME_TORRENTS,
   ANIDEX,
   SUBSPLEASE,
   TORRENTS_CSV,
