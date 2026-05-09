@@ -127,6 +127,22 @@ const HTML_RESULTS = `<!doctype html>
   </body>
 </html>`
 
+const HTML_MAGNET_RESULTS = `<!doctype html>
+<html>
+  <body>
+    <table>
+      <tbody>
+        <tr class="torrent">
+          <td><a class="title">Magnet Movie 2026 1080p WEB-DL</a></td>
+          <td><a class="magnet" href="magnet:?xt=urn:btih:0123456789abcdef&dn=Magnet+Movie">Magnet</a></td>
+          <td class="category">Movies</td>
+          <td class="seeders">23</td>
+        </tr>
+      </tbody>
+    </table>
+  </body>
+</html>`
+
 const HTML_FIELD_MODIFIER_RESULTS = `<!doctype html>
 <html>
   <body>
@@ -1167,6 +1183,67 @@ search:
       protocol: "torrent",
     })
     expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-01T00:00:00.000Z")
+  })
+
+  it("uses Cardigann magnet fields as torrent download URLs", async () => {
+    const fetchMock = vi.fn(async () => new Response(HTML_MAGNET_RESULTS, { status: 200 }))
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 67,
+      name: "Magnet HTML Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "magnet-html-cardigann",
+      definitionYaml: `
+id: magnet-html-cardigann
+name: Magnet HTML Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+      newznab: 2000
+  modes:
+    search: [q]
+search:
+  paths:
+    - path: /browse
+      response:
+        type: html
+  rows:
+    selector: tr.torrent
+  fields:
+    title:
+      selector: a.title
+    magnet:
+      selector: a.magnet
+      attribute: href
+    category:
+      selector: td.category
+    seeders:
+      selector: td.seeders
+`,
+      baseUrl: "https://tracker.example",
+      apiKey: "",
+      priority: 35,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Magnet Movie", type: "general", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "Magnet Movie 2026 1080p WEB-DL",
+      downloadUrl: "magnet:?xt=urn:btih:0123456789abcdef&dn=Magnet+Movie",
+      category: "2000",
+      seeders: 23,
+    })
   })
 
   it("normalizes Cardigann field-name modifiers in HTML selector results", async () => {

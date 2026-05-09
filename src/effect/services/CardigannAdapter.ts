@@ -1913,7 +1913,7 @@ function releaseFromResultFields(
   const publishedAt = parseHtmlDate(dateValue)
   const ageDays = Math.max(0, Math.floor((now - publishedAt.getTime()) / 86_400_000))
   const downloadUrl = absoluteUrl(
-    fieldByName(resultFields, ["download", "downloadurl", "link"]),
+    fieldByName(resultFields, ["download", "downloadurl", "magnet", "link"]),
     request.url,
   )
   const infoUrl = fieldByName(resultFields, ["details", "info", "comments", "guid"])
