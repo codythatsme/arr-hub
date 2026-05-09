@@ -129,6 +129,32 @@ const IPTORRENTS_HTML_RESULTS = `
   </table>
 </body></html>`
 
+const BITHDTV_HTML_RESULTS = `
+<html><body>
+  <table align="center"><tbody><tr><td>Menu</td></tr></tbody></table>
+  <br>
+  <table>
+    <tbody>
+      <tr><th></th><th>Category</th><th>Name</th><th>Files</th><th>Comments</th><th>Added</th><th>Size</th><th>Snatched</th><th>Seeders</th><th>Leechers</th></tr>
+      <tr bgcolor="#CCFF99">
+        <td></td>
+        <td><a href="torrents.php?cat=7">Movies</a></td>
+        <td>
+          <a href="details.php?id=222" title="BitHDTV Movie 2026 1080p BluRay">BitHDTV Movie</a>
+          <a href="download.php?id=222">Download</a>
+        </td>
+        <td>4</td>
+        <td>0</td>
+        <td>2026-05-1012:34:56</td>
+        <td>3.5 GB</td>
+        <td>9</td>
+        <td>27</td>
+        <td>2</td>
+      </tr>
+    </tbody>
+  </table>
+</body></html>`
+
 const RETROFLIX_JSON_RESULTS = JSON.stringify([
   {
     download_volume_factor: 0,
@@ -2481,6 +2507,62 @@ search:
       downloadFactor: 0,
       uploadFactor: 1,
     })
+  })
+
+  it("parses BitHDTV HTML results with cookie auth and volume-factor row colors", async () => {
+    const requests: Array<{ url: string; init: RequestInit | undefined }> = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      requests.push({ url: String(input), init })
+      return new Response(BITHDTV_HTML_RESULTS, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 96,
+      name: "BitHDTV",
+      type: "cardigann_yaml",
+      definitionKey: "bit-hdtv",
+      baseUrl: "https://www.bit-hdtv.com/",
+      apiKey: "",
+      configValues: {
+        cookie: "uid=alice; pass=secret",
+      },
+      priority: 32,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({
+        term: "BitHDTV Movie",
+        type: "movie",
+        categories: [2000],
+        imdbId: "tt2223334",
+      }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const request = requests[0]
+    expect(request?.url).toBe(
+      "https://www.bit-hdtv.com/torrents.php?cat=7&search=tt2223334&options=4",
+    )
+    expect(new Headers(request?.init?.headers).get("cookie")).toBe("uid=alice; pass=secret")
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "BitHDTV Movie 2026 1080p BluRay",
+      downloadUrl: "https://www.bit-hdtv.com/download.php?id=222",
+      infoUrl: "https://www.bit-hdtv.com/details.php?id=222",
+      category: "2000",
+      size: 3_500_000_000,
+      seeders: 27,
+      leechers: 2,
+      indexerId: 96,
+      indexerName: "BitHDTV",
+      indexerPriority: 32,
+      downloadFactor: 0,
+      uploadFactor: 2,
+    })
+    expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-10T12:34:56.000Z")
   })
 
   it("parses RetroFlix SpeedApp JSON results with bearer auth", async () => {

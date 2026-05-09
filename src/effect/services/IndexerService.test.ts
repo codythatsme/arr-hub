@@ -119,8 +119,8 @@ describe("IndexerService", () => {
       const second = yield* svc.refreshDefinitions()
 
       expect(first).toMatchObject({
-        total: 18,
-        created: 18,
+        total: 19,
+        created: 19,
         updated: 0,
         unchanged: 0,
       })
@@ -143,12 +143,13 @@ describe("IndexerService", () => {
         "created",
         "created",
         "created",
+        "created",
       ])
       expect(second).toMatchObject({
-        total: 18,
+        total: 19,
         created: 0,
         updated: 0,
-        unchanged: 18,
+        unchanged: 19,
       })
       expect(second.definitions.every((definition) => definition.previousVersion !== null)).toBe(
         true,
@@ -421,6 +422,7 @@ describe("IndexerService", () => {
         "anidex",
         "animetosho",
         "beyond-hd",
+        "bit-hdtv",
         "generic-newznab",
         "generic-torznab",
         "hdaccess",
@@ -550,6 +552,17 @@ describe("IndexerService", () => {
         privacy: "private",
         supportsRss: false,
         tags: ["private", "movies", "tv", "json"],
+      })
+      expect(
+        definitions.find((definition) => definition.definitionKey === "bit-hdtv"),
+      ).toMatchObject({
+        displayName: "BitHDTV",
+        protocol: "torrent",
+        implementation: "cardigann_yaml",
+        baseUrl: "https://www.bit-hdtv.com/",
+        privacy: "private",
+        supportsRss: false,
+        tags: ["private", "movies", "tv", "html"],
       })
       expect(
         definitions.find((definition) => definition.definitionKey === "open-tv-torrents"),

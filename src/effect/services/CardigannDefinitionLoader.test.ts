@@ -88,6 +88,7 @@ caps:
       "retroflix",
       "speedapp",
       "beyond-hd",
+      "bit-hdtv",
       "morethantv",
       "hdaccess",
       "torrent-network",
@@ -305,6 +306,29 @@ caps:
           { id: 2045, name: "Movies" },
           { id: 5000, name: "TV" },
           { id: 5040, name: "TV" },
+        ]),
+      },
+    })
+    expect(
+      BUILT_IN_CARDIGANN_DEFINITIONS.find((definition) => definition.definitionKey === "bit-hdtv"),
+    ).toMatchObject({
+      displayName: "BitHDTV",
+      baseUrl: "https://www.bit-hdtv.com/",
+      privacy: "private",
+      supportsRss: false,
+      supportsSearch: true,
+      tags: ["private", "movies", "tv", "html"],
+      authFields: expect.arrayContaining([
+        expect.objectContaining({ name: "cookie", type: "cookie", required: true }),
+      ]),
+      capabilities: {
+        searchTypes: ["search", "movie", "tvsearch"],
+        categories: expect.arrayContaining([
+          { id: 5070, name: "Anime" },
+          { id: 2050, name: "Movies/Blu-ray" },
+          { id: 2000, name: "Movies" },
+          { id: 5000, name: "TV" },
+          { id: 6000, name: "XXX" },
         ]),
       },
     })

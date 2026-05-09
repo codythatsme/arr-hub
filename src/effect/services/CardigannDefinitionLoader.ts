@@ -1962,6 +1962,126 @@ search:
       text: "1"
 `
 
+const BIT_HDTV = `
+id: bit-hdtv
+name: BitHDTV
+description: Private HD tracker exposed through a first-pass cookie-auth HTML Cardigann definition.
+type: private
+links:
+  - https://www.bit-hdtv.com/
+version: builtin-cardigann-1
+rss: false
+tags:
+  - private
+  - movies
+  - tv
+  - html
+settings:
+  - name: cookie
+    label: Cookie
+    type: cookie
+    required: true
+    helpText: BitHDTV browser session cookie.
+caps:
+  categorymappings:
+    - id: "1"
+      cat: TV/Anime
+      desc: Anime
+      newznab: 5070
+    - id: "2"
+      cat: Movies/BluRay
+      desc: Movies/Blu-ray
+      newznab: 2050
+    - id: "4"
+      cat: TV/Documentary
+      desc: Documentaries
+      newznab: 5080
+    - id: "6"
+      cat: Audio/Lossless
+      desc: HQ Audio
+      newznab: 3040
+    - id: "7"
+      cat: Movies
+      desc: Movies
+      newznab: 2000
+    - id: "8"
+      cat: Audio/Video
+      desc: Music Videos
+      newznab: 3020
+    - id: "9"
+      cat: Other
+      desc: Other
+      newznab: 8000
+    - id: "5"
+      cat: TV/Sport
+      desc: Sports
+      newznab: 5060
+    - id: "10"
+      cat: TV
+      desc: TV
+      newznab: 5000
+    - id: "12"
+      cat: TV
+      desc: TV/Seasonpack
+      newznab: 5000
+    - id: "11"
+      cat: XXX
+      desc: XXX
+      newznab: 6000
+  modes:
+    search: [q]
+    movie-search: [q, imdbid]
+    tv-search: [q, season, ep, imdbid]
+login:
+  method: cookie
+  inputs:
+    cookie: "{{ .Config.Cookie }}"
+search:
+  paths:
+    - path: 'torrents.php?cat={{ if .Categories }}{{ .Categories | join "," }}{{ else }}0{{ end }}&search={{ if .Query.IMDBID }}{{ .Query.IMDBID | urlencode }}{{ else }}{{ .Keywords | urlencode }}{{ end }}&options={{ if .Query.IMDBID }}4{{ else }}0{{ end }}'
+      response:
+        type: html
+  rows:
+    selector: 'table[align="center"] + br + table > tbody > tr:has(a[href^="download.php"])'
+  fields:
+    title:
+      selector: td:nth-of-type(3) a
+      attribute: title
+    details:
+      selector: td:nth-of-type(3) a
+      attribute: href
+    download:
+      selector: a[href^="download.php"]
+      attribute: href
+    category:
+      selector: td:nth-of-type(2) a
+      attribute: href
+      filters:
+        - name: querystring
+          args: cat
+    date:
+      selector: td:nth-of-type(6)
+      filters:
+        - name: dateparse
+          args: "yyyy-MM-ddHH:mm:ss"
+    size:
+      selector: td:nth-of-type(7)
+    seeders:
+      selector: td:nth-of-type(9)
+    leechers:
+      selector: td:nth-of-type(10)
+    downloadvolumefactor:
+      case:
+        tr[bgcolor="#FFFF99"]: "0"
+        tr[bgcolor="#CCFF99"]: "0"
+        tr: "1"
+    uploadvolumefactor:
+      case:
+        tr[bgcolor="#DDDDDD"]: "2"
+        tr[bgcolor="#CCFF99"]: "2"
+        tr: "1"
+`
+
 const MORE_THAN_TV = `
 id: morethantv
 name: MoreThanTV
@@ -2169,6 +2289,7 @@ const BUILT_IN_CARDIGANN_SOURCES = [
   RETRO_FLIX,
   SPEED_APP,
   BEYOND_HD,
+  BIT_HDTV,
   MORE_THAN_TV,
   HDACCESS,
   TORRENT_NETWORK,
