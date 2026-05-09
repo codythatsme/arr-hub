@@ -119,8 +119,8 @@ describe("IndexerService", () => {
       const second = yield* svc.refreshDefinitions()
 
       expect(first).toMatchObject({
-        total: 8,
-        created: 8,
+        total: 9,
+        created: 9,
         updated: 0,
         unchanged: 0,
       })
@@ -133,12 +133,13 @@ describe("IndexerService", () => {
         "created",
         "created",
         "created",
+        "created",
       ])
       expect(second).toMatchObject({
-        total: 8,
+        total: 9,
         created: 0,
         updated: 0,
-        unchanged: 8,
+        unchanged: 9,
       })
       expect(second.definitions.every((definition) => definition.previousVersion !== null)).toBe(
         true,
@@ -411,6 +412,7 @@ describe("IndexerService", () => {
         "animetosho",
         "generic-newznab",
         "generic-torznab",
+        "hdaccess",
         "morethantv",
         "nyaa",
         "open-tv-torrents",
