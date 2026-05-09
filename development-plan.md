@@ -23,7 +23,7 @@ Primary blockers:
 - The operator UI now exposes the existing backend workflows and has persisted browser smoke coverage, but deeper workflows still depend on backend work listed below.
 - The metadata lifecycle is now functional for TMDB-backed movie/TV adds, Sonarr episode import, refresh jobs, and calendar population, but still lacks Sonarr/Radarr-depth alternate titles, ratings, local artwork cache, availability semantics, and TVDB/SkyHook parity.
 - Completed download handling now has a real import path that resolves completed output paths and remote path mappings, selects media files, filters samples, renames, copy/move/hardlinks into library folders, persists media file records, supports manual import, scans existing libraries, and exposes rename preview/action. It still lacks unpack/repair waiting beyond downloader status normalization, free-space checks, recycle-bin support, and deeper Sonarr/Radarr import rejection rules.
-- The release decision engine is far smaller than Sonarr/Radarr. It lacks many required rejection rules, blocklist enforcement, size/age/retention/free-space checks, language/release profiles, proper title matching, and TV/anime edge cases.
+- The release decision engine now has persistent blocklist enforcement, focused specification modules, target title/year/episode/season checks, size/free-space/queue/protocol/client availability checks, minimum age/retention/seeder gates, required/ignored/preferred release terms, sample/hardcoded subtitle/raw-disk rejection, and first-pass TV/anime edge checks. It still lacks full Sonarr/Radarr parity for language profiles, tagged release profiles, deep media inspection, proper/repack version upgrade semantics, scene/XEM mapping, and exhaustive parser coverage.
 - Prowlarr replacement scope is mostly absent. The app only consumes Torznab/Newznab endpoints; it does not manage a Prowlarr-scale indexer catalogue, Cardigann definitions, indexer proxies, stats, app sync, or external Torznab/Newznab proxy endpoints.
 - Download client coverage is narrow: qBittorrent and SABnzbd only.
 - There is no Radarr/Sonarr/Prowlarr REST API compatibility layer, which matters if existing tools are expected to treat ARR Hub as a drop-in replacement.
@@ -33,7 +33,7 @@ Primary blockers:
 Commands run from `/Users/codythatsme/Developer/arr-hub`:
 
 - `bun run typecheck`: passed.
-- `bun run test`: passed, 33 test files plus 1 skipped live suite, 301 passed and 4 skipped tests.
+- `bun run test`: passed, 33 test files plus 1 skipped live suite, 316 passed and 4 skipped tests.
 - `bun run test:e2e`: passed, 1 Chromium smoke test covering onboarding, settings, add movie, add TV from metadata, manual search display, calendar population, and queue page.
 - `bun run lint`: passed with 291 warnings and 0 errors.
 - `bun run build`: passed with chunk-size and external dependency warnings.
@@ -64,8 +64,14 @@ Completed in atomic commits after this plan was written:
 - `a99bda9144` added `MediaImportService`, movie/episode import file operations, and monitor-driven completed download imports.
 - `01dd5263dd` added dedicated `media_files` and `remote_path_mappings` persistence, plus remote path resolution during imports.
 - `5b249551de` added remote path mapping workflows, manual movie/episode import, library scanning, rename preview/action, and matching UI on settings/movie/TV pages.
+- `566abf0e25` added a persistent release blocklist table and blocks matching future release candidates.
+- `4df7222527` split high-impact release decisions into specification modules with target title/year/episode/season, size, and torrent seeder checks.
+- `fcb481448b` added release free-space and active queue conflict guardrails.
+- `1a2d1e0eec` added configurable release guardrails for protocol availability, minimum age, retention, seeders, and required/ignored/preferred release terms.
+- `6af5da144a` added TV release edge checks for unaired episodes, multi-episode releases, multi-season packs, and anime absolute episode numbering.
+- `0ab6b74069` expanded the title parser test corpus with vendor-inspired release fixtures.
 
-Milestones 1, 2, and 3 are complete for deterministic local coverage against the current backend surface. Milestone 3 still needs live qBittorrent/SABnzbd fixture validation in an environment with those services running, and later milestones remain required before ARR Hub can honestly claim Sonarr/Radarr/Prowlarr replacement-grade behavior.
+Milestones 1, 2, 3, and 4 are complete for deterministic local coverage against the current backend surface. Milestone 3 still needs live qBittorrent/SABnzbd fixture validation in an environment with those services running, and later milestones remain required before ARR Hub can honestly claim Sonarr/Radarr/Prowlarr replacement-grade behavior.
 
 ## Current Functionality Inventory
 
@@ -109,10 +115,10 @@ Use these local vendor areas as feature references:
 
 Important scale differences visible in vendor:
 
-- Radarr has 31 decision-engine specification files; Sonarr has 41. ARR Hub has one compact `ReleasePolicyEngine`.
+- Radarr has 31 decision-engine specification files; Sonarr has 41. ARR Hub now has a compact release specification module covering high-impact local guardrails, but not the full vendor rule surface.
 - Prowlarr has 143 files under `Indexers/Definitions` and 16 first-level definition families. ARR Hub has only generic Torznab/Newznab consumption.
 - Sonarr/Radarr support many download client families: qBittorrent, SABnzbd, NZBGet, Transmission, Deluge, rTorrent, uTorrent, Download Station, blackhole, and others. ARR Hub has qBittorrent and SABnzbd.
-- Sonarr/Radarr have full media import pipelines with manual import, sample detection, free-space checks, upgrade checks, folder matching, grabbed-release matching, and naming services. ARR Hub has no equivalent file import pipeline yet.
+- Sonarr/Radarr have full media import pipelines with manual import, sample detection, free-space checks, upgrade checks, folder matching, grabbed-release matching, and naming services. ARR Hub now has a deterministic first-pass import pipeline with manual import, remote path mappings, library scan, rename preview/action, and media file records, but still lacks full vendor import rejection depth.
 
 ## Replacement-Grade Definition
 
@@ -135,7 +141,7 @@ Current state:
 
 - Core operator pages now exist for settings, movies, TV, profiles, queue, scheduler, and calendar.
 - The UI covers the current backend surface for configuration, add/search/manage, manual release inspection, queue actions, and metadata-backed TV adds.
-- Deeper UI work now depends mostly on backend surfaces that do not exist yet, especially media import, rename/rescan, richer release decisions, and Prowlarr-scale indexer management.
+- Deeper UI work now depends mostly on backend surfaces that do not exist yet, especially Prowlarr-scale indexer management, additional download clients, NAS health checks, and any future compatibility APIs. Media import, rename/rescan, and richer release decision reasons now have first-pass UI/backend coverage.
 
 Gap:
 
@@ -241,27 +247,28 @@ Acceptance criteria:
 
 Current state:
 
-- `ReleasePolicyEngine` does basic title parsing, allowed quality checks, custom format scoring, and simple upgrade decisions.
-- `QueueService.blocklist` records a rejected `release_decisions` row, but future searches do not consult a real blocklist.
-- `TitleParserService` handles common movie and simple TV patterns, but not the full Sonarr/Radarr parser surface.
+- `ReleasePolicyEngine` now evaluates a focused specification pipeline before scoring and upgrade decisions.
+- `QueueService.blocklist` persists `release_blocklist` rows, and future searches reject matching title/download URL/infohash candidates for the same media context.
+- `TitleParserService` handles common movie/TV patterns, season packs, proper/repack detection, and first-pass anime absolute episode numbering, with a vendor-inspired fixture corpus.
+- Manual search records and displays accepted/skipped/rejected release decisions with clear rejection reasons.
 
 Gap:
 
-- The app will make unsafe grabs. It lacks many decision checks used by Sonarr/Radarr.
+- The app is safer than the initial plan baseline, but it is still not Sonarr/Radarr parity. Remaining gaps include language profiles, tagged release profiles, media-file inspection, nuanced proper/repack/version upgrades, scene/XEM mapping, broader anime behavior, and a much larger parser fixture corpus.
 
 Tasks:
 
 - Split decision logic into specification modules modeled after:
   - `vendor/radarr/src/NzbDrone.Core/DecisionEngine/Specifications`
   - `vendor/sonarr/src/NzbDrone.Core/DecisionEngine/Specifications`
-- Add persistent blocklist tables and check them during decision evaluation.
-- Add title/year/ID matching so a release must actually match the target movie/show/episode.
-- Add size checks: minimum size, maximum size, acceptable size by runtime/quality, free disk space.
-- Add protocol checks and per-indexer/per-download-client protocol restrictions.
-- Add queue conflict checks to avoid duplicate grabs.
-- Add retention/minimum age/delay profile behavior.
-- Add torrent seed/leech/ratio/time constraints.
-- Add release restrictions: required, ignored, preferred terms, tags.
+- Add persistent blocklist tables and check them during decision evaluation. Implemented for title/download URL/infohash matches by media context.
+- Add title/year/ID matching so a release must actually match the target movie/show/episode. Implemented for target title/year/season/episode and first-pass absolute episode matching; external ID matching remains future work.
+- Add size checks: minimum size, maximum size, acceptable size by runtime/quality, free disk space. Implemented fixed minimum/maximum and root-folder free-space checks; runtime/quality-specific size curves remain future work.
+- Add protocol checks and per-indexer/per-download-client protocol restrictions. Implemented global allowed protocol settings and enabled download client protocol availability checks.
+- Add queue conflict checks to avoid duplicate grabs. Implemented for active queue rows in movie/series/episode context.
+- Add retention/minimum age/delay profile behavior. Implemented configurable minimum age and retention gates; full delay profile scheduling remains future work.
+- Add torrent seed/leech/ratio/time constraints. Implemented configurable minimum seeders; ratio/time constraints remain future work.
+- Add release restrictions: required, ignored, preferred terms, tags. Implemented global required/ignored/preferred terms; tag-scoped profiles remain future work.
 - Add language support if replacement scope includes non-English libraries.
 - Add hardcoded subtitle/sample/raw disk checks.
 - Add repack/proper handling.
@@ -273,6 +280,7 @@ Tasks:
   - same episode/season already grabbed,
   - anime absolute episode and version upgrades,
   - scene/XEM mapping.
+    First-pass coverage now rejects unaired episode grabs, non-season-pack season results, multi-season packs, split/multi-episode single searches, active queue duplicates, and matching anime absolute episode releases. Anime version upgrades and scene/XEM mapping remain future work.
 - Store and display every rejection reason in manual search.
 
 Acceptance criteria:
@@ -670,15 +678,16 @@ Goal: reduce bad grabs and repeated failures.
 
 Tasks:
 
-1. Add blocklist table and enforcement.
-2. Port high-impact decision specs first: title match, size, free space, queue conflict, protocol, retention, seeding, release restrictions.
-3. Add TV edge specs: full season, multi-season, split episode, same episodes, scene mapping.
-4. Expand parser test corpus from vendor tests and fixtures.
+1. [x] Add blocklist table and enforcement.
+2. [x] Port high-impact decision specs first: title match, size, free space, queue conflict, protocol, retention, seeding, release restrictions.
+3. [x] Add first-pass TV edge specs: full season, multi-season, split episode, same episodes, and anime absolute episode matching. Scene/XEM mapping and anime version upgrades remain explicit future parity gaps.
+4. [x] Expand parser test corpus from vendor tests and fixtures.
 
 Acceptance:
 
 - Manual search decisions are explainable and stable.
 - Blocklisting a failed queue item prevents re-grabbing the same title/infohash.
+- Unit coverage verifies blocklist matching, title/year/episode mismatches, size/free-space, protocol availability, queue conflicts, age/retention, release terms, unsafe artifacts, TV edge checks, and vendor-inspired parser cases.
 
 ### Milestone 5: Prowlarr Replacement Decision
 
@@ -730,11 +739,11 @@ Update `README.md` after each milestone:
 
 ## Immediate Next Step For The Next Agent
 
-Start Milestone 4: decision engine hardening.
+Start Milestone 5: Prowlarr replacement decision.
 
 Recommended order:
 
-1. Add persistent blocklist enforcement to release evaluation.
-2. Split high-impact release checks into focused specification modules.
-3. Add title/year/show/episode matching, size limits, free-space checks, queue conflict checks, and protocol restrictions.
-4. Expand parser and decision tests with vendor-inspired fixtures before beginning Prowlarr-scale indexer work.
+1. Decide Option A or Option B from P0 section 5.
+2. If Option A, build a real Prowlarr-grade indexer management roadmap before adding more claims.
+3. If Option B, update README/UI copy so ARR Hub clearly says it consumes Prowlarr-compatible Torznab/Newznab indexers but does not replace Prowlarr.
+4. Do not begin download-client/NAS hardening until the product claim is aligned with actual indexer behavior.
