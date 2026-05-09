@@ -854,6 +854,109 @@ search:
           args: yyyy-MM-dd HH:mm:ss UTC
 `
 
+const SHIZA_PROJECT = `
+id: shizaproject
+name: ShizaProject
+description: Public Russian anime tracker and release group exposed through a first-pass GraphQL JSON Cardigann definition.
+type: public
+links:
+  - https://shiza-project.com/
+version: builtin-cardigann-1
+tags:
+  - public
+  - anime
+  - json
+  - graphql
+caps:
+  categorymappings:
+    - id: "1"
+      cat: TV/Anime
+      desc: TV
+      newznab: 5070
+    - id: "2"
+      cat: TV/Anime
+      desc: TV_SPECIAL
+      newznab: 5070
+    - id: "3"
+      cat: TV/Anime
+      desc: ONA
+      newznab: 5070
+    - id: "4"
+      cat: TV/Anime
+      desc: OVA
+      newznab: 5070
+    - id: "5"
+      cat: Movies
+      desc: MOVIE
+      newznab: 2000
+    - id: "6"
+      cat: Movies
+      desc: SHORT_MOVIE
+      newznab: 2000
+  modes:
+    search: [q]
+    movie-search: [q]
+    tv-search: [q, season, ep]
+search:
+  keywordsfilters:
+    - name: re_replace
+      args: ["(?:[SsEe]?\\\\d{1,4}){1,2}$", ""]
+    - name: trim
+  paths:
+    - path: /graphql
+      response:
+        type: json
+      inputs:
+        query: 'query fetchReleases($first: Int, $query: String) { releases(first: $first, query: $query) { edges { node { name type originalName alternativeNames publishedAt slug torrents { synopsis downloaded seeders leechers size magnetUri updatedAt file { url } videoQualities } } } } }'
+        variables: '{"first":50{{ if .Keywords }},"query":"{{ .Keywords | jsonescape }}"{{ end }}}'
+  rows:
+    selector: $.data.releases.edges
+    attribute: node.torrents
+    multiple: true
+    missingAttributeEqualsNoResults: true
+  fields:
+    releasename:
+      selector: ..node.name
+    slug:
+      selector: ..node.slug
+    synopsis:
+      selector: synopsis
+      optional: true
+    qualities:
+      selector: videoQualities
+      optional: true
+      filters:
+        - name: replace
+          args: ["RESOLUTION_", ""]
+        - name: replace
+          args: [",", " "]
+    title:
+      text: "{{ .Result.releasename }} {{ .Result.synopsis }} [{{ .Result.qualities }}]"
+    details:
+      text: "/releases/{{ .Result.slug }}/"
+    download:
+      selector: file.url
+    magnet:
+      selector: magnetUri
+      optional: true
+    categorydesc:
+      selector: ..node.type
+    size:
+      selector: size
+    grabs:
+      selector: downloaded
+    seeders:
+      selector: seeders
+    leechers:
+      selector: leechers
+    date:
+      selector: updatedAt
+    downloadvolumefactor:
+      text: "0"
+    uploadvolumefactor:
+      text: "1"
+`
+
 const SUBSPLEASE = `
 id: subsplease
 name: SubsPlease
@@ -4974,6 +5077,7 @@ const BUILT_IN_CARDIGANN_SOURCES = [
   BAKABT,
   NEBULANCE,
   ANIDEX,
+  SHIZA_PROJECT,
   SUBSPLEASE,
   TORRENTS_CSV,
   KNABEN,

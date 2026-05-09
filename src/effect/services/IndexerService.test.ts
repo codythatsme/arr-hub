@@ -119,19 +119,19 @@ describe("IndexerService", () => {
       const second = yield* svc.refreshDefinitions()
 
       expect(first).toMatchObject({
-        total: 32,
-        created: 32,
+        total: 33,
+        created: 33,
         updated: 0,
         unchanged: 0,
       })
       expect(first.definitions.map((definition) => definition.action)).toEqual(
-        Array(32).fill("created"),
+        Array(33).fill("created"),
       )
       expect(second).toMatchObject({
-        total: 32,
+        total: 33,
         created: 0,
         updated: 0,
-        unchanged: 32,
+        unchanged: 33,
       })
       expect(second.definitions.every((definition) => definition.previousVersion !== null)).toBe(
         true,
@@ -425,6 +425,7 @@ describe("IndexerService", () => {
         "retroflix",
         "revolutiontt",
         "scenetime",
+        "shizaproject",
         "speedapp",
         "speedcd",
         "subsplease",
@@ -494,6 +495,16 @@ describe("IndexerService", () => {
           tags: ["public", "anime", "html"],
         },
       )
+      expect(
+        definitions.find((definition) => definition.definitionKey === "shizaproject"),
+      ).toMatchObject({
+        displayName: "ShizaProject",
+        protocol: "torrent",
+        implementation: "cardigann_yaml",
+        baseUrl: "https://shiza-project.com/",
+        privacy: "public",
+        tags: ["public", "anime", "json", "graphql"],
+      })
       expect(
         definitions.find((definition) => definition.definitionKey === "torrents-csv"),
       ).toMatchObject({

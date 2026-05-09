@@ -74,6 +74,40 @@ const SUBSPLEASE_JSON_RESULTS = JSON.stringify({
   },
 })
 
+const SHIZA_PROJECT_JSON_RESULTS = JSON.stringify({
+  data: {
+    releases: {
+      edges: [
+        {
+          node: {
+            name: "Shiza Show",
+            type: "TV",
+            originalName: "Shiza Original",
+            alternativeNames: ["Shiza Alias"],
+            publishedAt: "2026-05-09T08:00:00.000Z",
+            slug: "shiza-show",
+            torrents: [
+              {
+                synopsis: "Episode 01",
+                downloaded: 13,
+                seeders: 22,
+                leechers: 5,
+                size: 1_700_000_000,
+                magnetUri: "magnet:?xt=urn:btih:shizashow01",
+                updatedAt: "2026-05-09T09:00:00.000Z",
+                file: {
+                  url: "/downloads/shiza-show-01.torrent",
+                },
+                videoQualities: ["RESOLUTION_1080"],
+              },
+            ],
+          },
+        },
+      ],
+    },
+  },
+})
+
 const KNABEN_JSON_RESULTS = JSON.stringify({
   hits: [
     {
@@ -2800,6 +2834,57 @@ search:
       uploadFactor: 1,
     })
     expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-08T12:34:56.000Z")
+  })
+
+  it("builds and parses ShizaProject GraphQL JSON searches from the built-in definition", async () => {
+    let requestUrl: string | undefined
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      requestUrl = String(input)
+      return new Response(SHIZA_PROJECT_JSON_RESULTS, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 110,
+      name: "ShizaProject",
+      type: "cardigann_yaml",
+      definitionKey: "shizaproject",
+      baseUrl: "https://shiza-project.com/",
+      apiKey: "",
+      priority: 46,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Shiza Show S01E01", type: "tv", categories: [5070] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const url = new URL(requestUrl ?? "")
+    expect(url.origin).toBe("https://shiza-project.com")
+    expect(url.pathname).toBe("/graphql")
+    expect(url.searchParams.get("query")).toContain("query fetchReleases")
+    expect(JSON.parse(url.searchParams.get("variables") ?? "")).toEqual({
+      first: 50,
+      query: "Shiza Show",
+    })
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "Shiza Show Episode 01 [1080]",
+      downloadUrl: "https://shiza-project.com/downloads/shiza-show-01.torrent",
+      infoUrl: "https://shiza-project.com/releases/shiza-show/",
+      category: "5070",
+      size: 1_700_000_000,
+      seeders: 22,
+      leechers: 5,
+      indexerId: 110,
+      indexerName: "ShizaProject",
+      indexerPriority: 46,
+      downloadFactor: 0,
+      uploadFactor: 1,
+    })
+    expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-09T09:00:00.000Z")
   })
 
   it("renders Cardigann raw JSON POST bodies for Knaben searches", async () => {

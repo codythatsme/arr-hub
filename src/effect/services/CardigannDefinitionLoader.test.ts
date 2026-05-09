@@ -83,6 +83,7 @@ caps:
       "bakabt",
       "nebulance",
       "anidex",
+      "shizaproject",
       "subsplease",
       "torrents-csv",
       "knaben",
@@ -234,6 +235,24 @@ caps:
           { id: 3010, name: "Music - Lossy" },
           { id: 4050, name: "Games" },
           { id: 8000, name: "Other" },
+        ]),
+      },
+    })
+    expect(
+      BUILT_IN_CARDIGANN_DEFINITIONS.find(
+        (definition) => definition.definitionKey === "shizaproject",
+      ),
+    ).toMatchObject({
+      displayName: "ShizaProject",
+      baseUrl: "https://shiza-project.com/",
+      privacy: "public",
+      tags: ["public", "anime", "json", "graphql"],
+      capabilities: {
+        searchTypes: ["search", "movie", "tvsearch"],
+        categories: expect.arrayContaining([
+          { id: 5070, name: "TV" },
+          { id: 5070, name: "OVA" },
+          { id: 2000, name: "MOVIE" },
         ]),
       },
     })
