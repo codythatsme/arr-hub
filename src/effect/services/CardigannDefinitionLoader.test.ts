@@ -158,6 +158,50 @@ search:
     })
   })
 
+  it("normalizes scalar Cardigann search inputs and single path objects", () => {
+    const runtime = parseCardigannRuntimeDefinitionYaml(`
+id: scalar-cardigann
+name: Scalar Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: 1
+      cat: Movies
+      desc: Movies
+  modes:
+    search: [q]
+search:
+  inputs:
+    page: 1
+    freeleech: true
+  path:
+    path: /api
+    categories: [1]
+    response:
+      type: xml
+    inputs:
+      t: search
+      limit: 100
+`)
+
+    expect(runtime.search).toEqual({
+      allowEmptyInputs: false,
+      inputs: { page: "1", freeleech: "true" },
+      headers: {},
+      paths: [
+        {
+          path: "/api",
+          method: "get",
+          inputs: { t: "search", limit: "100" },
+          headers: {},
+          categories: ["1"],
+          responseType: "torznab",
+        },
+      ],
+    })
+  })
+
   it("parses Cardigann request header templates", () => {
     const runtime = parseCardigannRuntimeDefinitionYaml(`
 id: header-cardigann

@@ -270,6 +270,63 @@ search:
     expect(headers.get("x-query-slug")).toBe("example-movie")
   })
 
+  it("executes single-object Cardigann paths with scalar request inputs", async () => {
+    let requestUrl: string | undefined
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      requestUrl = String(input)
+      return new Response(RSS_XML, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 13,
+      name: "Scalar Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "scalar-cardigann",
+      definitionYaml: `
+id: scalar-cardigann
+name: Scalar Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: 1
+      cat: Movies
+      desc: Movies
+  modes:
+    movie-search: [q]
+search:
+  path:
+    path: /single
+    categories: [1]
+    response:
+      type: xml
+    inputs:
+      t: "{{ .Query.Type }}"
+      page: 1
+      freeleech: true
+      q: "{{ .Keywords }}"
+`,
+      baseUrl: "https://tracker.example/root",
+      apiKey: "",
+      priority: 15,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    await Effect.runPromise(
+      adapter.search({ term: "Scalar Movie", type: "movie", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const url = new URL(requestUrl ?? "")
+    expect(url.pathname).toBe("/single")
+    expect(url.searchParams.get("t")).toBe("movie")
+    expect(url.searchParams.get("page")).toBe("1")
+    expect(url.searchParams.get("freeleech")).toBe("true")
+    expect(url.searchParams.get("q")).toBe("Scalar Movie")
+  })
+
   it("fails when the configured definition key is unknown", async () => {
     const adapter = createCardigannYamlAdapter({
       id: 9,

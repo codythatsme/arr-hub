@@ -428,7 +428,13 @@ function parseSearchPaths(
 ): ReadonlyArray<CardigannSearchPath> {
   const fallbackResponseType: CardigannResponseType = protocol === "usenet" ? "newznab" : "torznab"
   const pathValues =
-    typeof value === "string" ? [{ path: value }] : Array.isArray(value) ? value : []
+    typeof value === "string"
+      ? [{ path: value }]
+      : Array.isArray(value)
+        ? value
+        : isRecord(value)
+          ? [value]
+          : []
 
   return pathValues.map((item) => {
     const path = typeof item === "string" ? { path: item } : expectRecord(item, "search path")
@@ -449,10 +455,16 @@ function parseInputMap(value: unknown): Readonly<Record<string, string>> {
   const record = expectRecord(value, "inputs")
   const inputs: Record<string, string> = {}
   for (const [key, val] of Object.entries(record)) {
-    if (typeof val !== "string") throw new Error(`input ${key} must be a string`)
-    inputs[key] = val
+    inputs[key] = inputScalarToString(val, `input ${key}`)
   }
   return inputs
+}
+
+function inputScalarToString(value: unknown, label: string): string {
+  if (typeof value === "string") return value
+  if (typeof value === "number" && Number.isFinite(value)) return String(value)
+  if (typeof value === "boolean") return value ? "true" : "false"
+  throw new Error(`${label} must be a scalar value`)
 }
 
 function parseAuthFields(value: unknown): ReadonlyArray<IndexerAuthField> {
@@ -523,10 +535,11 @@ function parseOptionalStringArray(value: unknown): ReadonlyArray<string> {
   if (value === undefined) return []
   if (!Array.isArray(value)) throw new Error("categories must be a list")
   return value.map((item) => {
-    if (typeof item !== "string" || item.trim().length === 0) {
+    const normalized = typeof item === "number" && Number.isFinite(item) ? String(item) : item
+    if (typeof normalized !== "string" || normalized.trim().length === 0) {
       throw new Error("categories must contain non-empty strings")
     }
-    return item.trim()
+    return normalized.trim()
   })
 }
 
