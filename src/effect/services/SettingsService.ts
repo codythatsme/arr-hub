@@ -112,8 +112,8 @@ function validateValue(key: SettingKey, value: string): Effect.Effect<string, Se
     key === "release.minimumSeeders" ||
     key === "release.retentionDays"
   ) {
-    const value = Number(trimmed)
-    if (!Number.isInteger(value) || value < 0) {
+    const parsedValue = Number(trimmed)
+    if (!Number.isInteger(parsedValue) || parsedValue < 0) {
       return Effect.fail(
         new SettingsError({
           reason: "invalid_value",

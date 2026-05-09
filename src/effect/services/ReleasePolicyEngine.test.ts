@@ -396,7 +396,7 @@ describe("ReleasePolicyEngine", () => {
         baseContext,
       )
 
-      expect(results.map((result) => result.reasons[0].rule).sort()).toEqual([
+      expect(results.map((result) => result.reasons[0].rule).toSorted()).toEqual([
         "hardcoded_subtitles",
         "raw_disk_release",
         "sample_release",
