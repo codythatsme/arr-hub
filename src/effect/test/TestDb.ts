@@ -172,16 +172,70 @@ const runDdl = Effect.gen(function* () {
     created_at INTEGER NOT NULL DEFAULT (unixepoch())
   )`
 
+  yield* sql`CREATE TABLE indexer_proxies (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL,
+    host TEXT NOT NULL,
+    port INTEGER,
+    username TEXT,
+    password_encrypted TEXT,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    settings TEXT NOT NULL DEFAULT '{}',
+    created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+  )`
+
+  yield* sql`CREATE TABLE indexer_definitions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    definition_key TEXT NOT NULL UNIQUE,
+    display_name TEXT NOT NULL,
+    protocol TEXT NOT NULL,
+    implementation TEXT NOT NULL,
+    base_url TEXT,
+    privacy TEXT NOT NULL DEFAULT 'private',
+    supports_rss INTEGER NOT NULL DEFAULT 1,
+    supports_search INTEGER NOT NULL DEFAULT 1,
+    auth_fields TEXT NOT NULL DEFAULT '[]',
+    categories TEXT NOT NULL DEFAULT '[]',
+    capabilities TEXT NOT NULL DEFAULT '{"searchTypes":[],"categories":[]}',
+    tags TEXT NOT NULL DEFAULT '[]',
+    version TEXT NOT NULL DEFAULT 'builtin-1',
+    created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+  )`
+
   yield* sql`CREATE TABLE indexers (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
     type TEXT NOT NULL,
+    definition_key TEXT,
     base_url TEXT NOT NULL,
     api_key_encrypted TEXT NOT NULL,
+    proxy_id INTEGER REFERENCES indexer_proxies(id) ON DELETE SET NULL,
     enabled INTEGER NOT NULL DEFAULT 1,
+    search_enabled INTEGER NOT NULL DEFAULT 1,
+    rss_enabled INTEGER NOT NULL DEFAULT 1,
     priority INTEGER NOT NULL DEFAULT 50,
     categories TEXT NOT NULL DEFAULT '[]',
+    tags TEXT NOT NULL DEFAULT '[]',
     capabilities TEXT DEFAULT 'null',
+    created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+  )`
+
+  yield* sql`CREATE TABLE indexer_stats (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    indexer_id INTEGER NOT NULL UNIQUE REFERENCES indexers(id) ON DELETE CASCADE,
+    total_searches INTEGER NOT NULL DEFAULT 0,
+    successful_searches INTEGER NOT NULL DEFAULT 0,
+    failed_searches INTEGER NOT NULL DEFAULT 0,
+    total_rss INTEGER NOT NULL DEFAULT 0,
+    successful_rss INTEGER NOT NULL DEFAULT 0,
+    failed_rss INTEGER NOT NULL DEFAULT 0,
+    average_response_time_ms INTEGER,
+    last_search_at INTEGER,
+    last_rss_at INTEGER,
     created_at INTEGER NOT NULL DEFAULT (unixepoch()),
     updated_at INTEGER NOT NULL DEFAULT (unixepoch())
   )`

@@ -9,6 +9,17 @@ import { IndexerService } from "./IndexerService"
 import { MediaServerService } from "./MediaServerService"
 import { SchedulerService, SchedulerServiceLive } from "./SchedulerService"
 
+const mockIndexerCatalogMethods = {
+  seedBuiltInDefinitions: () => Effect.void,
+  listDefinitions: () => Effect.succeed([]),
+  listStats: () => Effect.succeed([]),
+  aggregateCapabilities: () => Effect.succeed({ searchTypes: [], categories: [] }),
+  addProxy: () => Effect.die("not implemented"),
+  listProxies: () => Effect.succeed([]),
+  updateProxy: () => Effect.die("not implemented"),
+  removeProxy: () => Effect.die("not implemented"),
+}
+
 const MockIndexerService = Layer.succeed(IndexerService, {
   add: () => Effect.die("not implemented"),
   list: () =>
@@ -17,10 +28,15 @@ const MockIndexerService = Layer.succeed(IndexerService, {
         id: 1,
         name: "Indexer",
         type: "torznab",
+        definitionKey: "generic-torznab",
         baseUrl: "http://indexer",
+        proxyId: null,
         enabled: true,
+        searchEnabled: true,
+        rssEnabled: true,
         priority: 50,
         categories: [],
+        tags: [],
         capabilities: null,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -37,6 +53,7 @@ const MockIndexerService = Layer.succeed(IndexerService, {
   remove: () => Effect.die("not implemented"),
   testConnection: () => Effect.die("not implemented"),
   search: () => Effect.die("not implemented"),
+  ...mockIndexerCatalogMethods,
   listTypes: () => [],
 })
 

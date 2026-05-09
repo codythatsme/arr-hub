@@ -3,7 +3,8 @@ import { Effect, Layer } from "effect"
 
 import { TestDbLive } from "#/effect/test/TestDb"
 
-import { AdapterRegistryLive } from "./AdapterRegistry"
+import { IndexerError } from "../errors"
+import { AdapterRegistry, AdapterRegistryLive } from "./AdapterRegistry"
 import { CryptoServiceLive } from "./CryptoService"
 import { IndexerService, IndexerServiceLive } from "./IndexerService"
 
@@ -158,6 +159,149 @@ describe("IndexerService", () => {
       // disabled indexer not contacted — no releases, no errors
       expect(result.releases).toEqual([])
       expect(result.errors).toEqual([])
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("seeds first-party generic Torznab/Newznab definitions", () =>
+    Effect.gen(function* () {
+      const svc = yield* IndexerService
+      yield* svc.seedBuiltInDefinitions()
+      yield* svc.seedBuiltInDefinitions()
+
+      const definitions = yield* svc.listDefinitions()
+      expect(definitions.map((definition) => definition.definitionKey).toSorted()).toEqual([
+        "generic-newznab",
+        "generic-torznab",
+      ])
+      expect(
+        definitions.find((definition) => definition.definitionKey === "generic-torznab"),
+      ).toMatchObject({
+        displayName: "Generic Torznab",
+        protocol: "torrent",
+        implementation: "torznab",
+        supportsRss: true,
+        supportsSearch: true,
+      })
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("manages indexer proxies without exposing proxy secrets", () =>
+    Effect.gen(function* () {
+      const svc = yield* IndexerService
+      const proxy = yield* svc.addProxy({
+        name: "FlareSolverr",
+        type: "flaresolverr",
+        host: "http://flaresolverr:8191",
+        password: "proxy-secret",
+        settings: { flaresolverrTimeoutMs: 60_000, tags: ["cloudflare"] },
+      })
+
+      expect(proxy.type).toBe("flaresolverr")
+      expect(JSON.stringify(proxy)).not.toContain("proxy-secret")
+
+      const updated = yield* svc.updateProxy(proxy.id, { enabled: false, password: null })
+      expect(updated.enabled).toBe(false)
+
+      const proxies = yield* svc.listProxies()
+      expect(proxies).toHaveLength(1)
+      expect(proxies[0].name).toBe("FlareSolverr")
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("records indexer search statistics and supports protocol filtering", () =>
+    Effect.gen(function* () {
+      const registry = yield* AdapterRegistry
+      registry.registerIndexer(
+        "mock-torrent",
+        { displayName: "Mock Torrent", protocolAffinity: "torrent", authModel: "none" },
+        (config) => ({
+          testConnection: () =>
+            Effect.succeed({
+              searchTypes: ["search"],
+              categories: [{ id: 2000, name: "Movies" }],
+            }),
+          search: () =>
+            Effect.succeed([
+              {
+                title: "Example Movie 2025 1080p WEB-DL",
+                indexerId: config.id,
+                indexerName: config.name,
+                indexerPriority: config.priority,
+                size: 1_000,
+                seeders: 42,
+                leechers: 2,
+                age: 1,
+                downloadUrl: "https://example.com/download/1",
+                infoUrl: "https://example.com/info/1",
+                category: "2000",
+                protocol: "torrent",
+                publishedAt: new Date("2025-01-01T00:00:00Z"),
+                infohash: "abc123",
+                downloadFactor: 1,
+                uploadFactor: 1,
+              },
+            ]),
+        }),
+      )
+      registry.registerIndexer(
+        "mock-usenet-fail",
+        { displayName: "Mock Usenet", protocolAffinity: "usenet", authModel: "none" },
+        (config) => ({
+          testConnection: () =>
+            Effect.succeed({
+              searchTypes: ["search"],
+              categories: [{ id: 2000, name: "Movies" }],
+            }),
+          search: () =>
+            Effect.fail(
+              new IndexerError({
+                indexerId: config.id,
+                indexerName: config.name,
+                reason: "connection_failed",
+                message: "offline",
+                retryable: true,
+              }),
+            ),
+        }),
+      )
+
+      const svc = yield* IndexerService
+      yield* svc.add({
+        ...VALID_INPUT,
+        name: "Torrent",
+        type: "mock-torrent",
+        apiKey: "unused",
+      })
+      yield* svc.add({
+        ...VALID_INPUT,
+        name: "Usenet",
+        type: "mock-usenet-fail",
+        apiKey: "unused",
+      })
+
+      const torrentOnly = yield* svc.search({
+        term: "example",
+        type: "movie",
+        protocol: "torrent",
+      })
+      expect(torrentOnly.releases).toHaveLength(1)
+      expect(torrentOnly.errors).toHaveLength(0)
+
+      const all = yield* svc.search({ term: "example", type: "movie" })
+      expect(all.releases).toHaveLength(1)
+      expect(all.errors).toHaveLength(1)
+
+      const stats = yield* svc.listStats()
+      expect(stats.find((item) => item.indexerName === "Torrent")).toMatchObject({
+        totalSearches: 2,
+        successfulSearches: 2,
+        failedSearches: 0,
+      })
+      expect(stats.find((item) => item.indexerName === "Usenet")).toMatchObject({
+        totalSearches: 1,
+        successfulSearches: 0,
+        failedSearches: 1,
+      })
     }).pipe(Effect.provide(TestLayer)),
   )
 })

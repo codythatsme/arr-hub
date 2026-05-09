@@ -39,6 +39,17 @@ const mockCandidate: ReleaseCandidate = {
 
 // ── Mock layers ──
 
+const mockIndexerCatalogMethods = {
+  seedBuiltInDefinitions: () => Effect.void,
+  listDefinitions: () => Effect.succeed([]),
+  listStats: () => Effect.succeed([]),
+  aggregateCapabilities: () => Effect.succeed({ searchTypes: [], categories: [] }),
+  addProxy: () => Effect.die("not implemented"),
+  listProxies: () => Effect.succeed([]),
+  updateProxy: () => Effect.die("not implemented"),
+  removeProxy: () => Effect.die("not implemented"),
+}
+
 const MockIndexerService = Layer.succeed(IndexerService, {
   add: () => Effect.die("not implemented"),
   list: () => Effect.die("not implemented"),
@@ -47,6 +58,7 @@ const MockIndexerService = Layer.succeed(IndexerService, {
   remove: () => Effect.die("not implemented"),
   testConnection: () => Effect.die("not implemented"),
   search: () => Effect.succeed({ releases: [mockCandidate], errors: [] }),
+  ...mockIndexerCatalogMethods,
   listTypes: () => [],
 })
 
@@ -58,6 +70,7 @@ const MockIndexerServiceEmpty = Layer.succeed(IndexerService, {
   remove: () => Effect.die("not implemented"),
   testConnection: () => Effect.die("not implemented"),
   search: () => Effect.succeed({ releases: [], errors: [] }),
+  ...mockIndexerCatalogMethods,
   listTypes: () => [],
 })
 
@@ -370,6 +383,7 @@ const MockTvIndexerWithPack = Layer.succeed(IndexerService, {
     }
     return Effect.succeed({ releases: [], errors: [] })
   },
+  ...mockIndexerCatalogMethods,
   listTypes: () => [],
 })
 
@@ -389,6 +403,7 @@ const MockTvIndexerEpisodesOnly = Layer.succeed(IndexerService, {
     }
     return Effect.succeed({ releases: [], errors: [] })
   },
+  ...mockIndexerCatalogMethods,
   listTypes: () => [],
 })
 

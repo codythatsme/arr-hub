@@ -2,7 +2,16 @@ import { sql } from "drizzle-orm"
 import { integer, real, sqliteTable, text, unique } from "drizzle-orm/sqlite-core"
 
 import type { DownloadClientSettings } from "#/effect/domain/downloadClient"
-import type { IndexerCapabilities } from "#/effect/domain/indexer"
+import type {
+  IndexerAuthField,
+  IndexerCategoryMapping,
+  IndexerCapabilities,
+  IndexerDefinitionImplementation,
+  IndexerPrivacy,
+  IndexerProtocol,
+  IndexerProxySettings,
+  IndexerProxyType,
+} from "#/effect/domain/indexer"
 import type { MediaServerSettings } from "#/effect/domain/mediaServer"
 import type { DecisionReason, MediaType, ReleaseDecision } from "#/effect/domain/release"
 import type {
@@ -228,21 +237,108 @@ export const rootFolders = sqliteTable("root_folders", {
     .default(sql`(unixepoch())`),
 })
 
+export const indexerProxies = sqliteTable("indexer_proxies", {
+  id: integer().primaryKey({ autoIncrement: true }),
+  name: text().notNull(),
+  type: text().$type<IndexerProxyType>().notNull(),
+  host: text().notNull(),
+  port: integer(),
+  username: text(),
+  passwordEncrypted: text("password_encrypted"),
+  enabled: integer({ mode: "boolean" }).notNull().default(true),
+  settings: text({ mode: "json" })
+    .$type<IndexerProxySettings>()
+    .notNull()
+    .default(sql`'{}'`),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+})
+
 export const indexers = sqliteTable("indexers", {
   id: integer().primaryKey({ autoIncrement: true }),
   name: text().notNull(),
   type: text().notNull(),
+  definitionKey: text("definition_key"),
   baseUrl: text("base_url").notNull(),
   apiKeyEncrypted: text("api_key_encrypted").notNull(),
+  proxyId: integer("proxy_id").references(() => indexerProxies.id, { onDelete: "set null" }),
   enabled: integer({ mode: "boolean" }).notNull().default(true),
+  searchEnabled: integer("search_enabled", { mode: "boolean" }).notNull().default(true),
+  rssEnabled: integer("rss_enabled", { mode: "boolean" }).notNull().default(true),
   priority: integer().notNull().default(50),
   categories: text({ mode: "json" })
     .$type<ReadonlyArray<number>>()
     .notNull()
     .default(sql`'[]'`),
+  tags: text({ mode: "json" })
+    .$type<ReadonlyArray<string>>()
+    .notNull()
+    .default(sql`'[]'`),
   capabilities: text({ mode: "json" })
     .$type<IndexerCapabilities | null>()
     .default(sql`'null'`),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+})
+
+export const indexerDefinitions = sqliteTable("indexer_definitions", {
+  id: integer().primaryKey({ autoIncrement: true }),
+  definitionKey: text("definition_key").notNull().unique(),
+  displayName: text("display_name").notNull(),
+  protocol: text().$type<IndexerProtocol>().notNull(),
+  implementation: text().$type<IndexerDefinitionImplementation>().notNull(),
+  baseUrl: text("base_url"),
+  privacy: text().$type<IndexerPrivacy>().notNull().default("private"),
+  supportsRss: integer("supports_rss", { mode: "boolean" }).notNull().default(true),
+  supportsSearch: integer("supports_search", { mode: "boolean" }).notNull().default(true),
+  authFields: text("auth_fields", { mode: "json" })
+    .$type<ReadonlyArray<IndexerAuthField>>()
+    .notNull()
+    .default(sql`'[]'`),
+  categories: text({ mode: "json" })
+    .$type<ReadonlyArray<IndexerCategoryMapping>>()
+    .notNull()
+    .default(sql`'[]'`),
+  capabilities: text({ mode: "json" })
+    .$type<IndexerCapabilities>()
+    .notNull()
+    .default(sql`'{"searchTypes":[],"categories":[]}'`),
+  tags: text({ mode: "json" })
+    .$type<ReadonlyArray<string>>()
+    .notNull()
+    .default(sql`'[]'`),
+  version: text().notNull().default("builtin-1"),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+})
+
+export const indexerStats = sqliteTable("indexer_stats", {
+  id: integer().primaryKey({ autoIncrement: true }),
+  indexerId: integer("indexer_id")
+    .notNull()
+    .unique()
+    .references(() => indexers.id, { onDelete: "cascade" }),
+  totalSearches: integer("total_searches").notNull().default(0),
+  successfulSearches: integer("successful_searches").notNull().default(0),
+  failedSearches: integer("failed_searches").notNull().default(0),
+  totalRss: integer("total_rss").notNull().default(0),
+  successfulRss: integer("successful_rss").notNull().default(0),
+  failedRss: integer("failed_rss").notNull().default(0),
+  averageResponseTimeMs: integer("average_response_time_ms"),
+  lastSearchAt: integer("last_search_at", { mode: "timestamp" }),
+  lastRssAt: integer("last_rss_at", { mode: "timestamp" }),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),

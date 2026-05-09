@@ -4,6 +4,10 @@ import type { IndexerError } from "../errors"
 export type IndexerType = string
 export type IndexerProtocol = "torrent" | "usenet"
 export type IndexerHealthStatus = "healthy" | "unhealthy" | "unknown"
+export type IndexerDefinitionImplementation = "torznab" | "newznab" | "cardigann_yaml"
+export type IndexerPrivacy = "public" | "private" | "semi_private"
+export type IndexerProxyType = "http" | "socks4" | "socks5" | "flaresolverr"
+export type IndexerAuthFieldType = "text" | "password" | "cookie" | "textarea"
 
 /** Adapter metadata for registry display + protocol selection. */
 export interface IndexerAdapterMetadata {
@@ -36,6 +40,74 @@ export interface IndexerCapabilities {
   readonly categories: ReadonlyArray<{ readonly id: number; readonly name: string }>
 }
 
+export interface IndexerAuthField {
+  readonly name: string
+  readonly label: string
+  readonly type: IndexerAuthFieldType
+  readonly required: boolean
+  readonly helpText?: string
+}
+
+export interface IndexerCategoryMapping {
+  readonly trackerCategory: string
+  readonly trackerCategoryDesc: string
+  readonly newznabCategory: number
+}
+
+export interface IndexerDefinitionSeed {
+  readonly definitionKey: string
+  readonly displayName: string
+  readonly protocol: IndexerProtocol
+  readonly implementation: IndexerDefinitionImplementation
+  readonly baseUrl: string | null
+  readonly privacy: IndexerPrivacy
+  readonly supportsRss: boolean
+  readonly supportsSearch: boolean
+  readonly authFields: ReadonlyArray<IndexerAuthField>
+  readonly categories: ReadonlyArray<IndexerCategoryMapping>
+  readonly capabilities: IndexerCapabilities
+  readonly tags: ReadonlyArray<string>
+  readonly version: string
+}
+
+export interface IndexerDefinition extends IndexerDefinitionSeed {
+  readonly id: number
+  readonly createdAt: Date
+  readonly updatedAt: Date
+}
+
+export interface IndexerProxySettings {
+  readonly tags?: ReadonlyArray<string>
+  readonly flaresolverrTimeoutMs?: number
+}
+
+export interface IndexerProxy {
+  readonly id: number
+  readonly name: string
+  readonly type: IndexerProxyType
+  readonly host: string
+  readonly port: number | null
+  readonly username: string | null
+  readonly enabled: boolean
+  readonly settings: IndexerProxySettings
+  readonly createdAt: Date
+  readonly updatedAt: Date
+}
+
+export interface IndexerStats {
+  readonly indexerId: number
+  readonly indexerName: string
+  readonly totalSearches: number
+  readonly successfulSearches: number
+  readonly failedSearches: number
+  readonly totalRss: number
+  readonly successfulRss: number
+  readonly failedRss: number
+  readonly averageResponseTimeMs: number | null
+  readonly lastSearchAt: Date | null
+  readonly lastRssAt: Date | null
+}
+
 export type SearchType = "movie" | "tv" | "general"
 
 export interface SearchQuery {
@@ -48,6 +120,7 @@ export interface SearchQuery {
   readonly tvdbId?: number
   readonly season?: number
   readonly episode?: number
+  readonly protocol?: IndexerProtocol
 }
 
 export interface SearchResult {
@@ -72,10 +145,15 @@ export interface IndexerWithHealth {
   readonly id: number
   readonly name: string
   readonly type: IndexerType
+  readonly definitionKey: string | null
   readonly baseUrl: string
+  readonly proxyId: number | null
   readonly enabled: boolean
+  readonly searchEnabled: boolean
+  readonly rssEnabled: boolean
   readonly priority: number
   readonly categories: ReadonlyArray<number>
+  readonly tags: ReadonlyArray<string>
   readonly capabilities: IndexerCapabilities | null
   readonly createdAt: Date
   readonly updatedAt: Date

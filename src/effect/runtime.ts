@@ -7,6 +7,7 @@ import { TmdbClientE2EFixtures } from "./fixtures/TmdbClientFixtures"
 import { AppLive, makeAppLayer } from "./layers"
 import { CryptoService } from "./services/CryptoService"
 import { Db } from "./services/Db"
+import { IndexerService } from "./services/IndexerService"
 import { NotificationService } from "./services/NotificationService"
 import { PlexSessionMonitor } from "./services/PlexSessionMonitor"
 import { createSchedulerLoop } from "./services/SchedulerLoop"
@@ -44,6 +45,9 @@ const seed = Effect.gen(function* () {
 
   const scheduler = yield* SchedulerService
   yield* scheduler.seedConfig()
+
+  const indexers = yield* IndexerService
+  yield* indexers.seedBuiltInDefinitions()
 
   const sessionMonitor = yield* PlexSessionMonitor
   yield* sessionMonitor.startAllEnabled()

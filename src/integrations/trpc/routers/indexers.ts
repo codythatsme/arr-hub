@@ -9,21 +9,31 @@ import { authedProcedure, runEffect } from "../init"
 const indexerInputSchema = z.object({
   name: z.string(),
   type: z.string().min(1),
+  definitionKey: z.string().nullable().optional(),
   baseUrl: z.string().url(),
   apiKey: z.string(),
+  proxyId: z.number().int().nullable().optional(),
   enabled: z.boolean().optional(),
+  searchEnabled: z.boolean().optional(),
+  rssEnabled: z.boolean().optional(),
   priority: z.number().int().min(1).max(100).optional(),
   categories: z.array(z.number().int()).optional(),
+  tags: z.array(z.string()).optional(),
 })
 
 const indexerUpdateSchema = z.object({
   name: z.string().optional(),
   type: z.string().min(1).optional(),
+  definitionKey: z.string().nullable().optional(),
   baseUrl: z.string().url().optional(),
   apiKey: z.string().optional(),
+  proxyId: z.number().int().nullable().optional(),
   enabled: z.boolean().optional(),
+  searchEnabled: z.boolean().optional(),
+  rssEnabled: z.boolean().optional(),
   priority: z.number().int().min(1).max(100).optional(),
   categories: z.array(z.number().int()).optional(),
+  tags: z.array(z.string()).optional(),
 })
 
 const searchInputSchema = z.object({
@@ -36,6 +46,34 @@ const searchInputSchema = z.object({
   tvdbId: z.number().int().optional(),
   season: z.number().int().optional(),
   episode: z.number().int().optional(),
+  protocol: z.enum(["torrent", "usenet"]).optional(),
+})
+
+const indexerProxySettingsSchema = z.object({
+  tags: z.array(z.string()).optional(),
+  flaresolverrTimeoutMs: z.number().int().positive().optional(),
+})
+
+const indexerProxyInputSchema = z.object({
+  name: z.string().min(1),
+  type: z.enum(["http", "socks4", "socks5", "flaresolverr"]),
+  host: z.string().min(1),
+  port: z.number().int().positive().nullable().optional(),
+  username: z.string().nullable().optional(),
+  password: z.string().nullable().optional(),
+  enabled: z.boolean().optional(),
+  settings: indexerProxySettingsSchema.optional(),
+})
+
+const indexerProxyUpdateSchema = z.object({
+  name: z.string().min(1).optional(),
+  type: z.enum(["http", "socks4", "socks5", "flaresolverr"]).optional(),
+  host: z.string().min(1).optional(),
+  port: z.number().int().positive().nullable().optional(),
+  username: z.string().nullable().optional(),
+  password: z.string().nullable().optional(),
+  enabled: z.boolean().optional(),
+  settings: indexerProxySettingsSchema.optional(),
 })
 
 export const indexersRouter = {
@@ -100,6 +138,62 @@ export const indexersRouter = {
       Effect.gen(function* () {
         const svc = yield* IndexerService
         return yield* svc.search(input)
+      }),
+    ),
+  ),
+
+  listDefinitions: authedProcedure.query(() =>
+    runEffect(
+      Effect.gen(function* () {
+        const svc = yield* IndexerService
+        return yield* svc.listDefinitions()
+      }),
+    ),
+  ),
+
+  listStats: authedProcedure.query(() =>
+    runEffect(
+      Effect.gen(function* () {
+        const svc = yield* IndexerService
+        return yield* svc.listStats()
+      }),
+    ),
+  ),
+
+  listProxies: authedProcedure.query(() =>
+    runEffect(
+      Effect.gen(function* () {
+        const svc = yield* IndexerService
+        return yield* svc.listProxies()
+      }),
+    ),
+  ),
+
+  addProxy: authedProcedure.input(indexerProxyInputSchema).mutation(({ input }) =>
+    runEffect(
+      Effect.gen(function* () {
+        const svc = yield* IndexerService
+        return yield* svc.addProxy(input)
+      }),
+    ),
+  ),
+
+  updateProxy: authedProcedure
+    .input(z.object({ id: z.number(), data: indexerProxyUpdateSchema }))
+    .mutation(({ input }) =>
+      runEffect(
+        Effect.gen(function* () {
+          const svc = yield* IndexerService
+          return yield* svc.updateProxy(input.id, input.data)
+        }),
+      ),
+    ),
+
+  removeProxy: authedProcedure.input(z.object({ id: z.number() })).mutation(({ input }) =>
+    runEffect(
+      Effect.gen(function* () {
+        const svc = yield* IndexerService
+        yield* svc.removeProxy(input.id)
       }),
     ),
   ),
