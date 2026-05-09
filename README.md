@@ -7,7 +7,7 @@ ARR Hub is a unified, self-hosted media automation app inspired by the arr ecosy
 - Adapter-driven integrations (download clients, indexers, media servers)
 - Shared release policy engine + scheduler pipelines
 - Operator UI for onboarding, settings, profiles, movies, TV, manual search, scheduler, and queue actions
-- Prowlarr replacement foundation; current indexer support consumes Torznab/Newznab upstreams, seeds generic/Cardigann-style definitions including Nyaa, AnimeTosho, MoreThanTV, and Torrent Network coverage, renders first-pass definition-specific config/auth fields plus tags and search/RSS flags in Settings, refreshes URL-backed Cardigann sources, exposes first-pass aggregate feeds, and can sync aggregate indexers into Radarr/Sonarr from scheduler and indexer mutations with stale remote cleanup
+- Prowlarr replacement foundation; current indexer support consumes Torznab/Newznab upstreams, seeds generic/Cardigann-style definitions including Nyaa, AnimeTosho, MoreThanTV, and Torrent Network coverage, renders first-pass definition-specific config/auth fields plus tags, search/RSS flags, and proxy controls in Settings, refreshes URL-backed Cardigann sources, exposes first-pass aggregate feeds, and can sync aggregate indexers into Radarr/Sonarr from scheduler and indexer mutations with stale remote cleanup
 
 See [development-plan.md](./development-plan.md) for detailed replacement-readiness status.
 
@@ -70,7 +70,7 @@ container image. Do not bind-mount host `node_modules` into the container.
 
 ## Available UI Validation Surfaces
 
-- **Settings → Indexers**: list/add/test Torznab/Newznab upstream endpoints, first-pass Cardigann definition config/auth fields, tags, and search/RSS toggles
+- **Settings → Indexers**: list/add/test Torznab/Newznab upstream endpoints, first-pass Cardigann definition config/auth fields, tags, search/RSS toggles, and HTTP/SOCKS/FlareSolverr proxy controls
 - **Settings → Download Clients**: list/add/test download clients
 - **Settings → Media Servers**: list/add/test media servers
 - **Settings → Scheduler**: inspect jobs, pause/resume, run jobs, retry failures
@@ -90,8 +90,8 @@ users to keep Prowlarr installed upstream.
 Current foundation:
 
 - Generic first-party Torznab/Newznab and small curated Cardigann-style YAML definition records, including Nyaa RSS and Prowlarr-derived Torznab-compatible AnimeTosho, MoreThanTV, and Torrent Network coverage, are seeded at startup.
-- Indexer records can carry definition keys, encrypted definition-specific config/auth values, tags, search/RSS enable flags, minimum-seeder filters, query cooldowns, rolling query/grab limits, and optional proxy links; Settings can render first-pass definition-specific config/auth inputs without exposing saved secret values and edit tags plus search/RSS flags, and Cardigann-style definitions now have first-pass GET/POST XML search execution with request template filters and templated request headers.
-- HTTP/SOCKS/FlareSolverr proxy configuration is persisted and applied to outbound Torznab/Newznab requests; indexer search statistics, first-pass search health/backoff state, and version-aware built-in definition refresh are persisted.
+- Indexer records can carry definition keys, encrypted definition-specific config/auth values, tags, search/RSS enable flags, minimum-seeder filters, query cooldowns, rolling query/grab limits, and optional proxy links; Settings can render first-pass definition-specific config/auth inputs without exposing saved secret values, edit tags plus search/RSS flags, and assign an outbound proxy, and Cardigann-style definitions now have first-pass GET/POST XML search execution with request template filters and templated request headers.
+- HTTP/SOCKS/FlareSolverr proxy configuration is persisted, editable in Settings without exposing saved proxy secrets, and applied to outbound Torznab/Newznab requests; indexer search statistics, first-pass search health/backoff state, and version-aware built-in definition refresh are persisted.
 - URL-backed Cardigann definition source records can fetch remote YAML, persist the raw source, record SHA-256 provenance with optional checksum pinning, import checksum-pinned JSON catalog manifests whose entries must carry source SHA-256 pins, make refreshed definitions available to definition-keyed indexers, and refresh enabled sources from the scheduler.
 - External clients can query aggregate XML feeds with an ARR Hub API key:
   - `/api/indexers/aggregate/torznab?t=caps&apikey=...`
