@@ -9,6 +9,7 @@ import type {
   IndexerProxy,
   IndexerStats,
 } from "#/effect/domain/indexer"
+import type { IndexerDefinitionSource } from "#/effect/domain/indexerDefinitionSource"
 import { useTRPC } from "#/integrations/trpc/react"
 
 export const Route = createFileRoute("/settings/indexers")({ component: Indexers })
@@ -93,24 +94,60 @@ const proxyTypeOptions: ReadonlyArray<{ readonly type: IndexerProxyType; readonl
     { type: "flaresolverr", label: "FlareSolverr" },
   ]
 
+interface DefinitionSourceFormState {
+  readonly id: number | null
+  readonly name: string
+  readonly url: string
+  readonly pinnedSha256: string
+  readonly enabled: boolean
+}
+
+const emptyDefinitionSourceForm: DefinitionSourceFormState = {
+  id: null,
+  name: "",
+  url: "",
+  pinnedSha256: "",
+  enabled: true,
+}
+
+interface CatalogFormState {
+  readonly url: string
+  readonly pinnedSha256: string
+}
+
+const emptyCatalogForm: CatalogFormState = {
+  url: "",
+  pinnedSha256: "",
+}
+
 function Indexers() {
   const trpc = useTRPC()
   const queryClient = useQueryClient()
   const [form, setForm] = useState<IndexerFormState>(emptyForm)
   const [proxyForm, setProxyForm] = useState<ProxyFormState>(emptyProxyForm)
+  const [definitionSourceForm, setDefinitionSourceForm] =
+    useState<DefinitionSourceFormState>(emptyDefinitionSourceForm)
+  const [catalogForm, setCatalogForm] = useState<CatalogFormState>(emptyCatalogForm)
   const [message, setMessage] = useState<string | null>(null)
   const [proxyMessage, setProxyMessage] = useState<string | null>(null)
+  const [definitionSourceMessage, setDefinitionSourceMessage] = useState<string | null>(null)
 
   const listKey = trpc.indexers.list.queryKey()
+  const definitionsKey = trpc.indexers.listDefinitions.queryKey()
   const proxyListKey = trpc.indexers.listProxies.queryKey()
+  const definitionSourceListKey = trpc.indexerDefinitionSources.list.queryKey()
   const indexers = useQuery(trpc.indexers.list.queryOptions())
   const types = useQuery(trpc.indexers.listTypes.queryOptions())
   const definitions = useQuery(trpc.indexers.listDefinitions.queryOptions())
   const proxies = useQuery(trpc.indexers.listProxies.queryOptions())
   const stats = useQuery(trpc.indexers.listStats.queryOptions())
+  const definitionSources = useQuery(trpc.indexerDefinitionSources.list.queryOptions())
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: listKey })
+  const invalidateDefinitions = () => queryClient.invalidateQueries({ queryKey: definitionsKey })
   const invalidateProxies = () => queryClient.invalidateQueries({ queryKey: proxyListKey })
+  const invalidateDefinitionSources = () =>
+    queryClient.invalidateQueries({ queryKey: definitionSourceListKey })
   const add = useMutation(
     trpc.indexers.add.mutationOptions({
       onSuccess: async () => {
@@ -171,6 +208,63 @@ function Indexers() {
       },
     }),
   )
+  const addDefinitionSource = useMutation(
+    trpc.indexerDefinitionSources.add.mutationOptions({
+      onSuccess: async () => {
+        await invalidateDefinitionSources()
+        setDefinitionSourceForm(emptyDefinitionSourceForm)
+        setDefinitionSourceMessage("Definition source added.")
+      },
+    }),
+  )
+  const updateDefinitionSource = useMutation(
+    trpc.indexerDefinitionSources.update.mutationOptions({
+      onSuccess: async () => {
+        await invalidateDefinitionSources()
+        setDefinitionSourceForm(emptyDefinitionSourceForm)
+        setDefinitionSourceMessage("Definition source updated.")
+      },
+    }),
+  )
+  const removeDefinitionSource = useMutation(
+    trpc.indexerDefinitionSources.remove.mutationOptions({
+      onSuccess: async () => {
+        await invalidateDefinitionSources()
+        setDefinitionSourceMessage("Definition source removed.")
+      },
+    }),
+  )
+  const refreshDefinitionSource = useMutation(
+    trpc.indexerDefinitionSources.refresh.mutationOptions({
+      onSuccess: async (result) => {
+        await Promise.all([invalidateDefinitionSources(), invalidateDefinitions()])
+        setDefinitionSourceMessage(
+          `${result.displayName} ${result.action}; version ${result.version}.`,
+        )
+      },
+    }),
+  )
+  const refreshEnabledDefinitionSources = useMutation(
+    trpc.indexerDefinitionSources.refreshEnabled.mutationOptions({
+      onSuccess: async (summary) => {
+        await Promise.all([invalidateDefinitionSources(), invalidateDefinitions()])
+        setDefinitionSourceMessage(
+          `Refreshed ${summary.succeeded}/${summary.total} enabled sources.`,
+        )
+      },
+    }),
+  )
+  const importDefinitionCatalog = useMutation(
+    trpc.indexerDefinitionSources.importCatalog.mutationOptions({
+      onSuccess: async (result) => {
+        await invalidateDefinitionSources()
+        setCatalogForm(emptyCatalogForm)
+        setDefinitionSourceMessage(
+          `Imported catalog: ${result.created} created, ${result.updated} updated, ${result.unchanged} unchanged.`,
+        )
+      },
+    }),
+  )
 
   const typeOptions = types.data ?? []
   const selectedType = typeOptions.find((item) => item.type === form.type)
@@ -195,10 +289,24 @@ function Indexers() {
         : "Leave blank to keep the existing secret."
   const pending = add.isPending || update.isPending || remove.isPending || test.isPending
   const proxyPending = addProxy.isPending || updateProxy.isPending || removeProxy.isPending
+  const definitionSourcePending =
+    addDefinitionSource.isPending ||
+    updateDefinitionSource.isPending ||
+    removeDefinitionSource.isPending ||
+    refreshDefinitionSource.isPending ||
+    refreshEnabledDefinitionSources.isPending ||
+    importDefinitionCatalog.isPending
   const error =
     add.error?.message ?? update.error?.message ?? remove.error?.message ?? test.error?.message
   const proxyError =
     addProxy.error?.message ?? updateProxy.error?.message ?? removeProxy.error?.message
+  const definitionSourceError =
+    addDefinitionSource.error?.message ??
+    updateDefinitionSource.error?.message ??
+    removeDefinitionSource.error?.message ??
+    refreshDefinitionSource.error?.message ??
+    refreshEnabledDefinitionSources.error?.message ??
+    importDefinitionCatalog.error?.message
 
   const onSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -307,6 +415,41 @@ function Indexers() {
         settings,
         ...(proxyForm.password.length > 0 ? { password: proxyForm.password } : {}),
       },
+    })
+  }
+
+  const onDefinitionSourceSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setDefinitionSourceMessage(null)
+    const pinnedSha256 = normalizeSha256(definitionSourceForm.pinnedSha256)
+
+    if (definitionSourceForm.id === null) {
+      addDefinitionSource.mutate({
+        name: definitionSourceForm.name.trim(),
+        url: definitionSourceForm.url.trim(),
+        pinnedSha256,
+        enabled: definitionSourceForm.enabled,
+      })
+      return
+    }
+
+    updateDefinitionSource.mutate({
+      id: definitionSourceForm.id,
+      data: {
+        name: definitionSourceForm.name.trim(),
+        url: definitionSourceForm.url.trim(),
+        pinnedSha256,
+        enabled: definitionSourceForm.enabled,
+      },
+    })
+  }
+
+  const onCatalogSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setDefinitionSourceMessage(null)
+    importDefinitionCatalog.mutate({
+      url: catalogForm.url.trim(),
+      pinnedSha256: normalizeSha256(catalogForm.pinnedSha256),
     })
   }
 
@@ -1010,6 +1153,240 @@ function Indexers() {
       </section>
 
       <section className="space-y-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold">Definition Sources</h2>
+            <p className="text-muted-foreground mt-1 text-sm">
+              Manage URL-backed Cardigann YAML sources and checksum-pinned catalog manifests.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="inline-flex items-center gap-2 rounded border px-3 py-2 text-sm disabled:opacity-50"
+            disabled={definitionSourcePending}
+            onClick={() => refreshEnabledDefinitionSources.mutate()}
+          >
+            <RefreshCw className="size-4" />
+            Refresh enabled
+          </button>
+        </div>
+
+        {definitionSourceMessage && (
+          <p className="text-sm text-emerald-600">{definitionSourceMessage}</p>
+        )}
+        {definitionSourceError && (
+          <p className="text-destructive text-sm">{definitionSourceError}</p>
+        )}
+
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
+          <div className="space-y-3">
+            {definitionSources.isLoading && (
+              <p className="text-muted-foreground text-sm">Loading definition sources...</p>
+            )}
+            {definitionSources.error && (
+              <p className="text-destructive text-sm">{definitionSources.error.message}</p>
+            )}
+            {definitionSources.data?.length === 0 && (
+              <p className="text-muted-foreground text-sm">No definition sources configured.</p>
+            )}
+            {definitionSources.data?.map((source) => (
+              <article key={source.id} className="rounded-md border p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="font-medium">{source.name}</h3>
+                      <span className="bg-muted rounded px-2 py-1 text-xs">
+                        {source.enabled ? "enabled" : "disabled"}
+                      </span>
+                    </div>
+                    <p className="text-muted-foreground mt-1 text-sm break-all">{source.url}</p>
+                    <p className="text-muted-foreground mt-1 text-xs">
+                      {source.lastDefinitionKey ?? "no definition"} · version{" "}
+                      {source.lastVersion ?? "n/a"} · checked {formatDateTime(source.lastCheckedAt)}
+                    </p>
+                    <p className="text-muted-foreground mt-1 text-xs break-all">
+                      {source.pinnedSha256 ? `pin ${source.pinnedSha256}` : "no checksum pin"}
+                      {source.lastSha256 ? ` · last ${source.lastSha256}` : ""}
+                    </p>
+                    {source.lastError && (
+                      <p className="text-destructive mt-2 text-xs">{source.lastError}</p>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap justify-end gap-2">
+                    <button
+                      type="button"
+                      className="rounded border px-2 py-1 text-xs disabled:opacity-50"
+                      disabled={definitionSourcePending}
+                      onClick={() => setDefinitionSourceForm(sourceToForm(source))}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded border px-2 py-1 text-xs disabled:opacity-50"
+                      disabled={definitionSourcePending}
+                      onClick={() =>
+                        updateDefinitionSource.mutate({
+                          id: source.id,
+                          data: { enabled: !source.enabled },
+                        })
+                      }
+                    >
+                      {source.enabled ? "Disable" : "Enable"}
+                    </button>
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1 rounded border px-2 py-1 text-xs disabled:opacity-50"
+                      disabled={definitionSourcePending}
+                      onClick={() => refreshDefinitionSource.mutate({ id: source.id })}
+                    >
+                      <RefreshCw className="size-3" />
+                      Refresh
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`Delete ${source.name}`}
+                      className="rounded border p-1.5 disabled:opacity-50"
+                      disabled={definitionSourcePending}
+                      onClick={() => removeDefinitionSource.mutate({ id: source.id })}
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+
+          <div className="space-y-4">
+            <form className="h-fit rounded-md border p-4" onSubmit={onDefinitionSourceSubmit}>
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-lg font-semibold">
+                  {definitionSourceForm.id === null ? "Add Source" : "Edit Source"}
+                </h2>
+                {definitionSourceForm.id !== null && (
+                  <button
+                    type="button"
+                    className="rounded border px-2 py-1 text-xs"
+                    onClick={() => setDefinitionSourceForm(emptyDefinitionSourceForm)}
+                  >
+                    Cancel
+                  </button>
+                )}
+              </div>
+
+              <div className="mt-4 space-y-4">
+                <Field label="Name">
+                  <input
+                    className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                    value={definitionSourceForm.name}
+                    onChange={(event) =>
+                      setDefinitionSourceForm({
+                        ...definitionSourceForm,
+                        name: event.target.value,
+                      })
+                    }
+                    required
+                  />
+                </Field>
+
+                <Field label="YAML URL">
+                  <input
+                    className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                    value={definitionSourceForm.url}
+                    onChange={(event) =>
+                      setDefinitionSourceForm({
+                        ...definitionSourceForm,
+                        url: event.target.value,
+                      })
+                    }
+                    placeholder="https://example.com/indexer.yml"
+                    type="url"
+                    required
+                  />
+                </Field>
+
+                <Field label="Pinned SHA-256" hint="Optional 64-character checksum pin.">
+                  <input
+                    className="mt-1 w-full rounded border bg-transparent px-3 py-2 font-mono text-xs"
+                    value={definitionSourceForm.pinnedSha256}
+                    onChange={(event) =>
+                      setDefinitionSourceForm({
+                        ...definitionSourceForm,
+                        pinnedSha256: event.target.value,
+                      })
+                    }
+                    pattern="[\\da-fA-F]{64}"
+                  />
+                </Field>
+
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={definitionSourceForm.enabled}
+                    onChange={(event) =>
+                      setDefinitionSourceForm({
+                        ...definitionSourceForm,
+                        enabled: event.target.checked,
+                      })
+                    }
+                  />
+                  Enabled
+                </label>
+
+                <button
+                  type="submit"
+                  className="bg-primary text-primary-foreground inline-flex items-center gap-2 rounded px-3 py-2 text-sm disabled:opacity-50"
+                  disabled={definitionSourcePending}
+                >
+                  <Save className="size-4" />
+                  {definitionSourceForm.id === null ? "Add source" : "Save source"}
+                </button>
+              </div>
+            </form>
+
+            <form className="h-fit rounded-md border p-4" onSubmit={onCatalogSubmit}>
+              <h2 className="text-lg font-semibold">Import Catalog</h2>
+              <div className="mt-4 space-y-4">
+                <Field label="Manifest URL">
+                  <input
+                    className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                    value={catalogForm.url}
+                    onChange={(event) =>
+                      setCatalogForm({ ...catalogForm, url: event.target.value })
+                    }
+                    placeholder="https://example.com/catalog.json"
+                    type="url"
+                    required
+                  />
+                </Field>
+
+                <Field label="Pinned manifest SHA-256" hint="Optional 64-character checksum pin.">
+                  <input
+                    className="mt-1 w-full rounded border bg-transparent px-3 py-2 font-mono text-xs"
+                    value={catalogForm.pinnedSha256}
+                    onChange={(event) =>
+                      setCatalogForm({ ...catalogForm, pinnedSha256: event.target.value })
+                    }
+                    pattern="[\\da-fA-F]{64}"
+                  />
+                </Field>
+
+                <button
+                  type="submit"
+                  className="bg-primary text-primary-foreground inline-flex items-center gap-2 rounded px-3 py-2 text-sm disabled:opacity-50"
+                  disabled={definitionSourcePending}
+                >
+                  <Save className="size-4" />
+                  Import catalog
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <section className="space-y-3">
         <div>
           <h2 className="text-lg font-semibold">Indexer Stats</h2>
           <p className="text-muted-foreground mt-1 text-sm">
@@ -1136,6 +1513,21 @@ function proxyName(id: number, proxies: ReadonlyArray<IndexerProxy>): string {
 
 function proxyLabel(proxy: IndexerProxy): string {
   return `${proxy.name} · ${proxy.type} · ${proxy.host}${proxy.port === null ? "" : `:${proxy.port}`}`
+}
+
+function sourceToForm(source: IndexerDefinitionSource): DefinitionSourceFormState {
+  return {
+    id: source.id,
+    name: source.name,
+    url: source.url,
+    pinnedSha256: source.pinnedSha256 ?? "",
+    enabled: source.enabled,
+  }
+}
+
+function normalizeSha256(value: string): string | null {
+  const trimmed = value.trim()
+  return trimmed.length === 0 ? null : trimmed.toLowerCase()
 }
 
 function formatSuccessRatio(successes: number, total: number): string {
