@@ -235,6 +235,8 @@ const runDdl = Effect.gen(function* () {
     priority INTEGER NOT NULL DEFAULT 50,
     minimum_seeders INTEGER,
     query_cooldown_seconds INTEGER,
+    query_limit_count INTEGER,
+    query_limit_window_seconds INTEGER,
     categories TEXT NOT NULL DEFAULT '[]',
     tags TEXT NOT NULL DEFAULT '[]',
     capabilities TEXT DEFAULT 'null',
@@ -254,6 +256,8 @@ const runDdl = Effect.gen(function* () {
     average_response_time_ms INTEGER,
     last_search_at INTEGER,
     last_rss_at INTEGER,
+    query_limit_window_started_at INTEGER,
+    query_limit_window_searches INTEGER NOT NULL DEFAULT 0,
     created_at INTEGER NOT NULL DEFAULT (unixepoch()),
     updated_at INTEGER NOT NULL DEFAULT (unixepoch())
   )`

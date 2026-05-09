@@ -135,6 +135,8 @@ export interface IndexerStats {
   readonly averageResponseTimeMs: number | null
   readonly lastSearchAt: Date | null
   readonly lastRssAt: Date | null
+  readonly queryLimitWindowStartedAt: Date | null
+  readonly queryLimitWindowSearches: number
 }
 
 export type SearchType = "movie" | "tv" | "general"
@@ -186,6 +188,8 @@ export interface IndexerWithHealth {
   readonly priority: number
   readonly minimumSeeders: number | null
   readonly queryCooldownSeconds: number | null
+  readonly queryLimitCount: number | null
+  readonly queryLimitWindowSeconds: number | null
   readonly categories: ReadonlyArray<number>
   readonly tags: ReadonlyArray<string>
   readonly capabilities: IndexerCapabilities | null

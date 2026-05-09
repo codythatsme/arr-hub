@@ -276,6 +276,8 @@ export const indexers = sqliteTable("indexers", {
   priority: integer().notNull().default(50),
   minimumSeeders: integer("minimum_seeders"),
   queryCooldownSeconds: integer("query_cooldown_seconds"),
+  queryLimitCount: integer("query_limit_count"),
+  queryLimitWindowSeconds: integer("query_limit_window_seconds"),
   categories: text({ mode: "json" })
     .$type<ReadonlyArray<number>>()
     .notNull()
@@ -365,6 +367,8 @@ export const indexerStats = sqliteTable("indexer_stats", {
   averageResponseTimeMs: integer("average_response_time_ms"),
   lastSearchAt: integer("last_search_at", { mode: "timestamp" }),
   lastRssAt: integer("last_rss_at", { mode: "timestamp" }),
+  queryLimitWindowStartedAt: integer("query_limit_window_started_at", { mode: "timestamp" }),
+  queryLimitWindowSearches: integer("query_limit_window_searches").notNull().default(0),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),

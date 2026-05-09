@@ -52,6 +52,8 @@ interface IndexerInput {
   readonly priority?: number
   readonly minimumSeeders?: number | null
   readonly queryCooldownSeconds?: number | null
+  readonly queryLimitCount?: number | null
+  readonly queryLimitWindowSeconds?: number | null
   readonly categories?: ReadonlyArray<number>
   readonly tags?: ReadonlyArray<string>
 }
@@ -69,6 +71,8 @@ interface IndexerUpdate {
   readonly priority?: number
   readonly minimumSeeders?: number | null
   readonly queryCooldownSeconds?: number | null
+  readonly queryLimitCount?: number | null
+  readonly queryLimitWindowSeconds?: number | null
   readonly categories?: ReadonlyArray<number>
   readonly tags?: ReadonlyArray<string>
 }
@@ -249,6 +253,8 @@ function toWithHealth(
     priority: row.priority,
     minimumSeeders: row.minimumSeeders,
     queryCooldownSeconds: row.queryCooldownSeconds,
+    queryLimitCount: row.queryLimitCount,
+    queryLimitWindowSeconds: row.queryLimitWindowSeconds,
     categories: row.categories,
     tags: row.tags,
     capabilities: row.capabilities ?? null,
@@ -315,6 +321,8 @@ function toStats(row: typeof indexerStats.$inferSelect, indexerName: string | nu
     averageResponseTimeMs: row.averageResponseTimeMs,
     lastSearchAt: row.lastSearchAt,
     lastRssAt: row.lastRssAt,
+    queryLimitWindowStartedAt: row.queryLimitWindowStartedAt,
+    queryLimitWindowSearches: row.queryLimitWindowSearches,
   }
 }
 
@@ -347,6 +355,52 @@ function isQueryCooldownActive(
   if (!indexer.queryCooldownSeconds || indexer.queryCooldownSeconds <= 0) return false
   if (!stats?.lastSearchAt) return false
   return Date.now() - stats.lastSearchAt.getTime() < indexer.queryCooldownSeconds * 1000
+}
+
+function isQueryLimitActive(
+  indexer: typeof indexers.$inferSelect,
+  stats: typeof indexerStats.$inferSelect | null,
+): boolean {
+  if (
+    indexer.queryLimitCount === null ||
+    indexer.queryLimitWindowSeconds === null ||
+    indexer.queryLimitCount <= 0 ||
+    indexer.queryLimitWindowSeconds <= 0
+  ) {
+    return false
+  }
+  if (!stats?.queryLimitWindowStartedAt) return false
+  const elapsedMs = Date.now() - stats.queryLimitWindowStartedAt.getTime()
+  if (elapsedMs >= indexer.queryLimitWindowSeconds * 1000) return false
+  return stats.queryLimitWindowSearches >= indexer.queryLimitCount
+}
+
+function nextQueryLimitWindow(
+  indexer: typeof indexers.$inferSelect,
+  current: typeof indexerStats.$inferSelect | null,
+  now: Date,
+): Pick<
+  typeof indexerStats.$inferInsert,
+  "queryLimitWindowStartedAt" | "queryLimitWindowSearches"
+> {
+  if (
+    indexer.queryLimitCount === null ||
+    indexer.queryLimitWindowSeconds === null ||
+    indexer.queryLimitCount <= 0 ||
+    indexer.queryLimitWindowSeconds <= 0
+  ) {
+    return { queryLimitWindowStartedAt: null, queryLimitWindowSearches: 0 }
+  }
+
+  const startedAt = current?.queryLimitWindowStartedAt ?? null
+  const expired =
+    startedAt === null ||
+    now.getTime() - startedAt.getTime() >= indexer.queryLimitWindowSeconds * 1000
+
+  return {
+    queryLimitWindowStartedAt: expired ? now : startedAt,
+    queryLimitWindowSearches: (expired ? 0 : (current?.queryLimitWindowSearches ?? 0)) + 1,
+  }
 }
 
 function releasePassesIndexerPolicy(
@@ -551,18 +605,21 @@ export const IndexerServiceLive = Layer.effect(
       })
 
     const recordIndexerActivity = (
-      indexerId: number,
+      indexer: typeof indexers.$inferSelect,
       kind: "search" | "rss",
       success: boolean,
       responseTimeMs: number,
     ) =>
       Effect.gen(function* () {
         const now = new Date()
+        const indexerId = indexer.id
         const rows = yield* db
           .select()
           .from(indexerStats)
           .where(eq(indexerStats.indexerId, indexerId))
         const current = rows[0]
+        const queryLimitWindow =
+          kind === "search" ? nextQueryLimitWindow(indexer, current ?? null, now) : {}
 
         if (!current) {
           yield* db.insert(indexerStats).values({
@@ -576,6 +633,7 @@ export const IndexerServiceLive = Layer.effect(
             averageResponseTimeMs: responseTimeMs,
             lastSearchAt: kind === "search" ? now : null,
             lastRssAt: kind === "rss" ? now : null,
+            ...queryLimitWindow,
           })
           return
         }
@@ -598,6 +656,7 @@ export const IndexerServiceLive = Layer.effect(
             averageResponseTimeMs,
             lastSearchAt: kind === "search" ? now : current.lastSearchAt,
             lastRssAt: kind === "rss" ? now : current.lastRssAt,
+            ...queryLimitWindow,
             updatedAt: now,
           })
           .where(eq(indexerStats.indexerId, indexerId))
@@ -705,6 +764,8 @@ export const IndexerServiceLive = Layer.effect(
               priority: input.priority ?? 50,
               minimumSeeders: input.minimumSeeders ?? null,
               queryCooldownSeconds: input.queryCooldownSeconds ?? null,
+              queryLimitCount: input.queryLimitCount ?? null,
+              queryLimitWindowSeconds: input.queryLimitWindowSeconds ?? null,
               categories: input.categories ?? [],
               tags: input.tags ?? [],
             })
@@ -757,6 +818,10 @@ export const IndexerServiceLive = Layer.effect(
           if (data.minimumSeeders !== undefined) updateData.minimumSeeders = data.minimumSeeders
           if (data.queryCooldownSeconds !== undefined) {
             updateData.queryCooldownSeconds = data.queryCooldownSeconds
+          }
+          if (data.queryLimitCount !== undefined) updateData.queryLimitCount = data.queryLimitCount
+          if (data.queryLimitWindowSeconds !== undefined) {
+            updateData.queryLimitWindowSeconds = data.queryLimitWindowSeconds
           }
           if (data.categories !== undefined) updateData.categories = data.categories
           if (data.tags !== undefined) updateData.tags = data.tags
@@ -877,7 +942,9 @@ export const IndexerServiceLive = Layer.effect(
           const results = yield* Effect.forEach(
             eligibleRows.filter(
               (row) =>
-                !isBackoffActive(row.health) && !isQueryCooldownActive(row.indexer, row.stats),
+                !isBackoffActive(row.health) &&
+                !isQueryCooldownActive(row.indexer, row.stats) &&
+                !isQueryLimitActive(row.indexer, row.stats),
             ),
             (row) =>
               Effect.gen(function* () {
@@ -907,13 +974,13 @@ export const IndexerServiceLive = Layer.effect(
                 }).pipe(
                   Effect.tap(() =>
                     Effect.all([
-                      recordIndexerActivity(indexer.id, "search", true, Date.now() - start),
+                      recordIndexerActivity(indexer, "search", true, Date.now() - start),
                       markIndexerSearchHealthy(indexer.id, Date.now() - start),
                     ]).pipe(Effect.ignore),
                   ),
                   Effect.tapError((err) =>
                     Effect.gen(function* () {
-                      yield* recordIndexerActivity(indexer.id, "search", false, Date.now() - start)
+                      yield* recordIndexerActivity(indexer, "search", false, Date.now() - start)
                       if (err._tag === "IndexerError") {
                         yield* markIndexerSearchUnhealthy(indexer.id, err, Date.now() - start)
                       }

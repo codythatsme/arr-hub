@@ -16,6 +16,8 @@ interface IndexerFormState {
   readonly priority: string
   readonly minimumSeeders: string
   readonly queryCooldownSeconds: string
+  readonly queryLimitCount: string
+  readonly queryLimitWindowSeconds: string
   readonly categories: string
   readonly enabled: boolean
 }
@@ -29,6 +31,8 @@ const emptyForm: IndexerFormState = {
   priority: "50",
   minimumSeeders: "",
   queryCooldownSeconds: "",
+  queryLimitCount: "",
+  queryLimitWindowSeconds: "",
   categories: "",
   enabled: true,
 }
@@ -92,6 +96,8 @@ function Indexers() {
     const priority = Number(form.priority)
     const minimumSeeders = parseOptionalNumber(form.minimumSeeders)
     const queryCooldownSeconds = parseOptionalNumber(form.queryCooldownSeconds)
+    const queryLimitCount = parseOptionalNumber(form.queryLimitCount)
+    const queryLimitWindowSeconds = parseOptionalNumber(form.queryLimitWindowSeconds)
 
     if (form.id === null) {
       add.mutate({
@@ -102,6 +108,8 @@ function Indexers() {
         priority,
         minimumSeeders,
         queryCooldownSeconds,
+        queryLimitCount,
+        queryLimitWindowSeconds,
         categories,
         enabled: form.enabled,
       })
@@ -117,6 +125,8 @@ function Indexers() {
         priority,
         minimumSeeders,
         queryCooldownSeconds,
+        queryLimitCount,
+        queryLimitWindowSeconds,
         categories,
         enabled: form.enabled,
         ...(form.apiKey.trim().length > 0 ? { apiKey: form.apiKey.trim() } : {}),
@@ -164,6 +174,9 @@ function Indexers() {
                     {indexer.queryCooldownSeconds !== null
                       ? ` · ${indexer.queryCooldownSeconds}s cooldown`
                       : ""}
+                    {indexer.queryLimitCount !== null && indexer.queryLimitWindowSeconds !== null
+                      ? ` · max ${indexer.queryLimitCount}/${indexer.queryLimitWindowSeconds}s`
+                      : ""}
                   </p>
                   {indexer.health?.errorMessage && (
                     <p className="text-destructive mt-2 text-xs">{indexer.health.errorMessage}</p>
@@ -197,6 +210,12 @@ function Indexers() {
                           indexer.queryCooldownSeconds === null
                             ? ""
                             : String(indexer.queryCooldownSeconds),
+                        queryLimitCount:
+                          indexer.queryLimitCount === null ? "" : String(indexer.queryLimitCount),
+                        queryLimitWindowSeconds:
+                          indexer.queryLimitWindowSeconds === null
+                            ? ""
+                            : String(indexer.queryLimitWindowSeconds),
                         categories: indexer.categories.join(", "),
                         enabled: indexer.enabled,
                       })
@@ -345,6 +364,31 @@ function Indexers() {
                   value={form.queryCooldownSeconds}
                   onChange={(event) =>
                     setForm({ ...form, queryCooldownSeconds: event.target.value })
+                  }
+                  type="number"
+                  min={0}
+                  placeholder="Seconds"
+                />
+              </Field>
+              <Field label="Query limit">
+                <input
+                  className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                  value={form.queryLimitCount}
+                  onChange={(event) => setForm({ ...form, queryLimitCount: event.target.value })}
+                  type="number"
+                  min={0}
+                  placeholder="Max queries"
+                />
+              </Field>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Limit window">
+                <input
+                  className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                  value={form.queryLimitWindowSeconds}
+                  onChange={(event) =>
+                    setForm({ ...form, queryLimitWindowSeconds: event.target.value })
                   }
                   type="number"
                   min={0}

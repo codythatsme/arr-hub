@@ -20,6 +20,8 @@ const indexerInputSchema = z.object({
   priority: z.number().int().min(1).max(100).optional(),
   minimumSeeders: z.number().int().min(0).nullable().optional(),
   queryCooldownSeconds: z.number().int().min(0).nullable().optional(),
+  queryLimitCount: z.number().int().min(0).nullable().optional(),
+  queryLimitWindowSeconds: z.number().int().min(0).nullable().optional(),
   categories: z.array(z.number().int()).optional(),
   tags: z.array(z.string()).optional(),
 })
@@ -37,6 +39,8 @@ const indexerUpdateSchema = z.object({
   priority: z.number().int().min(1).max(100).optional(),
   minimumSeeders: z.number().int().min(0).nullable().optional(),
   queryCooldownSeconds: z.number().int().min(0).nullable().optional(),
+  queryLimitCount: z.number().int().min(0).nullable().optional(),
+  queryLimitWindowSeconds: z.number().int().min(0).nullable().optional(),
   categories: z.array(z.number().int()).optional(),
   tags: z.array(z.string()).optional(),
 })

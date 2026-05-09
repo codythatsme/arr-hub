@@ -46,6 +46,8 @@ const MockIndexerService = Layer.succeed(IndexerService, {
         priority: 50,
         minimumSeeders: null,
         queryCooldownSeconds: null,
+        queryLimitCount: null,
+        queryLimitWindowSeconds: null,
         categories: [],
         tags: [],
         capabilities: null,

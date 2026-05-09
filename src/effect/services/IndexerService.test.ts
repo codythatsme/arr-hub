@@ -35,6 +35,8 @@ describe("IndexerService", () => {
       expect(indexer.priority).toBe(50)
       expect(indexer.minimumSeeders).toBeNull()
       expect(indexer.queryCooldownSeconds).toBeNull()
+      expect(indexer.queryLimitCount).toBeNull()
+      expect(indexer.queryLimitWindowSeconds).toBeNull()
       expect(indexer.categories).toEqual([])
       expect(indexer.health).toBeNull()
     }).pipe(Effect.provide(TestLayer)),
@@ -59,11 +61,15 @@ describe("IndexerService", () => {
         priority: 10,
         minimumSeeders: 5,
         queryCooldownSeconds: 30,
+        queryLimitCount: 20,
+        queryLimitWindowSeconds: 300,
         categories: [2000, 5000],
       })
       expect(indexer.priority).toBe(10)
       expect(indexer.minimumSeeders).toBe(5)
       expect(indexer.queryCooldownSeconds).toBe(30)
+      expect(indexer.queryLimitCount).toBe(20)
+      expect(indexer.queryLimitWindowSeconds).toBe(300)
       expect(indexer.categories).toEqual([2000, 5000])
     }).pipe(Effect.provide(TestLayer)),
   )
@@ -170,12 +176,16 @@ describe("IndexerService", () => {
         priority: 5,
         minimumSeeders: 12,
         queryCooldownSeconds: 45,
+        queryLimitCount: 3,
+        queryLimitWindowSeconds: 120,
       })
       expect(updated.name).toBe("Renamed")
       expect(updated.enabled).toBe(false)
       expect(updated.priority).toBe(5)
       expect(updated.minimumSeeders).toBe(12)
       expect(updated.queryCooldownSeconds).toBe(45)
+      expect(updated.queryLimitCount).toBe(3)
+      expect(updated.queryLimitWindowSeconds).toBe(120)
     }).pipe(Effect.provide(TestLayer)),
   )
 
@@ -560,6 +570,67 @@ describe("IndexerService", () => {
       expect(stats.find((item) => item.indexerId === indexer.id)).toMatchObject({
         totalSearches: 1,
         successfulSearches: 1,
+      })
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("skips indexers after their rolling query limit is exhausted", () =>
+    Effect.gen(function* () {
+      const registry = yield* AdapterRegistry
+      let calls = 0
+      registry.registerIndexer(
+        "mock-query-limit",
+        { displayName: "Mock Query Limit", protocolAffinity: "torrent", authModel: "none" },
+        (config) => ({
+          testConnection: () => Effect.succeed({ searchTypes: ["search"], categories: [] }),
+          search: () => {
+            calls += 1
+            return Effect.succeed([
+              {
+                title: "Limited Movie",
+                indexerId: config.id,
+                indexerName: config.name,
+                indexerPriority: config.priority,
+                size: 1_000,
+                seeders: 10,
+                leechers: 0,
+                age: 1,
+                downloadUrl: "https://example.com/limited",
+                infoUrl: null,
+                category: "2000",
+                protocol: "torrent",
+                publishedAt: new Date("2025-01-01T00:00:00Z"),
+                infohash: "limited",
+                downloadFactor: 1,
+                uploadFactor: 1,
+              },
+            ])
+          },
+        }),
+      )
+
+      const svc = yield* IndexerService
+      const indexer = yield* svc.add({
+        ...VALID_INPUT,
+        type: "mock-query-limit",
+        apiKey: "unused",
+        queryLimitCount: 1,
+        queryLimitWindowSeconds: 60,
+      })
+
+      const first = yield* svc.search({ term: "example", type: "movie" })
+      const second = yield* svc.search({ term: "example", type: "movie" })
+
+      expect(first.releases).toHaveLength(1)
+      expect(second.releases).toHaveLength(0)
+      expect(second.errors).toHaveLength(0)
+      expect(calls).toBe(1)
+
+      const stats = yield* svc.listStats()
+      expect(stats.find((item) => item.indexerId === indexer.id)).toMatchObject({
+        totalSearches: 1,
+        successfulSearches: 1,
+        queryLimitWindowSearches: 1,
       })
     }).pipe(Effect.provide(TestLayer)),
   )
