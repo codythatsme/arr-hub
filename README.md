@@ -7,7 +7,7 @@ ARR Hub is a unified, self-hosted media automation app inspired by the arr ecosy
 - Adapter-driven integrations (download clients, indexers, media servers)
 - Shared release policy engine + scheduler pipelines
 - Operator UI for onboarding, settings, profiles, movies, TV, manual search, scheduler, and queue actions
-- Prowlarr replacement foundation; current indexer support consumes Torznab/Newznab upstreams, seeds generic/Cardigann-style definitions including Nyaa, AnimeTosho, MoreThanTV, and Torrent Network coverage, renders first-pass definition-specific config/auth fields plus tags, search/RSS flags, proxy controls, stats, built-in definition refresh controls, definition source/catalog controls, and Radarr/Sonarr app-sync controls in Settings, refreshes URL-backed Cardigann sources, exposes first-pass aggregate feeds, and can sync aggregate indexers into Radarr/Sonarr from scheduler and indexer mutations with stale remote cleanup, separate Sonarr anime categories, and app-side tag/download-client/custom-field preservation on updates
+- Prowlarr replacement foundation; current indexer support consumes Torznab/Newznab upstreams, seeds generic/Cardigann-style definitions including Nyaa, AnimeTosho, MoreThanTV, and Torrent Network coverage, renders first-pass definition-specific config/auth fields plus tags, search/RSS flags, proxy controls, stats, built-in definition refresh controls, definition source/catalog controls, and Radarr/Sonarr app-sync controls in Settings, refreshes URL-backed Cardigann sources, imports checksum-required catalog manifests, exposes first-pass aggregate feeds, and can sync aggregate indexers into Radarr/Sonarr from scheduler and indexer mutations with stale remote cleanup, separate Sonarr anime categories, and app-side tag/download-client/custom-field preservation on updates
 
 See [development-plan.md](./development-plan.md) for detailed replacement-readiness status.
 
@@ -70,7 +70,7 @@ container image. Do not bind-mount host `node_modules` into the container.
 
 ## Available UI Validation Surfaces
 
-- **Settings → Indexers**: list/add/test Torznab/Newznab upstream endpoints, first-pass Cardigann definition config/auth fields, tags, search/RSS toggles, HTTP/SOCKS/FlareSolverr proxy controls, indexer stats, built-in definition refresh, definition source refresh/catalog import controls, and Radarr/Sonarr application sync controls including Sonarr anime category filters
+- **Settings → Indexers**: list/add/test Torznab/Newznab upstream endpoints, first-pass Cardigann definition config/auth fields, tags, search/RSS toggles, HTTP/SOCKS/FlareSolverr proxy controls, indexer stats, built-in definition refresh, definition source refresh/checksum-required catalog import controls, and Radarr/Sonarr application sync controls including Sonarr anime category filters
 - **Settings → Download Clients**: list/add/test download clients
 - **Settings → Media Servers**: list/add/test media servers
 - **Settings → Scheduler**: inspect jobs, pause/resume, run jobs, retry failures
@@ -92,14 +92,14 @@ Current foundation:
 - Generic first-party Torznab/Newznab and small curated Cardigann-style YAML definition records, including Nyaa RSS and Prowlarr-derived Torznab-compatible AnimeTosho, MoreThanTV, and Torrent Network coverage, are seeded at startup.
 - Indexer records can carry definition keys, encrypted definition-specific config/auth values, tags, search/RSS enable flags, minimum-seeder filters, query cooldowns, rolling query/grab limits, and optional proxy links; Settings can render first-pass definition-specific config/auth inputs without exposing saved secret values, edit tags plus search/RSS flags, and assign an outbound proxy, and Cardigann-style definitions now have first-pass GET/POST XML search execution with request template filters and templated request headers.
 - HTTP/SOCKS/FlareSolverr proxy configuration is persisted, editable in Settings without exposing saved proxy secrets, and applied to outbound Torznab/Newznab requests; indexer search statistics are visible in Settings, and first-pass search health/backoff state plus version-aware built-in definition refresh are persisted and refreshable from Settings.
-- URL-backed Cardigann definition source records are manageable from Settings, can fetch remote YAML, persist the raw source, record SHA-256 provenance with optional checksum pinning, import checksum-pinned JSON catalog manifests whose entries must carry source SHA-256 pins, make refreshed definitions available to definition-keyed indexers, and refresh enabled sources from the scheduler.
+- URL-backed Cardigann definition source records are manageable from Settings, can fetch remote YAML, persist the raw source, record SHA-256 provenance with optional checksum pinning, import JSON catalog manifests only when the manifest SHA-256 pin matches and each entry carries a source SHA-256 pin, make refreshed definitions available to definition-keyed indexers, and refresh enabled sources from the scheduler.
 - External clients can query aggregate XML feeds with an ARR Hub API key:
   - `/api/indexers/aggregate/torznab?t=caps&apikey=...`
   - `/api/indexers/aggregate/newznab?t=search&q=example&apikey=...`
 - Radarr/Sonarr application records are manageable from Settings, can persist encrypted remote credentials, and can sync aggregate Torznab/Newznab indexers into `/api/v3/indexer`; enabled apps can be refreshed from the scheduler and after indexer add/update/remove mutations, stale remote aggregate indexers are removed when protocols no longer have eligible local indexers, Sonarr sync separates standard and anime category fields, updates retain existing app-side tags, download client assignment, and non-managed fields, and the synced app payload uses a reachable ARR Hub URL plus ARR Hub API key, app priority, and first-pass torrent seed criteria.
 
 This is not yet a Prowlarr-scale catalogue. The Cardigann/YAML loader currently
-supports a small curated built-in set including Nyaa RSS, AnimeTosho, MoreThanTV, Torrent Network, manually configured URL-backed YAML sources, and first-pass checksum-pinned catalog manifest imports; broad
+supports a small curated built-in set including Nyaa RSS, AnimeTosho, MoreThanTV, Torrent Network, manually configured URL-backed YAML sources, and first-pass checksum-required catalog manifest imports; broad
 tracker coverage, full Cardigann selector/login/auth UX parity, deeper per-indexer policy
 parity, a full trusted remote definition catalogue distribution pipeline, and
 full Prowlarr app-sync parity for richer per-indexer and app-specific sync
@@ -113,8 +113,8 @@ completed-download imports, release decisions, and operator workflows have
 working first-pass implementations, but they still lack the full depth of the
 mature Arr apps. Prowlarr replacement is underway, but ARR Hub still does not
 ship a broad tracker catalogue, full Cardigann selector/login runtime, richer definition auth UX, or trusted
-remote definition catalogue pipeline beyond checksum-pinned sources and catalog
-manifest import.
+remote definition catalogue pipeline beyond checksum-pinned sources and
+checksum-required catalog manifest import.
 
 ## API Compatibility
 
