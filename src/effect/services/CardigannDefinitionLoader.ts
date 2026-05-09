@@ -2313,6 +2313,190 @@ search:
       text: "1"
 `
 
+const SCENE_TIME = `
+id: scenetime
+name: SceneTime
+description: Private general tracker exposed through a first-pass cookie-auth HTML Cardigann definition.
+type: private
+links:
+  - https://www.scenetime.com/
+version: builtin-cardigann-1
+rss: false
+tags:
+  - private
+  - general
+  - movies
+  - tv
+  - html
+settings:
+  - name: cookie
+    label: Cookie
+    type: cookie
+    required: true
+    helpText: SceneTime browser session cookie.
+  - name: freeLeechOnly
+    label: Freeleech only
+    type: checkbox
+    default: false
+    helpText: Search freeleech torrents only.
+caps:
+  categorymappings:
+    - id: "10"
+      cat: XXX
+      desc: Movies Adult
+      newznab: 6000
+    - id: "47"
+      cat: Movies
+      desc: Movie Packs
+      newznab: 2000
+    - id: "57"
+      cat: Movies/SD
+      desc: Movies SD
+      newznab: 2030
+    - id: "59"
+      cat: Movies/HD
+      desc: Movies HD
+      newznab: 2040
+    - id: "64"
+      cat: Movies/3D
+      desc: Movies 3D
+      newznab: 2060
+    - id: "82"
+      cat: Movies/Other
+      desc: Movies CAM/TS
+      newznab: 2020
+    - id: "16"
+      cat: Movies/UHD
+      desc: Movies UHD
+      newznab: 2045
+    - id: "2"
+      cat: TV/UHD
+      desc: TV UHD
+      newznab: 5045
+    - id: "43"
+      cat: TV
+      desc: TV Packs
+      newznab: 5000
+    - id: "9"
+      cat: TV/HD
+      desc: TV HD
+      newznab: 5040
+    - id: "77"
+      cat: TV/SD
+      desc: TV SD
+      newznab: 5030
+    - id: "1"
+      cat: TV/Anime
+      desc: TV ANIME
+      newznab: 5070
+    - id: "6"
+      cat: PC/Games
+      desc: Games PC-ISO
+      newznab: 4050
+    - id: "48"
+      cat: Console/Xbox
+      desc: Games XBOX
+      newznab: 1040
+    - id: "51"
+      cat: Console/Wii
+      desc: Games Wii
+      newznab: 1030
+    - id: "55"
+      cat: Console/NDS
+      desc: Games Nintendo
+      newznab: 1010
+    - id: "12"
+      cat: Console/PS4
+      desc: Games PS
+      newznab: 1180
+    - id: "15"
+      cat: Console/Other
+      desc: Games Dreamcast
+      newznab: 1090
+    - id: "52"
+      cat: PC/Mac
+      desc: Mac/Linux
+      newznab: 4030
+    - id: "53"
+      cat: PC/0day
+      desc: Apps
+      newznab: 4010
+    - id: "24"
+      cat: PC/Phone-Other
+      desc: Mobile Apps
+      newznab: 4040
+    - id: "7"
+      cat: Books
+      desc: Books and Magazines
+      newznab: 7000
+    - id: "65"
+      cat: Books/Comics
+      desc: Books Comics
+      newznab: 7030
+    - id: "4"
+      cat: Audio
+      desc: Music
+      newznab: 3000
+    - id: "116"
+      cat: Audio
+      desc: Music Packs
+      newznab: 3000
+  modes:
+    search: [q]
+    movie-search: [q, imdbid]
+    tv-search: [q, season, ep, imdbid]
+login:
+  method: cookie
+  inputs:
+    cookie: "{{ .Config.Cookie }}"
+search:
+  paths:
+    - path: 'browse.php?cata=yes{{ range .Categories }}&c{{ . }}=1{{ end }}{{ if .Query.IMDBID }}&imdb={{ .Query.IMDBID | urlencode }}{{ end }}{{ if .Keywords }}&search={{ .Keywords | urlencode }}{{ end }}{{ if .Config.FreeLeechOnly }}&freeleech=on{{ end }}'
+      response:
+        type: html
+  rows:
+    selector: tr.browse
+  fields:
+    id:
+      selector: td:nth-of-type(2) a
+      attribute: href
+      filters:
+        - name: querystring
+          args: id
+    title:
+      selector: td:nth-of-type(2) a
+      remove: font[color="green"]
+    details:
+      selector: td:nth-of-type(2) a
+      attribute: href
+    download:
+      text: "download.php/{{ .Result.id }}/download.torrent"
+    category:
+      selector: td:nth-of-type(1) a
+      attribute: href
+      filters:
+        - name: querystring
+          args: cat
+    date:
+      selector: td:nth-of-type(2) span.elapsedDate
+      attribute: title
+      filters:
+        - name: dateparse
+          args: 'dddd, MMMM d, yyyy \\a\\t h:mmtt'
+    size:
+      selector: td:nth-of-type(3)
+    seeders:
+      selector: td:nth-of-type(4)
+    leechers:
+      selector: td:nth-of-type(5)
+    downloadvolumefactor:
+      case:
+        'font > b:contains("Freeleech")': "0"
+        tr: "1"
+    uploadvolumefactor:
+      text: "1"
+`
+
 const MORE_THAN_TV = `
 id: morethantv
 name: MoreThanTV
@@ -2522,6 +2706,7 @@ const BUILT_IN_CARDIGANN_SOURCES = [
   BEYOND_HD,
   BIT_HDTV,
   TORRENT_BYTES,
+  SCENE_TIME,
   MORE_THAN_TV,
   HDACCESS,
   TORRENT_NETWORK,

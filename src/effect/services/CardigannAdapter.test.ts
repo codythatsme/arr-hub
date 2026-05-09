@@ -197,6 +197,28 @@ const TORRENT_BYTES_HTML_RESULTS = `
   </table>
 </body></html>`
 
+const SCENETIME_HTML_RESULTS = `
+<html><body>
+  <table class="movehere">
+    <tbody>
+      <tr>
+        <td class="cat_Head">Type</td><td class="cat_Head">Name</td><td class="cat_Head">Size</td><td class="cat_Head">Seeders</td><td class="cat_Head">Leechers</td>
+      </tr>
+      <tr class="browse">
+        <td><a href="browse.php?cat=59">Movies HD</a></td>
+        <td>
+          <a href="details.php?id=555">SceneTime Movie <font color="green">Freeleech</font></a>
+          <span class="elapsedDate" title="Sunday, May 10, 2026 at 1:23PM">2 hours ago</span>
+          <font><b>Freeleech</b></font>
+        </td>
+        <td>6.6 GB</td>
+        <td>55</td>
+        <td>8</td>
+      </tr>
+    </tbody>
+  </table>
+</body></html>`
+
 const RETROFLIX_JSON_RESULTS = JSON.stringify([
   {
     download_volume_factor: 0,
@@ -2684,6 +2706,63 @@ search:
       downloadFactor: 1,
       uploadFactor: 1,
     })
+  })
+
+  it("parses SceneTime HTML results with cookie auth and freeleech filtering", async () => {
+    const requests: Array<{ url: string; init: RequestInit | undefined }> = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      requests.push({ url: String(input), init })
+      return new Response(SCENETIME_HTML_RESULTS, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 98,
+      name: "SceneTime",
+      type: "cardigann_yaml",
+      definitionKey: "scenetime",
+      baseUrl: "https://www.scenetime.com/",
+      apiKey: "",
+      configValues: {
+        cookie: "uid=alice; pass=secret",
+        freeLeechOnly: "true",
+      },
+      priority: 34,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({
+        term: "SceneTime Movie",
+        type: "movie",
+        categories: [2040],
+        imdbId: "tt5556667",
+      }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const request = requests[0]
+    expect(request?.url).toBe(
+      "https://www.scenetime.com/browse.php?cata=yes&c59=1&imdb=tt5556667&search=SceneTime%20Movie&freeleech=on",
+    )
+    expect(new Headers(request?.init?.headers).get("cookie")).toBe("uid=alice; pass=secret")
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "SceneTime Movie",
+      downloadUrl: "https://www.scenetime.com/download.php/555/download.torrent",
+      infoUrl: "https://www.scenetime.com/details.php?id=555",
+      category: "2040",
+      size: 6_600_000_000,
+      seeders: 55,
+      leechers: 8,
+      indexerId: 98,
+      indexerName: "SceneTime",
+      indexerPriority: 34,
+      downloadFactor: 0,
+      uploadFactor: 1,
+    })
+    expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-10T13:23:00.000Z")
   })
 
   it("parses RetroFlix SpeedApp JSON results with bearer auth", async () => {

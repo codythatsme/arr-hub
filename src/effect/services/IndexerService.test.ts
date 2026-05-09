@@ -119,8 +119,8 @@ describe("IndexerService", () => {
       const second = yield* svc.refreshDefinitions()
 
       expect(first).toMatchObject({
-        total: 20,
-        created: 20,
+        total: 21,
+        created: 21,
         updated: 0,
         unchanged: 0,
       })
@@ -145,12 +145,13 @@ describe("IndexerService", () => {
         "created",
         "created",
         "created",
+        "created",
       ])
       expect(second).toMatchObject({
-        total: 20,
+        total: 21,
         created: 0,
         updated: 0,
-        unchanged: 20,
+        unchanged: 21,
       })
       expect(second.definitions.every((definition) => definition.previousVersion !== null)).toBe(
         true,
@@ -434,6 +435,7 @@ describe("IndexerService", () => {
         "open-tv-torrents",
         "public-domain-movie-torrents",
         "retroflix",
+        "scenetime",
         "speedapp",
         "subsplease",
         "torrent-network",
@@ -573,6 +575,17 @@ describe("IndexerService", () => {
         protocol: "torrent",
         implementation: "cardigann_yaml",
         baseUrl: "https://www.torrentbytes.net/",
+        privacy: "private",
+        supportsRss: false,
+        tags: ["private", "general", "movies", "tv", "html"],
+      })
+      expect(
+        definitions.find((definition) => definition.definitionKey === "scenetime"),
+      ).toMatchObject({
+        displayName: "SceneTime",
+        protocol: "torrent",
+        implementation: "cardigann_yaml",
+        baseUrl: "https://www.scenetime.com/",
         privacy: "private",
         supportsRss: false,
         tags: ["private", "general", "movies", "tv", "html"],

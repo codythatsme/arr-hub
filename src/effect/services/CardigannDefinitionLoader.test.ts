@@ -90,6 +90,7 @@ caps:
       "beyond-hd",
       "bit-hdtv",
       "torrentbytes",
+      "scenetime",
       "morethantv",
       "hdaccess",
       "torrent-network",
@@ -355,6 +356,33 @@ caps:
           { id: 2050, name: "Movies/Full Blu-ray" },
           { id: 5040, name: "TV/HD" },
           { id: 6040, name: "XXX/HD" },
+        ]),
+      },
+    })
+    expect(
+      BUILT_IN_CARDIGANN_DEFINITIONS.find((definition) => definition.definitionKey === "scenetime"),
+    ).toMatchObject({
+      displayName: "SceneTime",
+      baseUrl: "https://www.scenetime.com/",
+      privacy: "private",
+      supportsRss: false,
+      supportsSearch: true,
+      tags: ["private", "general", "movies", "tv", "html"],
+      authFields: expect.arrayContaining([
+        expect.objectContaining({ name: "cookie", type: "cookie", required: true }),
+        expect.objectContaining({
+          name: "freeLeechOnly",
+          type: "checkbox",
+          defaultValue: "false",
+        }),
+      ]),
+      capabilities: {
+        searchTypes: ["search", "movie", "tvsearch"],
+        categories: expect.arrayContaining([
+          { id: 2040, name: "Movies HD" },
+          { id: 5040, name: "TV HD" },
+          { id: 5070, name: "TV ANIME" },
+          { id: 7000, name: "Books and Magazines" },
         ]),
       },
     })
