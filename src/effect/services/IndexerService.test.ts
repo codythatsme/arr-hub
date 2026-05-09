@@ -119,8 +119,8 @@ describe("IndexerService", () => {
       const second = yield* svc.refreshDefinitions()
 
       expect(first).toMatchObject({
-        total: 10,
-        created: 10,
+        total: 11,
+        created: 11,
         updated: 0,
         unchanged: 0,
       })
@@ -135,12 +135,13 @@ describe("IndexerService", () => {
         "created",
         "created",
         "created",
+        "created",
       ])
       expect(second).toMatchObject({
-        total: 10,
+        total: 11,
         created: 0,
         updated: 0,
-        unchanged: 10,
+        unchanged: 11,
       })
       expect(second.definitions.every((definition) => definition.previousVersion !== null)).toBe(
         true,
@@ -420,6 +421,7 @@ describe("IndexerService", () => {
         "open-tv-torrents",
         "public-domain-movie-torrents",
         "torrent-network",
+        "torrents-csv",
       ])
       expect(
         definitions.find((definition) => definition.definitionKey === "generic-torznab"),
@@ -448,6 +450,17 @@ describe("IndexerService", () => {
           tags: ["public", "anime", "html"],
         },
       )
+      expect(
+        definitions.find((definition) => definition.definitionKey === "torrents-csv"),
+      ).toMatchObject({
+        displayName: "TorrentsCSV",
+        protocol: "torrent",
+        implementation: "cardigann_yaml",
+        baseUrl: "https://torrents-csv.com/",
+        privacy: "public",
+        supportsRss: false,
+        tags: ["public", "general", "json"],
+      })
       expect(
         definitions.find((definition) => definition.definitionKey === "open-tv-torrents"),
       ).toMatchObject({

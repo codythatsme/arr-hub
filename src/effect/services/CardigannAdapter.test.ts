@@ -42,6 +42,20 @@ const JSON_RESULTS = JSON.stringify({
   },
 })
 
+const TORRENTS_CSV_JSON_RESULTS = JSON.stringify({
+  torrents: [
+    {
+      infohash: "abcdefabcdefabcdefabcdefabcdefabcdefabcd",
+      name: "Ubuntu 24.04 ISO",
+      size_bytes: 3_200_000_000,
+      created_unix: 1_714_608_000,
+      seeders: 12,
+      leechers: 4,
+      completed: 99,
+    },
+  ],
+})
+
 const JSON_SELECTOR_FILTER_RESULTS = JSON.stringify({
   data: {
     results: [
@@ -2056,6 +2070,52 @@ search:
       indexerPriority: 22,
     })
     expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-06T11:22:33.000Z")
+  })
+
+  it("builds and parses TorrentsCSV JSON searches from the built-in definition", async () => {
+    let requestUrl: string | undefined
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      requestUrl = String(input)
+      return new Response(TORRENTS_CSV_JSON_RESULTS, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 88,
+      name: "TorrentsCSV",
+      type: "cardigann_yaml",
+      definitionKey: "torrents-csv",
+      baseUrl: "https://torrents-csv.com",
+      apiKey: "",
+      priority: 24,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Ubuntu ISO", type: "general", categories: [8000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const url = new URL(requestUrl ?? "")
+    expect(url.origin).toBe("https://torrents-csv.com")
+    expect(url.pathname).toBe("/service/search")
+    expect(url.searchParams.get("size")).toBe("100")
+    expect(url.searchParams.get("q")).toBe("Ubuntu ISO")
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "Ubuntu 24.04 ISO",
+      downloadUrl: "magnet:?xt=urn:btih:abcdefabcdefabcdefabcdefabcdefabcdefabcd",
+      infoUrl: "https://torrents-csv.com/search?q=Ubuntu%2024.04%20ISO",
+      category: "8000",
+      size: 3_200_000_000,
+      seeders: 12,
+      leechers: 4,
+      infohash: "abcdefabcdefabcdefabcdefabcdefabcdefabcd",
+      indexerId: 88,
+      indexerName: "TorrentsCSV",
+      indexerPriority: 24,
+    })
   })
 
   it("parses first-pass Cardigann HTML selector results", async () => {

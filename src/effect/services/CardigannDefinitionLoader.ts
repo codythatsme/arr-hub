@@ -433,6 +433,61 @@ search:
           args: yyyy-MM-dd HH:mm:ss UTC
 `
 
+const TORRENTS_CSV = `
+id: torrents-csv
+name: TorrentsCSV
+description: Public open torrent search index exposed through a JSON Cardigann definition.
+type: public
+links:
+  - https://torrents-csv.com/
+version: builtin-cardigann-1
+rss: false
+tags:
+  - public
+  - general
+  - json
+caps:
+  categorymappings:
+    - id: "1"
+      cat: Other
+      desc: Other
+      newznab: 8000
+  modes:
+    search: [q]
+    movie-search: [q]
+    tv-search: [q, season, ep]
+search:
+  paths:
+    - path: /service/search
+      response:
+        type: json
+      inputs:
+        size: "100"
+        q: "{{ .Keywords }}"
+  rows:
+    selector: $.torrents
+    missingAttributeEqualsNoResults: true
+  fields:
+    title:
+      selector: name
+    details:
+      text: "/search?q={{ .Result.title | urlencode }}"
+    infohash:
+      selector: infohash
+    magnet:
+      text: "magnet:?xt=urn:btih:{{ .Result.infohash }}"
+    category:
+      text: "1"
+    size:
+      selector: size_bytes
+    seeders:
+      selector: seeders
+    leechers:
+      selector: leechers
+    grabs:
+      selector: completed
+`
+
 const MORE_THAN_TV = `
 id: morethantv
 name: MoreThanTV
@@ -632,6 +687,7 @@ const BUILT_IN_CARDIGANN_SOURCES = [
   NYAA,
   ANIME_TOSHO,
   ANIDEX,
+  TORRENTS_CSV,
   MORE_THAN_TV,
   HDACCESS,
   TORRENT_NETWORK,

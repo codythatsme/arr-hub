@@ -80,6 +80,7 @@ caps:
       "nyaa",
       "animetosho",
       "anidex",
+      "torrents-csv",
       "morethantv",
       "hdaccess",
       "torrent-network",
@@ -120,6 +121,22 @@ caps:
           { id: 4050, name: "Games" },
           { id: 8000, name: "Other" },
         ]),
+      },
+    })
+    expect(
+      BUILT_IN_CARDIGANN_DEFINITIONS.find(
+        (definition) => definition.definitionKey === "torrents-csv",
+      ),
+    ).toMatchObject({
+      displayName: "TorrentsCSV",
+      baseUrl: "https://torrents-csv.com/",
+      privacy: "public",
+      supportsRss: false,
+      supportsSearch: true,
+      tags: ["public", "general", "json"],
+      capabilities: {
+        searchTypes: ["search", "movie", "tvsearch"],
+        categories: [{ id: 8000, name: "Other" }],
       },
     })
     expect(
