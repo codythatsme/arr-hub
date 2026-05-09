@@ -24,7 +24,7 @@ Primary blockers:
 - The metadata lifecycle is now functional for TMDB-backed movie/TV adds, Sonarr episode import, refresh jobs, and calendar population, but still lacks Sonarr/Radarr-depth alternate titles, ratings, local artwork cache, availability semantics, and TVDB/SkyHook parity.
 - Completed download handling now has a real import path that resolves completed output paths and remote path mappings, selects media files, filters samples, renames, copy/move/hardlinks into library folders, persists media file records, supports manual import, scans existing libraries, and exposes rename preview/action. It still lacks unpack/repair waiting beyond downloader status normalization, free-space checks, recycle-bin support, and deeper Sonarr/Radarr import rejection rules.
 - The release decision engine now has persistent blocklist enforcement, focused specification modules, target title/year/episode/season checks, size/free-space/queue/protocol/client availability checks, minimum age/retention/seeder gates, required/ignored/preferred release terms, sample/hardcoded subtitle/raw-disk rejection, and first-pass TV/anime edge checks. It still lacks full Sonarr/Radarr parity for language profiles, tagged release profiles, deep media inspection, proper/repack version upgrade semantics, scene/XEM mapping, and exhaustive parser coverage.
-- Prowlarr replacement now has a first-pass foundation. The app consumes Torznab/Newznab endpoints and exposes authenticated aggregate Torznab/Newznab feeds plus persisted generic definitions, small Cardigann-style YAML fixture definitions with first-pass GET/XML request execution, version-aware built-in definition refresh, URL-backed Cardigann definition source refresh with DB-backed runtime loading, proxy records applied to outbound requests, search stats, first-pass health/backoff handling, and persisted Radarr/Sonarr aggregate app sync. It still does not manage a Prowlarr-scale tracker catalogue, full Cardigann selector/login parity, mature app-sync parity, mature policy controls, or a scheduled/trusted remote definition catalogue pipeline.
+- Prowlarr replacement now has a first-pass foundation. The app consumes Torznab/Newznab endpoints and exposes authenticated aggregate Torznab/Newznab feeds plus persisted generic definitions, small Cardigann-style YAML fixture definitions with first-pass GET/XML request execution, version-aware built-in definition refresh, URL-backed Cardigann definition source refresh with DB-backed runtime loading and scheduler execution, proxy records applied to outbound requests, search stats, first-pass health/backoff handling, and persisted Radarr/Sonarr aggregate app sync. It still does not manage a Prowlarr-scale tracker catalogue, full Cardigann selector/login parity, mature app-sync parity, mature policy controls, or a trusted remote definition catalogue/provenance pipeline.
 - Download client coverage is narrow: qBittorrent and SABnzbd only.
 - There is no Radarr/Sonarr/Prowlarr REST API compatibility layer, which matters if existing tools are expected to treat ARR Hub as a drop-in replacement.
 
@@ -79,8 +79,9 @@ Completed in atomic commits after this plan was written:
 - `cc1e4cb6b0` added version-aware built-in indexer definition refresh reporting.
 - `cf365fed05` added persisted Radarr/Sonarr application records and first-pass aggregate Torznab/Newznab app sync.
 - `ea6689495f` added URL-backed Cardigann definition source refresh and DB-backed Cardigann runtime loading.
+- `a26561d100` added scheduler-driven refresh for enabled URL-backed Cardigann definition sources.
 
-Milestones 1, 2, 3, and 4 are complete for deterministic local coverage against the current backend surface. Milestone 5 now has a first-pass foundation: persisted generic indexer definitions, a Cardigann-style YAML fixture loader with definition-keyed GET/XML search execution, version-aware built-in definition refresh, URL-backed Cardigann definition source refresh with DB-backed runtime loading, proxy configuration records applied to outbound requests, indexer search stats and health/backoff state, authenticated aggregate Torznab/Newznab feeds, and first-pass Radarr/Sonarr aggregate app sync. Milestone 3 still needs live qBittorrent/SABnzbd fixture validation in an environment with those services running, and later milestone 5 work remains required before ARR Hub can honestly claim Prowlarr replacement-grade behavior.
+Milestones 1, 2, 3, and 4 are complete for deterministic local coverage against the current backend surface. Milestone 5 now has a first-pass foundation: persisted generic indexer definitions, a Cardigann-style YAML fixture loader with definition-keyed GET/XML search execution, version-aware built-in definition refresh, URL-backed Cardigann definition source refresh with DB-backed runtime loading and scheduler execution, proxy configuration records applied to outbound requests, indexer search stats and health/backoff state, authenticated aggregate Torznab/Newznab feeds, and first-pass Radarr/Sonarr aggregate app sync. Milestone 3 still needs live qBittorrent/SABnzbd fixture validation in an environment with those services running, and later milestone 5 work remains required before ARR Hub can honestly claim Prowlarr replacement-grade behavior.
 
 ## Current Functionality Inventory
 
@@ -90,7 +91,7 @@ Backend/service surfaces:
 - `src/effect/services/MovieService.ts`: CRUD/list/lookup over local movie rows.
 - `src/effect/services/SeriesService.ts`: CRUD/list/local lookup, season/episode monitor toggles, and monitored episode calendar queries.
 - `src/effect/services/TmdbClient.ts`: movie TMDB search/details/popular/trending plus TV search/details/season hydration.
-- `src/effect/services/IndexerService.ts`, `src/effect/services/CardigannDefinitionLoader.ts`, `src/effect/services/CardigannAdapter.ts`, `src/effect/services/TorznabAdapter.ts`, `src/effect/services/IndexerDefinitionSourceService.ts`, and `src/effect/services/IndexerApplicationService.ts`: Torznab/Newznab connection testing and search, generic and curated Cardigann-style first-party definition seeding, version-aware built-in definition refresh, URL-backed Cardigann definition source refresh with stored raw YAML, first-pass Cardigann GET/XML search execution, proxy configuration persistence and outbound application, search stats, first-pass search health/backoff, aggregate protocol capability support, and persisted Radarr/Sonarr aggregate app sync.
+- `src/effect/services/IndexerService.ts`, `src/effect/services/CardigannDefinitionLoader.ts`, `src/effect/services/CardigannAdapter.ts`, `src/effect/services/TorznabAdapter.ts`, `src/effect/services/IndexerDefinitionSourceService.ts`, and `src/effect/services/IndexerApplicationService.ts`: Torznab/Newznab connection testing and search, generic and curated Cardigann-style first-party definition seeding, version-aware built-in definition refresh, URL-backed Cardigann definition source refresh with stored raw YAML and enabled-source scheduler refresh, first-pass Cardigann GET/XML search execution, proxy configuration persistence and outbound application, search stats, first-pass search health/backoff, aggregate protocol capability support, and persisted Radarr/Sonarr aggregate app sync.
 - `src/effect/services/DownloadClientService.ts`, `QBittorrentAdapter.ts`, `SABnzbdAdapter.ts`: add/list/test/grab/queue/remove downloads for qBittorrent and SABnzbd, including persisted completed output paths.
 - `src/effect/services/ReleasePolicyEngine.ts`: parses titles, checks allowed quality, custom format score, and basic upgrade scoring.
 - `src/effect/services/AcquisitionPipeline.ts`: movie search/evaluate/grab, episode search/evaluate/grab, season pack first search, series search.
@@ -125,7 +126,7 @@ Use these local vendor areas as feature references:
 Important scale differences visible in vendor:
 
 - Radarr has 31 decision-engine specification files; Sonarr has 41. ARR Hub now has a compact release specification module covering high-impact local guardrails, but not the full vendor rule surface.
-- Prowlarr has 143 files under `Indexers/Definitions` and 16 first-level definition families. ARR Hub has generic Torznab/Newznab consumption, a tiny Cardigann-style fixture set, manually configured URL-backed Cardigann source refresh, and aggregate app sync, but not broad tracker coverage.
+- Prowlarr has 143 files under `Indexers/Definitions` and 16 first-level definition families. ARR Hub has generic Torznab/Newznab consumption, a tiny Cardigann-style fixture set, manually configured URL-backed Cardigann source refresh with scheduler execution, and aggregate app sync, but not broad tracker coverage.
 - Sonarr/Radarr support many download client families: qBittorrent, SABnzbd, NZBGet, Transmission, Deluge, rTorrent, uTorrent, Download Station, blackhole, and others. ARR Hub has qBittorrent and SABnzbd.
 - Sonarr/Radarr have full media import pipelines with manual import, sample detection, free-space checks, upgrade checks, folder matching, grabbed-release matching, and naming services. ARR Hub now has a deterministic first-pass import pipeline with manual import, remote path mappings, library scan, rename preview/action, and media file records, but still lacks full vendor import rejection depth.
 
@@ -303,8 +304,8 @@ Acceptance criteria:
 Current state:
 
 - ARR Hub can consume Torznab/Newznab endpoints.
-- ARR Hub now seeds generic first-party Torznab/Newznab and small curated Cardigann-style YAML definition records, refreshes built-in definition versions with created/updated/unchanged reporting, refreshes manually configured URL-backed Cardigann definition sources into DB-backed runtime definitions, executes first-pass definition-keyed Cardigann GET/XML searches, persists and applies indexer proxy configuration records, records search statistics and first-pass search health/backoff state, exposes authenticated aggregate Torznab/Newznab XML feeds at `/api/indexers/aggregate/torznab` and `/api/indexers/aggregate/newznab`, and persists Radarr/Sonarr application records for aggregate app sync.
-- There is no broad first-party tracker catalogue, full Cardigann selector/login runtime, mature rate-limit policy engine, scheduled/trusted remote definition catalogue pipeline, or Prowlarr-grade event-driven app-sync behavior.
+- ARR Hub now seeds generic first-party Torznab/Newznab and small curated Cardigann-style YAML definition records, refreshes built-in definition versions with created/updated/unchanged reporting, refreshes manually configured URL-backed Cardigann definition sources into DB-backed runtime definitions, refreshes enabled definition sources from the scheduler, executes first-pass definition-keyed Cardigann GET/XML searches, persists and applies indexer proxy configuration records, records search statistics and first-pass search health/backoff state, exposes authenticated aggregate Torznab/Newznab XML feeds at `/api/indexers/aggregate/torznab` and `/api/indexers/aggregate/newznab`, and persists Radarr/Sonarr application records for aggregate app sync.
+- There is no broad first-party tracker catalogue, full Cardigann selector/login runtime, mature rate-limit policy engine, trusted remote definition catalogue/provenance pipeline, or Prowlarr-grade event-driven app-sync behavior.
 - Product stance is Option A: ARR Hub should replace Prowlarr directly. Current Torznab/Newznab upstream consumption remains useful for migration and compatibility, but it is not the final replacement boundary.
 
 Gap:
@@ -336,6 +337,7 @@ Tasks:
   - [x] Add first-pass indexer search statistics from `vendor/prowlarr/src/NzbDrone.Core/IndexerStats`.
   - [x] Add first-pass built-in definition version refresh modeled after `vendor/prowlarr/src/NzbDrone.Core/IndexerVersions`.
   - [x] Add first-pass URL-backed Cardigann definition source refresh and DB-backed runtime loading.
+  - [x] Add scheduler-driven refresh for enabled URL-backed Cardigann definition sources.
   - [x] Expose authenticated aggregate Torznab/Newznab endpoints for external apps if ARR Hub should act like Prowlarr.
   - [x] Add first-pass persisted Radarr/Sonarr aggregate app sync behavior from `vendor/prowlarr/src/NzbDrone.Core/Applications` if external Sonarr/Radarr instances should still be supported.
 
@@ -719,7 +721,7 @@ Goal: begin the selected Option A path to replace Prowlarr directly.
 Tasks:
 
 1. [x] Decide Option A or B from P0 section 5. Option A is selected.
-2. [ ] Implement first-party indexer definitions, proxies, stats, and aggregate endpoints. First-pass persisted generic definitions, small Cardigann-style YAML fixtures, built-in definition refresh, URL-backed Cardigann definition source refresh, DB-backed Cardigann runtime loading, GET/XML Cardigann search execution, proxy config records applied to outbound requests, search stats, search health/backoff handling, aggregate feeds, and Radarr/Sonarr aggregate app sync are complete; broad tracker definitions, full Cardigann selector/login parity, mature policy controls, scheduled/trusted remote definition catalogue behavior, and Prowlarr-grade app-sync parity remain.
+2. [ ] Implement first-party indexer definitions, proxies, stats, and aggregate endpoints. First-pass persisted generic definitions, small Cardigann-style YAML fixtures, built-in definition refresh, URL-backed Cardigann definition source refresh, DB-backed Cardigann runtime loading, scheduler-driven enabled-source refresh, GET/XML Cardigann search execution, proxy config records applied to outbound requests, search stats, search health/backoff handling, aggregate feeds, and Radarr/Sonarr aggregate app sync are complete; broad tracker definitions, full Cardigann selector/login parity, mature policy controls, trusted remote definition catalogue/provenance behavior, and Prowlarr-grade app-sync parity remain.
 3. [x] Update docs/UI copy to describe current Torznab/Newznab behavior without claiming replacement-grade Prowlarr support.
 4. [x] After review, start with aggregate Torznab/Newznab endpoints and a small first-party definition pipeline before broad tracker coverage.
 
@@ -764,11 +766,11 @@ Update `README.md` after each milestone:
 
 ## Immediate Next Step For The Next Agent
 
-Continue Milestone 5: expand the selected Option A Prowlarr replacement foundation beyond the first-pass aggregate feeds, generic definitions, built-in and URL-backed Cardigann definition refresh, Cardigann fixture loader/runtime, proxy execution, search health/backoff handling, and aggregate Radarr/Sonarr app sync.
+Continue Milestone 5: expand the selected Option A Prowlarr replacement foundation beyond the first-pass aggregate feeds, generic definitions, built-in and scheduled URL-backed Cardigann definition refresh, Cardigann fixture loader/runtime, proxy execution, search health/backoff handling, and aggregate Radarr/Sonarr app sync.
 
 Recommended order:
 
 1. Review the Option A scope and acceptance criteria in P0 section 5.
 2. Expand the curated Cardigann fixture set into broader tracker coverage and fuller Cardigann selector/login support.
-3. Promote URL-backed definition sources into scheduled/trusted catalogue behavior and harden app sync toward Prowlarr event-driven parity.
+3. Promote URL-backed definition sources into trusted catalogue/provenance behavior and harden app sync toward Prowlarr event-driven parity.
 4. Harden per-indexer policy controls beyond the current first-pass search backoff.

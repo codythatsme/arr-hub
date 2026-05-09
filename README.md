@@ -92,7 +92,7 @@ Current foundation:
 - Generic first-party Torznab/Newznab and small curated Cardigann-style YAML definition records are seeded at startup.
 - Indexer records can carry definition keys, tags, search/RSS enable flags, and optional proxy links; Cardigann-style definitions now have first-pass GET/XML search execution.
 - HTTP/SOCKS/FlareSolverr proxy configuration is persisted and applied to outbound Torznab/Newznab requests; indexer search statistics, first-pass search health/backoff state, and version-aware built-in definition refresh are persisted.
-- URL-backed Cardigann definition source records can fetch remote YAML, persist the raw source, and make refreshed definitions available to definition-keyed indexers.
+- URL-backed Cardigann definition source records can fetch remote YAML, persist the raw source, make refreshed definitions available to definition-keyed indexers, and refresh enabled sources from the scheduler.
 - External clients can query aggregate XML feeds with an ARR Hub API key:
   - `/api/indexers/aggregate/torznab?t=caps&apikey=...`
   - `/api/indexers/aggregate/newznab?t=search&q=example&apikey=...`
@@ -101,8 +101,8 @@ Current foundation:
 This is not yet a Prowlarr-scale catalogue. The Cardigann/YAML loader currently
 supports curated fixtures plus manually configured URL-backed YAML sources; broad
 tracker coverage, full Cardigann selector/login parity, mature per-indexer policy
-controls, scheduled/trusted remote definition catalogues, and full Prowlarr
-app-sync parity remain planned work. Search failures now mark indexers unhealthy,
+controls, trusted remote definition catalogues, and full Prowlarr app-sync parity
+remain planned work. Search failures now mark indexers unhealthy,
 short-backoff retryable failures, and disable indexers on authentication failures.
 
 ## Current Limitations
@@ -111,8 +111,8 @@ ARR Hub is not yet a full Sonarr/Radarr/Prowlarr replacement. TV metadata,
 completed-download imports, release decisions, and operator workflows have
 working first-pass implementations, but they still lack the full depth of the
 mature Arr apps. Prowlarr replacement is underway, but ARR Hub still does not
-ship a broad tracker catalogue, full Cardigann request runtime, or scheduled
-remote definition catalogue/trust pipeline.
+ship a broad tracker catalogue, full Cardigann request runtime, or trusted
+remote definition catalogue/provenance pipeline.
 
 ## API Compatibility
 
