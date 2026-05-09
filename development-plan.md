@@ -289,23 +289,32 @@ Acceptance criteria:
 - Blocklisted releases are never grabbed again unless manually cleared.
 - The unit suite covers each decision specification and key Sonarr/Radarr edge cases.
 
-### 5. Build Prowlarr-Grade Indexer Management
+### 5. Decide Prowlarr Replacement Scope
 
 Current state:
 
 - ARR Hub can consume Torznab/Newznab endpoints.
 - There is no first-party indexer catalogue, Cardigann/YAML definition support, FlareSolverr/proxy support, indexer stats, definition updates, or external Torznab/Newznab proxy endpoint.
+- Product stance is Option A: ARR Hub should replace Prowlarr directly. Current Torznab/Newznab upstream consumption remains useful for migration and compatibility, but it is not the final replacement boundary.
 
 Gap:
 
-- This is not a Prowlarr replacement yet. It can use Prowlarr as an upstream, but cannot replace it.
+- If ARR Hub is meant to be a full Prowlarr replacement, it needs substantial first-party indexer infrastructure rather than only upstream Torznab/Newznab consumption.
+
+Decision context:
+
+- Option A is selected because the product goal is a true all-in-one replacement for Sonarr, Radarr, and Prowlarr without requiring users to keep Prowlarr installed upstream.
+- Option B would be smaller and lower risk because ARR Hub could rely on external Torznab/Newznab providers, but it would weaken the replacement claim and leave indexer catalogue/proxy/app-sync behavior outside the app.
+- The cost of Option A is ongoing maintenance: ARR Hub must own a moving catalogue of public/private tracker definitions, Cardigann/YAML support, proxies, rate limits, stats, definition updates, and possibly app sync.
+- Current Torznab/Newznab support should stay as a compatibility path, but not as the endpoint of the roadmap.
 
 Tasks:
 
-- Decide the product stance:
-  - Option A: ARR Hub replaces Prowlarr directly. Implement indexer definitions and proxy endpoints.
-  - Option B: ARR Hub intentionally uses Prowlarr-compatible Torznab/Newznab upstreams. Document that Prowlarr replacement is out of scope.
-- If Option A:
+- [x] Decide the product stance:
+  - Option A: ARR Hub replaces Prowlarr directly. Implement indexer definitions and proxy endpoints. Selected.
+  - Option B: ARR Hub intentionally uses Prowlarr-compatible Torznab/Newznab upstreams. Not selected as the final product direction.
+- [x] Update README and indexer UI copy to avoid claiming Prowlarr replacement before the decision is made.
+- [ ] Implement Option A:
   - Model indexer definitions after `vendor/prowlarr/src/NzbDrone.Core/Indexers/Definitions`.
   - Add Cardigann/YAML definition support.
   - Add indexer-specific auth fields, cookies, 2FA notes, category mapping, caps, tags, priority, and enable/disable state.
@@ -318,9 +327,9 @@ Tasks:
 
 Acceptance criteria:
 
-- A user can add common public/private trackers/indexers without running Prowlarr.
-- Searches return normalized releases with reliable categories, protocol, seeders, age, infohash, and download URLs.
-- Indexer failures and rate limits are visible and affect health.
+- Product claims make clear that ARR Hub intends to replace Prowlarr, while distinguishing planned replacement work from currently shipped behavior.
+- Users are not told ARR Hub ships a Prowlarr-scale tracker/indexer catalogue, proxy, app sync, or stats surface until those features exist.
+- Searches still return normalized releases with reliable categories, protocol, seeders, age, infohash, and download URLs from configured upstreams.
 
 ### 6. Expand Download Client Coverage And Completed Download Control
 
@@ -689,19 +698,21 @@ Acceptance:
 - Blocklisting a failed queue item prevents re-grabbing the same title/infohash.
 - Unit coverage verifies blocklist matching, title/year/episode mismatches, size/free-space, protocol availability, queue conflicts, age/retention, release terms, unsafe artifacts, TV edge checks, and vendor-inspired parser cases.
 
-### Milestone 5: Prowlarr Replacement Decision
+### Milestone 5: Prowlarr Replacement Foundation
 
-Goal: decide and implement indexer strategy.
+Goal: begin the selected Option A path to replace Prowlarr directly.
 
 Tasks:
 
-1. Decide Option A or B from P0 section 5.
-2. If Option A, implement indexer definitions, proxies, stats, and aggregate endpoints.
-3. If Option B, update docs/UI copy to say ARR Hub consumes Prowlarr-compatible indexers but does not replace Prowlarr.
+1. [x] Decide Option A or B from P0 section 5. Option A is selected.
+2. [ ] Implement first-party indexer definitions, proxies, stats, and aggregate endpoints.
+3. [x] Update docs/UI copy to describe current Torznab/Newznab behavior without claiming replacement-grade Prowlarr support.
+4. [ ] After review, start with aggregate Torznab/Newznab endpoints and a small first-party definition pipeline before broad tracker coverage.
 
 Acceptance:
 
 - Product claims match actual behavior.
+- ARR Hub can move toward Prowlarr replacement without implying the current build already ships the full indexer catalogue/proxy surface.
 
 ### Milestone 6: Download Client Coverage And NAS Hardening
 
@@ -739,11 +750,11 @@ Update `README.md` after each milestone:
 
 ## Immediate Next Step For The Next Agent
 
-Start Milestone 5: Prowlarr replacement decision.
+Continue Milestone 5: start the selected Option A Prowlarr replacement foundation after review.
 
 Recommended order:
 
-1. Decide Option A or Option B from P0 section 5.
-2. If Option A, build a real Prowlarr-grade indexer management roadmap before adding more claims.
-3. If Option B, update README/UI copy so ARR Hub clearly says it consumes Prowlarr-compatible Torznab/Newznab indexers but does not replace Prowlarr.
-4. Do not begin download-client/NAS hardening until the product claim is aligned with actual indexer behavior.
+1. Review the Option A scope and acceptance criteria in P0 section 5.
+2. Start with aggregate Torznab/Newznab endpoints so ARR Hub can act as an indexer proxy surface for external clients.
+3. Add a small first-party indexer definition pipeline before broad tracker coverage.
+4. Then expand toward proxies, stats, rate limits, definition updates, and optional app sync.

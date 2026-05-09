@@ -7,8 +7,9 @@ ARR Hub is a unified, self-hosted media automation app inspired by the arr ecosy
 - Adapter-driven integrations (download clients, indexers, media servers)
 - Shared release policy engine + scheduler pipelines
 - Operator UI for onboarding, settings, profiles, movies, TV, manual search, scheduler, and queue actions
+- Prowlarr replacement planning; current indexer support consumes Torznab/Newznab upstreams
 
-See [ISSUE_VALIDATION_PLAN_2026-03-06.md](./ISSUE_VALIDATION_PLAN_2026-03-06.md) for detailed roadmap status.
+See [development-plan.md](./development-plan.md) for detailed replacement-readiness status.
 
 ## Tech Stack
 
@@ -69,7 +70,7 @@ container image. Do not bind-mount host `node_modules` into the container.
 
 ## Available UI Validation Surfaces
 
-- **Settings → Indexers**: list/add/test indexers
+- **Settings → Indexers**: list/add/test Torznab/Newznab upstream endpoints
 - **Settings → Download Clients**: list/add/test download clients
 - **Settings → Media Servers**: list/add/test media servers
 - **Settings → Scheduler**: inspect jobs, pause/resume, run jobs, retry failures
@@ -81,14 +82,27 @@ container image. Do not bind-mount host `node_modules` into the container.
 - **TV Shows**: manual add/list/edit/monitor/search+grab flows using local series data
 - **Activity → Queue**: live queue polling, retry, remove, delete-files, and clear-error actions
 
+## Prowlarr Replacement Decision
+
+ARR Hub has selected Option A: replace Prowlarr directly instead of requiring
+users to keep Prowlarr installed upstream.
+
+Current Torznab/Newznab support remains useful for migration, testing, and
+compatibility with existing indexer services, but it is not the final replacement
+boundary. Replacing Prowlarr directly requires first-party indexer definitions,
+Cardigann/YAML support, indexer proxies such as HTTP/SOCKS/FlareSolverr,
+aggregate Torznab/Newznab endpoints, stats, rate-limit handling, definition
+updates, and optional application sync.
+
 ## Current Limitations
 
 ARR Hub is not yet a full Sonarr/Radarr/Prowlarr replacement. TV metadata is
 manual/local, Sonarr import does not yet preserve episodes and episode files,
 completed downloads are not moved or hardlinked through a real import pipeline,
 and the release decision engine is still much smaller than the mature Arr apps.
-ARR Hub currently consumes Torznab/Newznab endpoints; it does not provide a
-Prowlarr-scale indexer catalogue, indexer proxy, app sync, or stats surface.
+ARR Hub currently consumes Torznab/Newznab endpoints; Prowlarr replacement is
+selected but not implemented yet, so it does not provide a Prowlarr-scale
+indexer catalogue, indexer proxy, app sync, or stats surface.
 
 ## API Compatibility
 
