@@ -89,6 +89,7 @@ caps:
       "speedapp",
       "beyond-hd",
       "bit-hdtv",
+      "torrentbytes",
       "morethantv",
       "hdaccess",
       "torrent-network",
@@ -329,6 +330,31 @@ caps:
           { id: 2000, name: "Movies" },
           { id: 5000, name: "TV" },
           { id: 6000, name: "XXX" },
+        ]),
+      },
+    })
+    expect(
+      BUILT_IN_CARDIGANN_DEFINITIONS.find(
+        (definition) => definition.definitionKey === "torrentbytes",
+      ),
+    ).toMatchObject({
+      displayName: "TorrentBytes",
+      baseUrl: "https://www.torrentbytes.net/",
+      privacy: "private",
+      supportsRss: false,
+      supportsSearch: true,
+      tags: ["private", "general", "movies", "tv", "html"],
+      authFields: expect.arrayContaining([
+        expect.objectContaining({ name: "username", type: "text", required: true }),
+        expect.objectContaining({ name: "password", type: "password", required: true }),
+      ]),
+      capabilities: {
+        searchTypes: ["search", "movie", "tvsearch"],
+        categories: expect.arrayContaining([
+          { id: 2040, name: "Movies/HD" },
+          { id: 2050, name: "Movies/Full Blu-ray" },
+          { id: 5040, name: "TV/HD" },
+          { id: 6040, name: "XXX/HD" },
         ]),
       },
     })

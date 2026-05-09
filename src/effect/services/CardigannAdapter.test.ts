@@ -155,6 +155,48 @@ const BITHDTV_HTML_RESULTS = `
   </table>
 </body></html>`
 
+const TORRENT_BYTES_HTML_RESULTS = `
+<html><body>
+  <table>
+    <tbody>
+      <tr>
+        <td class="colhead">Type</td><td class="colhead">Name</td><td class="colhead">Files</td><td class="colhead">Comments</td><td class="colhead">Added</td><td class="colhead">Uploader</td><td class="colhead">Size</td><td class="colhead">Snatched</td><td class="colhead">Seeders</td><td class="colhead">Leechers</td>
+      </tr>
+      <tr>
+        <td><a href="browse.php?cat=5">Movies/HD</a></td>
+        <td>
+          <a href="download.php/333/TorrentBytes.Movie.2026.torrent">Download</a>
+          <a href="details.php?id=333" title="TorrentBytes Movie 2026 1080p WEB-DL">TorrentBytes Movie</a>
+          <font color="green">F L</font>
+        </td>
+        <td>6</td>
+        <td>0</td>
+        <td>2026-05-1013:45:56</td>
+        <td>uploader</td>
+        <td>4.2 GB</td>
+        <td>12</td>
+        <td>31</td>
+        <td>4</td>
+      </tr>
+      <tr>
+        <td><a href="browse.php?cat=46">NonScene/x264</a></td>
+        <td>
+          <a href="download.php/334/TorrentBytes.Fallback.2026.torrent">Download</a>
+          <a href="details.php?id=334">TorrentBytes Fallback 2026 720p</a>
+        </td>
+        <td>3</td>
+        <td>0</td>
+        <td>2026-05-1014:00:00</td>
+        <td>uploader</td>
+        <td>2.1 GB</td>
+        <td>5</td>
+        <td>14</td>
+        <td>1</td>
+      </tr>
+    </tbody>
+  </table>
+</body></html>`
+
 const RETROFLIX_JSON_RESULTS = JSON.stringify([
   {
     download_volume_factor: 0,
@@ -2563,6 +2605,85 @@ search:
       uploadFactor: 2,
     })
     expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-10T12:34:56.000Z")
+  })
+
+  it("parses TorrentBytes HTML results after POST login", async () => {
+    const requests: Array<{ url: string; init: RequestInit | undefined }> = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(String(input))
+      requests.push({ url: String(input), init })
+      if (url.pathname === "/takelogin.php") {
+        return new Response('<html><body><a href="my.php">Profile</a></body></html>', {
+          status: 200,
+          headers: { "set-cookie": "tb_session=abc; Path=/" },
+        })
+      }
+      return new Response(TORRENT_BYTES_HTML_RESULTS, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 97,
+      name: "TorrentBytes",
+      type: "cardigann_yaml",
+      definitionKey: "torrentbytes",
+      baseUrl: "https://www.torrentbytes.net/",
+      apiKey: "",
+      configValues: {
+        username: "alice",
+        password: "secret",
+      },
+      priority: 33,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({
+        term: "TorrentBytes Movie",
+        type: "movie",
+        categories: [2040],
+        imdbId: "tt3334445",
+      }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    const loginRequest = requests[0]
+    expect(loginRequest?.url).toBe("https://www.torrentbytes.net/takelogin.php")
+    expect(loginRequest?.init?.method).toBe("POST")
+    const loginBody = new URLSearchParams(String(loginRequest?.init?.body ?? ""))
+    expect(loginBody.get("username")).toBe("alice")
+    expect(loginBody.get("password")).toBe("secret")
+    expect(loginBody.get("returnto")).toBe("/")
+    expect(loginBody.get("login")).toBe("Log in!")
+
+    const searchRequest = requests[1]
+    expect(searchRequest?.url).toBe(
+      "https://www.torrentbytes.net/browse.php?incldead=1&search=tt3334445&sc=2&c5=1&c46=1",
+    )
+    expect(new Headers(searchRequest?.init?.headers).get("cookie")).toBe("tb_session=abc")
+    expect(releases).toHaveLength(2)
+    expect(releases[0]).toMatchObject({
+      title: "TorrentBytes Movie 2026 1080p WEB-DL",
+      downloadUrl: "https://www.torrentbytes.net/download.php/333/TorrentBytes.Movie.2026.torrent",
+      infoUrl: "https://www.torrentbytes.net/details.php?id=333",
+      category: "2040",
+      size: 4_200_000_000,
+      seeders: 31,
+      leechers: 4,
+      indexerId: 97,
+      indexerName: "TorrentBytes",
+      indexerPriority: 33,
+      downloadFactor: 0,
+      uploadFactor: 1,
+    })
+    expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-10T13:45:56.000Z")
+    expect(releases[1]).toMatchObject({
+      title: "TorrentBytes Fallback 2026 720p",
+      category: "2040",
+      downloadFactor: 1,
+      uploadFactor: 1,
+    })
   })
 
   it("parses RetroFlix SpeedApp JSON results with bearer auth", async () => {

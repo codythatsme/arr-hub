@@ -2082,6 +2082,237 @@ search:
         tr: "1"
 `
 
+const TORRENT_BYTES = `
+id: torrentbytes
+name: TorrentBytes
+description: Private general tracker exposed through a first-pass POST-login HTML Cardigann definition.
+type: private
+links:
+  - https://www.torrentbytes.net/
+version: builtin-cardigann-1
+rss: false
+tags:
+  - private
+  - general
+  - movies
+  - tv
+  - html
+settings:
+  - name: username
+    label: Username
+    type: text
+    required: true
+    helpText: TorrentBytes username.
+  - name: password
+    label: Password
+    type: password
+    required: true
+    helpText: TorrentBytes password.
+caps:
+  categorymappings:
+    - id: "23"
+      cat: TV/Anime
+      desc: Anime
+      newznab: 5070
+    - id: "52"
+      cat: PC/Mac
+      desc: Apple/All
+      newznab: 4030
+    - id: "22"
+      cat: PC
+      desc: Apps/misc
+      newznab: 4000
+    - id: "1"
+      cat: PC
+      desc: Apps/PC
+      newznab: 4000
+    - id: "28"
+      cat: TV/Foreign
+      desc: Foreign Titles
+      newznab: 5020
+    - id: "50"
+      cat: Console
+      desc: Games/Consoles
+      newznab: 1000
+    - id: "42"
+      cat: PC/Games
+      desc: Games/Pack
+      newznab: 4050
+    - id: "4"
+      cat: PC/Games
+      desc: Games/PC
+      newznab: 4050
+    - id: "51"
+      cat: PC
+      desc: Linux/All
+      newznab: 4000
+    - id: "31"
+      cat: Other/Misc
+      desc: Misc
+      newznab: 8010
+    - id: "20"
+      cat: Movies/DVD
+      desc: Movies/DVD-R
+      newznab: 2070
+    - id: "12"
+      cat: Movies/BluRay
+      desc: Movies/Full Blu-ray
+      newznab: 2050
+    - id: "5"
+      cat: Movies/HD
+      desc: Movies/HD
+      newznab: 2040
+    - id: "40"
+      cat: Movies
+      desc: Movies/Pack
+      newznab: 2000
+    - id: "19"
+      cat: Movies/SD
+      desc: Movies/SD
+      newznab: 2030
+    - id: "49"
+      cat: Movies/UHD
+      desc: Movies/UHD
+      newznab: 2045
+    - id: "25"
+      cat: Audio
+      desc: Music/DVDR
+      newznab: 3000
+    - id: "48"
+      cat: Audio/Lossless
+      desc: Music/Flac
+      newznab: 3040
+    - id: "6"
+      cat: Audio/MP3
+      desc: Music/MP3
+      newznab: 3010
+    - id: "43"
+      cat: Audio
+      desc: Music/Pack
+      newznab: 3000
+    - id: "34"
+      cat: Audio/Video
+      desc: Music/Videos
+      newznab: 3020
+    - id: "45"
+      cat: Movies/BluRay
+      desc: NonScene/BRrip
+      newznab: 2050
+    - id: "46"
+      cat: Movies/HD
+      desc: NonScene/x264
+      newznab: 2040
+    - id: "44"
+      cat: Movies/SD
+      desc: NonScene/Xvid
+      newznab: 2030
+    - id: "37"
+      cat: TV/HD
+      desc: TV/BRrip
+      newznab: 5040
+    - id: "38"
+      cat: TV/HD
+      desc: TV/HD
+      newznab: 5040
+    - id: "41"
+      cat: TV
+      desc: TV/Pack
+      newznab: 5000
+    - id: "33"
+      cat: TV/SD
+      desc: TV/SD
+      newznab: 5030
+    - id: "32"
+      cat: TV/UHD
+      desc: TV/UHD
+      newznab: 5045
+    - id: "39"
+      cat: XXX/x264
+      desc: XXX/HD
+      newznab: 6040
+    - id: "24"
+      cat: XXX/ImageSet
+      desc: XXX/IMGSET
+      newznab: 6060
+    - id: "21"
+      cat: XXX/Pack
+      desc: XXX/Pack
+      newznab: 6050
+    - id: "9"
+      cat: XXX/XviD
+      desc: XXX/SD
+      newznab: 6030
+    - id: "29"
+      cat: XXX
+      desc: XXX/Web
+      newznab: 6000
+  modes:
+    search: [q]
+    movie-search: [q, imdbid]
+    tv-search: [q, season, ep, imdbid]
+    music-search: [q]
+login:
+  method: post
+  path: takelogin.php
+  inputs:
+    username: "{{ .Config.Username }}"
+    password: "{{ .Config.Password }}"
+    returnto: "/"
+    login: "Log in!"
+search:
+  paths:
+    - path: browse.php
+      response:
+        type: html
+      inputs:
+        incldead: "1"
+        search: "{{ if .Query.IMDBID }}{{ .Query.IMDBID }}{{ else }}{{ .Keywords }}{{ end }}"
+        sc: "{{ if .Query.IMDBID }}2{{ else }}1{{ end }}"
+        $raw: '{{ range .Categories }}c{{ . }}=1&{{ end }}'
+  rows:
+    selector: 'table > tbody:has(tr > td.colhead) > tr:not(:has(td.colhead))'
+  fields:
+    title:
+      selector: td:nth-of-type(2) a:nth-of-type(2)
+    title|optional:
+      selector: td:nth-of-type(2) a:nth-of-type(2)
+      attribute: title
+      optional: true
+    details:
+      selector: td:nth-of-type(2) a:nth-of-type(2)
+      attribute: href
+    download:
+      selector: td:nth-of-type(2) a:nth-of-type(1)
+      attribute: href
+    category:
+      selector: td:nth-of-type(1) a
+      attribute: href
+      filters:
+        - name: querystring
+          args: cat
+    files:
+      selector: td:nth-of-type(3)
+    date:
+      selector: td:nth-of-type(5)
+      filters:
+        - name: dateparse
+          args: "yyyy-MM-ddHH:mm:ss"
+    size:
+      selector: td:nth-of-type(7)
+    grabs:
+      selector: td:nth-of-type(8)
+    seeders:
+      selector: td:nth-of-type(9)
+    leechers:
+      selector: td:nth-of-type(10)
+    downloadvolumefactor:
+      case:
+        'font[color="green"]:contains("F"):contains("L")': "0"
+        tr: "1"
+    uploadvolumefactor:
+      text: "1"
+`
+
 const MORE_THAN_TV = `
 id: morethantv
 name: MoreThanTV
@@ -2290,6 +2521,7 @@ const BUILT_IN_CARDIGANN_SOURCES = [
   SPEED_APP,
   BEYOND_HD,
   BIT_HDTV,
+  TORRENT_BYTES,
   MORE_THAN_TV,
   HDACCESS,
   TORRENT_NETWORK,

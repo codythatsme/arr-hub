@@ -119,8 +119,8 @@ describe("IndexerService", () => {
       const second = yield* svc.refreshDefinitions()
 
       expect(first).toMatchObject({
-        total: 19,
-        created: 19,
+        total: 20,
+        created: 20,
         updated: 0,
         unchanged: 0,
       })
@@ -144,12 +144,13 @@ describe("IndexerService", () => {
         "created",
         "created",
         "created",
+        "created",
       ])
       expect(second).toMatchObject({
-        total: 19,
+        total: 20,
         created: 0,
         updated: 0,
-        unchanged: 19,
+        unchanged: 20,
       })
       expect(second.definitions.every((definition) => definition.previousVersion !== null)).toBe(
         true,
@@ -436,6 +437,7 @@ describe("IndexerService", () => {
         "speedapp",
         "subsplease",
         "torrent-network",
+        "torrentbytes",
         "torrentday",
         "torrents-csv",
       ])
@@ -563,6 +565,17 @@ describe("IndexerService", () => {
         privacy: "private",
         supportsRss: false,
         tags: ["private", "movies", "tv", "html"],
+      })
+      expect(
+        definitions.find((definition) => definition.definitionKey === "torrentbytes"),
+      ).toMatchObject({
+        displayName: "TorrentBytes",
+        protocol: "torrent",
+        implementation: "cardigann_yaml",
+        baseUrl: "https://www.torrentbytes.net/",
+        privacy: "private",
+        supportsRss: false,
+        tags: ["private", "general", "movies", "tv", "html"],
       })
       expect(
         definitions.find((definition) => definition.definitionKey === "open-tv-torrents"),
