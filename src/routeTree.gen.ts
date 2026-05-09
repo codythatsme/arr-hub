@@ -45,6 +45,7 @@ import { Route as ApiSystemHealthRouteImport } from './routes/api.system.health'
 import { Route as ApiQueueIdRetryRouteImport } from './routes/api.queue.$id.retry'
 import { Route as ApiQueueIdRemoveRouteImport } from './routes/api.queue.$id.remove'
 import { Route as ApiQueueIdBlocklistRouteImport } from './routes/api.queue.$id.blocklist'
+import { Route as ApiIndexersAggregateProtocolRouteImport } from './routes/api.indexers.aggregate.$protocol'
 
 const SystemRoute = SystemRouteImport.update({
   id: '/system',
@@ -226,6 +227,12 @@ const ApiQueueIdBlocklistRoute = ApiQueueIdBlocklistRouteImport.update({
   path: '/$id/blocklist',
   getParentRoute: () => ApiQueueRoute,
 } as any)
+const ApiIndexersAggregateProtocolRoute =
+  ApiIndexersAggregateProtocolRouteImport.update({
+    id: '/api/indexers/aggregate/$protocol',
+    path: '/api/indexers/aggregate/$protocol',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -261,6 +268,7 @@ export interface FileRoutesByFullPath {
   '/api/system/status': typeof ApiSystemStatusRoute
   '/api/system/tasks': typeof ApiSystemTasksRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
+  '/api/indexers/aggregate/$protocol': typeof ApiIndexersAggregateProtocolRoute
   '/api/queue/$id/blocklist': typeof ApiQueueIdBlocklistRoute
   '/api/queue/$id/remove': typeof ApiQueueIdRemoveRoute
   '/api/queue/$id/retry': typeof ApiQueueIdRetryRoute
@@ -299,6 +307,7 @@ export interface FileRoutesByTo {
   '/api/system/status': typeof ApiSystemStatusRoute
   '/api/system/tasks': typeof ApiSystemTasksRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
+  '/api/indexers/aggregate/$protocol': typeof ApiIndexersAggregateProtocolRoute
   '/api/queue/$id/blocklist': typeof ApiQueueIdBlocklistRoute
   '/api/queue/$id/remove': typeof ApiQueueIdRemoveRoute
   '/api/queue/$id/retry': typeof ApiQueueIdRetryRoute
@@ -338,6 +347,7 @@ export interface FileRoutesById {
   '/api/system/status': typeof ApiSystemStatusRoute
   '/api/system/tasks': typeof ApiSystemTasksRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
+  '/api/indexers/aggregate/$protocol': typeof ApiIndexersAggregateProtocolRoute
   '/api/queue/$id/blocklist': typeof ApiQueueIdBlocklistRoute
   '/api/queue/$id/remove': typeof ApiQueueIdRemoveRoute
   '/api/queue/$id/retry': typeof ApiQueueIdRetryRoute
@@ -378,6 +388,7 @@ export interface FileRouteTypes {
     | '/api/system/status'
     | '/api/system/tasks'
     | '/api/trpc/$'
+    | '/api/indexers/aggregate/$protocol'
     | '/api/queue/$id/blocklist'
     | '/api/queue/$id/remove'
     | '/api/queue/$id/retry'
@@ -416,6 +427,7 @@ export interface FileRouteTypes {
     | '/api/system/status'
     | '/api/system/tasks'
     | '/api/trpc/$'
+    | '/api/indexers/aggregate/$protocol'
     | '/api/queue/$id/blocklist'
     | '/api/queue/$id/remove'
     | '/api/queue/$id/retry'
@@ -454,6 +466,7 @@ export interface FileRouteTypes {
     | '/api/system/status'
     | '/api/system/tasks'
     | '/api/trpc/$'
+    | '/api/indexers/aggregate/$protocol'
     | '/api/queue/$id/blocklist'
     | '/api/queue/$id/remove'
     | '/api/queue/$id/retry'
@@ -493,6 +506,7 @@ export interface RootRouteChildren {
   ApiSystemStatusRoute: typeof ApiSystemStatusRoute
   ApiSystemTasksRoute: typeof ApiSystemTasksRoute
   ApiTrpcSplatRoute: typeof ApiTrpcSplatRoute
+  ApiIndexersAggregateProtocolRoute: typeof ApiIndexersAggregateProtocolRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -749,6 +763,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiQueueIdBlocklistRouteImport
       parentRoute: typeof ApiQueueRoute
     }
+    '/api/indexers/aggregate/$protocol': {
+      id: '/api/indexers/aggregate/$protocol'
+      path: '/api/indexers/aggregate/$protocol'
+      fullPath: '/api/indexers/aggregate/$protocol'
+      preLoaderRoute: typeof ApiIndexersAggregateProtocolRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -802,6 +823,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiSystemStatusRoute: ApiSystemStatusRoute,
   ApiSystemTasksRoute: ApiSystemTasksRoute,
   ApiTrpcSplatRoute: ApiTrpcSplatRoute,
+  ApiIndexersAggregateProtocolRoute: ApiIndexersAggregateProtocolRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
