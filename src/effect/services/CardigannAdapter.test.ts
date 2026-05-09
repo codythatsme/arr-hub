@@ -40,6 +40,22 @@ const HTML_RESULTS = `<!doctype html>
   </body>
 </html>`
 
+const HTML_NESTED_RESULTS = `<!doctype html>
+<html>
+  <body>
+    <table class="results">
+      <tbody>
+        <tr class="torrent">
+          <td class="noise"><a href="/wrong">Wrong Link</a></td>
+          <td class="name"><a href="/details/2">Nested Movie 2026 2160p WEB-DL</a></td>
+          <td class="stats"><span class="size">2 GB</span></td>
+          <td class="actions"><a class="download" href="/download/2">Download</a></td>
+        </tr>
+      </tbody>
+    </table>
+  </body>
+</html>`
+
 describe("CardigannAdapter", () => {
   afterEach(() => {
     vi.unstubAllGlobals()
@@ -249,6 +265,71 @@ search:
       protocol: "torrent",
     })
     expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-01T00:00:00.000Z")
+  })
+
+  it("resolves nested Cardigann HTML descendant selectors within their parent matches", async () => {
+    const fetchMock = vi.fn(async () => new Response(HTML_NESTED_RESULTS, { status: 200 }))
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 26,
+      name: "Nested HTML Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "nested-html-cardigann",
+      definitionYaml: `
+id: nested-html-cardigann
+name: Nested HTML Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+      newznab: 2000
+  modes:
+    search: [q]
+search:
+  paths:
+    - path: /browse
+      response:
+        type: html
+  rows:
+    selector: table.results tr.torrent
+  fields:
+    title:
+      selector: td.name a
+    details:
+      selector: td.name a
+      attribute: href
+    download:
+      selector: td.actions a.download
+      attribute: href
+    size:
+      selector: td.stats span.size
+    category:
+      text: Movies
+`,
+      baseUrl: "https://tracker.example",
+      apiKey: "",
+      priority: 35,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Nested Movie", type: "general", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "Nested Movie 2026 2160p WEB-DL",
+      downloadUrl: "https://tracker.example/download/2",
+      infoUrl: "https://tracker.example/details/2",
+      size: 2_000_000_000,
+      category: "2000",
+    })
   })
 
   it("builds Cardigann-style POST search requests from definition paths", async () => {

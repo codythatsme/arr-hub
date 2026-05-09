@@ -685,17 +685,36 @@ function applyCardigannFieldFilters(
   )
 }
 
-function simpleSelectorToken(selector: string): string {
-  const tokens = selector
-    .trim()
-    .split(/\s*>\s*|\s+/)
-    .map((token) => token.trim())
-    .filter((token) => token.length > 0)
-  return tokens.at(-1)?.replace(/:(?:first|last)-child\b/g, "") ?? ""
+function simpleSelectorTokens(selector: string): ReadonlyArray<string> {
+  const tokens: Array<string> = []
+  let current = ""
+  let bracketDepth = 0
+  let quote: string | null = null
+
+  for (const char of selector.trim()) {
+    if ((char === `"` || char === `'`) && bracketDepth > 0) {
+      quote = quote === char ? null : (quote ?? char)
+    } else if (quote === null && char === "[") {
+      bracketDepth += 1
+    } else if (quote === null && char === "]") {
+      bracketDepth = Math.max(0, bracketDepth - 1)
+    }
+
+    if (quote === null && bracketDepth === 0 && (char === ">" || /\s/.test(char))) {
+      const token = current.trim()
+      if (token.length > 0) tokens.push(token.replace(/:(?:first|last)-child\b/g, ""))
+      current = ""
+    } else {
+      current += char
+    }
+  }
+
+  const token = current.trim()
+  if (token.length > 0) tokens.push(token.replace(/:(?:first|last)-child\b/g, ""))
+  return tokens
 }
 
-function parseSimpleHtmlSelector(selector: string): SimpleHtmlSelector | null {
-  const token = simpleSelectorToken(selector)
+function parseSimpleHtmlSelectorToken(token: string): SimpleHtmlSelector | null {
   if (token.length === 0 || token.includes(":")) return null
 
   const tagMatch = token.match(/^[A-Za-z][\w:-]*/)
@@ -750,8 +769,11 @@ function htmlAttributeMatches(
   })
 }
 
-function findHtmlElements(html: string, selectorText: string): ReadonlyArray<HtmlElementMatch> {
-  const selector = parseSimpleHtmlSelector(selectorText)
+function findHtmlElementsForToken(
+  html: string,
+  selectorText: string,
+): ReadonlyArray<HtmlElementMatch> {
+  const selector = parseSimpleHtmlSelectorToken(selectorText)
   if (selector === null) return []
 
   const tagPattern = selector.tag ? escapeRegExp(selector.tag) : "[A-Za-z][\\w:-]*"
@@ -765,6 +787,18 @@ function findHtmlElements(html: string, selectorText: string): ReadonlyArray<Htm
     if (htmlAttributeMatches(attributes, selector)) {
       matches.push({ attributes, innerHtml: match[3] ?? "" })
     }
+  }
+  return matches
+}
+
+function findHtmlElements(html: string, selectorText: string): ReadonlyArray<HtmlElementMatch> {
+  const tokens = simpleSelectorTokens(selectorText)
+  if (tokens.length === 0) return []
+
+  let matches: ReadonlyArray<HtmlElementMatch> = [{ attributes: {}, innerHtml: html }]
+  for (const token of tokens) {
+    matches = matches.flatMap((match) => findHtmlElementsForToken(match.innerHtml, token))
+    if (matches.length === 0) return []
   }
   return matches
 }
