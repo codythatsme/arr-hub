@@ -1011,6 +1011,40 @@ function jsonSelectorFilterStart(text: string): number {
   return -1
 }
 
+function splitJsonSelectorList(selector: string): ReadonlyArray<string> {
+  const selectors: Array<string> = []
+  let current = ""
+  let bracketDepth = 0
+  let parenDepth = 0
+  let quote: string | null = null
+
+  for (const char of selector.trim()) {
+    if ((char === `"` || char === "'") && (bracketDepth > 0 || parenDepth > 0)) {
+      quote = quote === char ? null : (quote ?? char)
+    } else if (quote === null && char === "[") {
+      bracketDepth += 1
+    } else if (quote === null && char === "]") {
+      bracketDepth = Math.max(0, bracketDepth - 1)
+    } else if (quote === null && char === "(") {
+      parenDepth += 1
+    } else if (quote === null && char === ")") {
+      parenDepth = Math.max(0, parenDepth - 1)
+    }
+
+    if (quote === null && bracketDepth === 0 && parenDepth === 0 && char === ",") {
+      const selected = current.trim()
+      if (selected.length > 0) selectors.push(selected)
+      current = ""
+    } else {
+      current += char
+    }
+  }
+
+  const selected = current.trim()
+  if (selected.length > 0) selectors.push(selected)
+  return selectors
+}
+
 function parseJsonSelectorFilters(suffix: string): ReadonlyArray<JsonSelectorFilter> | null {
   const filters: Array<JsonSelectorFilter> = []
   let index = 0
@@ -1244,6 +1278,18 @@ function selectJsonSelectorValues(
   value: unknown,
   selectorText: string,
 ): ReadonlyArray<unknown> | null {
+  const selectorList = splitJsonSelectorList(selectorText)
+  if (selectorList.length === 0) return []
+  if (selectorList.length > 1) {
+    const selected: Array<unknown> = []
+    for (const selectorItem of selectorList) {
+      const values = selectJsonSelectorValues(value, selectorItem)
+      if (values === null) return null
+      selected.push(...values)
+    }
+    return selected
+  }
+
   const selector = parseJsonSelector(selectorText)
   if (selector === null) return null
 
@@ -2374,26 +2420,32 @@ function parseJsonRows(
   variables: Record<string, TemplateValue>,
 ): ReadonlyArray<JsonRowMatch> {
   const selectorText = renderTemplate(rows.selector, variables)
-  const selector = parseJsonSelector(selectorText)
-  if (selector === null) throw new Error(`Invalid Cardigann JSON rows selector: ${rows.selector}`)
+  const selectorList = splitJsonSelectorList(selectorText)
+  if (selectorList.length === 0)
+    throw new Error(`Invalid Cardigann JSON rows selector: ${rows.selector}`)
 
-  const tokens = parseJsonPath(selector.path)
-  if (tokens === null) throw new Error(`Invalid Cardigann JSON rows selector: ${rows.selector}`)
+  const filteredRows = selectorList.flatMap((selectorItem): ReadonlyArray<unknown> => {
+    const selector = parseJsonSelector(selectorItem)
+    if (selector === null) throw new Error(`Invalid Cardigann JSON rows selector: ${rows.selector}`)
 
-  const selected = selectJsonPathValues(json, tokens)
-  if (selected.length === 0) {
+    const tokens = parseJsonPath(selector.path)
+    if (tokens === null) throw new Error(`Invalid Cardigann JSON rows selector: ${rows.selector}`)
+
+    const selected = selectJsonPathValues(json, tokens)
+    const selectedRows =
+      selected.length === 1 && Array.isArray(selected[0])
+        ? (selected[0] as ReadonlyArray<unknown>)
+        : selected
+    return selector.filters.length === 0
+      ? selectedRows
+      : applyJsonSelectorFilters(selectedRows, selector.filters)
+  })
+
+  if (filteredRows.length === 0) {
     if (rows.missingAttributeEqualsNoResults === true) return []
     throw new Error(`Cardigann JSON rows selector returned no results: ${rows.selector}`)
   }
 
-  const selectedRows =
-    selected.length === 1 && Array.isArray(selected[0])
-      ? (selected[0] as ReadonlyArray<unknown>)
-      : selected
-  const filteredRows =
-    selector.filters.length === 0
-      ? selectedRows
-      : applyJsonSelectorFilters(selectedRows, selector.filters)
   const attributeRows: ReadonlyArray<JsonRowMatch> =
     rows.attribute === undefined
       ? filteredRows.map((row) => ({ value: row, parent: row }))

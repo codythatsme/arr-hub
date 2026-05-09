@@ -148,6 +148,30 @@ const JSON_SELECTOR_POSITION_RESULTS = JSON.stringify({
   },
 })
 
+const JSON_SELECTOR_LIST_RESULTS = JSON.stringify({
+  data: {
+    fallback: [
+      {
+        titles: {
+          fallback: "JSON List Movie 2026 1080p WEB-DL",
+        },
+        links: {
+          altDownload: "/download/json-list",
+          altDetails: "/details/json-list",
+        },
+        category: {
+          alt: "Movies",
+        },
+        stats: {
+          size: "2.5 GB",
+          seeders: 61,
+        },
+        published: "2026-05-10T00:00:00.000Z",
+      },
+    ],
+  },
+})
+
 const HTML_RESULTS = `<!doctype html>
 <html>
   <body>
@@ -784,6 +808,76 @@ search:
       category: "2000",
       size: 2_000_000_000,
       seeders: 44,
+    })
+  })
+
+  it("resolves Cardigann JSON selector lists for row and field fallbacks", async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON_SELECTOR_LIST_RESULTS, { status: 200 }))
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 74,
+      name: "JSON Selector List Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "json-selector-list-cardigann",
+      definitionYaml: `
+id: json-selector-list-cardigann
+name: JSON Selector List Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+      newznab: 2000
+  modes:
+    search: [q]
+search:
+  paths:
+    - path: /api/search
+      response:
+        type: json
+  rows:
+    selector: $.data.results, $.data.fallback
+  fields:
+    title:
+      selector: titles.primary, titles.fallback
+    details:
+      selector: links.details, links.altDetails
+    download:
+      selector: links.download, links.altDownload
+    category:
+      selector: category.name, category.alt
+      case:
+        Movies: movies
+    size:
+      selector: stats.size
+    seeders:
+      selector: stats.seeders
+    date:
+      selector: published
+`,
+      baseUrl: "https://tracker.example",
+      apiKey: "",
+      priority: 35,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "JSON List Movie", type: "general", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "JSON List Movie 2026 1080p WEB-DL",
+      downloadUrl: "https://tracker.example/download/json-list",
+      infoUrl: "https://tracker.example/details/json-list",
+      category: "2000",
+      size: 2_500_000_000,
+      seeders: 61,
     })
   })
 
