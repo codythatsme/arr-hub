@@ -7,7 +7,7 @@ ARR Hub is a unified, self-hosted media automation app inspired by the arr ecosy
 - Adapter-driven integrations (download clients, indexers, media servers)
 - Shared release policy engine + scheduler pipelines
 - Operator UI for onboarding, settings, profiles, movies, TV, manual search, scheduler, and queue actions
-- Prowlarr replacement foundation; current indexer support consumes Torznab/Newznab upstreams and exposes first-pass aggregate feeds
+- Prowlarr replacement foundation; current indexer support consumes Torznab/Newznab upstreams, seeds generic/Cardigann-style definitions, and exposes first-pass aggregate feeds
 
 See [development-plan.md](./development-plan.md) for detailed replacement-readiness status.
 
@@ -89,16 +89,17 @@ users to keep Prowlarr installed upstream.
 
 Current foundation:
 
-- Generic first-party Torznab/Newznab definition records are seeded at startup.
+- Generic first-party Torznab/Newznab and small curated Cardigann-style YAML definition records are seeded at startup.
 - Indexer records can carry definition keys, tags, search/RSS enable flags, and optional proxy links.
 - HTTP/SOCKS/FlareSolverr proxy configuration and indexer search statistics are persisted.
 - External clients can query aggregate XML feeds with an ARR Hub API key:
   - `/api/indexers/aggregate/torznab?t=caps&apikey=...`
   - `/api/indexers/aggregate/newznab?t=search&q=example&apikey=...`
 
-This is not yet a Prowlarr-scale catalogue. Cardigann/YAML definitions, real
-proxy execution, per-indexer rate limiting/backoff, definition updates, app sync,
-and broad tracker coverage remain planned work.
+This is not yet a Prowlarr-scale catalogue. The Cardigann/YAML loader currently
+supports curated fixtures only; broad tracker coverage, actual Cardigann request
+execution, real proxy execution, per-indexer rate limiting/backoff, definition
+updates, and app sync remain planned work.
 
 ## Current Limitations
 
@@ -106,8 +107,9 @@ ARR Hub is not yet a full Sonarr/Radarr/Prowlarr replacement. TV metadata,
 completed-download imports, release decisions, and operator workflows have
 working first-pass implementations, but they still lack the full depth of the
 mature Arr apps. Prowlarr replacement is underway, but ARR Hub still does not
-ship a broad tracker catalogue, Cardigann/YAML runtime, working HTTP/SOCKS/
-FlareSolverr request proxying, app sync, or definition update pipeline.
+ship a broad tracker catalogue, full Cardigann request runtime, working
+HTTP/SOCKS/FlareSolverr request proxying, app sync, or definition update
+pipeline.
 
 ## API Compatibility
 
