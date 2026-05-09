@@ -274,6 +274,8 @@ export const indexers = sqliteTable("indexers", {
   searchEnabled: integer("search_enabled", { mode: "boolean" }).notNull().default(true),
   rssEnabled: integer("rss_enabled", { mode: "boolean" }).notNull().default(true),
   priority: integer().notNull().default(50),
+  minimumSeeders: integer("minimum_seeders"),
+  queryCooldownSeconds: integer("query_cooldown_seconds"),
   categories: text({ mode: "json" })
     .$type<ReadonlyArray<number>>()
     .notNull()

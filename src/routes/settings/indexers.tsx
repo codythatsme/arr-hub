@@ -14,6 +14,8 @@ interface IndexerFormState {
   readonly baseUrl: string
   readonly apiKey: string
   readonly priority: string
+  readonly minimumSeeders: string
+  readonly queryCooldownSeconds: string
   readonly categories: string
   readonly enabled: boolean
 }
@@ -25,6 +27,8 @@ const emptyForm: IndexerFormState = {
   baseUrl: "",
   apiKey: "",
   priority: "50",
+  minimumSeeders: "",
+  queryCooldownSeconds: "",
   categories: "",
   enabled: true,
 }
@@ -86,6 +90,8 @@ function Indexers() {
     setMessage(null)
     const categories = parseCategories(form.categories)
     const priority = Number(form.priority)
+    const minimumSeeders = parseOptionalNumber(form.minimumSeeders)
+    const queryCooldownSeconds = parseOptionalNumber(form.queryCooldownSeconds)
 
     if (form.id === null) {
       add.mutate({
@@ -94,6 +100,8 @@ function Indexers() {
         baseUrl: form.baseUrl.trim(),
         apiKey: form.apiKey.trim(),
         priority,
+        minimumSeeders,
+        queryCooldownSeconds,
         categories,
         enabled: form.enabled,
       })
@@ -107,6 +115,8 @@ function Indexers() {
         type: form.type,
         baseUrl: form.baseUrl.trim(),
         priority,
+        minimumSeeders,
+        queryCooldownSeconds,
         categories,
         enabled: form.enabled,
         ...(form.apiKey.trim().length > 0 ? { apiKey: form.apiKey.trim() } : {}),
@@ -148,6 +158,12 @@ function Indexers() {
                     {indexer.categories.length > 0
                       ? `${indexer.categories.join(", ")} categories`
                       : "all categories"}
+                    {indexer.minimumSeeders !== null
+                      ? ` · min ${indexer.minimumSeeders} seeders`
+                      : ""}
+                    {indexer.queryCooldownSeconds !== null
+                      ? ` · ${indexer.queryCooldownSeconds}s cooldown`
+                      : ""}
                   </p>
                   {indexer.health?.errorMessage && (
                     <p className="text-destructive mt-2 text-xs">{indexer.health.errorMessage}</p>
@@ -175,6 +191,12 @@ function Indexers() {
                         baseUrl: indexer.baseUrl,
                         apiKey: "",
                         priority: String(indexer.priority),
+                        minimumSeeders:
+                          indexer.minimumSeeders === null ? "" : String(indexer.minimumSeeders),
+                        queryCooldownSeconds:
+                          indexer.queryCooldownSeconds === null
+                            ? ""
+                            : String(indexer.queryCooldownSeconds),
                         categories: indexer.categories.join(", "),
                         enabled: indexer.enabled,
                       })
@@ -304,6 +326,31 @@ function Indexers() {
                   required
                 />
               </Field>
+              <Field label="Minimum seeders">
+                <input
+                  className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                  value={form.minimumSeeders}
+                  onChange={(event) => setForm({ ...form, minimumSeeders: event.target.value })}
+                  type="number"
+                  min={0}
+                  placeholder="No filter"
+                />
+              </Field>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Query cooldown">
+                <input
+                  className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                  value={form.queryCooldownSeconds}
+                  onChange={(event) =>
+                    setForm({ ...form, queryCooldownSeconds: event.target.value })
+                  }
+                  type="number"
+                  min={0}
+                  placeholder="Seconds"
+                />
+              </Field>
               <label className="mt-7 flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"
@@ -365,4 +412,11 @@ function parseCategories(value: string) {
     .split(",")
     .map((item) => Number(item.trim()))
     .filter((item) => Number.isInteger(item) && item > 0)
+}
+
+function parseOptionalNumber(value: string): number | null {
+  const trimmed = value.trim()
+  if (trimmed.length === 0) return null
+  const parsed = Number(trimmed)
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : null
 }

@@ -44,6 +44,8 @@ const MockIndexerService = Layer.succeed(IndexerService, {
         searchEnabled: true,
         rssEnabled: true,
         priority: 50,
+        minimumSeeders: null,
+        queryCooldownSeconds: null,
         categories: [],
         tags: [],
         capabilities: null,

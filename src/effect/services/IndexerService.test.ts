@@ -33,6 +33,8 @@ describe("IndexerService", () => {
       expect(indexer.baseUrl).toBe("https://example.com")
       expect(indexer.enabled).toBe(true)
       expect(indexer.priority).toBe(50)
+      expect(indexer.minimumSeeders).toBeNull()
+      expect(indexer.queryCooldownSeconds).toBeNull()
       expect(indexer.categories).toEqual([])
       expect(indexer.health).toBeNull()
     }).pipe(Effect.provide(TestLayer)),
@@ -49,15 +51,19 @@ describe("IndexerService", () => {
     }).pipe(Effect.provide(TestLayer)),
   )
 
-  it.effect("add respects custom priority + categories", () =>
+  it.effect("add respects custom priority, categories, and policies", () =>
     Effect.gen(function* () {
       const svc = yield* IndexerService
       const indexer = yield* svc.add({
         ...VALID_INPUT,
         priority: 10,
+        minimumSeeders: 5,
+        queryCooldownSeconds: 30,
         categories: [2000, 5000],
       })
       expect(indexer.priority).toBe(10)
+      expect(indexer.minimumSeeders).toBe(5)
+      expect(indexer.queryCooldownSeconds).toBe(30)
       expect(indexer.categories).toEqual([2000, 5000])
     }).pipe(Effect.provide(TestLayer)),
   )
@@ -162,10 +168,14 @@ describe("IndexerService", () => {
         name: "Renamed",
         enabled: false,
         priority: 5,
+        minimumSeeders: 12,
+        queryCooldownSeconds: 45,
       })
       expect(updated.name).toBe("Renamed")
       expect(updated.enabled).toBe(false)
       expect(updated.priority).toBe(5)
+      expect(updated.minimumSeeders).toBe(12)
+      expect(updated.queryCooldownSeconds).toBe(45)
     }).pipe(Effect.provide(TestLayer)),
   )
 
@@ -427,6 +437,129 @@ describe("IndexerService", () => {
         totalSearches: 1,
         successfulSearches: 0,
         failedSearches: 1,
+      })
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("filters torrent releases below the indexer minimum seeder policy", () =>
+    Effect.gen(function* () {
+      const registry = yield* AdapterRegistry
+      registry.registerIndexer(
+        "mock-seeder-policy",
+        { displayName: "Mock Seeder Policy", protocolAffinity: "torrent", authModel: "none" },
+        (config) => ({
+          testConnection: () => Effect.succeed({ searchTypes: ["search"], categories: [] }),
+          search: () =>
+            Effect.succeed([
+              {
+                title: "Low Seeder Movie",
+                indexerId: config.id,
+                indexerName: config.name,
+                indexerPriority: config.priority,
+                size: 1_000,
+                seeders: 2,
+                leechers: 0,
+                age: 1,
+                downloadUrl: "https://example.com/low",
+                infoUrl: null,
+                category: "2000",
+                protocol: "torrent",
+                publishedAt: new Date("2025-01-01T00:00:00Z"),
+                infohash: "low",
+                downloadFactor: 1,
+                uploadFactor: 1,
+              },
+              {
+                title: "Healthy Seeder Movie",
+                indexerId: config.id,
+                indexerName: config.name,
+                indexerPriority: config.priority,
+                size: 1_000,
+                seeders: 9,
+                leechers: 0,
+                age: 1,
+                downloadUrl: "https://example.com/high",
+                infoUrl: null,
+                category: "2000",
+                protocol: "torrent",
+                publishedAt: new Date("2025-01-01T00:00:00Z"),
+                infohash: "high",
+                downloadFactor: 1,
+                uploadFactor: 1,
+              },
+            ]),
+        }),
+      )
+
+      const svc = yield* IndexerService
+      yield* svc.add({
+        ...VALID_INPUT,
+        type: "mock-seeder-policy",
+        apiKey: "unused",
+        minimumSeeders: 5,
+      })
+
+      const result = yield* svc.search({ term: "example", type: "movie" })
+      expect(result.errors).toHaveLength(0)
+      expect(result.releases.map((release) => release.title)).toEqual(["Healthy Seeder Movie"])
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("skips indexers while their query cooldown policy is active", () =>
+    Effect.gen(function* () {
+      const registry = yield* AdapterRegistry
+      let calls = 0
+      registry.registerIndexer(
+        "mock-query-cooldown",
+        { displayName: "Mock Query Cooldown", protocolAffinity: "torrent", authModel: "none" },
+        (config) => ({
+          testConnection: () => Effect.succeed({ searchTypes: ["search"], categories: [] }),
+          search: () => {
+            calls += 1
+            return Effect.succeed([
+              {
+                title: "Cooldown Movie",
+                indexerId: config.id,
+                indexerName: config.name,
+                indexerPriority: config.priority,
+                size: 1_000,
+                seeders: 10,
+                leechers: 0,
+                age: 1,
+                downloadUrl: "https://example.com/cooldown",
+                infoUrl: null,
+                category: "2000",
+                protocol: "torrent",
+                publishedAt: new Date("2025-01-01T00:00:00Z"),
+                infohash: "cooldown",
+                downloadFactor: 1,
+                uploadFactor: 1,
+              },
+            ])
+          },
+        }),
+      )
+
+      const svc = yield* IndexerService
+      const indexer = yield* svc.add({
+        ...VALID_INPUT,
+        type: "mock-query-cooldown",
+        apiKey: "unused",
+        queryCooldownSeconds: 60,
+      })
+
+      const first = yield* svc.search({ term: "example", type: "movie" })
+      const second = yield* svc.search({ term: "example", type: "movie" })
+
+      expect(first.releases).toHaveLength(1)
+      expect(second.releases).toHaveLength(0)
+      expect(second.errors).toHaveLength(0)
+      expect(calls).toBe(1)
+
+      const stats = yield* svc.listStats()
+      expect(stats.find((item) => item.indexerId === indexer.id)).toMatchObject({
+        totalSearches: 1,
+        successfulSearches: 1,
       })
     }).pipe(Effect.provide(TestLayer)),
   )

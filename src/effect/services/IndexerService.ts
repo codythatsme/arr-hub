@@ -50,6 +50,8 @@ interface IndexerInput {
   readonly searchEnabled?: boolean
   readonly rssEnabled?: boolean
   readonly priority?: number
+  readonly minimumSeeders?: number | null
+  readonly queryCooldownSeconds?: number | null
   readonly categories?: ReadonlyArray<number>
   readonly tags?: ReadonlyArray<string>
 }
@@ -65,6 +67,8 @@ interface IndexerUpdate {
   readonly searchEnabled?: boolean
   readonly rssEnabled?: boolean
   readonly priority?: number
+  readonly minimumSeeders?: number | null
+  readonly queryCooldownSeconds?: number | null
   readonly categories?: ReadonlyArray<number>
   readonly tags?: ReadonlyArray<string>
 }
@@ -243,6 +247,8 @@ function toWithHealth(
     searchEnabled: row.searchEnabled,
     rssEnabled: row.rssEnabled,
     priority: row.priority,
+    minimumSeeders: row.minimumSeeders,
+    queryCooldownSeconds: row.queryCooldownSeconds,
     categories: row.categories,
     tags: row.tags,
     capabilities: row.capabilities ?? null,
@@ -332,6 +338,24 @@ function isBackoffActive(health: typeof indexerHealth.$inferSelect | null): bool
   const backoffMs = reason ? INDEXER_BACKOFF_MS[reason] : 60_000
   if (backoffMs <= 0) return false
   return Date.now() - health.lastCheck.getTime() < backoffMs
+}
+
+function isQueryCooldownActive(
+  indexer: typeof indexers.$inferSelect,
+  stats: typeof indexerStats.$inferSelect | null,
+): boolean {
+  if (!indexer.queryCooldownSeconds || indexer.queryCooldownSeconds <= 0) return false
+  if (!stats?.lastSearchAt) return false
+  return Date.now() - stats.lastSearchAt.getTime() < indexer.queryCooldownSeconds * 1000
+}
+
+function releasePassesIndexerPolicy(
+  indexer: typeof indexers.$inferSelect,
+  release: ReleaseCandidate,
+): boolean {
+  if (release.protocol !== "torrent") return true
+  if (indexer.minimumSeeders === null || indexer.minimumSeeders <= 0) return true
+  return (release.seeders ?? -1) >= indexer.minimumSeeders
 }
 
 function sameJson(left: unknown, right: unknown): boolean {
@@ -679,6 +703,8 @@ export const IndexerServiceLive = Layer.effect(
               searchEnabled: input.searchEnabled ?? true,
               rssEnabled: input.rssEnabled ?? true,
               priority: input.priority ?? 50,
+              minimumSeeders: input.minimumSeeders ?? null,
+              queryCooldownSeconds: input.queryCooldownSeconds ?? null,
               categories: input.categories ?? [],
               tags: input.tags ?? [],
             })
@@ -728,6 +754,10 @@ export const IndexerServiceLive = Layer.effect(
           if (data.searchEnabled !== undefined) updateData.searchEnabled = data.searchEnabled
           if (data.rssEnabled !== undefined) updateData.rssEnabled = data.rssEnabled
           if (data.priority !== undefined) updateData.priority = data.priority
+          if (data.minimumSeeders !== undefined) updateData.minimumSeeders = data.minimumSeeders
+          if (data.queryCooldownSeconds !== undefined) {
+            updateData.queryCooldownSeconds = data.queryCooldownSeconds
+          }
           if (data.categories !== undefined) updateData.categories = data.categories
           if (data.tags !== undefined) updateData.tags = data.tags
           if (data.apiKey !== undefined) {
@@ -832,9 +862,10 @@ export const IndexerServiceLive = Layer.effect(
       search: (query) =>
         Effect.gen(function* () {
           const rows = yield* db
-            .select({ indexer: indexers, health: indexerHealth })
+            .select({ indexer: indexers, health: indexerHealth, stats: indexerStats })
             .from(indexers)
             .leftJoin(indexerHealth, eq(indexers.id, indexerHealth.indexerId))
+            .leftJoin(indexerStats, eq(indexers.id, indexerStats.indexerId))
             .where(and(eq(indexers.enabled, true), eq(indexers.searchEnabled, true)))
             .orderBy(indexers.priority)
 
@@ -844,7 +875,10 @@ export const IndexerServiceLive = Layer.effect(
           })
 
           const results = yield* Effect.forEach(
-            eligibleRows.filter((row) => !isBackoffActive(row.health)),
+            eligibleRows.filter(
+              (row) =>
+                !isBackoffActive(row.health) && !isQueryCooldownActive(row.indexer, row.stats),
+            ),
             (row) =>
               Effect.gen(function* () {
                 const indexer = row.indexer
@@ -868,7 +902,8 @@ export const IndexerServiceLive = Layer.effect(
                     proxy,
                   }
                   const adapter = factory(config)
-                  return yield* adapter.search(query)
+                  const releases = yield* adapter.search(query)
+                  return releases.filter((release) => releasePassesIndexerPolicy(indexer, release))
                 }).pipe(
                   Effect.tap(() =>
                     Effect.all([

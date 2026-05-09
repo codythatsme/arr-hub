@@ -184,6 +184,8 @@ export interface IndexerWithHealth {
   readonly searchEnabled: boolean
   readonly rssEnabled: boolean
   readonly priority: number
+  readonly minimumSeeders: number | null
+  readonly queryCooldownSeconds: number | null
   readonly categories: ReadonlyArray<number>
   readonly tags: ReadonlyArray<string>
   readonly capabilities: IndexerCapabilities | null

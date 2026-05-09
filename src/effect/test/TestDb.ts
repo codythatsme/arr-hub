@@ -233,6 +233,8 @@ const runDdl = Effect.gen(function* () {
     search_enabled INTEGER NOT NULL DEFAULT 1,
     rss_enabled INTEGER NOT NULL DEFAULT 1,
     priority INTEGER NOT NULL DEFAULT 50,
+    minimum_seeders INTEGER,
+    query_cooldown_seconds INTEGER,
     categories TEXT NOT NULL DEFAULT '[]',
     tags TEXT NOT NULL DEFAULT '[]',
     capabilities TEXT DEFAULT 'null',
