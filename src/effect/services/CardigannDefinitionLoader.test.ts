@@ -564,11 +564,13 @@ search:
 `)
 
     expect(runtime.login).toEqual({
+      method: "get",
       inputs: {
         username: "{{ .Config.Username }}",
         password: "{{ .Config.Password }}",
       },
       headers: { "X-Login": "1" },
+      cookies: [],
       paths: [
         {
           path: "/login",
@@ -577,6 +579,40 @@ search:
           headers: { "X-Requested-With": "XMLHttpRequest" },
         },
       ],
+    })
+  })
+
+  it("parses Cardigann cookie-login runtime metadata", () => {
+    const runtime = parseCardigannRuntimeDefinitionYaml(`
+id: cookie-login-cardigann
+name: Cookie Login Cardigann
+links:
+  - https://tracker.example
+settings:
+  - name: cookie
+    label: Cookie
+    type: cookie
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+login:
+  method: cookie
+  cookies:
+    - "landing={{ .Config.Cookie }}"
+  inputs:
+    cookie: "{{ .Config.Cookie }}"
+search:
+  paths:
+    - path: /api
+`)
+
+    expect(runtime.login).toEqual({
+      method: "cookie",
+      inputs: { cookie: "{{ .Config.Cookie }}" },
+      headers: {},
+      cookies: ["landing={{ .Config.Cookie }}"],
+      paths: [],
     })
   })
 

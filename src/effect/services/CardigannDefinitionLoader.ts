@@ -63,8 +63,10 @@ export interface CardigannSearchRuntime {
 }
 
 export interface CardigannLoginRuntime {
+  readonly method: "get" | "post" | "cookie"
   readonly inputs: Readonly<Record<string, string>>
   readonly headers: Readonly<Record<string, string>>
+  readonly cookies: ReadonlyArray<string>
   readonly paths: ReadonlyArray<CardigannLoginPath>
 }
 
@@ -479,10 +481,13 @@ function parseSearchRuntime(
 function parseLoginRuntime(value: unknown): CardigannLoginRuntime | null {
   if (value === undefined) return null
   const login = expectRecord(value, "login")
+  const method = parseLoginMethod(optionalString(login, "method") ?? "get")
   return {
+    method,
     inputs: parseInputMap(login.inputs),
     headers: parseHeaderMap(login.headers),
-    paths: parseLoginPaths(login.paths ?? login.path, login),
+    cookies: parseScalarStringArray(login.cookies, "login cookies"),
+    paths: method === "cookie" ? [] : parseLoginPaths(login.paths ?? login.path, login),
   }
 }
 
@@ -788,6 +793,12 @@ function parseStringArray(value: unknown): ReadonlyArray<string> {
   })
 }
 
+function parseScalarStringArray(value: unknown, label: string): ReadonlyArray<string> {
+  if (value === undefined) return []
+  const values = Array.isArray(value) ? value : [value]
+  return values.map((item, index) => inputScalarToString(item, `${label} ${index}`).trim())
+}
+
 function parseOptionalStringArray(value: unknown): ReadonlyArray<string> {
   if (value === undefined) return []
   if (!Array.isArray(value)) throw new Error("categories must be a list")
@@ -809,6 +820,12 @@ function parseMethod(value: string): "get" | "post" {
   const method = value.toLowerCase()
   if (method === "get" || method === "post") return method
   throw new Error(`unsupported Cardigann search method: ${value}`)
+}
+
+function parseLoginMethod(value: string): "get" | "post" | "cookie" {
+  const method = value.toLowerCase()
+  if (method === "get" || method === "post" || method === "cookie") return method
+  throw new Error(`unsupported Cardigann login method: ${value}`)
 }
 
 function parseResponseType(value: string): CardigannResponseType {

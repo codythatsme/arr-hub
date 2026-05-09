@@ -1094,6 +1094,13 @@ function cookiePairsFromHeaders(headers: Headers): ReadonlyArray<string> {
     .filter((cookie) => cookie.length > 0 && cookie.includes("="))
 }
 
+function cookiePairsFromCookieHeader(value: string): ReadonlyArray<string> {
+  return value
+    .split(";")
+    .map((cookie) => cookie.trim())
+    .filter((cookie) => cookie.length > 0 && cookie.includes("="))
+}
+
 function addCookiePair(jar: Map<string, string>, cookie: string): void {
   const separator = cookie.indexOf("=")
   if (separator <= 0) return
@@ -1103,6 +1110,12 @@ function addCookiePair(jar: Map<string, string>, cookie: string): void {
 
 function cookieJarValues(jar: ReadonlyMap<string, string>): ReadonlyArray<string> {
   return Array.from(jar.values())
+}
+
+function addCookieHeaderValue(jar: Map<string, string>, value: string): void {
+  for (const cookie of cookiePairsFromCookieHeader(value)) {
+    addCookiePair(jar, cookie)
+  }
 }
 
 function withCookieHeader(init: RequestInit, cookies: ReadonlyArray<string>): RequestInit {
@@ -1124,6 +1137,7 @@ function resolveLoginRequests(
   baseUrl: string,
 ): ReadonlyArray<CardigannLoginRequest> {
   if (definition.login === null) return []
+  if (definition.login.method === "cookie") return []
 
   const variables = configTemplateVariables(config, baseUrl, definition.authFields)
   const requests: Array<CardigannLoginRequest> = []
@@ -1159,11 +1173,25 @@ function executeLoginRequests(
   definition: CardigannRuntimeDefinition,
   baseUrl: string,
 ): Effect.Effect<ReadonlyArray<string>, IndexerError> {
-  const requests = resolveLoginRequests(config, definition, baseUrl)
-  if (requests.length === 0) return Effect.succeed([])
-
   return Effect.gen(function* () {
+    if (definition.login === null) return []
+
     const cookieJar = new Map<string, string>()
+    const variables = configTemplateVariables(config, baseUrl, definition.authFields)
+
+    for (const cookieTemplate of definition.login.cookies) {
+      addCookieHeaderValue(cookieJar, renderTemplate(cookieTemplate, variables))
+    }
+
+    if (definition.login.method === "cookie") {
+      addCookieHeaderValue(
+        cookieJar,
+        renderTemplate(definition.login.inputs.cookie ?? "", variables),
+      )
+      return cookieJarValues(cookieJar)
+    }
+
+    const requests = resolveLoginRequests(config, definition, baseUrl)
     for (const request of requests) {
       const response = yield* fetchIndexerResponseText(
         request.url,

@@ -695,6 +695,8 @@ settings:
   - name: password
     label: Password
     type: password
+  - name: landing
+    label: Landing cookie
 caps:
   categorymappings:
     - id: movies
@@ -705,6 +707,8 @@ caps:
 login:
   path: /login
   method: post
+  cookies:
+    - "landing={{ .Config.Landing }}"
   inputs:
     username: "{{ .Config.Username }}"
     password: "{{ .Config.Password }}"
@@ -721,6 +725,7 @@ search:
       configValues: {
         username: "alice",
         password: "secret",
+        landing: "preseed",
       },
       priority: 15,
       categories: [],
@@ -736,14 +741,84 @@ search:
     const search = requests[1]
     expect(new URL(login?.url ?? "").pathname).toBe("/login")
     expect(login?.init?.method).toBe("POST")
+    const loginHeaders = new Headers(login?.init?.headers)
+    expect(loginHeaders.get("cookie")).toBe("landing=preseed")
     const loginBody = new URLSearchParams(String(login?.init?.body))
     expect(loginBody.get("username")).toBe("alice")
     expect(loginBody.get("password")).toBe("secret")
 
     expect(new URL(search?.url ?? "").pathname).toBe("/api")
     const searchHeaders = new Headers(search?.init?.headers)
-    expect(searchHeaders.get("cookie")).toBe("session=abc123")
+    expect(searchHeaders.get("cookie")).toBe("landing=preseed; session=abc123")
     expect(new URL(search?.url ?? "").searchParams.get("q")).toBe("Session Movie")
+    expect(releases[0]?.title).toBe("Example Movie 2026 1080p WEB-DL")
+  })
+
+  it("renders Cardigann cookie-login values into search requests", async () => {
+    const requests: Array<{ url: string; init: RequestInit | undefined }> = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      requests.push({ url: String(input), init })
+      return new Response(RSS_XML, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 26,
+      name: "Cookie Login Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "cookie-login-cardigann",
+      definitionYaml: `
+id: cookie-login-cardigann
+name: Cookie Login Cardigann
+links:
+  - https://tracker.example
+settings:
+  - name: cookie
+    label: Cookie
+    type: cookie
+  - name: landing
+    label: Landing cookie
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+  modes:
+    movie-search: [q]
+login:
+  method: cookie
+  cookies:
+    - "landing={{ .Config.Landing }}"
+  inputs:
+    cookie: "{{ .Config.Cookie }}"
+search:
+  paths:
+    - path: /api
+      response:
+        type: torznab
+      inputs:
+        q: "{{ .Keywords }}"
+`,
+      baseUrl: "https://tracker.example/root",
+      apiKey: "",
+      configValues: {
+        cookie: "session=abc123; user=alice",
+        landing: "preseed",
+      },
+      priority: 15,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Cookie Movie", type: "movie", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(new URL(requests[0]?.url ?? "").pathname).toBe("/api")
+    const headers = new Headers(requests[0]?.init?.headers)
+    expect(headers.get("cookie")).toBe("landing=preseed; session=abc123; user=alice")
+    expect(new URL(requests[0]?.url ?? "").searchParams.get("q")).toBe("Cookie Movie")
     expect(releases[0]?.title).toBe("Example Movie 2026 1080p WEB-DL")
   })
 
