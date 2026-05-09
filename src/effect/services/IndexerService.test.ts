@@ -3,6 +3,7 @@ import { Effect, Layer } from "effect"
 
 import { TestDbLive } from "#/effect/test/TestDb"
 
+import type { IndexerConfig } from "../domain/indexer"
 import { IndexerError } from "../errors"
 import { AdapterRegistry, AdapterRegistryLive } from "./AdapterRegistry"
 import { CryptoServiceLive } from "./CryptoService"
@@ -217,6 +218,57 @@ describe("IndexerService", () => {
       const proxies = yield* svc.listProxies()
       expect(proxies).toHaveLength(1)
       expect(proxies[0].name).toBe("FlareSolverr")
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("passes enabled proxy configuration into indexer adapters", () =>
+    Effect.gen(function* () {
+      const registry = yield* AdapterRegistry
+      let capturedProxy: IndexerConfig["proxy"] = undefined
+      registry.registerIndexer(
+        "mock-proxy-aware",
+        { displayName: "Mock Proxy Aware", protocolAffinity: "torrent", authModel: "none" },
+        (config) => {
+          capturedProxy = config.proxy
+          return {
+            testConnection: () =>
+              Effect.succeed({
+                searchTypes: ["search"],
+                categories: [{ id: 2000, name: "Movies" }],
+              }),
+            search: () => Effect.succeed([]),
+          }
+        },
+      )
+
+      const svc = yield* IndexerService
+      const proxy = yield* svc.addProxy({
+        name: "HTTP Proxy",
+        type: "http",
+        host: "proxy.local",
+        port: 8080,
+        username: "proxy-user",
+        password: "proxy-secret",
+        settings: { tags: ["private-trackers"] },
+      })
+      const indexer = yield* svc.add({
+        ...VALID_INPUT,
+        type: "mock-proxy-aware",
+        proxyId: proxy.id,
+        apiKey: "unused",
+      })
+
+      yield* svc.testConnection(indexer.id)
+
+      expect(capturedProxy).toEqual({
+        type: "http",
+        host: "proxy.local",
+        port: 8080,
+        username: "proxy-user",
+        password: "proxy-secret",
+        settings: { tags: ["private-trackers"] },
+      })
+      expect(JSON.stringify(yield* svc.listProxies())).not.toContain("proxy-secret")
     }).pipe(Effect.provide(TestLayer)),
   )
 

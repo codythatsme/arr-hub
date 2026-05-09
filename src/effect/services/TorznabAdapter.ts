@@ -1,10 +1,16 @@
+import http from "node:http"
+import https from "node:https"
+
 import { Effect } from "effect"
 import { XMLParser } from "fast-xml-parser"
+import { SocksProxyAgent } from "socks-proxy-agent"
+import { ProxyAgent, type Dispatcher } from "undici"
 
 import type {
   IndexerAdapterMetadata,
   IndexerCapabilities,
   IndexerConfig,
+  IndexerOutboundProxy,
   ReleaseCandidate,
 } from "../domain/indexer"
 import { IndexerError, type IndexerErrorReason } from "../errors"
@@ -43,6 +49,11 @@ const xmlParser = new XMLParser({
   isArray: (name) => name === "item" || name === "category" || name === "attr",
 })
 
+type IndexerFetchInit = RequestInit & {
+  readonly dispatcher?: Dispatcher
+  readonly proxy?: string
+}
+
 // ── Helpers ──
 
 function buildUrl(
@@ -58,19 +69,146 @@ function buildUrl(
   return url
 }
 
+function buildProxyUrl(proxy: IndexerOutboundProxy): string {
+  const scheme = proxy.type === "socks4" ? "socks4" : proxy.type === "socks5" ? "socks5" : "http"
+  const url = new URL(proxy.host.includes("://") ? proxy.host : `${scheme}://${proxy.host}`)
+  if (proxy.port !== null) url.port = String(proxy.port)
+  if (proxy.username !== null && proxy.username.length > 0) url.username = proxy.username
+  if (proxy.password !== null && proxy.password.length > 0) url.password = proxy.password
+  return url.toString()
+}
+
+function buildFetchInit(
+  signal: AbortSignal,
+  proxy: IndexerOutboundProxy | null | undefined,
+): { readonly init: IndexerFetchInit; readonly dispatcher: Dispatcher | null } {
+  if (!proxy || proxy.type === "flaresolverr") return { init: { signal }, dispatcher: null }
+
+  const proxyUrl = buildProxyUrl(proxy)
+  const dispatcher = proxy.type === "http" ? new ProxyAgent(proxyUrl) : null
+  return {
+    init: {
+      signal,
+      proxy: proxyUrl,
+      ...(dispatcher ? { dispatcher } : {}),
+    },
+    dispatcher,
+  }
+}
+
+function flaresolverrEndpoint(proxy: IndexerOutboundProxy): string {
+  const base = proxy.host.replace(/\/+$/, "")
+  return base.endsWith("/v1") ? base : `${base}/v1`
+}
+
+function parseFlaresolverrResponse(payload: unknown): string {
+  const root = payload as Record<string, unknown>
+  if (root.status !== "ok") {
+    throw new Error(String(root.message ?? "FlareSolverr request failed"))
+  }
+
+  const solution = root.solution as Record<string, unknown> | undefined
+  const status = Number(solution?.status ?? 200)
+  if (status >= 400) {
+    throw Object.assign(new Error(`HTTP ${status}`), { status })
+  }
+
+  const response = solution?.response
+  if (typeof response !== "string") throw new Error("FlareSolverr response did not include XML")
+  return response
+}
+
+async function fetchTextViaSocksProxy(
+  url: URL,
+  proxy: IndexerOutboundProxy,
+  signal: AbortSignal,
+): Promise<{ readonly status: number; readonly text: string }> {
+  const agent = new SocksProxyAgent(buildProxyUrl(proxy))
+  const client = url.protocol === "https:" ? https : http
+
+  try {
+    return await new Promise((resolve, reject) => {
+      const req = client.request(
+        url,
+        {
+          method: "GET",
+          agent,
+          headers: { accept: "application/xml,text/xml,*/*" },
+        },
+        (res) => {
+          const chunks: Array<Buffer> = []
+          res.on("data", (chunk: Buffer | string) => {
+            chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
+          })
+          res.on("end", () => {
+            resolve({
+              status: res.statusCode ?? 0,
+              text: Buffer.concat(chunks).toString("utf8"),
+            })
+          })
+        },
+      )
+
+      const abort = () => {
+        const error = new Error("The operation was aborted")
+        error.name = "AbortError"
+        req.destroy(error)
+      }
+      signal.addEventListener("abort", abort, { once: true })
+      req.on("error", reject)
+      req.on("close", () => signal.removeEventListener("abort", abort))
+      req.end()
+    })
+  } finally {
+    agent.destroy()
+  }
+}
+
 function fetchXml(url: URL, config: IndexerConfig): Effect.Effect<unknown, IndexerError> {
   return Effect.tryPromise({
     try: async () => {
       const controller = new AbortController()
       const timeout = setTimeout(() => controller.abort(), 15_000)
+      const proxy = config.proxy ?? null
+      let dispatcher: Dispatcher | null = null
       try {
-        const res = await fetch(url.toString(), { signal: controller.signal })
+        if (proxy?.type === "flaresolverr") {
+          const res = await fetch(flaresolverrEndpoint(proxy), {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              cmd: "request.get",
+              url: url.toString(),
+              maxTimeout: proxy.settings.flaresolverrTimeoutMs ?? 60_000,
+            }),
+            signal: controller.signal,
+          })
+          if (!res.ok) {
+            throw Object.assign(new Error(`HTTP ${res.status}`), { status: res.status })
+          }
+          const text = parseFlaresolverrResponse(await res.json())
+          return xmlParser.parse(text)
+        }
+
+        if (proxy?.type === "socks4" || proxy?.type === "socks5") {
+          const res = await fetchTextViaSocksProxy(url, proxy, controller.signal)
+          if (res.status < 200 || res.status >= 300) {
+            throw Object.assign(new Error(`HTTP ${res.status}`), { status: res.status })
+          }
+          return xmlParser.parse(res.text)
+        }
+
+        const built = buildFetchInit(controller.signal, proxy)
+        dispatcher = built.dispatcher
+        const { init } = built
+        const res = await fetch(url.toString(), init)
         if (!res.ok) {
           throw Object.assign(new Error(`HTTP ${res.status}`), { status: res.status })
         }
         const text = await res.text()
         return xmlParser.parse(text)
       } finally {
+        await dispatcher?.close().catch(() => undefined)
         clearTimeout(timeout)
       }
     },

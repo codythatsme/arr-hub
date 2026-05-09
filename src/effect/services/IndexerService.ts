@@ -16,6 +16,7 @@ import type {
   IndexerConfig,
   IndexerDefinition,
   IndexerDefinitionSeed,
+  IndexerOutboundProxy,
   IndexerProtocol,
   IndexerProxy,
   IndexerProxySettings,
@@ -377,6 +378,31 @@ export const IndexerServiceLive = Layer.effect(
         }
       })
 
+    const resolveOutboundProxy = (
+      proxyId: number | null,
+    ): Effect.Effect<IndexerOutboundProxy | null, EncryptionError | SqlError> =>
+      Effect.gen(function* () {
+        if (proxyId === null) return null
+
+        const rows = yield* db.select().from(indexerProxies).where(eq(indexerProxies.id, proxyId))
+        const proxy = rows[0]
+        if (!proxy || !proxy.enabled) return null
+
+        const password =
+          proxy.passwordEncrypted && proxy.passwordEncrypted.length > 0
+            ? yield* crypto.decrypt(proxy.passwordEncrypted)
+            : null
+
+        return {
+          type: proxy.type,
+          host: proxy.host,
+          port: proxy.port,
+          username: proxy.username,
+          password,
+          settings: proxy.settings,
+        }
+      })
+
     const recordIndexerActivity = (
       indexerId: number,
       kind: "search" | "rss",
@@ -549,6 +575,7 @@ export const IndexerServiceLive = Layer.effect(
           if (!indexer) return yield* new NotFoundError({ entity: "indexer", id })
 
           const apiKey = yield* crypto.decrypt(indexer.apiKeyEncrypted)
+          const proxy = yield* resolveOutboundProxy(indexer.proxyId)
           const factory = yield* registry.getIndexerFactory(indexer.type)
           const config: IndexerConfig = {
             id: indexer.id,
@@ -559,6 +586,7 @@ export const IndexerServiceLive = Layer.effect(
             priority: indexer.priority,
             categories: indexer.categories,
             protocol: lookupProtocol(indexer.type),
+            proxy,
           }
 
           const adapter = factory(config)
@@ -631,6 +659,7 @@ export const IndexerServiceLive = Layer.effect(
                 const start = Date.now()
                 return yield* Effect.gen(function* () {
                   const apiKey = yield* crypto.decrypt(indexer.apiKeyEncrypted)
+                  const proxy = yield* resolveOutboundProxy(indexer.proxyId)
                   const factory = yield* registry.getIndexerFactory(indexer.type)
                   const config: IndexerConfig = {
                     id: indexer.id,
@@ -641,6 +670,7 @@ export const IndexerServiceLive = Layer.effect(
                     priority: indexer.priority,
                     categories: indexer.categories,
                     protocol: lookupProtocol(indexer.type),
+                    proxy,
                   }
                   const adapter = factory(config)
                   return yield* adapter.search(query)

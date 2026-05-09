@@ -94,6 +94,15 @@ export interface IndexerProxy {
   readonly updatedAt: Date
 }
 
+export interface IndexerOutboundProxy {
+  readonly type: IndexerProxyType
+  readonly host: string
+  readonly port: number | null
+  readonly username: string | null
+  readonly password: string | null
+  readonly settings: IndexerProxySettings
+}
+
 export interface IndexerStats {
   readonly indexerId: number
   readonly indexerName: string
@@ -138,6 +147,7 @@ export interface IndexerConfig {
   readonly priority: number
   readonly categories: ReadonlyArray<number>
   readonly protocol: IndexerProtocol
+  readonly proxy?: IndexerOutboundProxy | null
 }
 
 /** Public-facing indexer shape — never exposes raw or encrypted API keys. */
