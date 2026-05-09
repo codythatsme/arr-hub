@@ -17,6 +17,23 @@ function Quickstart() {
   const [password, setPassword] = useState("")
   const [moviesRootFolder, setMoviesRootFolder] = useState("")
   const [tvRootFolder, setTvRootFolder] = useState("")
+  const [includeIndexer, setIncludeIndexer] = useState(false)
+  const [indexerName, setIndexerName] = useState("Indexer")
+  const [indexerType, setIndexerType] = useState("torznab")
+  const [indexerBaseUrl, setIndexerBaseUrl] = useState("")
+  const [indexerApiKey, setIndexerApiKey] = useState("")
+  const [includeDownloadClient, setIncludeDownloadClient] = useState(false)
+  const [downloadClientName, setDownloadClientName] = useState("qBittorrent")
+  const [downloadClientType, setDownloadClientType] = useState("qbittorrent")
+  const [downloadClientHost, setDownloadClientHost] = useState("localhost")
+  const [downloadClientPort, setDownloadClientPort] = useState("8080")
+  const [downloadClientUsername, setDownloadClientUsername] = useState("")
+  const [downloadClientPassword, setDownloadClientPassword] = useState("")
+  const [includeMediaServer, setIncludeMediaServer] = useState(false)
+  const [mediaServerName, setMediaServerName] = useState("Plex")
+  const [mediaServerHost, setMediaServerHost] = useState("localhost")
+  const [mediaServerPort, setMediaServerPort] = useState("32400")
+  const [mediaServerToken, setMediaServerToken] = useState("")
   const [error, setError] = useState<string | null>(null)
 
   const mutation = useMutation(
@@ -38,6 +55,33 @@ function Quickstart() {
       password,
       moviesRootFolder: moviesRootFolder.trim() || undefined,
       tvRootFolder: tvRootFolder.trim() || undefined,
+      indexer: includeIndexer
+        ? {
+            name: indexerName,
+            type: indexerType,
+            baseUrl: indexerBaseUrl,
+            apiKey: indexerApiKey,
+          }
+        : undefined,
+      downloadClient: includeDownloadClient
+        ? {
+            name: downloadClientName,
+            type: downloadClientType,
+            host: downloadClientHost,
+            port: Number(downloadClientPort),
+            username: downloadClientUsername,
+            password: downloadClientPassword,
+          }
+        : undefined,
+      mediaServer: includeMediaServer
+        ? {
+            name: mediaServerName,
+            type: "plex",
+            host: mediaServerHost,
+            port: Number(mediaServerPort),
+            token: mediaServerToken,
+          }
+        : undefined,
     })
   }
 
@@ -48,7 +92,7 @@ function Quickstart() {
           <h1 className="text-2xl font-bold">Quickstart</h1>
           <p className="text-muted-foreground text-sm">
             Create your admin account. We&apos;ll apply recommended quality profiles automatically.
-            You can add indexers, download clients, and Plex later from Settings.
+            Add core integrations here to test them before setup is activated.
           </p>
         </header>
 
@@ -88,6 +132,141 @@ function Quickstart() {
           />
         </Field>
 
+        <fieldset className="space-y-3 rounded-md border p-3">
+          <Toggle
+            checked={includeIndexer}
+            onChange={setIncludeIndexer}
+            label="Validate an indexer"
+          />
+          {includeIndexer && (
+            <div className="grid gap-3">
+              <Field label="Name">
+                <Input value={indexerName} onChange={(e) => setIndexerName(e.target.value)} />
+              </Field>
+              <Field label="Type">
+                <select
+                  value={indexerType}
+                  onChange={(e) => setIndexerType(e.target.value)}
+                  className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
+                >
+                  <option value="torznab">Torznab</option>
+                  <option value="newznab">Newznab</option>
+                </select>
+              </Field>
+              <Field label="Base URL">
+                <Input
+                  value={indexerBaseUrl}
+                  onChange={(e) => setIndexerBaseUrl(e.target.value)}
+                  placeholder="http://localhost:9696"
+                />
+              </Field>
+              <Field label="API key">
+                <Input
+                  value={indexerApiKey}
+                  onChange={(e) => setIndexerApiKey(e.target.value)}
+                  autoComplete="off"
+                />
+              </Field>
+            </div>
+          )}
+        </fieldset>
+
+        <fieldset className="space-y-3 rounded-md border p-3">
+          <Toggle
+            checked={includeDownloadClient}
+            onChange={setIncludeDownloadClient}
+            label="Validate a download client"
+          />
+          {includeDownloadClient && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Name">
+                <Input
+                  value={downloadClientName}
+                  onChange={(e) => setDownloadClientName(e.target.value)}
+                />
+              </Field>
+              <Field label="Type">
+                <select
+                  value={downloadClientType}
+                  onChange={(e) => setDownloadClientType(e.target.value)}
+                  className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
+                >
+                  <option value="qbittorrent">qBittorrent</option>
+                  <option value="sabnzbd">SABnzbd</option>
+                </select>
+              </Field>
+              <Field label="Host">
+                <Input
+                  value={downloadClientHost}
+                  onChange={(e) => setDownloadClientHost(e.target.value)}
+                />
+              </Field>
+              <Field label="Port">
+                <Input
+                  type="number"
+                  min={1}
+                  max={65535}
+                  value={downloadClientPort}
+                  onChange={(e) => setDownloadClientPort(e.target.value)}
+                />
+              </Field>
+              <Field label="Username">
+                <Input
+                  value={downloadClientUsername}
+                  onChange={(e) => setDownloadClientUsername(e.target.value)}
+                />
+              </Field>
+              <Field label="Password / API key">
+                <Input
+                  value={downloadClientPassword}
+                  onChange={(e) => setDownloadClientPassword(e.target.value)}
+                  autoComplete="off"
+                />
+              </Field>
+            </div>
+          )}
+        </fieldset>
+
+        <fieldset className="space-y-3 rounded-md border p-3">
+          <Toggle
+            checked={includeMediaServer}
+            onChange={setIncludeMediaServer}
+            label="Validate Plex"
+          />
+          {includeMediaServer && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Name">
+                <Input
+                  value={mediaServerName}
+                  onChange={(e) => setMediaServerName(e.target.value)}
+                />
+              </Field>
+              <Field label="Host">
+                <Input
+                  value={mediaServerHost}
+                  onChange={(e) => setMediaServerHost(e.target.value)}
+                />
+              </Field>
+              <Field label="Port">
+                <Input
+                  type="number"
+                  min={1}
+                  max={65535}
+                  value={mediaServerPort}
+                  onChange={(e) => setMediaServerPort(e.target.value)}
+                />
+              </Field>
+              <Field label="Token">
+                <Input
+                  value={mediaServerToken}
+                  onChange={(e) => setMediaServerToken(e.target.value)}
+                  autoComplete="off"
+                />
+              </Field>
+            </div>
+          )}
+        </fieldset>
+
         {error && <p className="text-destructive text-sm">{error}</p>}
 
         <div className="flex items-center justify-between">
@@ -100,6 +279,28 @@ function Quickstart() {
         </div>
       </form>
     </div>
+  )
+}
+
+function Toggle({
+  checked,
+  onChange,
+  label,
+}: {
+  checked: boolean
+  onChange: (checked: boolean) => void
+  label: string
+}) {
+  return (
+    <label className="flex items-center gap-2 text-sm font-medium">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="size-4"
+      />
+      {label}
+    </label>
   )
 }
 

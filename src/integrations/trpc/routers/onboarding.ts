@@ -11,11 +11,6 @@ const adminInput = z.object({
   password: z.string().min(8),
 })
 
-const quickstartInput = adminInput.extend({
-  moviesRootFolder: z.string().optional(),
-  tvRootFolder: z.string().optional(),
-})
-
 const capabilitiesInput = z.object({
   movies: z.boolean(),
   tv: z.boolean(),
@@ -28,6 +23,43 @@ const profilesInput = z.object({
 const rootFoldersInput = z.object({
   movies: z.string().optional(),
   tv: z.string().optional(),
+})
+
+const indexerInput = z.object({
+  name: z.string().min(1),
+  type: z.string().min(1),
+  baseUrl: z.string().url(),
+  apiKey: z.string().min(1),
+  priority: z.number().int().min(1).max(100).optional(),
+  categories: z.array(z.number().int()).optional(),
+})
+
+const downloadClientInput = z.object({
+  name: z.string().min(1),
+  type: z.string().min(1),
+  host: z.string().min(1),
+  port: z.number().int().min(1).max(65535),
+  username: z.string(),
+  password: z.string(),
+  useSsl: z.boolean().optional(),
+  category: z.string().optional(),
+})
+
+const mediaServerInput = z.object({
+  name: z.string().min(1),
+  type: z.string().min(1),
+  host: z.string().min(1),
+  port: z.number().int().min(1).max(65535),
+  token: z.string().min(1),
+  useSsl: z.boolean().optional(),
+})
+
+const quickstartInput = adminInput.extend({
+  moviesRootFolder: z.string().optional(),
+  tvRootFolder: z.string().optional(),
+  indexer: indexerInput.optional(),
+  downloadClient: downloadClientInput.optional(),
+  mediaServer: mediaServerInput.optional(),
 })
 
 const skipInput = z.object({
@@ -104,6 +136,33 @@ export const onboardingRouter = {
       Effect.gen(function* () {
         const svc = yield* OnboardingService
         yield* svc.submitRootFolders(input)
+      }),
+    ),
+  ),
+
+  submitIndexer: publicProcedure.input(indexerInput).mutation(({ input }) =>
+    runEffect(
+      Effect.gen(function* () {
+        const svc = yield* OnboardingService
+        yield* svc.submitIndexer(input)
+      }),
+    ),
+  ),
+
+  submitDownloadClient: publicProcedure.input(downloadClientInput).mutation(({ input }) =>
+    runEffect(
+      Effect.gen(function* () {
+        const svc = yield* OnboardingService
+        yield* svc.submitDownloadClient(input)
+      }),
+    ),
+  ),
+
+  submitMediaServer: publicProcedure.input(mediaServerInput).mutation(({ input }) =>
+    runEffect(
+      Effect.gen(function* () {
+        const svc = yield* OnboardingService
+        yield* svc.submitMediaServer(input)
       }),
     ),
   ),

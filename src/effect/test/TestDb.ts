@@ -302,6 +302,29 @@ const runDdl = Effect.gen(function* () {
     episode_id INTEGER REFERENCES episodes(id) ON DELETE SET NULL
   )`
 
+  yield* sql`CREATE TABLE notification_channels (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    events TEXT NOT NULL DEFAULT '[]',
+    settings TEXT NOT NULL DEFAULT '{}',
+    created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+  )`
+
+  yield* sql`CREATE TABLE notification_deliveries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    channel_id INTEGER REFERENCES notification_channels(id) ON DELETE SET NULL,
+    event TEXT NOT NULL,
+    title TEXT NOT NULL,
+    message TEXT NOT NULL,
+    payload TEXT NOT NULL,
+    status TEXT NOT NULL,
+    error_message TEXT,
+    delivered_at INTEGER NOT NULL DEFAULT (unixepoch())
+  )`
+
   yield* sql`CREATE TABLE plugins (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE,
@@ -337,6 +360,27 @@ const runDdl = Effect.gen(function* () {
     max_retries INTEGER NOT NULL DEFAULT 3,
     backoff_multiplier REAL NOT NULL DEFAULT 2,
     enabled INTEGER NOT NULL DEFAULT 1
+  )`
+
+  yield* sql`CREATE TABLE setup_state (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    path TEXT,
+    current_step TEXT,
+    completed_steps TEXT NOT NULL DEFAULT '[]',
+    capabilities TEXT NOT NULL DEFAULT '{"movies":true,"tv":true}',
+    started_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    completed_at INTEGER
+  )`
+
+  yield* sql`CREATE TABLE setup_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    step_name TEXT NOT NULL,
+    action TEXT NOT NULL,
+    result TEXT NOT NULL,
+    message TEXT,
+    reversible INTEGER NOT NULL DEFAULT 0,
+    rolled_back INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch())
   )`
 
   yield* sql`CREATE TABLE scheduler_jobs (

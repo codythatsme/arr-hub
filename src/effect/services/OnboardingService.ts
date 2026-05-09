@@ -7,14 +7,21 @@ import { rootFolders, setupLog, setupState, users } from "#/db/schema"
 import {
   AuthError,
   ConflictError,
+  DownloadClientError,
+  IndexerError,
+  MediaServerError,
   NotFoundError,
   OnboardingError,
   ValidationError,
   type EncryptionError,
 } from "../errors"
+import { AdapterRegistry } from "./AdapterRegistry"
 import { AuthService } from "./AuthService"
 import { CryptoService } from "./CryptoService"
 import { Db } from "./Db"
+import { DownloadClientService } from "./DownloadClientService"
+import { IndexerService } from "./IndexerService"
+import { MediaServerService } from "./MediaServerService"
 import { ProfileDefaultsEngine } from "./ProfileDefaultsEngine"
 
 // ── Types ──
@@ -66,11 +73,43 @@ interface SessionResult {
   readonly expiresAt: Date
 }
 
+export interface OnboardingIndexerInput {
+  readonly name: string
+  readonly type: string
+  readonly baseUrl: string
+  readonly apiKey: string
+  readonly priority?: number
+  readonly categories?: ReadonlyArray<number>
+}
+
+export interface OnboardingDownloadClientInput {
+  readonly name: string
+  readonly type: string
+  readonly host: string
+  readonly port: number
+  readonly username: string
+  readonly password: string
+  readonly useSsl?: boolean
+  readonly category?: string
+}
+
+export interface OnboardingMediaServerInput {
+  readonly name: string
+  readonly type: string
+  readonly host: string
+  readonly port: number
+  readonly token: string
+  readonly useSsl?: boolean
+}
+
 export interface QuickstartInput {
   readonly username: string
   readonly password: string
   readonly moviesRootFolder?: string
   readonly tvRootFolder?: string
+  readonly indexer?: OnboardingIndexerInput
+  readonly downloadClient?: OnboardingDownloadClientInput
+  readonly mediaServer?: OnboardingMediaServerInput
 }
 
 export interface QuickstartResult {
@@ -90,7 +129,15 @@ export class OnboardingService extends Context.Tag("@arr-hub/OnboardingService")
       input: QuickstartInput,
     ) => Effect.Effect<
       QuickstartResult,
-      OnboardingError | ValidationError | ConflictError | NotFoundError | EncryptionError | SqlError
+      | OnboardingError
+      | ValidationError
+      | ConflictError
+      | NotFoundError
+      | EncryptionError
+      | IndexerError
+      | DownloadClientError
+      | MediaServerError
+      | SqlError
     >
 
     readonly submitAdmin: (input: {
@@ -114,6 +161,37 @@ export class OnboardingService extends Context.Tag("@arr-hub/OnboardingService")
       readonly tv?: string
     }) => Effect.Effect<void, OnboardingError | ValidationError | SqlError>
 
+    readonly submitIndexer: (
+      input: OnboardingIndexerInput,
+    ) => Effect.Effect<
+      void,
+      OnboardingError | ValidationError | IndexerError | NotFoundError | EncryptionError | SqlError
+    >
+
+    readonly submitDownloadClient: (
+      input: OnboardingDownloadClientInput,
+    ) => Effect.Effect<
+      void,
+      | OnboardingError
+      | ValidationError
+      | DownloadClientError
+      | NotFoundError
+      | EncryptionError
+      | SqlError
+    >
+
+    readonly submitMediaServer: (
+      input: OnboardingMediaServerInput,
+    ) => Effect.Effect<
+      void,
+      | OnboardingError
+      | ValidationError
+      | MediaServerError
+      | NotFoundError
+      | EncryptionError
+      | SqlError
+    >
+
     readonly skipStep: (step: WizardStep) => Effect.Effect<void, OnboardingError | SqlError>
 
     readonly goBack: () => Effect.Effect<void, OnboardingError | SqlError>
@@ -135,6 +213,10 @@ export const OnboardingServiceLive = Layer.effect(
     const crypto = yield* CryptoService
     const auth = yield* AuthService
     const profileDefaults = yield* ProfileDefaultsEngine
+    const indexers = yield* IndexerService
+    const downloadClients = yield* DownloadClientService
+    const mediaServers = yield* MediaServerService
+    const registry = yield* AdapterRegistry
 
     const loadState = () =>
       Effect.gen(function* () {
@@ -172,6 +254,23 @@ export const OnboardingServiceLive = Layer.effect(
       Effect.gen(function* () {
         const rows = yield* db.select({ id: users.id }).from(users).limit(1)
         return rows.length > 0
+      })
+
+    const assertCurrentStep = (step: WizardStep) =>
+      Effect.gen(function* () {
+        const state = yield* loadState()
+        if (!state) {
+          return yield* new OnboardingError({
+            reason: "not_started",
+            message: "wizard has not started",
+          })
+        }
+        if (state.currentStep !== step) {
+          return yield* new OnboardingError({
+            reason: "step_out_of_order",
+            message: `expected setup step ${state.currentStep ?? "complete"}, got ${step}`,
+          })
+        }
       })
 
     const recordLog = (
@@ -229,6 +328,56 @@ export const OnboardingServiceLive = Layer.effect(
         yield* db.insert(rootFolders).values({ path: trimmed })
       })
 
+    const validateQuickstartIndexer = (input: OnboardingIndexerInput) =>
+      Effect.gen(function* () {
+        const factory = yield* registry.getIndexerFactory(input.type)
+        const adapter = factory({
+          id: 0,
+          name: input.name,
+          type: input.type,
+          baseUrl: input.baseUrl,
+          apiKey: input.apiKey,
+          priority: input.priority ?? 25,
+          categories: input.categories ?? [],
+          protocol: input.type === "newznab" ? "usenet" : "torrent",
+        })
+        yield* adapter.testConnection()
+      })
+
+    const validateQuickstartDownloadClient = (input: OnboardingDownloadClientInput) =>
+      Effect.gen(function* () {
+        const factory = yield* registry.getDownloadClientFactory(input.type)
+        const adapter = factory({
+          id: 0,
+          name: input.name,
+          type: input.type,
+          host: input.host,
+          port: input.port,
+          username: input.username,
+          password: input.password,
+          useSsl: input.useSsl ?? false,
+          category: input.category ?? null,
+          settings: { pollIntervalMs: 30_000 },
+        })
+        yield* adapter.testConnection()
+      })
+
+    const validateQuickstartMediaServer = (input: OnboardingMediaServerInput) =>
+      Effect.gen(function* () {
+        const factory = yield* registry.getMediaServerFactory(input.type)
+        const adapter = factory({
+          id: 0,
+          name: input.name,
+          type: input.type,
+          host: input.host,
+          port: input.port,
+          token: input.token,
+          useSsl: input.useSsl ?? false,
+          settings: { syncIntervalMs: 3_600_000, monitoringEnabled: true },
+        })
+        yield* adapter.testConnection()
+      })
+
     // ── Public API ──
 
     const getStatus = () =>
@@ -280,6 +429,10 @@ export const OnboardingServiceLive = Layer.effect(
           return yield* new ValidationError({ message: "password must be at least 8 characters" })
         }
 
+        if (input.indexer) yield* validateQuickstartIndexer(input.indexer)
+        if (input.downloadClient) yield* validateQuickstartDownloadClient(input.downloadClient)
+        if (input.mediaServer) yield* validateQuickstartMediaServer(input.mediaServer)
+
         const passwordHash = yield* crypto.hashPassword(input.password)
         yield* db.insert(users).values({
           username: input.username,
@@ -301,6 +454,54 @@ export const OnboardingServiceLive = Layer.effect(
         if (input.tvRootFolder) {
           yield* addRootFolderIfMissing(input.tvRootFolder)
           yield* recordLog("root_folders", `add:${input.tvRootFolder}`, "success")
+        }
+
+        if (input.indexer) {
+          yield* indexers.add({
+            name: input.indexer.name,
+            type: input.indexer.type,
+            baseUrl: input.indexer.baseUrl,
+            apiKey: input.indexer.apiKey,
+            priority: input.indexer.priority,
+            categories: input.indexer.categories,
+          })
+          yield* recordLog("indexers", `add_and_test:${input.indexer.name}`, "success", {
+            reversible: true,
+          })
+        }
+
+        if (input.downloadClient) {
+          yield* downloadClients.add({
+            name: input.downloadClient.name,
+            type: input.downloadClient.type,
+            host: input.downloadClient.host,
+            port: input.downloadClient.port,
+            username: input.downloadClient.username,
+            password: input.downloadClient.password,
+            useSsl: input.downloadClient.useSsl,
+            category: input.downloadClient.category,
+          })
+          yield* recordLog(
+            "download_client",
+            `add_and_test:${input.downloadClient.name}`,
+            "success",
+            { reversible: true },
+          )
+        }
+
+        if (input.mediaServer) {
+          yield* mediaServers.add({
+            name: input.mediaServer.name,
+            type: input.mediaServer.type,
+            host: input.mediaServer.host,
+            port: input.mediaServer.port,
+            token: input.mediaServer.token,
+            useSsl: input.mediaServer.useSsl,
+            settings: { syncIntervalMs: 3_600_000, monitoringEnabled: true },
+          })
+          yield* recordLog("media_server", `add_and_test:${input.mediaServer.name}`, "success", {
+            reversible: true,
+          })
         }
 
         // Mark complete
@@ -354,6 +555,13 @@ export const OnboardingServiceLive = Layer.effect(
     const submitAdmin = (input: { readonly username: string; readonly password: string }) =>
       Effect.gen(function* () {
         yield* assertNotComplete()
+        const state = yield* loadState()
+        if (state && state.currentStep !== "admin") {
+          return yield* new OnboardingError({
+            reason: "step_out_of_order",
+            message: `expected setup step ${state.currentStep ?? "complete"}, got admin`,
+          })
+        }
 
         const adminExists = yield* hasAnyAdmin()
         if (adminExists) {
@@ -384,6 +592,7 @@ export const OnboardingServiceLive = Layer.effect(
     const submitCapabilities = (input: Capabilities) =>
       Effect.gen(function* () {
         yield* assertNotComplete()
+        yield* assertCurrentStep("capabilities")
         yield* ensureStateRow("wizard", "capabilities")
         yield* db
           .update(setupState)
@@ -396,6 +605,7 @@ export const OnboardingServiceLive = Layer.effect(
     const submitProfiles = (input: { readonly bundleId: string }) =>
       Effect.gen(function* () {
         yield* assertNotComplete()
+        yield* assertCurrentStep("profiles")
         // seedDefaults is idempotent — safe to call. (Ignores bundle override for v1; schema supports later.)
         yield* profileDefaults.seedDefaults()
         yield* markStepCompleted("profiles", nextStepAfter("profiles"))
@@ -405,6 +615,7 @@ export const OnboardingServiceLive = Layer.effect(
     const submitRootFolders = (input: { readonly movies?: string; readonly tv?: string }) =>
       Effect.gen(function* () {
         yield* assertNotComplete()
+        yield* assertCurrentStep("root_folders")
         if (input.movies) {
           yield* addRootFolderIfMissing(input.movies)
           yield* recordLog("root_folders", `add:${input.movies}`, "success", { reversible: true })
@@ -416,9 +627,97 @@ export const OnboardingServiceLive = Layer.effect(
         yield* markStepCompleted("root_folders", nextStepAfter("root_folders"))
       })
 
+    const submitIndexer = (input: OnboardingIndexerInput) =>
+      Effect.gen(function* () {
+        yield* assertNotComplete()
+        yield* assertCurrentStep("indexers")
+        const added = yield* indexers.add({
+          name: input.name,
+          type: input.type,
+          baseUrl: input.baseUrl,
+          apiKey: input.apiKey,
+          priority: input.priority,
+          categories: input.categories,
+        })
+        yield* indexers.testConnection(added.id).pipe(
+          Effect.tapError((error) =>
+            Effect.gen(function* () {
+              yield* indexers.remove(added.id).pipe(Effect.catchAll(() => Effect.void))
+              yield* recordLog("indexers", "test_connection", "failure", {
+                message: String(error),
+              })
+            }),
+          ),
+        )
+        yield* markStepCompleted("indexers", nextStepAfter("indexers"))
+        yield* recordLog("indexers", `add_and_test:${input.name}`, "success", {
+          reversible: true,
+        })
+      })
+
+    const submitDownloadClient = (input: OnboardingDownloadClientInput) =>
+      Effect.gen(function* () {
+        yield* assertNotComplete()
+        yield* assertCurrentStep("download_client")
+        const added = yield* downloadClients.add({
+          name: input.name,
+          type: input.type,
+          host: input.host,
+          port: input.port,
+          username: input.username,
+          password: input.password,
+          useSsl: input.useSsl,
+          category: input.category,
+        })
+        yield* downloadClients.testConnection(added.id).pipe(
+          Effect.tapError((error) =>
+            Effect.gen(function* () {
+              yield* downloadClients.remove(added.id).pipe(Effect.catchAll(() => Effect.void))
+              yield* recordLog("download_client", "test_connection", "failure", {
+                message: String(error),
+              })
+            }),
+          ),
+        )
+        yield* markStepCompleted("download_client", nextStepAfter("download_client"))
+        yield* recordLog("download_client", `add_and_test:${input.name}`, "success", {
+          reversible: true,
+        })
+      })
+
+    const submitMediaServer = (input: OnboardingMediaServerInput) =>
+      Effect.gen(function* () {
+        yield* assertNotComplete()
+        yield* assertCurrentStep("media_server")
+        const added = yield* mediaServers.add({
+          name: input.name,
+          type: input.type,
+          host: input.host,
+          port: input.port,
+          token: input.token,
+          useSsl: input.useSsl,
+          settings: { syncIntervalMs: 3_600_000, monitoringEnabled: true },
+        })
+        yield* mediaServers.testConnection(added.id).pipe(
+          Effect.tapError((error) =>
+            Effect.gen(function* () {
+              yield* mediaServers.remove(added.id).pipe(Effect.catchAll(() => Effect.void))
+              yield* recordLog("media_server", "test_connection", "failure", {
+                message: String(error),
+              })
+            }),
+          ),
+        )
+        yield* markStepCompleted("media_server", nextStepAfter("media_server"))
+        yield* recordLog("media_server", `add_and_test:${input.name}`, "success", {
+          reversible: true,
+        })
+      })
+
     const skipStep = (step: WizardStep) =>
       Effect.gen(function* () {
         yield* assertNotComplete()
+        yield* assertCurrentStep(step)
         yield* markStepCompleted(step, nextStepAfter(step))
         yield* recordLog(step, "skip", "skipped")
       })
@@ -471,6 +770,7 @@ export const OnboardingServiceLive = Layer.effect(
             message: "admin must be created before completing setup",
           })
         }
+        yield* assertCurrentStep("review")
         yield* db
           .update(setupState)
           .set({ completedAt: new Date(), currentStep: null })
@@ -485,6 +785,9 @@ export const OnboardingServiceLive = Layer.effect(
       submitCapabilities,
       submitProfiles,
       submitRootFolders,
+      submitIndexer,
+      submitDownloadClient,
+      submitMediaServer,
       skipStep,
       goBack,
       complete,

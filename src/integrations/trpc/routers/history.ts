@@ -46,6 +46,15 @@ export const historyRouter = {
     ),
   ),
 
+  getForSeries: authedProcedure.input(z.object({ seriesId: z.number().int() })).query(({ input }) =>
+    runEffect(
+      Effect.gen(function* () {
+        const svc = yield* SessionHistoryService
+        return yield* svc.getHistoryForSeries(input.seriesId)
+      }),
+    ),
+  ),
+
   countSince: authedProcedure.input(z.object({ since: z.date() })).query(({ input }) =>
     runEffect(
       Effect.gen(function* () {

@@ -27,6 +27,23 @@ bun run dev
 
 App runs at `http://localhost:3000`.
 
+## Docker Deployment
+
+ARR Hub ships a first-party container path for NAS and home-server deployments.
+
+```bash
+export ENCRYPTION_KEY="$(openssl rand -base64 32)"
+export INITIAL_ADMIN_PASSWORD="change-me-before-first-login"
+docker compose up -d --build
+```
+
+The compose file publishes `http://localhost:3000`, stores SQLite data in the
+`arr-hub-data` volume, runs Drizzle migrations before the server starts, and
+checks `/api/system/health` for container health.
+
+Native modules such as `better-sqlite3` are installed and built inside the Linux
+container image. Do not bind-mount host `node_modules` into the container.
+
 ## Environment
 
 ### Required in production
@@ -69,12 +86,71 @@ bun run test
 bun run typecheck
 bun run lint
 bun run fmt:check
+bun run test:live-adapters
+bun run test:live-adapters:docker
 ```
+
+`test:live-adapters` is an opt-in interop check against real services. Tests
+are skipped unless their matching environment variables are set:
+
+- qBittorrent: `ARR_HUB_LIVE_QBIT_HOST`, optional `ARR_HUB_LIVE_QBIT_PORT`,
+  `ARR_HUB_LIVE_QBIT_USERNAME`, `ARR_HUB_LIVE_QBIT_PASSWORD`,
+  `ARR_HUB_LIVE_QBIT_SSL`, `ARR_HUB_LIVE_QBIT_CATEGORY`
+- SABnzbd: `ARR_HUB_LIVE_SAB_HOST`, `ARR_HUB_LIVE_SAB_API_KEY`, optional
+  `ARR_HUB_LIVE_SAB_PORT`, `ARR_HUB_LIVE_SAB_SSL`,
+  `ARR_HUB_LIVE_SAB_CATEGORY`
+- Torznab/Newznab: `ARR_HUB_LIVE_TORZNAB_URL`,
+  `ARR_HUB_LIVE_TORZNAB_API_KEY`, optional
+  `ARR_HUB_LIVE_TORZNAB_PROTOCOL`, `ARR_HUB_LIVE_TORZNAB_PRIORITY`. For
+  Prowlarr aggregate caps, use the `/0` Torznab base URL, for example
+  `http://localhost:9696/0`.
+- Plex: `ARR_HUB_LIVE_PLEX_HOST`, `ARR_HUB_LIVE_PLEX_TOKEN`, optional
+  `ARR_HUB_LIVE_PLEX_PORT`, `ARR_HUB_LIVE_PLEX_SSL`. Plex live validation
+  requires a claimed Plex Media Server and a real server token; a fresh
+  unclaimed container returns `401 Unauthorized` for the root server endpoint.
+
+The default unit suite uses deterministic protocol fixtures; run the live suite
+before claiming interoperability with a specific service version or deployment.
+`test:live-adapters:docker` starts temporary qBittorrent, SABnzbd, and Prowlarr
+containers, runs the matching live adapter checks, and stops/removes the
+temporary resources. Plex is still opt-in through the `ARR_HUB_LIVE_PLEX_*`
+variables because a claimed server token is required.
 
 ## Database
 
 - Drizzle schema: `src/db/schema.ts`
 - Migration config: `drizzle.config.ts`
+- Container database path: `/data/arr-hub.db`
+
+## Upgrades
+
+For source installs, pull the new version, reinstall dependencies if the lockfile
+changed, run migrations, then restart:
+
+```bash
+bun install --frozen-lockfile
+bun run db:migrate
+bun run build
+```
+
+For Docker installs:
+
+```bash
+docker compose pull
+docker compose up -d --build
+```
+
+Setup state is stored in SQLite, so upgrading does not require repeating
+onboarding. Keep the data volume and `ENCRYPTION_KEY` stable across upgrades or
+encrypted integration credentials cannot be decrypted.
+
+## Unsupported Boundaries
+
+ARR Hub V1 is intentionally local-first and single-admin. It does not provide
+multi-user RBAC, cloud sync, hosted remote access, mobile apps, payments, public
+plugin marketplace distribution, or automatic media file repair. Jellyfin support
+is experimental through the adapter layer; Plex is the first-class V1 media
+server target.
 
 ## Architecture Notes
 

@@ -256,4 +256,38 @@ describe("SessionHistoryService", () => {
       expect(events).toHaveLength(1)
     }).pipe(Effect.provide(TestLayer)),
   )
+
+  it.effect("getHistoryForSeries returns watched-by rows with episode context", () =>
+    Effect.gen(function* () {
+      yield* seedMediaServer
+      const seriesSvc = yield* SeriesService
+      const added = yield* seriesSvc.add({
+        tvdbId: 201,
+        title: "Watched Show",
+        seasons: [
+          {
+            seasonNumber: 2,
+            episodes: [{ tvdbId: 6000, title: "Second Pilot", episodeNumber: 1 }],
+          },
+        ],
+      })
+
+      const svc = yield* SessionHistoryService
+      yield* svc.writeHistory([
+        baseSession({
+          mediaType: "episode",
+          tvdbId: 6000,
+          username: "bob",
+          sessionKey: "series-watch",
+        }),
+      ])
+
+      const events = yield* svc.getHistoryForSeries(added.series.id)
+      expect(events).toHaveLength(1)
+      expect(events[0].history.plexUsername).toBe("bob")
+      expect(events[0].episodeTitle).toBe("Second Pilot")
+      expect(events[0].seasonNumber).toBe(2)
+      expect(events[0].episodeNumber).toBe(1)
+    }).pipe(Effect.provide(TestLayer)),
+  )
 })

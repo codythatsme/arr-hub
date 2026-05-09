@@ -49,6 +49,23 @@ export async function runAuthedJson<A>(
   }
 }
 
+export async function runJson<A>(
+  effect: Effect.Effect<A, DomainError | SqlError, AppContext>,
+): Promise<Response> {
+  try {
+    const data = await AppRuntime.runPromise(effect)
+    return Response.json(data)
+  } catch (error) {
+    if (typeof error === "object" && error !== null && "_tag" in error) {
+      if (error._tag === "SqlError") {
+        return Response.json({ error: "database error" }, { status: 500 })
+      }
+      return errorResponse(domainToTRPC(error as DomainError))
+    }
+    return errorResponse(error)
+  }
+}
+
 function trpcStatus(code: TRPCError["code"]): number {
   switch (code) {
     case "BAD_REQUEST":

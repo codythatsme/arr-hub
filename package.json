@@ -10,6 +10,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:live-adapters": "vitest run src/effect/services/LiveAdapterInterop.test.ts",
+    "test:live-adapters:docker": "node scripts/live-adapter-smoke.mjs",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",

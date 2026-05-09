@@ -424,6 +424,60 @@ export const sessionHistory = sqliteTable("session_history", {
   episodeId: integer("episode_id").references(() => episodes.id, { onDelete: "set null" }),
 })
 
+// ── Notifications ──
+
+export type NotificationEvent =
+  | "session_start"
+  | "session_stop"
+  | "media_watched"
+  | "server_down"
+  | "server_up"
+  | "new_content"
+
+export type NotificationChannelType = "in_app" | "webhook"
+
+export interface NotificationChannelSettings {
+  readonly url?: string
+  readonly headers?: Record<string, string>
+}
+
+export const notificationChannels = sqliteTable("notification_channels", {
+  id: integer().primaryKey({ autoIncrement: true }),
+  name: text().notNull(),
+  type: text("type").$type<NotificationChannelType>().notNull(),
+  enabled: integer({ mode: "boolean" }).notNull().default(true),
+  events: text({ mode: "json" })
+    .$type<ReadonlyArray<NotificationEvent>>()
+    .notNull()
+    .default(sql`'[]'`),
+  settings: text({ mode: "json" })
+    .$type<NotificationChannelSettings>()
+    .notNull()
+    .default(sql`'{}'`),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+})
+
+export const notificationDeliveries = sqliteTable("notification_deliveries", {
+  id: integer().primaryKey({ autoIncrement: true }),
+  channelId: integer("channel_id").references(() => notificationChannels.id, {
+    onDelete: "set null",
+  }),
+  event: text().$type<NotificationEvent>().notNull(),
+  title: text().notNull(),
+  message: text().notNull(),
+  payload: text({ mode: "json" }).$type<Record<string, unknown>>().notNull(),
+  status: text({ enum: ["sent", "failed", "skipped"] }).notNull(),
+  errorMessage: text("error_message"),
+  deliveredAt: integer("delivered_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+})
+
 // ── Local Plugins ──
 
 export type PluginCapability = "download_client" | "indexer" | "media_server"

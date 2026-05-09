@@ -14,6 +14,7 @@ import { IndexerServiceLive } from "./services/IndexerService"
 import { MediaServerServiceLive } from "./services/MediaServerService"
 import { MonitoringTriggerBusLive } from "./services/MonitoringTriggerBus"
 import { MovieServiceLive } from "./services/MovieService"
+import { NotificationServiceLive } from "./services/NotificationService"
 import { OnboardingServiceLive } from "./services/OnboardingService"
 import { PlexSessionMonitorLive } from "./services/PlexSessionMonitor"
 import { PlexUserServiceLive } from "./services/PlexUserService"
@@ -61,6 +62,7 @@ export const AppLive = Layer.mergeAll(
   Layer.provideMerge(ProfileDefaultsEngineLive),
   Layer.provideMerge(ConfigServiceLive),
   Layer.provideMerge(SettingsServiceLive),
+  Layer.provideMerge(NotificationServiceLive),
   Layer.provideMerge(RootFolderServiceLive),
   Layer.provideMerge(ProfileServiceLive),
   Layer.provideMerge(MonitoringTriggerBusLive),

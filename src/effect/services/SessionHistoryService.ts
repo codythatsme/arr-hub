@@ -2,7 +2,7 @@ import { SqlError } from "@effect/sql/SqlError"
 import { and, between, count, desc, eq, gte, lt, sql, type SQL } from "drizzle-orm"
 import { Context, Effect, Layer } from "effect"
 
-import { episodes, movies, plexUsers, sessionHistory } from "#/db/schema"
+import { episodes, movies, plexUsers, seasons, sessionHistory } from "#/db/schema"
 
 import type { MediaServerSession, SessionMediaType } from "../domain/mediaServer"
 import { Db } from "./Db"
@@ -35,6 +35,13 @@ export type MediaRef =
   | { readonly kind: "movie"; readonly movieId: number }
   | { readonly kind: "episode"; readonly episodeId: number }
 
+export interface SeriesHistoryRow {
+  readonly history: SessionHistoryRow
+  readonly episodeTitle: string
+  readonly seasonNumber: number
+  readonly episodeNumber: number
+}
+
 const DEFAULT_LIMIT = 50
 const MAX_LIMIT = 200
 
@@ -51,6 +58,9 @@ export class SessionHistoryService extends Context.Tag("@arr-hub/SessionHistoryS
     readonly getHistoryForMedia: (
       ref: MediaRef,
     ) => Effect.Effect<ReadonlyArray<SessionHistoryRow>, SqlError>
+    readonly getHistoryForSeries: (
+      seriesId: number,
+    ) => Effect.Effect<ReadonlyArray<SeriesHistoryRow>, SqlError>
     /** Count history rows whose `stoppedAt` falls within `[since, now]`. */
     readonly countSince: (since: Date) => Effect.Effect<number, SqlError>
   }
@@ -216,6 +226,20 @@ export const SessionHistoryServiceLive = Layer.effect(
             .where(where)
             .orderBy(desc(sessionHistory.stoppedAt))
         }),
+
+      getHistoryForSeries: (seriesId) =>
+        db
+          .select({
+            history: sessionHistory,
+            episodeTitle: episodes.title,
+            seasonNumber: seasons.seasonNumber,
+            episodeNumber: episodes.episodeNumber,
+          })
+          .from(sessionHistory)
+          .innerJoin(episodes, eq(sessionHistory.episodeId, episodes.id))
+          .innerJoin(seasons, eq(episodes.seasonId, seasons.id))
+          .where(eq(seasons.seriesId, seriesId))
+          .orderBy(desc(sessionHistory.stoppedAt)),
 
       countSince: (since) =>
         Effect.gen(function* () {

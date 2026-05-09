@@ -95,29 +95,11 @@ function StepPanel({
     case "root_folders":
       return <RootFoldersStep capabilities={capabilities} />
     case "indexers":
-      return (
-        <SkippableStep
-          stepKey="indexers"
-          title="Indexers"
-          description="Indexer configuration is easier after setup — use Settings → Indexers once you're in."
-        />
-      )
+      return <IndexerStep />
     case "download_client":
-      return (
-        <SkippableStep
-          stepKey="download_client"
-          title="Download client"
-          description="Add qBittorrent or SABnzbd from Settings → Download Clients after setup."
-        />
-      )
+      return <DownloadClientStep />
     case "media_server":
-      return (
-        <SkippableStep
-          stepKey="media_server"
-          title="Media server"
-          description="Connect Plex from Settings → Media Servers after setup."
-        />
-      )
+      return <MediaServerStep />
     case "import":
       return <ImportStep capabilities={capabilities} />
 
@@ -383,21 +365,116 @@ function RootFoldersStep({
   )
 }
 
-function SkippableStep({
-  stepKey,
-  title,
-  description,
-}: {
-  stepKey: StepKey
-  title: string
-  description: string
-}) {
+function IndexerStep() {
   const trpc = useTRPC()
   const queryClient = useQueryClient()
+  const types = useQuery(trpc.indexers.listTypes.queryOptions())
+  const [name, setName] = useState("Primary indexer")
+  const [type, setType] = useState("torznab")
+  const [baseUrl, setBaseUrl] = useState("")
+  const [apiKey, setApiKey] = useState("")
+  const [categories, setCategories] = useState("2000,5000")
   const [error, setError] = useState<string | null>(null)
 
-  const skip = useMutation(
-    trpc.onboarding.skip.mutationOptions({
+  const mutation = useMutation(
+    trpc.onboarding.submitIndexer.mutationOptions({
+      onSuccess: () =>
+        queryClient.invalidateQueries({ queryKey: trpc.onboarding.status.queryKey() }),
+      onError: (e) => setError(e.message),
+    }),
+  )
+
+  const parsedCategories = categories
+    .split(",")
+    .map((item) => Number(item.trim()))
+    .filter((item) => Number.isInteger(item))
+
+  return (
+    <section className="space-y-6">
+      <div>
+        <h2 className="text-xl font-semibold">Indexers</h2>
+        <p className="text-muted-foreground text-sm">
+          Add and test a Torznab or Newznab indexer before activation.
+        </p>
+      </div>
+
+      <div className="space-y-4">
+        <Field label="Name">
+          <Input value={name} onChange={(e) => setName(e.target.value)} />
+        </Field>
+        <label className="block space-y-1.5">
+          <span className="text-sm font-medium">Type</span>
+          <select
+            className="bg-background w-full rounded-md border px-3 py-2 text-sm"
+            value={type}
+            onChange={(e) => setType(e.target.value)}
+          >
+            {(types.data ?? []).map((entry) => (
+              <option key={entry.type} value={entry.type}>
+                {entry.metadata.displayName}
+              </option>
+            ))}
+          </select>
+        </label>
+        <Field label="Base URL">
+          <Input
+            value={baseUrl}
+            onChange={(e) => setBaseUrl(e.target.value)}
+            placeholder="https://indexer.example"
+          />
+        </Field>
+        <Field label="API key">
+          <Input
+            type="password"
+            value={apiKey}
+            onChange={(e) => setApiKey(e.target.value)}
+            autoComplete="off"
+          />
+        </Field>
+        <Field label="Categories" hint="Comma-separated Torznab/Newznab category IDs">
+          <Input value={categories} onChange={(e) => setCategories(e.target.value)} />
+        </Field>
+      </div>
+
+      <IntegrationSkipButton stepKey="indexers" disabled={mutation.isPending} />
+      <StepControls
+        onNext={() => {
+          setError(null)
+          mutation.mutate({
+            name,
+            type,
+            baseUrl,
+            apiKey,
+            categories: parsedCategories,
+          })
+        }}
+        nextLabel="Test and continue"
+        nextDisabled={
+          name.trim().length === 0 || baseUrl.trim().length === 0 || apiKey.length === 0
+        }
+        pending={mutation.isPending}
+        error={error}
+      />
+    </section>
+  )
+}
+
+function DownloadClientStep() {
+  const trpc = useTRPC()
+  const queryClient = useQueryClient()
+  const types = useQuery(trpc.downloadClients.listTypes.queryOptions())
+  const [name, setName] = useState("Download client")
+  const [type, setType] = useState("qbittorrent")
+  const [host, setHost] = useState("localhost")
+  const [port, setPort] = useState(8080)
+  const [username, setUsername] = useState("")
+  const [password, setPassword] = useState("")
+  const [useSsl, setUseSsl] = useState(false)
+  const [category, setCategory] = useState("arr-hub")
+  const [error, setError] = useState<string | null>(null)
+
+  const mutation = useMutation(
+    trpc.onboarding.submitDownloadClient.mutationOptions({
       onSuccess: () =>
         queryClient.invalidateQueries({ queryKey: trpc.onboarding.status.queryKey() }),
       onError: (e) => setError(e.message),
@@ -407,20 +484,186 @@ function SkippableStep({
   return (
     <section className="space-y-6">
       <div>
-        <h2 className="text-xl font-semibold">{title}</h2>
-        <p className="text-muted-foreground text-sm">{description}</p>
+        <h2 className="text-xl font-semibold">Download client</h2>
+        <p className="text-muted-foreground text-sm">
+          Add qBittorrent or SABnzbd and verify ARR Hub can connect.
+        </p>
       </div>
 
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Name">
+          <Input value={name} onChange={(e) => setName(e.target.value)} />
+        </Field>
+        <label className="block space-y-1.5">
+          <span className="text-sm font-medium">Type</span>
+          <select
+            className="bg-background w-full rounded-md border px-3 py-2 text-sm"
+            value={type}
+            onChange={(e) => setType(e.target.value)}
+          >
+            {(types.data ?? []).map((entry) => (
+              <option key={entry.type} value={entry.type}>
+                {entry.metadata.displayName}
+              </option>
+            ))}
+          </select>
+        </label>
+        <Field label="Host">
+          <Input value={host} onChange={(e) => setHost(e.target.value)} />
+        </Field>
+        <Field label="Port">
+          <Input
+            type="number"
+            value={String(port)}
+            onChange={(e) => setPort(Number(e.target.value))}
+          />
+        </Field>
+        <Field label="Username">
+          <Input value={username} onChange={(e) => setUsername(e.target.value)} />
+        </Field>
+        <Field label="Password">
+          <Input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="off"
+          />
+        </Field>
+        <Field label="Category">
+          <Input value={category} onChange={(e) => setCategory(e.target.value)} />
+        </Field>
+        <Toggle label="Use SSL" checked={useSsl} onChange={setUseSsl} />
+      </div>
+
+      <IntegrationSkipButton stepKey="download_client" disabled={mutation.isPending} />
       <StepControls
         onNext={() => {
           setError(null)
-          skip.mutate({ step: stepKey })
+          mutation.mutate({
+            name,
+            type,
+            host,
+            port,
+            username,
+            password,
+            useSsl,
+            category: category.trim() || undefined,
+          })
         }}
-        nextLabel="Skip for now"
-        pending={skip.isPending}
+        nextLabel="Test and continue"
+        nextDisabled={name.trim().length === 0 || host.trim().length === 0 || port < 1}
+        pending={mutation.isPending}
         error={error}
       />
     </section>
+  )
+}
+
+function MediaServerStep() {
+  const trpc = useTRPC()
+  const queryClient = useQueryClient()
+  const types = useQuery(trpc.mediaServers.listTypes.queryOptions())
+  const [name, setName] = useState("Plex")
+  const [type, setType] = useState("plex")
+  const [host, setHost] = useState("localhost")
+  const [port, setPort] = useState(32400)
+  const [token, setToken] = useState("")
+  const [useSsl, setUseSsl] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const mutation = useMutation(
+    trpc.onboarding.submitMediaServer.mutationOptions({
+      onSuccess: () =>
+        queryClient.invalidateQueries({ queryKey: trpc.onboarding.status.queryKey() }),
+      onError: (e) => setError(e.message),
+    }),
+  )
+
+  return (
+    <section className="space-y-6">
+      <div>
+        <h2 className="text-xl font-semibold">Media server</h2>
+        <p className="text-muted-foreground text-sm">
+          Connect Plex and verify active stream monitoring can start after setup.
+        </p>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Name">
+          <Input value={name} onChange={(e) => setName(e.target.value)} />
+        </Field>
+        <label className="block space-y-1.5">
+          <span className="text-sm font-medium">Type</span>
+          <select
+            className="bg-background w-full rounded-md border px-3 py-2 text-sm"
+            value={type}
+            onChange={(e) => setType(e.target.value)}
+          >
+            {(types.data ?? []).map((entry) => (
+              <option key={entry.type} value={entry.type}>
+                {entry.metadata.displayName}
+              </option>
+            ))}
+          </select>
+        </label>
+        <Field label="Host">
+          <Input value={host} onChange={(e) => setHost(e.target.value)} />
+        </Field>
+        <Field label="Port">
+          <Input
+            type="number"
+            value={String(port)}
+            onChange={(e) => setPort(Number(e.target.value))}
+          />
+        </Field>
+        <Field label="Token">
+          <Input
+            type="password"
+            value={token}
+            onChange={(e) => setToken(e.target.value)}
+            autoComplete="off"
+          />
+        </Field>
+        <Toggle label="Use SSL" checked={useSsl} onChange={setUseSsl} />
+      </div>
+
+      <IntegrationSkipButton stepKey="media_server" disabled={mutation.isPending} />
+      <StepControls
+        onNext={() => {
+          setError(null)
+          mutation.mutate({ name, type, host, port, token, useSsl })
+        }}
+        nextLabel="Test and continue"
+        nextDisabled={
+          name.trim().length === 0 || host.trim().length === 0 || port < 1 || token.length === 0
+        }
+        pending={mutation.isPending}
+        error={error}
+      />
+    </section>
+  )
+}
+
+function IntegrationSkipButton({ stepKey, disabled }: { stepKey: StepKey; disabled?: boolean }) {
+  const trpc = useTRPC()
+  const queryClient = useQueryClient()
+  const skip = useMutation(
+    trpc.onboarding.skip.mutationOptions({
+      onSuccess: () =>
+        queryClient.invalidateQueries({ queryKey: trpc.onboarding.status.queryKey() }),
+    }),
+  )
+
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      onClick={() => skip.mutate({ step: stepKey })}
+      disabled={disabled || skip.isPending}
+    >
+      Skip for now
+    </Button>
   )
 }
 

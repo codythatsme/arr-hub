@@ -6,6 +6,7 @@ import { resolveInitialAdminPassword } from "./bootstrap"
 import { AppLive } from "./layers"
 import { CryptoService } from "./services/CryptoService"
 import { Db } from "./services/Db"
+import { NotificationService } from "./services/NotificationService"
 import { PlexSessionMonitor } from "./services/PlexSessionMonitor"
 import { createSchedulerLoop } from "./services/SchedulerLoop"
 import { SchedulerService } from "./services/SchedulerService"
@@ -51,6 +52,12 @@ AppRuntime.runPromise(seed).then(
       createSchedulerLoop().pipe(
         Effect.catchAllDefect((d) => Effect.logError(`[scheduler] fatal defect: ${d}`)),
       ),
+    )
+    AppRuntime.runFork(
+      Effect.gen(function* () {
+        const notifications = yield* NotificationService
+        yield* notifications.runWorker()
+      }).pipe(Effect.catchAllDefect((d) => Effect.logError(`[notifications] fatal defect: ${d}`))),
     )
   },
   (err) => {
