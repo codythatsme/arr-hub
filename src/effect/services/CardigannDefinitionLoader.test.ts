@@ -170,7 +170,7 @@ caps:
     })
   })
 
-  it("parses Cardigann checkbox auth fields and skips informational settings", () => {
+  it("parses Cardigann checkbox auth fields and informational settings", () => {
     const definition = parseCardigannDefinitionYaml(`
 id: checkbox-auth-cardigann
 name: Checkbox Auth Cardigann
@@ -189,6 +189,11 @@ settings:
   - name: cookieInfo
     label: Cookie help
     type: info_cookie
+    help: Paste the full browser cookie when the tracker requires it.
+  - name: loginInfo
+    label: Login help
+    type: info
+    help: Two-factor logins may need a freshly captured cookie.
 caps:
   categorymappings:
     - id: movies
@@ -211,6 +216,20 @@ caps:
         type: "cookie",
         required: false,
         helpText: "Paste the session cookie.",
+      },
+      {
+        name: "cookieInfo",
+        label: "Cookie help",
+        type: "info",
+        required: false,
+        helpText: "Paste the full browser cookie when the tracker requires it.",
+      },
+      {
+        name: "loginInfo",
+        label: "Login help",
+        type: "info",
+        required: false,
+        helpText: "Two-factor logins may need a freshly captured cookie.",
       },
     ])
   })

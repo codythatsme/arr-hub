@@ -990,6 +990,7 @@ function parseAuthFieldType(value: string): IndexerAuthFieldType | null {
   const type = value.toLowerCase()
   if (type === "input" || type === "textbox") return "text"
   if (type === "cardiganncaptcha") return "text"
+  if (type === "info" || type.startsWith("info_")) return "info"
   if (
     type === "text" ||
     type === "password" ||
@@ -1000,7 +1001,6 @@ function parseAuthFieldType(value: string): IndexerAuthFieldType | null {
   ) {
     return type
   }
-  if (type === "info" || type.startsWith("info_")) return null
   throw new Error(`unsupported auth field type: ${value}`)
 }
 

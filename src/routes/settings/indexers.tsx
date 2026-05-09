@@ -930,65 +930,74 @@ function Indexers() {
                     </p>
                   )}
                 </div>
-                {configFields.map((field) => (
-                  <Field key={field.name} label={field.label} hint={field.helpText}>
-                    {field.type === "checkbox" ? (
-                      form.id !== null ? (
+                {configFields.map((field) =>
+                  field.type === "info" ? (
+                    <div key={field.name} className="space-y-1 text-sm">
+                      <p className="font-medium">{field.label}</p>
+                      {field.helpText && (
+                        <p className="text-muted-foreground text-xs">{field.helpText}</p>
+                      )}
+                    </div>
+                  ) : (
+                    <Field key={field.name} label={field.label} hint={field.helpText}>
+                      {field.type === "checkbox" ? (
+                        form.id !== null ? (
+                          <select
+                            className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                            name={configFieldName(field)}
+                            defaultValue=""
+                          >
+                            <option value="">Keep saved value</option>
+                            <option value="true">Enabled</option>
+                            <option value="false">Disabled</option>
+                          </select>
+                        ) : (
+                          <div className="mt-2 flex items-center gap-2">
+                            <input type="hidden" name={configFieldName(field)} value="false" />
+                            <input
+                              className="h-4 w-4"
+                              name={configFieldName(field)}
+                              type="checkbox"
+                              value="true"
+                              defaultChecked={configFieldDefaultChecked(field)}
+                            />
+                          </div>
+                        )
+                      ) : field.type === "textarea" ? (
+                        <textarea
+                          className="mt-1 min-h-24 w-full rounded border bg-transparent px-3 py-2"
+                          autoComplete="off"
+                          name={configFieldName(field)}
+                          required={form.id === null && field.required}
+                        />
+                      ) : field.type === "select" && field.options && field.options.length > 0 ? (
                         <select
                           className="mt-1 w-full rounded border bg-transparent px-3 py-2"
                           name={configFieldName(field)}
-                          defaultValue=""
+                          required={form.id === null && field.required}
+                          defaultValue={configFieldDefaultValue(field, form.id !== null)}
                         >
-                          <option value="">Keep saved value</option>
-                          <option value="true">Enabled</option>
-                          <option value="false">Disabled</option>
+                          <option value="">
+                            {configFieldEmptyOptionLabel(field, form.id !== null)}
+                          </option>
+                          {field.options.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
                         </select>
                       ) : (
-                        <div className="mt-2 flex items-center gap-2">
-                          <input type="hidden" name={configFieldName(field)} value="false" />
-                          <input
-                            className="h-4 w-4"
-                            name={configFieldName(field)}
-                            type="checkbox"
-                            value="true"
-                            defaultChecked={configFieldDefaultChecked(field)}
-                          />
-                        </div>
-                      )
-                    ) : field.type === "textarea" ? (
-                      <textarea
-                        className="mt-1 min-h-24 w-full rounded border bg-transparent px-3 py-2"
-                        autoComplete="off"
-                        name={configFieldName(field)}
-                        required={form.id === null && field.required}
-                      />
-                    ) : field.type === "select" && field.options && field.options.length > 0 ? (
-                      <select
-                        className="mt-1 w-full rounded border bg-transparent px-3 py-2"
-                        name={configFieldName(field)}
-                        required={form.id === null && field.required}
-                        defaultValue={configFieldDefaultValue(field, form.id !== null)}
-                      >
-                        <option value="">
-                          {configFieldEmptyOptionLabel(field, form.id !== null)}
-                        </option>
-                        {field.options.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <input
-                        className="mt-1 w-full rounded border bg-transparent px-3 py-2"
-                        autoComplete="off"
-                        name={configFieldName(field)}
-                        required={form.id === null && field.required}
-                        type={configFieldInputType(field)}
-                      />
-                    )}
-                  </Field>
-                ))}
+                        <input
+                          className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                          autoComplete="off"
+                          name={configFieldName(field)}
+                          required={form.id === null && field.required}
+                          type={configFieldInputType(field)}
+                        />
+                      )}
+                    </Field>
+                  ),
+                )}
               </div>
             )}
 
@@ -2297,6 +2306,7 @@ function collectConfigValues(
 ): Record<string, string> {
   const collected: Record<string, string> = {}
   for (const field of fields) {
+    if (field.type === "info") continue
     const name = configFieldName(field)
     const value = field.type === "checkbox" ? lastStringFormValue(values, name) : values.get(name)
     if (typeof value === "string" && value.trim().length > 0) collected[field.name] = value

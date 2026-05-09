@@ -186,6 +186,7 @@ function checkboxTemplateValue(value: string): string {
 }
 
 function configFieldTemplateValue(fieldType: IndexerAuthField["type"], value: string): string {
+  if (fieldType === "info") return ""
   return fieldType === "checkbox" ? checkboxTemplateValue(value) : value
 }
 
@@ -215,6 +216,7 @@ function configTemplateVariables(
   )
 
   for (const field of authFields) {
+    if (field.type === "info") continue
     if (field.defaultValue === undefined) continue
     assignConfigTemplateVariable(
       variables,
@@ -233,6 +235,7 @@ function configTemplateVariables(
 
   for (const [key, value] of Object.entries(config.configValues ?? {})) {
     const fieldType = fieldTypesByName.get(key.toLowerCase()) ?? "text"
+    if (fieldType === "info") continue
     assignConfigTemplateVariable(variables, key, configFieldTemplateValue(fieldType, value))
   }
 

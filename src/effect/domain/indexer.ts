@@ -14,6 +14,7 @@ export type IndexerAuthFieldType =
   | "textarea"
   | "select"
   | "checkbox"
+  | "info"
 
 /** Adapter metadata for registry display + protocol selection. */
 export interface IndexerAdapterMetadata {
