@@ -22,7 +22,7 @@ Primary blockers:
 
 - The operator UI now exposes the existing backend workflows and has persisted browser smoke coverage, but deeper workflows still depend on backend work listed below.
 - The metadata lifecycle is now functional for TMDB-backed movie/TV adds, Sonarr episode import, refresh jobs, and calendar population, but still lacks Sonarr/Radarr-depth alternate titles, ratings, local artwork cache, availability semantics, and TVDB/SkyHook parity.
-- Completed download handling now has a first real import path that resolves completed output paths, selects media files, filters samples, renames, and copy/move/hardlinks into library folders. It still lacks remote path mappings, manual import, library rescan, rename preview/action, and deeper Sonarr/Radarr import rejection rules.
+- Completed download handling now has a real import path that resolves completed output paths and remote path mappings, selects media files, filters samples, renames, copy/move/hardlinks into library folders, persists media file records, supports manual import, scans existing libraries, and exposes rename preview/action. It still lacks unpack/repair waiting beyond downloader status normalization, free-space checks, recycle-bin support, and deeper Sonarr/Radarr import rejection rules.
 - The release decision engine is far smaller than Sonarr/Radarr. It lacks many required rejection rules, blocklist enforcement, size/age/retention/free-space checks, language/release profiles, proper title matching, and TV/anime edge cases.
 - Prowlarr replacement scope is mostly absent. The app only consumes Torznab/Newznab endpoints; it does not manage a Prowlarr-scale indexer catalogue, Cardigann definitions, indexer proxies, stats, app sync, or external Torznab/Newznab proxy endpoints.
 - Download client coverage is narrow: qBittorrent and SABnzbd only.
@@ -33,9 +33,9 @@ Primary blockers:
 Commands run from `/Users/codythatsme/Developer/arr-hub`:
 
 - `bun run typecheck`: passed.
-- `bun run test`: passed, 33 test files plus 1 skipped live suite, 296 passed and 4 skipped tests.
+- `bun run test`: passed, 33 test files plus 1 skipped live suite, 301 passed and 4 skipped tests.
 - `bun run test:e2e`: passed, 1 Chromium smoke test covering onboarding, settings, add movie, add TV from metadata, manual search display, calendar population, and queue page.
-- `bun run lint`: passed with warnings and 0 errors.
+- `bun run lint`: passed with 291 warnings and 0 errors.
 - `bun run build`: passed with chunk-size and external dependency warnings.
 
 Mechanical health is acceptable. Product completeness is the issue.
@@ -62,8 +62,10 @@ Completed in atomic commits after this plan was written:
 - `bf7597a151` added a calendar UI populated from real monitored episode air dates.
 - `42142ccd4f` persisted completed download output paths from qBittorrent/SABnzbd into queue rows.
 - `a99bda9144` added `MediaImportService`, movie/episode import file operations, and monitor-driven completed download imports.
+- `01dd5263dd` added dedicated `media_files` and `remote_path_mappings` persistence, plus remote path resolution during imports.
+- `5b249551de` added remote path mapping workflows, manual movie/episode import, library scanning, rename preview/action, and matching UI on settings/movie/TV pages.
 
-Milestones 1 and 2 are complete against the current backend surface. Milestone 3 now has its backend import foundation, but remains open until remote path mapping, manual import, rescan, and rename workflows are implemented. Later milestones remain open and are still required before ARR Hub can honestly claim Sonarr/Radarr/Prowlarr replacement-grade behavior.
+Milestones 1, 2, and 3 are complete for deterministic local coverage against the current backend surface. Milestone 3 still needs live qBittorrent/SABnzbd fixture validation in an environment with those services running, and later milestones remain required before ARR Hub can honestly claim Sonarr/Radarr/Prowlarr replacement-grade behavior.
 
 ## Current Functionality Inventory
 
@@ -77,7 +79,7 @@ Backend/service surfaces:
 - `src/effect/services/DownloadClientService.ts`, `QBittorrentAdapter.ts`, `SABnzbdAdapter.ts`: add/list/test/grab/queue/remove downloads for qBittorrent and SABnzbd, including persisted completed output paths.
 - `src/effect/services/ReleasePolicyEngine.ts`: parses titles, checks allowed quality, custom format score, and basic upgrade scoring.
 - `src/effect/services/AcquisitionPipeline.ts`: movie search/evaluate/grab, episode search/evaluate/grab, season pack first search, series search.
-- `src/effect/services/MediaImportService.ts`: imports completed movie and episode files from downloader output paths, filters samples, applies copy/move/hardlink settings, builds target names, stores real file paths and quality state.
+- `src/effect/services/MediaImportService.ts`: imports completed movie and episode files from downloader output paths, applies remote path mappings, filters samples, applies copy/move/hardlink settings, builds target names, stores real file paths, media file records, and quality state, supports manual import, scans existing libraries, and previews/applies renames.
 - `src/effect/services/DownloadMonitor.ts`: polls download clients, updates queue rows, calls media import for completed linked downloads, leaves failed imports visible in queue, triggers Plex library refresh.
 - `src/effect/services/MediaServerService.ts` and `PlexAdapter.ts`: Plex connection, libraries, library sync matching, refresh, active sessions, shared users.
 - `src/effect/services/PlexSessionMonitor.ts`: active stream monitoring and notification trigger emission.
@@ -90,10 +92,10 @@ Backend/service surfaces:
 UI surfaces:
 
 - Dashboard, Movies list/detail, TV list/detail, and TV episode calendar.
-- Movies: TMDB search/add, edit/delete, monitor toggle, profile/root assignment, manual release evaluate/grab.
-- TV: TMDB metadata search/add with season/episode hydration, manual series add with season/episode scaffolding, edit/delete, show/season/episode monitor toggles, series/season search, episode evaluate/grab.
+- Movies: TMDB search/add, edit/delete, monitor toggle, profile/root assignment, manual release evaluate/grab, manual file import, and rename preview/action.
+- TV: TMDB metadata search/add with season/episode hydration, manual series add with season/episode scaffolding, edit/delete, show/season/episode monitor toggles, series/season search, episode evaluate/grab, manual episode file import, and series rename preview/action.
 - Activity queue/history/users/stats. Queue supports retry, remove with delete-files option, clear error, and blocklist.
-- Settings: indexers, download clients, media servers, scheduler, general, media management/root folders, notifications, profiles, security, and plugins now have operational UI.
+- Settings: indexers, download clients, media servers, scheduler, general, media management/root folders/remote path mappings/library scan, notifications, profiles, security, and plugins now have operational UI.
 - Onboarding quickstart and advanced wizard.
 - System diagnostics view.
 
@@ -201,7 +203,7 @@ Current state:
 
 Gap:
 
-- This remains one of the largest gaps versus Sonarr/Radarr. ARR Hub now has a basic completed download import foundation, but it does not yet have remote path mappings, free-space checks, full import decision parity, manual import, rescan, or rename workflows.
+- This remains one of the largest gaps versus Sonarr/Radarr. ARR Hub now has a usable completed download import foundation with remote path mappings, manual import, media file records, library scan, and rename workflows, but it does not yet have free-space checks, unpack/repair state handling beyond downloader status, full import decision parity, or recycle-bin behavior.
 
 Tasks:
 
@@ -213,7 +215,7 @@ Tasks:
   - `vendor/sonarr/src/NzbDrone.Core/Organizer`
 - Implement completed download import:
   - [x] Resolve download client output path.
-  - [ ] Apply remote path mappings.
+  - [x] Apply remote path mappings.
   - [ ] Wait for unpacking/repair/post-processing to finish beyond downloader status normalization.
   - [x] Enumerate files and filter samples/extras.
   - [x] Parse title and match against grabbed media for basic movie and episode imports.
@@ -221,12 +223,12 @@ Tasks:
   - [x] Move/copy/hardlink into root folder.
   - [x] Build final file name from naming settings for movies and deterministic TV episode naming.
   - [x] Store `filePath`, quality, and media info.
-  - [ ] Store file size/import date in dedicated media file records.
+  - [x] Store file size/import date in dedicated media file records.
   - [x] Trigger media server library refresh after successful import.
-- [ ] Add manual import workflow.
-- [ ] Add rescan existing library workflow.
-- [ ] Add rename preview and rename action.
-- [ ] Add recycle bin/delete behavior or document explicit non-support.
+- [x] Add manual import workflow.
+- [x] Add rescan existing library workflow.
+- [x] Add rename preview and rename action.
+- [x] Add recycle bin/delete behavior or document explicit non-support. Current stance: recycle-bin behavior is explicitly not supported yet; queue delete-files delegates destructive removal to the download client only, and library file deletes remain out of scope until a dedicated safe-delete workflow exists.
 
 Acceptance criteria:
 
@@ -645,20 +647,21 @@ Goal: stop faking imports.
 
 Tasks:
 
-1. [ ] Add dedicated media file model for size/import date/media info history.
+1. [x] Add dedicated media file model for size/import date/media info history.
 2. [x] Add import service.
-3. [ ] Add remote path mappings.
+3. [x] Add remote path mappings.
 4. [x] Implement qBittorrent/SAB completed path resolution.
 5. [x] Implement basic movie import and episode import decisions.
 6. [x] Implement move/copy/hardlink and naming config.
-7. [ ] Add manual import UI.
-8. [ ] Add library rescan workflow.
-9. [ ] Add rename preview and rename action.
+7. [x] Add manual import UI.
+8. [x] Add library rescan workflow.
+9. [x] Add rename preview and rename action.
 
 Acceptance:
 
 - Unit coverage verifies copy, move, hardlink, sample filtering, episode matching, and missing output path failures.
-- Live qBittorrent/SAB smoke tests can download a fixture file and import it into a media root.
+- Deterministic unit coverage verifies remote path mappings, media file records, library scanning, and movie/series renames.
+- Live qBittorrent/SAB smoke tests should download a fixture file and import it into a media root when those services are available.
 - The database records real file paths and quality.
 
 ### Milestone 4: Decision Engine Hardening
@@ -727,11 +730,11 @@ Update `README.md` after each milestone:
 
 ## Immediate Next Step For The Next Agent
 
-Start Milestone 2: TV metadata provider support and Sonarr episode import completion.
+Start Milestone 4: decision engine hardening.
 
 Recommended order:
 
-1. Add a TV metadata provider service and document required credentials or fixture strategy.
-2. Build an add-series flow that hydrates seasons and episodes from provider metadata.
-3. Complete Sonarr import for episodes, existing files, availability, monitored state, and air dates.
-4. Do not begin Prowlarr-scale indexer work before metadata and import behavior are much closer to replacement-grade.
+1. Add persistent blocklist enforcement to release evaluation.
+2. Split high-impact release checks into focused specification modules.
+3. Add title/year/show/episode matching, size limits, free-space checks, queue conflict checks, and protocol restrictions.
+4. Expand parser and decision tests with vendor-inspired fixtures before beginning Prowlarr-scale indexer work.
