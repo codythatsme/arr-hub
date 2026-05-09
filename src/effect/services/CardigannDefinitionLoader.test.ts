@@ -110,6 +110,7 @@ caps:
       "filelist",
       "alpharatio",
       "brokenstones",
+      "cgpeers",
       "revolutiontt",
       "pretome",
       "morethantv",
@@ -954,6 +955,34 @@ caps:
           { id: 4040, name: "iOS Apps" },
           { id: 3000, name: "Audio" },
           { id: 8000, name: "Tutorials" },
+        ]),
+      },
+    })
+    expect(
+      BUILT_IN_CARDIGANN_DEFINITIONS.find((definition) => definition.definitionKey === "cgpeers"),
+    ).toMatchObject({
+      displayName: "CGPeers",
+      baseUrl: "https://cgpeers.to/",
+      privacy: "private",
+      supportsRss: false,
+      supportsSearch: true,
+      tags: ["private", "apps", "games", "graphics", "json", "gazelle"],
+      authFields: expect.arrayContaining([
+        expect.objectContaining({ name: "username", type: "text", required: true }),
+        expect.objectContaining({ name: "password", type: "password", required: true }),
+        expect.objectContaining({
+          name: "useFreeleechToken",
+          type: "select",
+          defaultValue: "0",
+        }),
+      ]),
+      capabilities: {
+        searchTypes: ["search"],
+        categories: expect.arrayContaining([
+          { id: 4020, name: "Full Applications" },
+          { id: 4010, name: "Plugins" },
+          { id: 8000, name: "Tutorials" },
+          { id: 8010, name: "Misc" },
         ]),
       },
     })

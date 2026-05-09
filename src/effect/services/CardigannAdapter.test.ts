@@ -915,6 +915,62 @@ const BROKENSTONES_JSON_RESULTS = JSON.stringify({
   },
 })
 
+const CGPEERS_JSON_RESULTS = JSON.stringify({
+  status: "success",
+  response: {
+    results: [
+      {
+        groupId: "981",
+        groupName: "CGPeers Full App",
+        groupYear: "2026",
+        torrents: [
+          {
+            torrentId: 9811,
+            format: "ISO",
+            encoding: "x64",
+            media: "WEB",
+            hasCue: false,
+            time: "2026-05-10T11:20:00.000Z",
+            size: "4312345600",
+            fileCount: 9,
+            snatches: 18,
+            seeders: "33",
+            leechers: "4",
+            category: "Full Applications",
+            isFreeLeech: false,
+            isNeutralLeech: false,
+            isPersonalFreeLeech: false,
+          },
+        ],
+      },
+      {
+        groupId: "982",
+        groupName: "CGPeers Tutorial Pack",
+        groupYear: "2026",
+        torrents: [
+          {
+            torrentId: 9812,
+            format: "MP4",
+            encoding: "1080p",
+            media: "WEB",
+            hasCue: false,
+            time: "2026-05-09T13:15:00.000Z",
+            size: "2312345600",
+            fileCount: 24,
+            snatches: 11,
+            seeders: "21",
+            leechers: "2",
+            category: "Tutorials",
+            isFreeLeech: true,
+            isNeutralLeech: true,
+            isPersonalFreeLeech: false,
+          },
+        ],
+      },
+    ],
+  },
+})
+
 const REVOLUTIONTT_HTML_RESULTS = `
 <html><body>
   <table id="torrents-table">
@@ -4841,6 +4897,89 @@ search:
     expect(releases[1]).toMatchObject({
       title: "BrokenStones Mac App (2026) [DMG Universal] [WEB]",
       category: "4020",
+      downloadFactor: 0,
+      uploadFactor: 0,
+    })
+  })
+
+  it("parses CGPeers Gazelle JSON results after POST login", async () => {
+    const requests: Array<{ url: string; init: RequestInit | undefined }> = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(String(input))
+      requests.push({ url: String(input), init })
+      if (url.pathname === "/login.php") {
+        return new Response(JSON.stringify({ status: "success" }), {
+          status: 200,
+          headers: { "set-cookie": "cg_session=abc; Path=/" },
+        })
+      }
+      return new Response(CGPEERS_JSON_RESULTS, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 112,
+      name: "CGPeers",
+      type: "cardigann_yaml",
+      definitionKey: "cgpeers",
+      baseUrl: "https://cgpeers.to/",
+      apiKey: "",
+      configValues: {
+        username: "alice",
+        password: "secret",
+        useFreeleechToken: "1",
+      },
+      priority: 48,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({
+        term: "CGPeers App",
+        type: "general",
+        categories: [4020],
+      }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    const loginRequest = requests[0]
+    expect(loginRequest?.url).toBe("https://cgpeers.to/login.php")
+    expect(loginRequest?.init?.method).toBe("POST")
+    const loginBody = new URLSearchParams(String(loginRequest?.init?.body ?? ""))
+    expect(loginBody.get("username")).toBe("alice")
+    expect(loginBody.get("password")).toBe("secret")
+    expect(loginBody.get("keeplogged")).toBe("1")
+
+    const searchRequest = requests[1]
+    const searchUrl = new URL(searchRequest?.url ?? "")
+    expect(searchUrl.origin).toBe("https://cgpeers.to")
+    expect(searchUrl.pathname).toBe("/ajax.php")
+    expect(searchUrl.searchParams.get("action")).toBe("browse")
+    expect(searchUrl.searchParams.get("order_by")).toBe("time")
+    expect(searchUrl.searchParams.get("order_way")).toBe("desc")
+    expect(searchUrl.searchParams.get("searchstr")).toBe("CGPeers App")
+    expect(searchUrl.searchParams.get("filter_cat[1]")).toBe("1")
+    expect(new Headers(searchRequest?.init?.headers).get("cookie")).toBe("cg_session=abc")
+    expect(releases).toHaveLength(2)
+    expect(releases[0]).toMatchObject({
+      title: "CGPeers Full App (2026) [ISO x64] [WEB]",
+      downloadUrl: "https://cgpeers.to/torrents.php?action=download&id=9811&usetoken=1",
+      infoUrl: "https://cgpeers.to/torrents.php?id=981&torrentid=9811",
+      category: "4020",
+      size: 4_312_345_600,
+      seeders: 33,
+      leechers: 4,
+      indexerId: 112,
+      indexerName: "CGPeers",
+      indexerPriority: 48,
+      downloadFactor: 1,
+      uploadFactor: 1,
+    })
+    expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-10T11:20:00.000Z")
+    expect(releases[1]).toMatchObject({
+      title: "CGPeers Tutorial Pack (2026) [MP4 1080p] [WEB]",
+      category: "8000",
       downloadFactor: 0,
       uploadFactor: 0,
     })

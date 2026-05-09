@@ -119,19 +119,19 @@ describe("IndexerService", () => {
       const second = yield* svc.refreshDefinitions()
 
       expect(first).toMatchObject({
-        total: 42,
-        created: 42,
+        total: 43,
+        created: 43,
         updated: 0,
         unchanged: 0,
       })
       expect(first.definitions.map((definition) => definition.action)).toEqual(
-        Array(42).fill("created"),
+        Array(43).fill("created"),
       )
       expect(second).toMatchObject({
-        total: 42,
+        total: 43,
         created: 0,
         updated: 0,
-        unchanged: 42,
+        unchanged: 43,
       })
       expect(second.definitions.every((definition) => definition.previousVersion !== null)).toBe(
         true,
@@ -409,6 +409,7 @@ describe("IndexerService", () => {
         "beyond-hd",
         "bit-hdtv",
         "brokenstones",
+        "cgpeers",
         "filelist",
         "funfile",
         "generic-newznab",
@@ -807,6 +808,17 @@ describe("IndexerService", () => {
         privacy: "private",
         supportsRss: false,
         tags: ["private", "apps", "games", "music", "json", "gazelle"],
+      })
+      expect(
+        definitions.find((definition) => definition.definitionKey === "cgpeers"),
+      ).toMatchObject({
+        displayName: "CGPeers",
+        protocol: "torrent",
+        implementation: "cardigann_yaml",
+        baseUrl: "https://cgpeers.to/",
+        privacy: "private",
+        supportsRss: false,
+        tags: ["private", "apps", "games", "graphics", "json", "gazelle"],
       })
       expect(
         definitions.find((definition) => definition.definitionKey === "revolutiontt"),

@@ -6075,6 +6075,166 @@ search:
       text: "{{ if .Result.neutralflag }}0{{ else }}1{{ end }}"
 `
 
+const CGPEERS = `
+id: cgpeers
+name: CGPeers
+description: Private graphics software, tutorials, and game development tracker exposed through a first-pass Gazelle JSON Cardigann definition.
+type: private
+links:
+  - https://cgpeers.to/
+version: builtin-cardigann-1
+rss: false
+tags:
+  - private
+  - apps
+  - games
+  - graphics
+  - json
+  - gazelle
+settings:
+  - name: username
+    label: Username
+    type: text
+    required: true
+  - name: password
+    label: Password
+    type: password
+    required: true
+  - name: useFreeleechToken
+    label: Use Freeleech Tokens
+    type: select
+    default: "0"
+    required: false
+    options:
+      - value: "0"
+        label: Never
+      - value: "1"
+        label: Preferred
+      - value: "2"
+        label: Required
+caps:
+  categorymappings:
+    - id: "1"
+      cat: PC/ISO
+      desc: Full Applications
+      newznab: 4020
+    - id: "2"
+      cat: PC/0day
+      desc: Plugins
+      newznab: 4010
+    - id: "3"
+      cat: Other
+      desc: Tutorials
+      newznab: 8000
+    - id: "4"
+      cat: Other
+      desc: Models
+      newznab: 8000
+    - id: "5"
+      cat: Other
+      desc: Materials
+      newznab: 8000
+    - id: "6"
+      cat: Other/Misc
+      desc: Misc
+      newznab: 8010
+    - id: "7"
+      cat: Other
+      desc: GameDev
+      newznab: 8000
+  modes:
+    search: [q]
+login:
+  method: post
+  path: login.php
+  inputs:
+    username: "{{ .Config.Username }}"
+    password: "{{ .Config.Password }}"
+    keeplogged: "1"
+search:
+  paths:
+    - path: /ajax.php
+      response:
+        type: json
+      inputs:
+        action: browse
+        order_by: time
+        order_way: desc
+        searchstr: "{{ .Keywords }}"
+        $raw: '{{ range .Categories }}filter_cat[{{ . }}]=1&{{ end }}'
+  rows:
+    selector: $.response.results, $.Response.Results
+    attribute: torrents, Torrents
+    multiple: true
+    missingAttributeEqualsNoResults: true
+  fields:
+    id:
+      selector: torrentId, TorrentId
+    groupid:
+      selector: ..groupId
+    groupname:
+      selector: ..groupName
+      filters:
+        - name: htmldecode
+    groupyear:
+      selector: ..groupYear
+    format:
+      selector: format, Format
+    encoding:
+      selector: encoding, Encoding
+    media:
+      selector: media, Media
+    hascue:
+      selector: hasCue, HasCue
+      filters:
+        - name: regexp
+          args: "true"
+    title:
+      text: "{{ .Result.groupname }} ({{ .Result.groupyear }}) [{{ .Result.format }} {{ .Result.encoding }}] [{{ .Result.media }}]{{ if .Result.hascue }} [Cue]{{ end }}"
+    details:
+      text: "/torrents.php?id={{ .Result.groupid }}&torrentid={{ .Result.id }}"
+    download:
+      text: '/torrents.php?action=download&id={{ .Result.id }}{{ if ne .Config.UseFreeleechToken "0" }}&usetoken=1{{ end }}'
+    category:
+      selector: category, Category
+      default: "1"
+      case:
+        "Full Applications": "1"
+        "Plugins": "2"
+        "Tutorials": "3"
+        "Models": "4"
+        "Materials": "5"
+        "Misc": "6"
+        "GameDev": "7"
+        "Select Category": "1"
+    date:
+      selector: time, Time
+    size:
+      selector: size, Size
+    files:
+      selector: fileCount, FileCount
+    grabs:
+      selector: snatches, Snatches
+    seeders:
+      selector: seeders, Seeders
+    leechers:
+      selector: leechers, Leechers
+    freeflags:
+      selector: isFreeLeech, IsFreeLeech, isNeutralLeech, IsNeutralLeech, isPersonalFreeLeech, IsPersonalFreeLeech
+      filters:
+        - name: regexp
+          args: "true"
+    neutralflag:
+      selector: isNeutralLeech, IsNeutralLeech
+      filters:
+        - name: regexp
+          args: "true"
+    downloadvolumefactor:
+      text: "{{ if .Result.freeflags }}0{{ else }}1{{ end }}"
+    uploadvolumefactor:
+      text: "{{ if .Result.neutralflag }}0{{ else }}1{{ end }}"
+`
+
 const REVOLUTION_TT = `
 id: revolutiontt
 name: RevolutionTT
@@ -6800,6 +6960,7 @@ const BUILT_IN_CARDIGANN_SOURCES = [
   FILELIST,
   ALPHA_RATIO,
   BROKENSTONES,
+  CGPEERS,
   REVOLUTION_TT,
   PRETOME,
   MORE_THAN_TV,
