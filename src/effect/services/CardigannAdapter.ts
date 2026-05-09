@@ -68,6 +68,9 @@ interface HtmlElementMatch {
   readonly childCount?: number
   readonly typeIndex?: number
   readonly typeCount?: number
+  readonly parentKey?: number | null
+  readonly scopeHtml?: string
+  readonly scopeBaseIndex?: number
 }
 
 interface SimpleHtmlSelector {
@@ -82,9 +85,11 @@ interface SimpleHtmlSelector {
   readonly filters: ReadonlyArray<JsonSelectorFilter>
 }
 
+type HtmlSelectorCombinator = "descendant" | "child" | "adjacent-sibling" | "general-sibling"
+
 interface HtmlSelectorStep {
   readonly token: string
-  readonly direct: boolean
+  readonly combinator: HtmlSelectorCombinator
 }
 
 interface FormLoginParams {
@@ -1517,17 +1522,18 @@ function htmlSelectorSteps(selector: string): ReadonlyArray<HtmlSelectorStep> {
   let bracketDepth = 0
   let parenDepth = 0
   let quote: string | null = null
-  let nextDirect = false
+  let nextCombinator: HtmlSelectorCombinator = "descendant"
 
-  const pushStep = () => {
+  const pushStep = (): boolean => {
     const token = current.trim()
     current = ""
-    if (token.length === 0) return
+    if (token.length === 0) return false
     steps.push({
       token,
-      direct: nextDirect,
+      combinator: nextCombinator,
     })
-    nextDirect = false
+    nextCombinator = "descendant"
+    return true
   }
 
   for (const char of selector.trim()) {
@@ -1543,9 +1549,15 @@ function htmlSelectorSteps(selector: string): ReadonlyArray<HtmlSelectorStep> {
       parenDepth = Math.max(0, parenDepth - 1)
     }
 
-    if (quote === null && bracketDepth === 0 && parenDepth === 0 && char === ">") {
+    if (
+      quote === null &&
+      bracketDepth === 0 &&
+      parenDepth === 0 &&
+      (char === ">" || char === "+" || char === "~")
+    ) {
       pushStep()
-      nextDirect = true
+      nextCombinator =
+        char === ">" ? "child" : char === "+" ? "adjacent-sibling" : "general-sibling"
     } else if (quote === null && bracketDepth === 0 && parenDepth === 0 && /\s/.test(char)) {
       pushStep()
     } else {
@@ -1894,6 +1906,7 @@ function htmlChildPositionAt(
   readonly count: number | undefined
   readonly typeIndex: number | undefined
   readonly typeCount: number | undefined
+  readonly parentKey: number | null
 } {
   let rootChildCount = 0
   const rootTypeChildCounts = new Map<string, number>()
@@ -1976,7 +1989,15 @@ function htmlChildPositionAt(
   }
 
   return targetFound
-    ? { first, last, index: childIndex, count: childCount, typeIndex, typeCount }
+    ? {
+        first,
+        last,
+        index: childIndex,
+        count: childCount,
+        typeIndex,
+        typeCount,
+        parentKey: targetParentKey,
+      }
     : {
         first: false,
         last: false,
@@ -1984,6 +2005,7 @@ function htmlChildPositionAt(
         count: undefined,
         typeIndex: undefined,
         typeCount: undefined,
+        parentKey: null,
       }
 }
 
@@ -2029,6 +2051,7 @@ function findHtmlElementsForToken(
   selectorText: string,
   baseIndex = 0,
   direct = false,
+  forceChildPosition = false,
 ): ReadonlyArray<HtmlElementMatch> {
   const selector = parseSimpleHtmlSelectorToken(selectorText)
   if (selector === null) return []
@@ -2062,7 +2085,8 @@ function findHtmlElementsForToken(
 
     const attributes = parseHtmlAttributes(match[2] ?? "")
     const sourceIndex = baseIndex + matchIndex
-    const childPosition = needsChildPosition ? htmlChildPositionAt(html, matchIndex) : null
+    const childPosition =
+      needsChildPosition || forceChildPosition ? htmlChildPositionAt(html, matchIndex) : null
     const element = {
       tagName,
       attributes,
@@ -2076,6 +2100,9 @@ function findHtmlElementsForToken(
       childCount: childPosition?.count,
       typeIndex: childPosition?.typeIndex,
       typeCount: childPosition?.typeCount,
+      parentKey: childPosition?.parentKey,
+      scopeHtml: html,
+      scopeBaseIndex: baseIndex,
     }
     if (
       htmlAttributeMatches(attributes, selector) &&
@@ -2121,6 +2148,45 @@ function htmlElementSourceIndex(match: HtmlElementMatch): number {
   return match.sourceIndex ?? Number.MAX_SAFE_INTEGER
 }
 
+function isHtmlSiblingCombinator(combinator: HtmlSelectorCombinator): boolean {
+  return combinator === "adjacent-sibling" || combinator === "general-sibling"
+}
+
+function findHtmlSiblingElementsForStep(
+  previous: HtmlElementMatch,
+  step: HtmlSelectorStep,
+): ReadonlyArray<HtmlElementMatch> {
+  const scopeHtml = previous.scopeHtml
+  if (scopeHtml === undefined) return []
+
+  const scopeBaseIndex = previous.scopeBaseIndex ?? 0
+  const previousLocalIndex =
+    previous.sourceIndex === undefined ? undefined : previous.sourceIndex - scopeBaseIndex
+  const previousPosition =
+    previous.parentKey === undefined || previous.childIndex === undefined
+      ? previousLocalIndex === undefined
+        ? null
+        : htmlChildPositionAt(scopeHtml, previousLocalIndex)
+      : null
+  const previousParentKey = previous.parentKey ?? previousPosition?.parentKey
+  const previousChildIndex = previous.childIndex ?? previousPosition?.index
+  if (
+    previousParentKey === undefined ||
+    previousParentKey === null ||
+    previousChildIndex === undefined
+  ) {
+    return []
+  }
+
+  return findHtmlElementsForToken(scopeHtml, step.token, scopeBaseIndex, false, true).filter(
+    (candidate) =>
+      candidate.parentKey === previousParentKey &&
+      (step.combinator === "adjacent-sibling"
+        ? candidate.childIndex === previousChildIndex + 1
+        : (candidate.childIndex ?? 0) > previousChildIndex),
+  )
+}
+
 function findHtmlElementsForSelector(
   html: string,
   selectorText: string,
@@ -2129,15 +2195,32 @@ function findHtmlElementsForSelector(
   if (steps.length === 0) return []
 
   let matches: ReadonlyArray<HtmlElementMatch> = [
-    { tagName: null, attributes: {}, innerHtml: html, outerHtml: html },
+    {
+      tagName: null,
+      attributes: {},
+      innerHtml: html,
+      outerHtml: html,
+      scopeHtml: html,
+      scopeBaseIndex: 0,
+    },
   ]
-  for (const step of steps) {
-    matches = matches.flatMap((match) =>
-      findHtmlElementsForToken(
-        match.innerHtml,
-        step.token,
-        match.innerHtmlStartIndex ?? 0,
-        step.direct,
+  for (let index = 0; index < steps.length; index += 1) {
+    const step = steps[index]
+    if (step === undefined) continue
+    const nextStep = steps[index + 1]
+    const forceChildPosition =
+      nextStep !== undefined && isHtmlSiblingCombinator(nextStep.combinator)
+    matches = uniqueHtmlElementMatches(
+      matches.flatMap((match) =>
+        isHtmlSiblingCombinator(step.combinator)
+          ? findHtmlSiblingElementsForStep(match, step)
+          : findHtmlElementsForToken(
+              match.innerHtml,
+              step.token,
+              match.innerHtmlStartIndex ?? 0,
+              step.combinator === "child",
+              forceChildPosition,
+            ),
       ),
     )
     if (matches.length === 0) return []
@@ -2351,7 +2434,7 @@ function htmlElementSelfMatches(element: HtmlElementMatch, selectorText: string)
   }
 
   const steps = htmlSelectorSteps(selectorText)
-  if (steps.length !== 1 || steps[0]?.direct === true) return false
+  if (steps.length !== 1 || steps[0]?.combinator !== "descendant") return false
 
   const selector = parseSimpleHtmlSelectorToken(steps[0]?.token ?? "")
   if (selector === null) return false

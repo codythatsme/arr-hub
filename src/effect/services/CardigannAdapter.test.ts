@@ -668,6 +668,36 @@ const HTML_ONLY_CHILD_SELECTOR_RESULTS = `<!doctype html>
   </body>
 </html>`
 
+const HTML_SIBLING_SELECTOR_RESULTS = `<!doctype html>
+<html>
+  <body>
+    <table class="results">
+      <tbody>
+        <tr class="group"><td>Adjacent Group</td></tr>
+        <tr class="torrent adjacent">
+          <td class="name"><a class="title" href="/details/adjacent-sibling">Adjacent Sibling Movie 2026 1080p WEB-DL</a></td>
+          <td class="actions"><a class="download" href="/download/adjacent-sibling">Download</a></td>
+          <td class="size">2.2 GB</td>
+        </tr>
+        <tr class="group"><td>Skipped Group</td></tr>
+        <tr class="ad"><td>Advertisement</td></tr>
+        <tr class="torrent wrong-adjacent">
+          <td class="name"><a class="title" href="/details/wrong-adjacent">Wrong Adjacent Movie 2026 1080p WEB-DL</a></td>
+          <td class="actions"><a class="download" href="/download/wrong-adjacent">Download</a></td>
+          <td class="size">600 MB</td>
+        </tr>
+        <tr class="marker"><td>General Marker</td></tr>
+        <tr class="ad"><td>Advertisement</td></tr>
+        <tr class="torrent general">
+          <td class="name"><a class="title" href="/details/general-sibling">General Sibling Movie 2026 1080p WEB-DL</a></td>
+          <td class="actions"><a class="download" href="/download/general-sibling">Download</a></td>
+          <td class="size">2.3 GB</td>
+        </tr>
+      </tbody>
+    </table>
+  </body>
+</html>`
+
 const HTML_NESTED_RESULTS = `<!doctype html>
 <html>
   <body>
@@ -3096,6 +3126,75 @@ search:
       "https://tracker.example/download/only-of-type",
     ])
     expect(releases.map((release) => release.size)).toEqual([2_000_000_000, 2_100_000_000])
+  })
+
+  it("matches Cardigann HTML sibling combinators", async () => {
+    const fetchMock = vi.fn(
+      async () => new Response(HTML_SIBLING_SELECTOR_RESULTS, { status: 200 }),
+    )
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 79,
+      name: "HTML Sibling Selector Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "html-sibling-selector-cardigann",
+      definitionYaml: `
+id: html-sibling-selector-cardigann
+name: HTML Sibling Selector Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+      newznab: 2000
+  modes:
+    search: [q]
+search:
+  paths:
+    - path: /browse
+      response:
+        type: html
+  rows:
+    selector: tr.group + tr.torrent.adjacent, tr.marker ~ tr.torrent.general
+  fields:
+    title:
+      selector: td.name a.title
+    details:
+      selector: td.name a.title
+      attribute: href
+    download:
+      selector: td.name + td.actions a.download
+      attribute: href
+    size:
+      selector: td.name ~ td.size
+    category:
+      text: Movies
+`,
+      baseUrl: "https://tracker.example",
+      apiKey: "",
+      priority: 35,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Sibling", type: "general", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(releases).toHaveLength(2)
+    expect(releases.map((release) => release.title)).toEqual([
+      "Adjacent Sibling Movie 2026 1080p WEB-DL",
+      "General Sibling Movie 2026 1080p WEB-DL",
+    ])
+    expect(releases.map((release) => release.downloadUrl)).toEqual([
+      "https://tracker.example/download/adjacent-sibling",
+      "https://tracker.example/download/general-sibling",
+    ])
+    expect(releases.map((release) => release.size)).toEqual([2_200_000_000, 2_300_000_000])
   })
 
   it("resolves nested Cardigann HTML descendant selectors within their parent matches", async () => {
