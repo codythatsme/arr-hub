@@ -138,15 +138,26 @@ function checkboxTemplateValue(value: string): string {
     : ""
 }
 
+function configFieldTemplateValue(fieldType: IndexerAuthField["type"], value: string): string {
+  return fieldType === "checkbox" ? checkboxTemplateValue(value) : value
+}
+
+function assignConfigTemplateVariable(
+  variables: Record<string, string>,
+  key: string,
+  value: string,
+): void {
+  for (const variant of configKeyVariants(key)) {
+    variables[`.Config.${variant}`] = value
+  }
+}
+
 function configTemplateVariables(
   config: IndexerConfig,
   siteLink: string,
   authFields: ReadonlyArray<IndexerAuthField>,
 ): Record<string, string> {
   const variables: Record<string, string> = {
-    ".Config.APIKey": config.apiKey,
-    ".Config.ApiKey": config.apiKey,
-    ".Config.apiKey": config.apiKey,
     ".Config.sitelink": siteLink,
     ".False": "",
     ".Today.Year": String(new Date().getFullYear()),
@@ -156,12 +167,26 @@ function configTemplateVariables(
     authFields.map((field) => [field.name.toLowerCase(), field.type]),
   )
 
+  for (const field of authFields) {
+    if (field.defaultValue === undefined) continue
+    assignConfigTemplateVariable(
+      variables,
+      field.name,
+      configFieldTemplateValue(field.type, field.defaultValue),
+    )
+  }
+
+  if (config.apiKey.length > 0) {
+    assignConfigTemplateVariable(variables, "apiKey", config.apiKey)
+  } else {
+    variables[".Config.APIKey"] ??= ""
+    variables[".Config.ApiKey"] ??= ""
+    variables[".Config.apiKey"] ??= ""
+  }
+
   for (const [key, value] of Object.entries(config.configValues ?? {})) {
-    const configValue =
-      fieldTypesByName.get(key.toLowerCase()) === "checkbox" ? checkboxTemplateValue(value) : value
-    for (const variant of configKeyVariants(key)) {
-      variables[`.Config.${variant}`] = configValue
-    }
+    const fieldType = fieldTypesByName.get(key.toLowerCase()) ?? "text"
+    assignConfigTemplateVariable(variables, key, configFieldTemplateValue(fieldType, value))
   }
 
   return variables

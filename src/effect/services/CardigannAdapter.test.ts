@@ -531,6 +531,132 @@ search:
     expect(url.searchParams.get("dead")).toBe("0")
   })
 
+  it("uses Cardigann auth defaults when config values are omitted", async () => {
+    let requestUrl: string | undefined
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      requestUrl = String(input)
+      return new Response(RSS_XML, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 23,
+      name: "Default Auth Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "default-auth-cardigann",
+      definitionYaml: `
+id: default-auth-cardigann
+name: Default Auth Cardigann
+links:
+  - https://tracker.example
+settings:
+  - name: mode
+    label: Search mode
+    type: select
+    default: safe
+  - name: freeleechOnly
+    label: Freeleech only
+    type: checkbox
+    default: true
+  - name: includeDead
+    label: Include dead
+    type: checkbox
+    default: false
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+  modes:
+    movie-search: [q]
+search:
+  paths:
+    - path: /search
+      response:
+        type: torznab
+      inputs:
+        mode: "{{ .Config.Mode }}"
+        freeleech: '{{ if .Config.freeleechOnly }}1{{ else }}0{{ end }}'
+        dead: '{{ if .Config.includeDead }}1{{ else }}0{{ end }}'
+`,
+      baseUrl: "https://tracker.example/root",
+      apiKey: "",
+      priority: 15,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    await Effect.runPromise(adapter.search({ term: "Default Auth Movie", type: "movie" }))
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const url = new URL(requestUrl ?? "")
+    expect(url.searchParams.get("mode")).toBe("safe")
+    expect(url.searchParams.get("freeleech")).toBe("1")
+    expect(url.searchParams.get("dead")).toBe("0")
+  })
+
+  it("lets saved Cardigann config values override auth defaults", async () => {
+    let requestUrl: string | undefined
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      requestUrl = String(input)
+      return new Response(RSS_XML, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 24,
+      name: "Saved Auth Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "saved-auth-cardigann",
+      definitionYaml: `
+id: saved-auth-cardigann
+name: Saved Auth Cardigann
+links:
+  - https://tracker.example
+settings:
+  - name: mode
+    label: Search mode
+    type: select
+    default: safe
+  - name: freeleechOnly
+    label: Freeleech only
+    type: checkbox
+    default: true
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+  modes:
+    movie-search: [q]
+search:
+  paths:
+    - path: /search
+      response:
+        type: torznab
+      inputs:
+        mode: "{{ .Config.mode }}"
+        freeleech: '{{ if .Config.FreeleechOnly }}1{{ else }}0{{ end }}'
+`,
+      baseUrl: "https://tracker.example/root",
+      apiKey: "",
+      configValues: {
+        mode: "raw",
+        freeleechOnly: "false",
+      },
+      priority: 15,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    await Effect.runPromise(adapter.search({ term: "Saved Auth Movie", type: "movie" }))
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const url = new URL(requestUrl ?? "")
+    expect(url.searchParams.get("mode")).toBe("raw")
+    expect(url.searchParams.get("freeleech")).toBe("0")
+  })
+
   it("narrows Cardigann Categories for each matching path", async () => {
     const requestUrls: Array<string> = []
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
