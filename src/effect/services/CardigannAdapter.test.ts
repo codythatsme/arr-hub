@@ -108,6 +108,22 @@ const SHIZA_PROJECT_JSON_RESULTS = JSON.stringify({
   },
 })
 
+const SCENEHD_JSON_RESULTS = JSON.stringify([
+  {
+    id: 7001,
+    name: "SceneHD Movie 2026 1080p WEB-DL",
+    category: "1",
+    added: "2026-05-09 11:22:33",
+    size: 6_543_210_000,
+    times_completed: 18,
+    numfiles: 3,
+    seeders: 31,
+    leechers: 4,
+    imdbid: "tt1234567",
+    is_freeleech: 1,
+  },
+])
+
 const KNABEN_JSON_RESULTS = JSON.stringify({
   hits: [
     {
@@ -2885,6 +2901,65 @@ search:
       uploadFactor: 1,
     })
     expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-09T09:00:00.000Z")
+  })
+
+  it("parses SceneHD passkey JSON searches from the built-in definition", async () => {
+    const requests: Array<{ url: string; init: RequestInit | undefined }> = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      requests.push({ url: String(input), init })
+      return new Response(SCENEHD_JSON_RESULTS, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 111,
+      name: "SceneHD",
+      type: "cardigann_yaml",
+      definitionKey: "scenehd",
+      baseUrl: "https://scenehd.org/",
+      apiKey: "",
+      configValues: {
+        passkey: "scenehd-passkey",
+      },
+      priority: 47,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({
+        term: "SceneHD Movie",
+        type: "movie",
+        categories: [2040],
+        imdbId: "tt1234567",
+      }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const request = requests[0]
+    const url = new URL(request?.url ?? "")
+    expect(url.origin).toBe("https://scenehd.org")
+    expect(url.pathname).toBe("/browse.php")
+    expect(url.searchParams.get("api")).toBe("")
+    expect(url.searchParams.get("passkey")).toBe("scenehd-passkey")
+    expect(url.searchParams.get("search")).toBe("tt1234567 SceneHD Movie")
+    expect(url.searchParams.get("cat")).toBe("1,4")
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "SceneHD Movie 2026 1080p WEB-DL",
+      downloadUrl: "https://scenehd.org/download.php?id=7001&passkey=scenehd-passkey",
+      infoUrl: "https://scenehd.org/details.php?id=7001",
+      category: "2040",
+      size: 6_543_210_000,
+      seeders: 31,
+      leechers: 4,
+      indexerId: 111,
+      indexerName: "SceneHD",
+      indexerPriority: 47,
+      downloadFactor: 0,
+      uploadFactor: 1,
+    })
+    expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-09T11:22:33.000Z")
   })
 
   it("renders Cardigann raw JSON POST bodies for Knaben searches", async () => {

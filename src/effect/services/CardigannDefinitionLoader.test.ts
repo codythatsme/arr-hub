@@ -94,6 +94,7 @@ caps:
       "beyond-hd",
       "bit-hdtv",
       "torrentbytes",
+      "scenehd",
       "scenetime",
       "hd-space",
       "speedcd",
@@ -454,6 +455,30 @@ caps:
           { id: 2000, name: "Movies" },
           { id: 5000, name: "TV" },
           { id: 6000, name: "XXX" },
+        ]),
+      },
+    })
+    expect(
+      BUILT_IN_CARDIGANN_DEFINITIONS.find((definition) => definition.definitionKey === "scenehd"),
+    ).toMatchObject({
+      displayName: "SceneHD",
+      baseUrl: "https://scenehd.org/",
+      privacy: "private",
+      supportsRss: false,
+      supportsSearch: true,
+      tags: ["private", "movies", "tv", "music", "json", "api"],
+      authFields: expect.arrayContaining([
+        expect.objectContaining({ name: "passkey", type: "password", required: true }),
+      ]),
+      capabilities: {
+        searchTypes: ["search", "movie", "tvsearch"],
+        categories: expect.arrayContaining([
+          { id: 2045, name: "Movie/2160" },
+          { id: 2040, name: "Movie/1080" },
+          { id: 2040, name: "Movie/720" },
+          { id: 5045, name: "TV/2160" },
+          { id: 5040, name: "TV/1080" },
+          { id: 3020, name: "MVID" },
         ]),
       },
     })

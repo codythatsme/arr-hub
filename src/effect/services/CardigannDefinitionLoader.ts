@@ -3020,6 +3020,127 @@ search:
       text: "1"
 `
 
+const SCENE_HD = `
+id: scenehd
+name: SceneHD
+description: Private HD movie and TV tracker exposed through a first-pass passkey JSON Cardigann definition.
+type: private
+links:
+  - https://scenehd.org/
+version: builtin-cardigann-1
+rss: false
+tags:
+  - private
+  - movies
+  - tv
+  - music
+  - json
+  - api
+settings:
+  - name: passkey
+    label: Passkey
+    type: password
+    required: true
+    helpText: SceneHD account passkey.
+caps:
+  categorymappings:
+    - id: "2"
+      cat: Movies/UHD
+      desc: Movie/2160
+      newznab: 2045
+    - id: "1"
+      cat: Movies/HD
+      desc: Movie/1080
+      newznab: 2040
+    - id: "4"
+      cat: Movies/HD
+      desc: Movie/720
+      newznab: 2040
+    - id: "8"
+      cat: Movies/BluRay
+      desc: Movie/BD5/9
+      newznab: 2050
+    - id: "6"
+      cat: TV/UHD
+      desc: TV/2160
+      newznab: 5045
+    - id: "5"
+      cat: TV/HD
+      desc: TV/1080
+      newznab: 5040
+    - id: "7"
+      cat: TV/HD
+      desc: TV/720
+      newznab: 5040
+    - id: "22"
+      cat: Movies/BluRay
+      desc: Bluray/Complete
+      newznab: 2050
+    - id: "10"
+      cat: XXX
+      desc: XXX
+      newznab: 6000
+    - id: "16"
+      cat: Movies/Other
+      desc: Subpacks
+      newznab: 2020
+    - id: "13"
+      cat: Audio/Video
+      desc: MVID
+      newznab: 3020
+    - id: "9"
+      cat: Other
+      desc: Other
+      newznab: 8000
+  modes:
+    search: [q]
+    movie-search: [q, imdbid]
+    tv-search: [q, season, ep]
+    music-search: [q]
+search:
+  paths:
+    - path: browse.php?api=
+      response:
+        type: json
+      inputs:
+        passkey: "{{ .Config.Passkey }}"
+        search: "{{ if .Query.IMDBID }}{{ .Query.IMDBID }} {{ .Keywords }}{{ else }}{{ .Keywords }}{{ end }}"
+        cat: "{{ .Categories | join ',' }}"
+  rows:
+    selector: $
+  fields:
+    id:
+      selector: id
+    title:
+      selector: name
+    details:
+      text: "details.php?id={{ .Result.id }}"
+    download:
+      text: "download.php?id={{ .Result.id }}&passkey={{ .Config.Passkey }}"
+    category:
+      selector: category
+    date:
+      selector: added
+      filters:
+        - name: dateparse
+          args: "yyyy-MM-dd HH:mm:ss"
+    size:
+      selector: size
+    grabs:
+      selector: times_completed
+    seeders:
+      selector: seeders
+    leechers:
+      selector: leechers
+    downloadvolumefactor:
+      selector: is_freeleech
+      case:
+        "1": "0"
+        "0": "1"
+    uploadvolumefactor:
+      text: "1"
+`
+
 const HD_SPACE = `
 id: hd-space
 name: HD-Space
@@ -5088,6 +5209,7 @@ const BUILT_IN_CARDIGANN_SOURCES = [
   BEYOND_HD,
   BIT_HDTV,
   TORRENT_BYTES,
+  SCENE_HD,
   SCENE_TIME,
   HD_SPACE,
   SPEED_CD,

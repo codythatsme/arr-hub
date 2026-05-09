@@ -119,19 +119,19 @@ describe("IndexerService", () => {
       const second = yield* svc.refreshDefinitions()
 
       expect(first).toMatchObject({
-        total: 33,
-        created: 33,
+        total: 34,
+        created: 34,
         updated: 0,
         unchanged: 0,
       })
       expect(first.definitions.map((definition) => definition.action)).toEqual(
-        Array(33).fill("created"),
+        Array(34).fill("created"),
       )
       expect(second).toMatchObject({
-        total: 33,
+        total: 34,
         created: 0,
         updated: 0,
-        unchanged: 33,
+        unchanged: 34,
       })
       expect(second.definitions.every((definition) => definition.previousVersion !== null)).toBe(
         true,
@@ -424,6 +424,7 @@ describe("IndexerService", () => {
         "public-domain-movie-torrents",
         "retroflix",
         "revolutiontt",
+        "scenehd",
         "scenetime",
         "shizaproject",
         "speedapp",
@@ -613,6 +614,17 @@ describe("IndexerService", () => {
         privacy: "private",
         supportsRss: false,
         tags: ["private", "general", "movies", "tv", "html"],
+      })
+      expect(
+        definitions.find((definition) => definition.definitionKey === "scenehd"),
+      ).toMatchObject({
+        displayName: "SceneHD",
+        protocol: "torrent",
+        implementation: "cardigann_yaml",
+        baseUrl: "https://scenehd.org/",
+        privacy: "private",
+        supportsRss: false,
+        tags: ["private", "movies", "tv", "music", "json", "api"],
       })
       expect(
         definitions.find((definition) => definition.definitionKey === "scenetime"),
