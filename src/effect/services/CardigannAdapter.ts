@@ -871,6 +871,13 @@ function htmlCaseValue(
   return null
 }
 
+function selectHtmlFieldElement(
+  row: HtmlElementMatch,
+  selector: string,
+): HtmlElementMatch | undefined {
+  return htmlElementSelfMatches(row, selector) ? row : findHtmlElements(row.innerHtml, selector)[0]
+}
+
 function htmlTextContent(value: string): string {
   return htmlDecode(
     value
@@ -887,7 +894,7 @@ function htmlFieldValue(
   field: CardigannFieldSelector,
   variables: Record<string, TemplateValue>,
 ): string {
-  const selected = field.selector ? findHtmlElements(row.innerHtml, field.selector)[0] : row
+  const selected = field.selector ? selectHtmlFieldElement(row, field.selector) : row
   let value = ""
   if (field.text !== undefined) {
     value = renderTemplate(field.text, variables)

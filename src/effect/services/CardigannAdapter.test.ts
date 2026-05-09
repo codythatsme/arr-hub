@@ -96,6 +96,20 @@ const HTML_REMOVE_RESULTS = `<!doctype html>
   </body>
 </html>`
 
+const HTML_SELF_SELECTOR_RESULTS = `<!doctype html>
+<html>
+  <body>
+    <table class="results">
+      <tbody>
+        <tr class="torrent" data-title="Self Match Movie 2026 1080p WEB-DL" data-details="/details/5" data-category="movies">
+          <td class="actions"><a class="download" href="/download/5">Download</a></td>
+          <td class="size">5 GB</td>
+        </tr>
+      </tbody>
+    </table>
+  </body>
+</html>`
+
 describe("CardigannAdapter", () => {
   afterEach(() => {
     vi.unstubAllGlobals()
@@ -511,6 +525,73 @@ search:
       size: 4_000_000_000,
       category: "2000",
       uploadFactor: 2,
+    })
+  })
+
+  it("matches Cardigann HTML field selectors against the current row", async () => {
+    const fetchMock = vi.fn(async () => new Response(HTML_SELF_SELECTOR_RESULTS, { status: 200 }))
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 29,
+      name: "Self Selector HTML Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "self-selector-html-cardigann",
+      definitionYaml: `
+id: self-selector-html-cardigann
+name: Self Selector HTML Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+      newznab: 2000
+  modes:
+    search: [q]
+search:
+  paths:
+    - path: /browse
+      response:
+        type: html
+  rows:
+    selector: tr.torrent
+  fields:
+    title:
+      selector: tr.torrent
+      attribute: data-title
+    details:
+      selector: tr.torrent
+      attribute: data-details
+    download:
+      selector: td.actions a.download
+      attribute: href
+    size:
+      selector: td.size
+    category:
+      selector: tr.torrent
+      attribute: data-category
+`,
+      baseUrl: "https://tracker.example",
+      apiKey: "",
+      priority: 35,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Self Match Movie", type: "general", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "Self Match Movie 2026 1080p WEB-DL",
+      downloadUrl: "https://tracker.example/download/5",
+      infoUrl: "https://tracker.example/details/5",
+      size: 5_000_000_000,
+      category: "2000",
     })
   })
 
