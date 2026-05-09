@@ -13,6 +13,7 @@ import type {
   DownloadClientError,
   EncryptionError,
   ImportError,
+  IndexerApplicationError,
   IndexerError,
   MediaImportError,
   MediaServerError,
@@ -69,6 +70,7 @@ export type DomainError =
   | MetadataError
   | OnboardingError
   | ImportError
+  | IndexerApplicationError
   | PluginError
   | MediaImportError
 
@@ -198,6 +200,18 @@ export function domainToTRPC(error: DomainError): TRPCError {
       return new TRPCError({
         code: codeMap[error.reason] ?? "BAD_REQUEST",
         message: `[${error.source}] ${error.message}`,
+      })
+    }
+    case "IndexerApplicationError": {
+      const codeMap: Record<string, TRPCError["code"]> = {
+        auth_failed: "UNAUTHORIZED",
+        connection_failed: "BAD_GATEWAY",
+        invalid_response: "BAD_GATEWAY",
+        sync_failed: "BAD_GATEWAY",
+      }
+      return new TRPCError({
+        code: codeMap[error.reason] ?? "BAD_GATEWAY",
+        message: `[${error.applicationName}] ${error.message}`,
       })
     }
     case "PluginError": {

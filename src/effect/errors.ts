@@ -177,6 +177,20 @@ export class ImportError extends Data.TaggedError("ImportError")<{
   readonly message: string
 }> {}
 
+export type IndexerApplicationErrorReason =
+  | "auth_failed"
+  | "connection_failed"
+  | "invalid_response"
+  | "sync_failed"
+
+export class IndexerApplicationError extends Data.TaggedError("IndexerApplicationError")<{
+  readonly applicationId: number
+  readonly applicationName: string
+  readonly reason: IndexerApplicationErrorReason
+  readonly message: string
+  readonly retryable: boolean
+}> {}
+
 export type PluginErrorReason =
   | "manifest_invalid"
   | "contract_violation"

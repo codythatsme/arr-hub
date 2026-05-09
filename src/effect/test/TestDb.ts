@@ -249,6 +249,33 @@ const runDdl = Effect.gen(function* () {
     response_time_ms INTEGER
   )`
 
+  yield* sql`CREATE TABLE indexer_applications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL,
+    base_url TEXT NOT NULL,
+    api_key_encrypted TEXT NOT NULL,
+    sync_base_url TEXT NOT NULL,
+    sync_api_key_encrypted TEXT NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    settings TEXT NOT NULL DEFAULT '{"syncCategories":[],"syncLevel":"full"}',
+    last_synced_at INTEGER,
+    last_error TEXT,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+  )`
+
+  yield* sql`CREATE TABLE indexer_application_mappings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    application_id INTEGER NOT NULL REFERENCES indexer_applications(id) ON DELETE CASCADE,
+    protocol TEXT NOT NULL,
+    remote_indexer_id INTEGER NOT NULL,
+    remote_indexer_name TEXT NOT NULL,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    UNIQUE(application_id, protocol)
+  )`
+
   yield* sql`CREATE TABLE download_clients (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,

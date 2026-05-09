@@ -12,6 +12,10 @@ import type {
   IndexerProxySettings,
   IndexerProxyType,
 } from "#/effect/domain/indexer"
+import type {
+  IndexerApplicationSettings,
+  IndexerApplicationType,
+} from "#/effect/domain/indexerApplication"
 import type { MediaServerSettings } from "#/effect/domain/mediaServer"
 import type { DecisionReason, MediaType, ReleaseDecision } from "#/effect/domain/release"
 import type {
@@ -362,6 +366,49 @@ export const indexerHealth = sqliteTable("indexer_health", {
   errorMessage: text("error_message"),
   responseTimeMs: integer("response_time_ms"),
 })
+
+export const indexerApplications = sqliteTable("indexer_applications", {
+  id: integer().primaryKey({ autoIncrement: true }),
+  name: text().notNull(),
+  type: text().$type<IndexerApplicationType>().notNull(),
+  baseUrl: text("base_url").notNull(),
+  apiKeyEncrypted: text("api_key_encrypted").notNull(),
+  syncBaseUrl: text("sync_base_url").notNull(),
+  syncApiKeyEncrypted: text("sync_api_key_encrypted").notNull(),
+  enabled: integer({ mode: "boolean" }).notNull().default(true),
+  settings: text({ mode: "json" })
+    .$type<IndexerApplicationSettings>()
+    .notNull()
+    .default(sql`'{"syncCategories":[],"syncLevel":"full"}'`),
+  lastSyncedAt: integer("last_synced_at", { mode: "timestamp" }),
+  lastError: text("last_error"),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+})
+
+export const indexerApplicationMappings = sqliteTable(
+  "indexer_application_mappings",
+  {
+    id: integer().primaryKey({ autoIncrement: true }),
+    applicationId: integer("application_id")
+      .notNull()
+      .references(() => indexerApplications.id, { onDelete: "cascade" }),
+    protocol: text().$type<IndexerProtocol>().notNull(),
+    remoteIndexerId: integer("remote_indexer_id").notNull(),
+    remoteIndexerName: text("remote_indexer_name").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+    updatedAt: integer("updated_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (t) => [unique().on(t.applicationId, t.protocol)],
+)
 
 export const downloadClients = sqliteTable("download_clients", {
   id: integer().primaryKey({ autoIncrement: true }),

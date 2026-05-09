@@ -16,9 +16,15 @@ import {
   type AggregateProtocolPath,
 } from "#/lib/torznab"
 
-async function handler({ request }: { request: Request }) {
+function protocolPathFromUrl(url: URL): AggregateProtocolPath | undefined {
+  const segments = url.pathname.split("/").filter(Boolean)
+  const protocolSegment = segments.at(-1) === "api" ? segments.at(-2) : segments.at(-1)
+  return protocolSegment as AggregateProtocolPath | undefined
+}
+
+export async function aggregateIndexerHandler({ request }: { request: Request }) {
   const url = new URL(request.url)
-  const protocolPath = url.pathname.split("/").at(-1) as AggregateProtocolPath | undefined
+  const protocolPath = protocolPathFromUrl(url)
   const protocol = protocolFromPath(protocolPath)
   if (!protocol || !protocolPath) {
     return xmlResponse(buildTorznabErrorXml(203, "unsupported aggregate indexer protocol"), 400)
@@ -63,5 +69,5 @@ async function handler({ request }: { request: Request }) {
 }
 
 export const Route = createFileRoute("/api/indexers/aggregate/$protocol")({
-  server: { handlers: { GET: handler } },
+  server: { handlers: { GET: aggregateIndexerHandler } },
 })
