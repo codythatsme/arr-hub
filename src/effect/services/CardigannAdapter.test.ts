@@ -147,6 +147,44 @@ const ANIME_TORRENTS_HTML_RESULTS = `
   </table>
 </body></html>`
 
+const BAKABT_LOGIN_HTML = `
+<html><body>
+  <form id="loginForm" action="/login.php" method="post">
+    <input type="hidden" name="loginKey" value="baka-login-key">
+    <input type="text" name="username">
+    <input type="password" name="password">
+    <input type="hidden" name="returnto" value="/index.php">
+  </form>
+</body></html>`
+
+const BAKABT_HTML_RESULTS = `
+<html><body>
+  <table class="torrents">
+    <tbody>
+      <tr class="torrent">
+        <td class="category"><span title="Anime Movie">Movie</span></td>
+        <td>
+          <a class="title" href="/torrent/501/bakabt-movie">Romaji Movie | BakaBT Movie (2026) [1080p]</a>
+          <span class="tags">Dual Audio</span>
+          <span class="freeleech">Freeleech</span>
+        </td>
+        <td class="size">1.2 GB</td>
+        <td class="added">09 May '26</td>
+        <td class="peers">12 / <a href="/download.php?id=501">8</a> / <a href="/peers.php?id=501">4</a></td>
+      </tr>
+      <tr class="torrent_alt">
+        <td class="category"><span title="Anime Series">Series</span></td>
+        <td>
+          <a class="title" href="/torrent/502/bakabt-series">BakaBT Series [720p]</a>
+        </td>
+        <td class="size">700 MB</td>
+        <td class="added">09 May '26</td>
+        <td class="peers">2 / <a href="/download.php?id=502">1</a> / <a href="/peers.php?id=502">1</a></td>
+      </tr>
+    </tbody>
+  </table>
+</body></html>`
+
 const IPTORRENTS_HTML_RESULTS = `
 <html><body>
   <table id="torrents">
@@ -2910,6 +2948,91 @@ search:
       indexerPriority: 43,
       downloadFactor: 0,
       uploadFactor: 2,
+    })
+    expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-09T00:00:00.000Z")
+  })
+
+  it("parses BakaBT HTML results after form login with freeleech filtering", async () => {
+    const requests: Array<{ url: string; init: RequestInit | undefined }> = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      requests.push({ url: String(input), init })
+      const url = new URL(String(input))
+      if (url.pathname === "/login.php" && init?.method !== "POST") {
+        return new Response(BAKABT_LOGIN_HTML, {
+          status: 200,
+          headers: { "Set-Cookie": "baka_landing=abc; Path=/" },
+        })
+      }
+      if (url.pathname === "/login.php" && init?.method === "POST") {
+        return new Response("<html><body>logged in</body></html>", {
+          status: 200,
+          headers: { "Set-Cookie": "baka_auth=ok; Path=/" },
+        })
+      }
+      return new Response(BAKABT_HTML_RESULTS, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 108,
+      name: "BakaBT",
+      type: "cardigann_yaml",
+      definitionKey: "bakabt",
+      baseUrl: "https://bakabt.me/",
+      apiKey: "",
+      configValues: {
+        username: "alice",
+        password: "secret",
+        freeleechOnly: "true",
+      },
+      priority: 44,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({
+        term: "BakaBT Movie E12",
+        type: "tv",
+        categories: [5070],
+      }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    const landingRequest = requests[0]
+    expect(landingRequest?.url).toBe("https://bakabt.me/login.php")
+
+    const loginRequest = requests[1]
+    expect(loginRequest?.url).toBe("https://bakabt.me/login.php")
+    expect(loginRequest?.init?.method).toBe("POST")
+    expect(new Headers(loginRequest?.init?.headers).get("cookie")).toBe("baka_landing=abc")
+    const loginBody = new URLSearchParams(String(loginRequest?.init?.body ?? ""))
+    expect(loginBody.get("loginKey")).toBe("baka-login-key")
+    expect(loginBody.get("username")).toBe("alice")
+    expect(loginBody.get("password")).toBe("secret")
+    expect(loginBody.get("returnto")).toBe("/index.php")
+
+    const searchRequest = requests[2]
+    expect(searchRequest?.url).toBe(
+      "https://bakabt.me/browse.php?only=0&incomplete=1&lossless=1&hd=1&multiaudio=1&bonus=1&reorder=1&q=BakaBT%20Movie",
+    )
+    expect(new Headers(searchRequest?.init?.headers).get("cookie")).toBe(
+      "baka_landing=abc; baka_auth=ok",
+    )
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "BakaBT Movie (2026) [1080p]",
+      downloadUrl: "https://bakabt.me/download.php?id=501",
+      infoUrl: "https://bakabt.me/torrent/501/bakabt-movie",
+      category: "2000",
+      size: 1_200_000_000,
+      seeders: 8,
+      leechers: 4,
+      indexerId: 108,
+      indexerName: "BakaBT",
+      indexerPriority: 44,
+      downloadFactor: 0,
+      uploadFactor: 1,
     })
     expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-09T00:00:00.000Z")
   })

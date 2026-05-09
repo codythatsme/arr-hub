@@ -80,6 +80,7 @@ caps:
       "nyaa",
       "animetosho",
       "animetorrents",
+      "bakabt",
       "anidex",
       "subsplease",
       "torrents-csv",
@@ -155,6 +156,41 @@ caps:
           { id: 7030, name: "Manga" },
           { id: 3060, name: "Doujin Music" },
           { id: 3030, name: "Audiobooks" },
+        ]),
+      },
+    })
+    expect(
+      BUILT_IN_CARDIGANN_DEFINITIONS.find((definition) => definition.definitionKey === "bakabt"),
+    ).toMatchObject({
+      displayName: "BakaBT",
+      baseUrl: "https://bakabt.me/",
+      privacy: "private",
+      supportsRss: false,
+      supportsSearch: true,
+      tags: ["private", "anime", "movies", "tv", "music", "books", "html"],
+      authFields: expect.arrayContaining([
+        expect.objectContaining({ name: "username", type: "text", required: true }),
+        expect.objectContaining({ name: "password", type: "password", required: true }),
+        expect.objectContaining({
+          name: "freeleechOnly",
+          type: "checkbox",
+          defaultValue: "false",
+        }),
+        expect.objectContaining({
+          name: "adultContent",
+          type: "checkbox",
+          defaultValue: "false",
+        }),
+      ]),
+      capabilities: {
+        searchTypes: ["search", "movie", "tvsearch"],
+        categories: expect.arrayContaining([
+          { id: 5070, name: "Anime Series" },
+          { id: 5070, name: "OVA" },
+          { id: 3050, name: "Soundtrack" },
+          { id: 7030, name: "Manga" },
+          { id: 2000, name: "Anime Movie" },
+          { id: 3020, name: "Music Video" },
         ]),
       },
     })

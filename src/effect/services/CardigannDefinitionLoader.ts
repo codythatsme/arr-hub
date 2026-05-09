@@ -462,6 +462,155 @@ search:
           args: '^([0-9.]+)x'
 `
 
+const BAKABT = `
+id: bakabt
+name: BakaBT
+description: Private anime community tracker exposed through a first-pass form-login HTML Cardigann definition.
+type: private
+links:
+  - https://bakabt.me/
+version: builtin-cardigann-1
+rss: false
+tags:
+  - private
+  - anime
+  - movies
+  - tv
+  - music
+  - books
+  - html
+settings:
+  - name: username
+    label: Username
+    type: text
+    required: true
+  - name: password
+    label: Password
+    type: password
+    required: true
+  - name: freeleechOnly
+    label: Freeleech only
+    type: checkbox
+    default: false
+    helpText: Show freeleech torrents only.
+  - name: adultContent
+    label: Adult content
+    type: checkbox
+    default: false
+    helpText: Include adult content when the account is allowed to view it.
+caps:
+  categorymappings:
+    - id: "1"
+      cat: TV/Anime
+      desc: Anime Series
+      newznab: 5070
+    - id: "2"
+      cat: TV/Anime
+      desc: OVA
+      newznab: 5070
+    - id: "3"
+      cat: Audio/Other
+      desc: Soundtrack
+      newznab: 3050
+    - id: "4"
+      cat: Books/Comics
+      desc: Manga
+      newznab: 7030
+    - id: "5"
+      cat: Movies
+      desc: Anime Movie
+      newznab: 2000
+    - id: "6"
+      cat: TV/Other
+      desc: Live Action
+      newznab: 5050
+    - id: "7"
+      cat: Books/Other
+      desc: Artbook
+      newznab: 7050
+    - id: "8"
+      cat: Audio/Video
+      desc: Music Video
+      newznab: 3020
+    - id: "9"
+      cat: Books/EBook
+      desc: Light Novel
+      newznab: 7020
+  modes:
+    search: [q]
+    movie-search: [q]
+    tv-search: [q, season, ep]
+    music-search: [q]
+    book-search: [q]
+login:
+  method: form
+  path: login.php
+  form: form#loginForm, form[action*="login.php"], form
+  inputs:
+    username: "{{ .Config.Username }}"
+    password: "{{ .Config.Password }}"
+    returnto: "/index.php"
+  error:
+    - selector: '#loginError, .error'
+search:
+  keywordsfilters:
+    - name: re_replace
+      args: ["\\\\s(?:[Ee]\\\\d+|\\\\d+)$", ""]
+    - name: trim
+  paths:
+    - path: 'browse.php?only=0{{ if .Config.AdultContent }}&hentai=1{{ end }}&incomplete=1&lossless=1&hd=1&multiaudio=1&bonus=1&reorder=1&q={{ .Keywords | urlencode }}'
+      response:
+        type: html
+  rows:
+    selector: 'tr.torrent{{ if .Config.FreeleechOnly }}:has(span.freeleech){{ end }}, tr.torrent_alt{{ if .Config.FreeleechOnly }}:has(span.freeleech){{ end }}'
+  fields:
+    title:
+      selector: a.title, a.alt_title
+      filters:
+        - name: split
+          args: ["|", "-1"]
+        - name: trim
+    details:
+      selector: a.title, a.alt_title
+      attribute: href
+    download:
+      selector: '.peers a:nth-of-type(1)'
+      attribute: href
+    categorydesc:
+      selector: td.category span
+      attribute: title
+    date:
+      selector: .added
+      filters:
+        - name: replace
+          args: ["'", ""]
+        - name: dateparse
+          args: "dd MMM yy"
+    size:
+      selector: .size
+    grabs:
+      selector: .peers
+      filters:
+        - name: split
+          args: ["/", "0"]
+    seeders:
+      selector: .peers
+      filters:
+        - name: split
+          args: ["/", "1"]
+    leechers:
+      selector: .peers
+      filters:
+        - name: split
+          args: ["/", "2"]
+    downloadvolumefactor:
+      case:
+        span.freeleech: "0"
+        tr: "1"
+    uploadvolumefactor:
+      text: "1"
+`
+
 const ANIDEX = `
 id: anidex
 name: Anidex
@@ -4737,6 +4886,7 @@ const BUILT_IN_CARDIGANN_SOURCES = [
   NYAA,
   ANIME_TOSHO,
   ANIME_TORRENTS,
+  BAKABT,
   ANIDEX,
   SUBSPLEASE,
   TORRENTS_CSV,

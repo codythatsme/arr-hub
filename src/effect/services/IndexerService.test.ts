@@ -119,19 +119,19 @@ describe("IndexerService", () => {
       const second = yield* svc.refreshDefinitions()
 
       expect(first).toMatchObject({
-        total: 30,
-        created: 30,
+        total: 31,
+        created: 31,
         updated: 0,
         unchanged: 0,
       })
       expect(first.definitions.map((definition) => definition.action)).toEqual(
-        Array(30).fill("created"),
+        Array(31).fill("created"),
       )
       expect(second).toMatchObject({
-        total: 30,
+        total: 31,
         created: 0,
         updated: 0,
-        unchanged: 30,
+        unchanged: 31,
       })
       expect(second.definitions.every((definition) => definition.previousVersion !== null)).toBe(
         true,
@@ -404,6 +404,7 @@ describe("IndexerService", () => {
         "anidex",
         "animetorrents",
         "animetosho",
+        "bakabt",
         "beyond-hd",
         "bit-hdtv",
         "funfile",
@@ -460,6 +461,17 @@ describe("IndexerService", () => {
         supportsRss: false,
         tags: ["private", "anime", "movies", "tv", "music", "books", "html"],
       })
+      expect(definitions.find((definition) => definition.definitionKey === "bakabt")).toMatchObject(
+        {
+          displayName: "BakaBT",
+          protocol: "torrent",
+          implementation: "cardigann_yaml",
+          baseUrl: "https://bakabt.me/",
+          privacy: "private",
+          supportsRss: false,
+          tags: ["private", "anime", "movies", "tv", "music", "books", "html"],
+        },
+      )
       expect(definitions.find((definition) => definition.definitionKey === "anidex")).toMatchObject(
         {
           displayName: "Anidex",
