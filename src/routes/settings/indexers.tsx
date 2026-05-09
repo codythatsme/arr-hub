@@ -9,6 +9,7 @@ import type {
   IndexerProxy,
   IndexerStats,
 } from "#/effect/domain/indexer"
+import type { IndexerApplication } from "#/effect/domain/indexerApplication"
 import type { IndexerDefinitionSource } from "#/effect/domain/indexerDefinitionSource"
 import { useTRPC } from "#/integrations/trpc/react"
 
@@ -120,6 +121,53 @@ const emptyCatalogForm: CatalogFormState = {
   pinnedSha256: "",
 }
 
+type IndexerApplicationType = IndexerApplication["type"]
+type IndexerApplicationSyncLevel = NonNullable<IndexerApplication["settings"]["syncLevel"]>
+
+interface ApplicationFormState {
+  readonly id: number | null
+  readonly name: string
+  readonly type: IndexerApplicationType
+  readonly baseUrl: string
+  readonly apiKey: string
+  readonly syncBaseUrl: string
+  readonly syncApiKey: string
+  readonly syncCategories: string
+  readonly syncLevel: IndexerApplicationSyncLevel
+  readonly priority: string
+  readonly minimumSeeders: string
+  readonly seedRatio: string
+  readonly seedTimeMinutes: string
+  readonly seasonPackSeedTimeMinutes: string
+  readonly enabled: boolean
+  readonly enableRss: boolean
+  readonly enableAutomaticSearch: boolean
+  readonly enableInteractiveSearch: boolean
+  readonly rejectBlocklistedTorrentHashesWhileGrabbing: boolean
+}
+
+const emptyApplicationForm: ApplicationFormState = {
+  id: null,
+  name: "",
+  type: "radarr",
+  baseUrl: "",
+  apiKey: "",
+  syncBaseUrl: "",
+  syncApiKey: "",
+  syncCategories: "",
+  syncLevel: "full",
+  priority: "25",
+  minimumSeeders: "0",
+  seedRatio: "",
+  seedTimeMinutes: "",
+  seasonPackSeedTimeMinutes: "",
+  enabled: true,
+  enableRss: true,
+  enableAutomaticSearch: true,
+  enableInteractiveSearch: true,
+  rejectBlocklistedTorrentHashesWhileGrabbing: false,
+}
+
 function Indexers() {
   const trpc = useTRPC()
   const queryClient = useQueryClient()
@@ -128,26 +176,32 @@ function Indexers() {
   const [definitionSourceForm, setDefinitionSourceForm] =
     useState<DefinitionSourceFormState>(emptyDefinitionSourceForm)
   const [catalogForm, setCatalogForm] = useState<CatalogFormState>(emptyCatalogForm)
+  const [applicationForm, setApplicationForm] = useState<ApplicationFormState>(emptyApplicationForm)
   const [message, setMessage] = useState<string | null>(null)
   const [proxyMessage, setProxyMessage] = useState<string | null>(null)
   const [definitionSourceMessage, setDefinitionSourceMessage] = useState<string | null>(null)
+  const [applicationMessage, setApplicationMessage] = useState<string | null>(null)
 
   const listKey = trpc.indexers.list.queryKey()
   const definitionsKey = trpc.indexers.listDefinitions.queryKey()
   const proxyListKey = trpc.indexers.listProxies.queryKey()
   const definitionSourceListKey = trpc.indexerDefinitionSources.list.queryKey()
+  const applicationListKey = trpc.indexerApplications.list.queryKey()
   const indexers = useQuery(trpc.indexers.list.queryOptions())
   const types = useQuery(trpc.indexers.listTypes.queryOptions())
   const definitions = useQuery(trpc.indexers.listDefinitions.queryOptions())
   const proxies = useQuery(trpc.indexers.listProxies.queryOptions())
   const stats = useQuery(trpc.indexers.listStats.queryOptions())
   const definitionSources = useQuery(trpc.indexerDefinitionSources.list.queryOptions())
+  const applications = useQuery(trpc.indexerApplications.list.queryOptions())
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: listKey })
   const invalidateDefinitions = () => queryClient.invalidateQueries({ queryKey: definitionsKey })
   const invalidateProxies = () => queryClient.invalidateQueries({ queryKey: proxyListKey })
   const invalidateDefinitionSources = () =>
     queryClient.invalidateQueries({ queryKey: definitionSourceListKey })
+  const invalidateApplications = () =>
+    queryClient.invalidateQueries({ queryKey: applicationListKey })
   const add = useMutation(
     trpc.indexers.add.mutationOptions({
       onSuccess: async () => {
@@ -265,6 +319,50 @@ function Indexers() {
       },
     }),
   )
+  const addApplication = useMutation(
+    trpc.indexerApplications.add.mutationOptions({
+      onSuccess: async () => {
+        await invalidateApplications()
+        setApplicationForm(emptyApplicationForm)
+        setApplicationMessage("Indexer application added.")
+      },
+    }),
+  )
+  const updateApplication = useMutation(
+    trpc.indexerApplications.update.mutationOptions({
+      onSuccess: async () => {
+        await invalidateApplications()
+        setApplicationForm(emptyApplicationForm)
+        setApplicationMessage("Indexer application updated.")
+      },
+    }),
+  )
+  const removeApplication = useMutation(
+    trpc.indexerApplications.remove.mutationOptions({
+      onSuccess: async () => {
+        await invalidateApplications()
+        setApplicationMessage("Indexer application removed.")
+      },
+    }),
+  )
+  const syncApplication = useMutation(
+    trpc.indexerApplications.sync.mutationOptions({
+      onSuccess: async (result) => {
+        await invalidateApplications()
+        setApplicationMessage(
+          `Sync finished: ${result.created} created, ${result.updated} updated, ${result.removed} removed, ${result.skipped} skipped.`,
+        )
+      },
+    }),
+  )
+  const syncEnabledApplications = useMutation(
+    trpc.indexerApplications.syncEnabled.mutationOptions({
+      onSuccess: async (summary) => {
+        await invalidateApplications()
+        setApplicationMessage(`Synced ${summary.succeeded}/${summary.total} enabled applications.`)
+      },
+    }),
+  )
 
   const typeOptions = types.data ?? []
   const selectedType = typeOptions.find((item) => item.type === form.type)
@@ -296,6 +394,12 @@ function Indexers() {
     refreshDefinitionSource.isPending ||
     refreshEnabledDefinitionSources.isPending ||
     importDefinitionCatalog.isPending
+  const applicationPending =
+    addApplication.isPending ||
+    updateApplication.isPending ||
+    removeApplication.isPending ||
+    syncApplication.isPending ||
+    syncEnabledApplications.isPending
   const error =
     add.error?.message ?? update.error?.message ?? remove.error?.message ?? test.error?.message
   const proxyError =
@@ -307,6 +411,12 @@ function Indexers() {
     refreshDefinitionSource.error?.message ??
     refreshEnabledDefinitionSources.error?.message ??
     importDefinitionCatalog.error?.message
+  const applicationError =
+    addApplication.error?.message ??
+    updateApplication.error?.message ??
+    removeApplication.error?.message ??
+    syncApplication.error?.message ??
+    syncEnabledApplications.error?.message
 
   const onSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -450,6 +560,57 @@ function Indexers() {
     importDefinitionCatalog.mutate({
       url: catalogForm.url.trim(),
       pinnedSha256: normalizeSha256(catalogForm.pinnedSha256),
+    })
+  }
+
+  const onApplicationSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setApplicationMessage(null)
+    const settings = {
+      syncCategories: parseCategories(applicationForm.syncCategories),
+      syncLevel: applicationForm.syncLevel,
+      enableRss: applicationForm.enableRss,
+      enableAutomaticSearch: applicationForm.enableAutomaticSearch,
+      enableInteractiveSearch: applicationForm.enableInteractiveSearch,
+      priority: Number(applicationForm.priority),
+      minimumSeeders: parseOptionalNumber(applicationForm.minimumSeeders) ?? 0,
+      seedRatio: parseOptionalDecimal(applicationForm.seedRatio),
+      seedTimeMinutes: parseOptionalNumber(applicationForm.seedTimeMinutes),
+      seasonPackSeedTimeMinutes: parseOptionalNumber(applicationForm.seasonPackSeedTimeMinutes),
+      rejectBlocklistedTorrentHashesWhileGrabbing:
+        applicationForm.rejectBlocklistedTorrentHashesWhileGrabbing,
+    }
+
+    if (applicationForm.id === null) {
+      addApplication.mutate({
+        name: applicationForm.name.trim(),
+        type: applicationForm.type,
+        baseUrl: applicationForm.baseUrl.trim(),
+        apiKey: applicationForm.apiKey.trim(),
+        syncBaseUrl: applicationForm.syncBaseUrl.trim(),
+        syncApiKey: applicationForm.syncApiKey.trim(),
+        enabled: applicationForm.enabled,
+        settings,
+      })
+      return
+    }
+
+    updateApplication.mutate({
+      id: applicationForm.id,
+      data: {
+        name: applicationForm.name.trim(),
+        type: applicationForm.type,
+        baseUrl: applicationForm.baseUrl.trim(),
+        syncBaseUrl: applicationForm.syncBaseUrl.trim(),
+        enabled: applicationForm.enabled,
+        settings,
+        ...(applicationForm.apiKey.trim().length > 0
+          ? { apiKey: applicationForm.apiKey.trim() }
+          : {}),
+        ...(applicationForm.syncApiKey.trim().length > 0
+          ? { syncApiKey: applicationForm.syncApiKey.trim() }
+          : {}),
+      },
     })
   }
 
@@ -1387,6 +1548,430 @@ function Indexers() {
       </section>
 
       <section className="space-y-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold">Application Sync</h2>
+            <p className="text-muted-foreground mt-1 text-sm">
+              Sync ARR Hub aggregate Torznab/Newznab indexers into Radarr or Sonarr.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="inline-flex items-center gap-2 rounded border px-3 py-2 text-sm disabled:opacity-50"
+            disabled={applicationPending}
+            onClick={() => syncEnabledApplications.mutate()}
+          >
+            <RefreshCw className="size-4" />
+            Sync enabled
+          </button>
+        </div>
+
+        {applicationMessage && <p className="text-sm text-emerald-600">{applicationMessage}</p>}
+        {applicationError && <p className="text-destructive text-sm">{applicationError}</p>}
+
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
+          <div className="space-y-3">
+            {applications.isLoading && (
+              <p className="text-muted-foreground text-sm">Loading application sync targets...</p>
+            )}
+            {applications.error && (
+              <p className="text-destructive text-sm">{applications.error.message}</p>
+            )}
+            {applications.data?.length === 0 && (
+              <p className="text-muted-foreground text-sm">
+                No application sync targets configured.
+              </p>
+            )}
+            {applications.data?.map((application) => (
+              <article key={application.id} className="rounded-md border p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="font-medium">{application.name}</h3>
+                      <span className="bg-muted rounded px-2 py-1 text-xs">{application.type}</span>
+                      <span className="bg-muted rounded px-2 py-1 text-xs">
+                        {application.enabled ? "enabled" : "disabled"}
+                      </span>
+                    </div>
+                    <p className="text-muted-foreground mt-1 text-sm break-all">
+                      Remote {application.baseUrl} · ARR Hub {application.syncBaseUrl}
+                    </p>
+                    <p className="text-muted-foreground mt-1 text-xs">
+                      {application.settings.syncLevel ?? "full"} sync · priority{" "}
+                      {application.settings.priority ?? 25} · categories{" "}
+                      {application.settings.syncCategories?.length
+                        ? application.settings.syncCategories.join(", ")
+                        : application.type === "radarr"
+                          ? "2000"
+                          : "5000"}
+                    </p>
+                    <p className="text-muted-foreground mt-1 text-xs">
+                      RSS {application.settings.enableRss === false ? "off" : "on"} · automatic{" "}
+                      {application.settings.enableAutomaticSearch === false ? "off" : "on"} ·
+                      interactive{" "}
+                      {application.settings.enableInteractiveSearch === false ? "off" : "on"} · last
+                      synced {formatDateTime(application.lastSyncedAt)}
+                    </p>
+                    {application.mappings.length > 0 && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {application.mappings.map((mapping) => (
+                          <span key={mapping.id} className="bg-muted rounded px-2 py-1 text-xs">
+                            {mapping.protocol} -&gt; {mapping.remoteIndexerName} #
+                            {mapping.remoteIndexerId}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {application.lastError && (
+                      <p className="text-destructive mt-2 text-xs">{application.lastError}</p>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap justify-end gap-2">
+                    <button
+                      type="button"
+                      className="rounded border px-2 py-1 text-xs disabled:opacity-50"
+                      disabled={applicationPending}
+                      onClick={() => setApplicationForm(applicationToForm(application))}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded border px-2 py-1 text-xs disabled:opacity-50"
+                      disabled={applicationPending}
+                      onClick={() =>
+                        updateApplication.mutate({
+                          id: application.id,
+                          data: { enabled: !application.enabled },
+                        })
+                      }
+                    >
+                      {application.enabled ? "Disable" : "Enable"}
+                    </button>
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1 rounded border px-2 py-1 text-xs disabled:opacity-50"
+                      disabled={applicationPending}
+                      onClick={() => syncApplication.mutate({ id: application.id })}
+                    >
+                      <RefreshCw className="size-3" />
+                      Sync
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`Delete ${application.name}`}
+                      className="rounded border p-1.5 disabled:opacity-50"
+                      disabled={applicationPending}
+                      onClick={() => removeApplication.mutate({ id: application.id })}
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+
+          <form className="h-fit rounded-md border p-4" onSubmit={onApplicationSubmit}>
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold">
+                {applicationForm.id === null ? "Add App" : "Edit App"}
+              </h2>
+              {applicationForm.id !== null && (
+                <button
+                  type="button"
+                  className="rounded border px-2 py-1 text-xs"
+                  onClick={() => setApplicationForm(emptyApplicationForm)}
+                >
+                  Cancel
+                </button>
+              )}
+            </div>
+
+            <div className="mt-4 space-y-4">
+              <Field label="Name">
+                <input
+                  className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                  value={applicationForm.name}
+                  onChange={(event) =>
+                    setApplicationForm({ ...applicationForm, name: event.target.value })
+                  }
+                  required
+                />
+              </Field>
+
+              <Field label="Type">
+                <select
+                  className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                  value={applicationForm.type}
+                  onChange={(event) =>
+                    setApplicationForm({
+                      ...applicationForm,
+                      type: event.target.value as IndexerApplicationType,
+                      syncCategories:
+                        applicationForm.syncCategories.length > 0
+                          ? applicationForm.syncCategories
+                          : event.target.value === "radarr"
+                            ? "2000"
+                            : "5000",
+                    })
+                  }
+                >
+                  <option value="radarr">Radarr</option>
+                  <option value="sonarr">Sonarr</option>
+                </select>
+              </Field>
+
+              <Field label="Remote app URL">
+                <input
+                  className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                  value={applicationForm.baseUrl}
+                  onChange={(event) =>
+                    setApplicationForm({ ...applicationForm, baseUrl: event.target.value })
+                  }
+                  placeholder="http://radarr:7878"
+                  type="url"
+                  required
+                />
+              </Field>
+
+              <Field
+                label="Remote API key"
+                hint={
+                  applicationForm.id === null
+                    ? undefined
+                    : "Leave blank to keep the existing secret."
+                }
+              >
+                <input
+                  className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                  value={applicationForm.apiKey}
+                  onChange={(event) =>
+                    setApplicationForm({ ...applicationForm, apiKey: event.target.value })
+                  }
+                  autoComplete="off"
+                  required={applicationForm.id === null}
+                  type="password"
+                />
+              </Field>
+
+              <Field label="ARR Hub URL" hint="Reachable from the remote Radarr/Sonarr instance.">
+                <input
+                  className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                  value={applicationForm.syncBaseUrl}
+                  onChange={(event) =>
+                    setApplicationForm({ ...applicationForm, syncBaseUrl: event.target.value })
+                  }
+                  placeholder="http://arr-hub:3000"
+                  type="url"
+                  required
+                />
+              </Field>
+
+              <Field
+                label="ARR Hub API key"
+                hint={
+                  applicationForm.id === null
+                    ? "Used by Radarr/Sonarr when querying aggregate feeds."
+                    : "Leave blank to keep the existing secret."
+                }
+              >
+                <input
+                  className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                  value={applicationForm.syncApiKey}
+                  onChange={(event) =>
+                    setApplicationForm({ ...applicationForm, syncApiKey: event.target.value })
+                  }
+                  autoComplete="off"
+                  required={applicationForm.id === null}
+                  type="password"
+                />
+              </Field>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Sync level">
+                  <select
+                    className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                    value={applicationForm.syncLevel}
+                    onChange={(event) =>
+                      setApplicationForm({
+                        ...applicationForm,
+                        syncLevel: event.target.value as IndexerApplicationSyncLevel,
+                      })
+                    }
+                  >
+                    <option value="full">Full</option>
+                    <option value="add_only">Add only</option>
+                  </select>
+                </Field>
+
+                <Field label="Categories" hint="Comma-separated root or leaf categories.">
+                  <input
+                    className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                    value={applicationForm.syncCategories}
+                    onChange={(event) =>
+                      setApplicationForm({
+                        ...applicationForm,
+                        syncCategories: event.target.value,
+                      })
+                    }
+                    placeholder={applicationForm.type === "radarr" ? "2000" : "5000"}
+                  />
+                </Field>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Priority">
+                  <input
+                    className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                    value={applicationForm.priority}
+                    onChange={(event) =>
+                      setApplicationForm({ ...applicationForm, priority: event.target.value })
+                    }
+                    max={100}
+                    min={1}
+                    required
+                    type="number"
+                  />
+                </Field>
+
+                <Field label="Minimum seeders">
+                  <input
+                    className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                    value={applicationForm.minimumSeeders}
+                    onChange={(event) =>
+                      setApplicationForm({
+                        ...applicationForm,
+                        minimumSeeders: event.target.value,
+                      })
+                    }
+                    min={0}
+                    type="number"
+                  />
+                </Field>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-3">
+                <Field label="Seed ratio">
+                  <input
+                    className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                    value={applicationForm.seedRatio}
+                    onChange={(event) =>
+                      setApplicationForm({ ...applicationForm, seedRatio: event.target.value })
+                    }
+                    min={0}
+                    step="0.1"
+                    type="number"
+                  />
+                </Field>
+
+                <Field label="Seed time">
+                  <input
+                    className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                    value={applicationForm.seedTimeMinutes}
+                    onChange={(event) =>
+                      setApplicationForm({
+                        ...applicationForm,
+                        seedTimeMinutes: event.target.value,
+                      })
+                    }
+                    min={0}
+                    type="number"
+                  />
+                </Field>
+
+                <Field label="Season pack seed">
+                  <input
+                    className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                    value={applicationForm.seasonPackSeedTimeMinutes}
+                    onChange={(event) =>
+                      setApplicationForm({
+                        ...applicationForm,
+                        seasonPackSeedTimeMinutes: event.target.value,
+                      })
+                    }
+                    min={0}
+                    type="number"
+                  />
+                </Field>
+              </div>
+
+              <div className="grid gap-2 sm:grid-cols-2">
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={applicationForm.enableRss}
+                    onChange={(event) =>
+                      setApplicationForm({ ...applicationForm, enableRss: event.target.checked })
+                    }
+                  />
+                  Enable RSS
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={applicationForm.enableAutomaticSearch}
+                    onChange={(event) =>
+                      setApplicationForm({
+                        ...applicationForm,
+                        enableAutomaticSearch: event.target.checked,
+                      })
+                    }
+                  />
+                  Automatic search
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={applicationForm.enableInteractiveSearch}
+                    onChange={(event) =>
+                      setApplicationForm({
+                        ...applicationForm,
+                        enableInteractiveSearch: event.target.checked,
+                      })
+                    }
+                  />
+                  Interactive search
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={applicationForm.rejectBlocklistedTorrentHashesWhileGrabbing}
+                    onChange={(event) =>
+                      setApplicationForm({
+                        ...applicationForm,
+                        rejectBlocklistedTorrentHashesWhileGrabbing: event.target.checked,
+                      })
+                    }
+                  />
+                  Reject blocklisted hashes
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={applicationForm.enabled}
+                    onChange={(event) =>
+                      setApplicationForm({ ...applicationForm, enabled: event.target.checked })
+                    }
+                  />
+                  Enabled
+                </label>
+              </div>
+
+              <button
+                type="submit"
+                className="bg-primary text-primary-foreground inline-flex items-center gap-2 rounded px-3 py-2 text-sm disabled:opacity-50"
+                disabled={applicationPending}
+              >
+                <Save className="size-4" />
+                {applicationForm.id === null ? "Add app" : "Save app"}
+              </button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <section className="space-y-3">
         <div>
           <h2 className="text-lg font-semibold">Indexer Stats</h2>
           <p className="text-muted-foreground mt-1 text-sm">
@@ -1495,6 +2080,13 @@ function parseOptionalNumber(value: string): number | null {
   return Number.isInteger(parsed) && parsed >= 0 ? parsed : null
 }
 
+function parseOptionalDecimal(value: string): number | null {
+  const trimmed = value.trim()
+  if (trimmed.length === 0) return null
+  const parsed = Number(trimmed)
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null
+}
+
 function parseOptionalPositiveNumber(value: string): number | null {
   const trimmed = value.trim()
   if (trimmed.length === 0) return null
@@ -1528,6 +2120,42 @@ function sourceToForm(source: IndexerDefinitionSource): DefinitionSourceFormStat
 function normalizeSha256(value: string): string | null {
   const trimmed = value.trim()
   return trimmed.length === 0 ? null : trimmed.toLowerCase()
+}
+
+function applicationToForm(application: IndexerApplication): ApplicationFormState {
+  return {
+    id: application.id,
+    name: application.name,
+    type: application.type,
+    baseUrl: application.baseUrl,
+    apiKey: "",
+    syncBaseUrl: application.syncBaseUrl,
+    syncApiKey: "",
+    syncCategories: application.settings.syncCategories?.join(", ") ?? "",
+    syncLevel: application.settings.syncLevel ?? "full",
+    priority: String(application.settings.priority ?? 25),
+    minimumSeeders: String(application.settings.minimumSeeders ?? 0),
+    seedRatio:
+      application.settings.seedRatio === null || application.settings.seedRatio === undefined
+        ? ""
+        : String(application.settings.seedRatio),
+    seedTimeMinutes:
+      application.settings.seedTimeMinutes === null ||
+      application.settings.seedTimeMinutes === undefined
+        ? ""
+        : String(application.settings.seedTimeMinutes),
+    seasonPackSeedTimeMinutes:
+      application.settings.seasonPackSeedTimeMinutes === null ||
+      application.settings.seasonPackSeedTimeMinutes === undefined
+        ? ""
+        : String(application.settings.seasonPackSeedTimeMinutes),
+    enabled: application.enabled,
+    enableRss: application.settings.enableRss ?? true,
+    enableAutomaticSearch: application.settings.enableAutomaticSearch ?? true,
+    enableInteractiveSearch: application.settings.enableInteractiveSearch ?? true,
+    rejectBlocklistedTorrentHashesWhileGrabbing:
+      application.settings.rejectBlocklistedTorrentHashesWhileGrabbing ?? false,
+  }
 }
 
 function formatSuccessRatio(successes: number, total: number): string {
