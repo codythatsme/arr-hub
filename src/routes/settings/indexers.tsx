@@ -3,7 +3,12 @@ import { createFileRoute } from "@tanstack/react-router"
 import { Radio, RefreshCw, Save, Trash2 } from "lucide-react"
 import { type FormEvent, type ReactNode, useState } from "react"
 
-import type { IndexerAuthField, IndexerDefinition, IndexerProxy } from "#/effect/domain/indexer"
+import type {
+  IndexerAuthField,
+  IndexerDefinition,
+  IndexerProxy,
+  IndexerStats,
+} from "#/effect/domain/indexer"
 import { useTRPC } from "#/integrations/trpc/react"
 
 export const Route = createFileRoute("/settings/indexers")({ component: Indexers })
@@ -102,6 +107,7 @@ function Indexers() {
   const types = useQuery(trpc.indexers.listTypes.queryOptions())
   const definitions = useQuery(trpc.indexers.listDefinitions.queryOptions())
   const proxies = useQuery(trpc.indexers.listProxies.queryOptions())
+  const stats = useQuery(trpc.indexers.listStats.queryOptions())
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: listKey })
   const invalidateProxies = () => queryClient.invalidateQueries({ queryKey: proxyListKey })
@@ -1002,6 +1008,59 @@ function Indexers() {
           </form>
         </div>
       </section>
+
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-lg font-semibold">Indexer Stats</h2>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Inspect search, RSS, grab, response-time, and rate-limit window counters.
+          </p>
+        </div>
+
+        {stats.isLoading && (
+          <p className="text-muted-foreground text-sm">Loading indexer stats...</p>
+        )}
+        {stats.error && <p className="text-destructive text-sm">{stats.error.message}</p>}
+        {stats.data?.length === 0 && (
+          <p className="text-muted-foreground text-sm">No indexer statistics recorded yet.</p>
+        )}
+        {stats.data && stats.data.length > 0 && (
+          <div className="grid gap-3 xl:grid-cols-2">
+            {stats.data.map((item) => (
+              <article key={item.indexerId} className="rounded-md border p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h3 className="font-medium">{item.indexerName}</h3>
+                    <p className="text-muted-foreground mt-1 text-xs">
+                      Avg response {formatMilliseconds(item.averageResponseTimeMs)}
+                    </p>
+                  </div>
+                  <span className="bg-muted rounded px-2 py-1 text-xs">#{item.indexerId}</span>
+                </div>
+                <div className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
+                  <Stat
+                    label="Searches"
+                    value={formatSuccessRatio(item.successfulSearches, item.totalSearches)}
+                  />
+                  <Stat label="RSS" value={formatSuccessRatio(item.successfulRss, item.totalRss)} />
+                  <Stat label="Grabs" value={String(item.totalGrabs)} />
+                </div>
+                <div className="mt-4 grid gap-2 text-xs sm:grid-cols-3">
+                  <Stat label="Last search" value={formatDateTime(item.lastSearchAt)} />
+                  <Stat label="Last RSS" value={formatDateTime(item.lastRssAt)} />
+                  <Stat label="Last grab" value={formatDateTime(item.lastGrabAt)} />
+                </div>
+                <div className="text-muted-foreground mt-4 text-xs">
+                  Query window {item.queryLimitWindowSearches} searches since{" "}
+                  {formatDateTime(item.queryLimitWindowStartedAt)} · grab window{" "}
+                  {item.grabLimitWindowGrabs} grabs since{" "}
+                  {formatDateTime(item.grabLimitWindowStartedAt)}
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   )
 }
@@ -1023,6 +1082,15 @@ function Field(props: {
 function StatusBadge(props: { readonly enabled: boolean; readonly status?: string }) {
   const status = props.enabled ? (props.status ?? "unknown") : "disabled"
   return <span className="bg-muted rounded px-2 py-1 text-xs">{status}</span>
+}
+
+function Stat(props: { readonly label: string; readonly value: string }) {
+  return (
+    <div>
+      <p className="text-muted-foreground">{props.label}</p>
+      <p className="font-medium">{props.value}</p>
+    </div>
+  )
 }
 
 function parseCategories(value: string) {
@@ -1068,6 +1136,20 @@ function proxyName(id: number, proxies: ReadonlyArray<IndexerProxy>): string {
 
 function proxyLabel(proxy: IndexerProxy): string {
   return `${proxy.name} · ${proxy.type} · ${proxy.host}${proxy.port === null ? "" : `:${proxy.port}`}`
+}
+
+function formatSuccessRatio(successes: number, total: number): string {
+  return `${successes}/${total}`
+}
+
+function formatMilliseconds(value: number | null): string {
+  return value === null ? "n/a" : `${value}ms`
+}
+
+function formatDateTime(value: IndexerStats["lastSearchAt"]): string {
+  if (value === null) return "never"
+  const date = value instanceof Date ? value : new Date(value)
+  return Number.isNaN(date.getTime()) ? "never" : date.toLocaleString()
 }
 
 function definitionOptionsForType(
