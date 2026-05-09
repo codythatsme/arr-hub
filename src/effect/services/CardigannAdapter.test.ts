@@ -589,6 +589,24 @@ const HTML_HEADER_PSEUDO_SELECTOR_RESULTS = `<!doctype html>
   </body>
 </html>`
 
+const HTML_ROOT_PSEUDO_SELECTOR_RESULTS = `<!doctype html>
+<html>
+  <body>
+    <article class="release">
+      <a class="title" href="/details/root-pseudo">Root Pseudo Movie 2026 1080p WEB-DL</a>
+      <a class="download" href="/download/root-pseudo">Download</a>
+      <span class="size">2.7 GB</span>
+    </article>
+    <section class="results">
+      <article class="release">
+        <a class="title" href="/details/wrong-nested-root">Wrong Nested Root Movie 2026 1080p WEB-DL</a>
+        <a class="download" href="/download/wrong-nested-root">Download</a>
+        <span class="size">500 MB</span>
+      </article>
+    </section>
+  </body>
+</html>`
+
 const HTML_CHILD_PSEUDO_SELECTOR_RESULTS = `<!doctype html>
 <html>
   <body>
@@ -3112,6 +3130,73 @@ search:
       infoUrl: "https://tracker.example/details/header-pseudo",
       downloadUrl: "https://tracker.example/download/header-pseudo",
       size: 2_600_000_000,
+      category: "2000",
+    })
+  })
+
+  it("matches Cardigann HTML root pseudo classes", async () => {
+    const fetchMock = vi.fn(
+      async () => new Response(HTML_ROOT_PSEUDO_SELECTOR_RESULTS, { status: 200 }),
+    )
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 88,
+      name: "HTML Root Pseudo Selector Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "html-root-pseudo-selector-cardigann",
+      definitionYaml: `
+id: html-root-pseudo-selector-cardigann
+name: HTML Root Pseudo Selector Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+      newznab: 2000
+  modes:
+    search: [q]
+search:
+  paths:
+    - path: /browse
+      response:
+        type: html
+  rows:
+    selector: section:root article.release, html:root body > article.release
+  fields:
+    title:
+      selector: a.title
+    details:
+      selector: a.title
+      attribute: href
+    download:
+      selector: a.download
+      attribute: href
+    size:
+      selector: span.size
+    category:
+      text: Movies
+`,
+      baseUrl: "https://tracker.example",
+      apiKey: "",
+      priority: 35,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Root Pseudo", type: "general", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "Root Pseudo Movie 2026 1080p WEB-DL",
+      infoUrl: "https://tracker.example/details/root-pseudo",
+      downloadUrl: "https://tracker.example/download/root-pseudo",
+      size: 2_700_000_000,
       category: "2000",
     })
   })

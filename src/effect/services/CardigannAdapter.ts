@@ -1852,6 +1852,8 @@ function htmlSelectorFiltersMatch(
         return !htmlElementIsHidden(element)
       case "header":
         return element.tagName !== null && /^h[1-6]$/.test(element.tagName)
+      case "root":
+        return element.parentKey === 0
       case "empty":
         return (
           htmlTextContent(element.innerHtml).length === 0 &&
@@ -2101,6 +2103,7 @@ function findHtmlElementsForToken(
       filter.name === "first-child" ||
       filter.name === "last-child" ||
       filter.name === "only-child" ||
+      filter.name === "root" ||
       filter.name === "nth-child" ||
       filter.name === "nth-last-child" ||
       filter.name === "first-of-type" ||
