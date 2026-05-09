@@ -389,6 +389,250 @@ function relativeTimeDate(value: string, now: number = Date.now()): Date | null 
   return new Date(now + direction * milliseconds)
 }
 
+const MONTH_BY_NAME: Readonly<Record<string, number>> = {
+  apr: 4,
+  april: 4,
+  aug: 8,
+  august: 8,
+  dec: 12,
+  december: 12,
+  feb: 2,
+  february: 2,
+  jan: 1,
+  january: 1,
+  jul: 7,
+  july: 7,
+  jun: 6,
+  june: 6,
+  mar: 3,
+  march: 3,
+  may: 5,
+  nov: 11,
+  november: 11,
+  oct: 10,
+  october: 10,
+  sep: 9,
+  sept: 9,
+  september: 9,
+}
+
+function dateFormatTokenRegex(token: string): string | null {
+  switch (token) {
+    case "yyyy":
+      return "(?<year>\\d{4})"
+    case "yy":
+      return "(?<year2>\\d{2})"
+    case "MMMM":
+      return "(?<monthName>[A-Za-z]+)"
+    case "MMM":
+      return "(?<monthName>[A-Za-z]{3,}\\.?|[A-Za-z]+)"
+    case "MM":
+      return "(?<month>\\d{2})"
+    case "M":
+      return "(?<month>\\d{1,2})"
+    case "dddd":
+    case "ddd":
+      return "[A-Za-z]+\\.?"
+    case "dd":
+      return "(?<day>\\d{2})"
+    case "d":
+      return "(?<day>\\d{1,2})"
+    case "HH":
+      return "(?<hour24>\\d{2})"
+    case "H":
+      return "(?<hour24>\\d{1,2})"
+    case "hh":
+      return "(?<hour12>\\d{2})"
+    case "h":
+      return "(?<hour12>\\d{1,2})"
+    case "mm":
+      return "(?<minute>\\d{2})"
+    case "m":
+      return "(?<minute>\\d{1,2})"
+    case "ss":
+      return "(?<second>\\d{2})"
+    case "s":
+      return "(?<second>\\d{1,2})"
+    case "ffff":
+    case "fff":
+    case "ff":
+    case "f":
+      return "(?<fraction>\\d{1,7})"
+    case "tt":
+      return "(?<ampm>AM|PM|A\\.M\\.|P\\.M\\.)"
+    case "zzz":
+      return "(?<offset>Z|UTC|GMT|[+-]\\d{1,2}:\\d{2})"
+    case "zz":
+      return "(?<offset>Z|UTC|GMT|[+-]\\d{2})"
+    case "z":
+      return "(?<offset>Z|UTC|GMT|[+-]\\d{1,2})"
+    case "K":
+      return "(?<offset>Z|UTC|GMT|[+-]\\d{1,2}:\\d{2})?"
+    default:
+      return null
+  }
+}
+
+const DOT_NET_DATE_FORMAT_TOKENS = [
+  "yyyy",
+  "MMMM",
+  "dddd",
+  "ffff",
+  "MMM",
+  "ddd",
+  "fff",
+  "zzz",
+  "yy",
+  "MM",
+  "dd",
+  "HH",
+  "hh",
+  "mm",
+  "ss",
+  "ff",
+  "tt",
+  "zz",
+  "M",
+  "d",
+  "H",
+  "h",
+  "m",
+  "s",
+  "f",
+  "z",
+  "K",
+] as const
+
+function dotNetDateFormatRegex(format: string): RegExp | null {
+  let pattern = "^"
+  for (let index = 0; index < format.length; ) {
+    const char = format[index] ?? ""
+    if (char === "'" || char === `"`) {
+      const end = format.indexOf(char, index + 1)
+      if (end < 0) return null
+      pattern += escapeRegExp(format.slice(index + 1, end))
+      index = end + 1
+      continue
+    }
+
+    if (char === "\\") {
+      pattern += escapeRegExp(format[index + 1] ?? "")
+      index += 2
+      continue
+    }
+
+    const token = DOT_NET_DATE_FORMAT_TOKENS.find((candidate) =>
+      format.startsWith(candidate, index),
+    )
+    const tokenRegex = token ? dateFormatTokenRegex(token) : null
+    if (token && tokenRegex) {
+      pattern += tokenRegex
+      index += token.length
+      continue
+    }
+
+    pattern += /\s/.test(char) ? "\\s+" : escapeRegExp(char)
+    index += 1
+  }
+  pattern += "$"
+
+  try {
+    return new RegExp(pattern, "i")
+  } catch {
+    return null
+  }
+}
+
+function twoDigitYear(value: string): number {
+  const parsed = Number.parseInt(value, 10)
+  return parsed <= 29 ? 2000 + parsed : 1900 + parsed
+}
+
+function parseTimezoneOffsetMinutes(value: string | undefined): number | null {
+  if (value === undefined || value.length === 0) return 0
+  const normalized = value.toUpperCase()
+  if (normalized === "Z" || normalized === "UTC" || normalized === "GMT") return 0
+
+  const match = normalized.match(/^([+-])(\d{1,2})(?::?(\d{2}))?$/)
+  if (!match) return null
+
+  const hours = Number.parseInt(match[2] ?? "", 10)
+  const minutes = match[3] ? Number.parseInt(match[3], 10) : 0
+  if (hours > 23 || minutes > 59) return null
+
+  const total = hours * 60 + minutes
+  return match[1] === "-" ? -total : total
+}
+
+function parsedMonth(groups: Record<string, string | undefined>): number | null {
+  if (groups.month !== undefined) {
+    const month = Number.parseInt(groups.month, 10)
+    return month >= 1 && month <= 12 ? month : null
+  }
+
+  const monthName = groups.monthName?.replace(/\.$/, "").toLowerCase()
+  if (monthName === undefined) return 1
+  return MONTH_BY_NAME[monthName] ?? null
+}
+
+function parseDotNetDate(value: string, format: string): Date | null {
+  const trimmed = value.trim()
+  const trimmedFormat = format.trim()
+  if (trimmed.length === 0 || trimmedFormat.length === 0) return null
+
+  const regex = dotNetDateFormatRegex(trimmedFormat)
+  const match = regex?.exec(trimmed)
+  const groups = match?.groups as Record<string, string | undefined> | undefined
+  if (!groups) return null
+
+  const now = new Date()
+  const year =
+    groups.year !== undefined
+      ? Number.parseInt(groups.year, 10)
+      : groups.year2 !== undefined
+        ? twoDigitYear(groups.year2)
+        : now.getUTCFullYear()
+  const month = parsedMonth(groups)
+  const day = groups.day !== undefined ? Number.parseInt(groups.day, 10) : 1
+  const hour24 = groups.hour24 !== undefined ? Number.parseInt(groups.hour24, 10) : undefined
+  const hour12 = groups.hour12 !== undefined ? Number.parseInt(groups.hour12, 10) : undefined
+  const minute = groups.minute !== undefined ? Number.parseInt(groups.minute, 10) : 0
+  const second = groups.second !== undefined ? Number.parseInt(groups.second, 10) : 0
+  const millisecond =
+    groups.fraction !== undefined
+      ? Number.parseInt(groups.fraction.padEnd(3, "0").slice(0, 3), 10)
+      : 0
+
+  if (month === null || day < 1 || day > 31 || minute > 59 || second > 59) return null
+
+  const ampm = groups.ampm?.replaceAll(".", "").toUpperCase()
+  let hour = hour24 ?? hour12 ?? 0
+  if (hour12 !== undefined) {
+    if (hour12 < 1 || hour12 > 12) return null
+    hour = ampm === "PM" && hour12 < 12 ? hour12 + 12 : hour12
+    if (ampm === "AM" && hour12 === 12) hour = 0
+  }
+  if (hour < 0 || hour > 23) return null
+
+  const offsetMinutes = parseTimezoneOffsetMinutes(groups.offset)
+  if (offsetMinutes === null) return null
+
+  const localTimestamp = Date.UTC(year, month - 1, day, hour, minute, second, millisecond)
+  const localDate = new Date(localTimestamp)
+  if (
+    localDate.getUTCFullYear() !== year ||
+    localDate.getUTCMonth() !== month - 1 ||
+    localDate.getUTCDate() !== day ||
+    localDate.getUTCHours() !== hour ||
+    localDate.getUTCMinutes() !== minute ||
+    localDate.getUTCSeconds() !== second
+  ) {
+    return null
+  }
+
+  return new Date(localTimestamp - offsetMinutes * 60_000)
+}
+
 const HTML_ENTITIES: Readonly<Record<string, string>> = {
   amp: "&",
   apos: "'",
@@ -640,6 +884,9 @@ function applyCardigannKeywordFilter(
       return htmlDecode(value)
     case "htmlencode":
       return htmlEncode(value)
+    case "dateparse":
+    case "timeparse":
+      return first ? (parseDotNetDate(value, first)?.toUTCString() ?? value) : value
     case "fuzzytime":
     case "reltime":
     case "timeago":

@@ -56,6 +56,22 @@ const HTML_RELATIVE_TIME_RESULTS = `<!doctype html>
   </body>
 </html>`
 
+const HTML_DATEPARSE_RESULTS = `<!doctype html>
+<html>
+  <body>
+    <table>
+      <tbody>
+        <tr class="torrent">
+          <td><a class="title">Date Parse Movie 2026 1080p WEB-DL</a></td>
+          <td><a class="download" href="/download/dateparse">Download</a></td>
+          <td class="size">800 MB</td>
+          <td class="date">2026-May-02 13:45:30 +00:00</td>
+        </tr>
+      </tbody>
+    </table>
+  </body>
+</html>`
+
 const HTML_NESTED_RESULTS = `<!doctype html>
 <html>
   <body>
@@ -398,6 +414,72 @@ search:
       age: 2,
     })
   })
+
+  it.each(["dateparse", "timeparse"] as const)(
+    "applies Cardigann %s field filters to HTML dates",
+    async (filterName) => {
+      const fetchMock = vi.fn(async () => new Response(HTML_DATEPARSE_RESULTS, { status: 200 }))
+      vi.stubGlobal("fetch", fetchMock)
+
+      const adapter = createCardigannYamlAdapter({
+        id: filterName === "dateparse" ? 51 : 52,
+        name: "Date Parse HTML Cardigann",
+        type: "cardigann_yaml",
+        definitionKey: `${filterName}-html-cardigann`,
+        definitionYaml: `
+id: ${filterName}-html-cardigann
+name: Date Parse HTML Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+      newznab: 2000
+  modes:
+    search: [q]
+search:
+  paths:
+    - path: /browse
+      response:
+        type: html
+  rows:
+    selector: tr.torrent
+  fields:
+    title:
+      selector: a.title
+    download:
+      selector: a.download
+      attribute: href
+    size:
+      selector: td.size
+    date:
+      selector: td.date
+      filters:
+        - name: ${filterName}
+          args: "yyyy-MMM-dd HH:mm:ss zzz"
+`,
+        baseUrl: "https://tracker.example",
+        apiKey: "",
+        priority: 35,
+        categories: [],
+        protocol: "torrent",
+      })
+
+      const releases = await Effect.runPromise(
+        adapter.search({ term: "Date Parse Movie", type: "general", categories: [2000] }),
+      )
+
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(releases).toHaveLength(1)
+      expect(releases[0]).toMatchObject({
+        title: "Date Parse Movie 2026 1080p WEB-DL",
+        downloadUrl: "https://tracker.example/download/dateparse",
+      })
+      expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-02T13:45:30.000Z")
+    },
+  )
 
   it("resolves nested Cardigann HTML descendant selectors within their parent matches", async () => {
     const fetchMock = vi.fn(async () => new Response(HTML_NESTED_RESULTS, { status: 200 }))
