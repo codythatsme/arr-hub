@@ -1569,10 +1569,6 @@ function htmlSelectorSteps(selector: string): ReadonlyArray<HtmlSelectorStep> {
   return steps
 }
 
-function simpleSelectorTokens(selector: string): ReadonlyArray<string> {
-  return htmlSelectorSteps(selector).map((step) => step.token)
-}
-
 function splitHtmlSelectorList(selector: string): ReadonlyArray<string> {
   const selectors: Array<string> = []
   let current = ""
@@ -1674,28 +1670,6 @@ function findHtmlInputElements(html: string): ReadonlyArray<HtmlElementMatch> {
     innerHtml: "",
     outerHtml: match[0],
   }))
-}
-
-function findHtmlInputElement(
-  form: HtmlElementMatch,
-  selectorText: string,
-): HtmlElementMatch | undefined {
-  const tokens = simpleSelectorTokens(selectorText)
-  if (tokens.length === 0) return undefined
-  if (tokens.length === 1) {
-    return findHtmlInputElements(form.innerHtml).find((input) =>
-      htmlElementSelfMatches(input, tokens[0] ?? ""),
-    )
-  }
-
-  const containerSelector = tokens.slice(0, -1).join(" ")
-  const container = selectHtmlFieldElement(form, containerSelector)
-  if (container === undefined) return undefined
-
-  const inputSelector = tokens[tokens.length - 1] ?? ""
-  return findHtmlInputElements(container.innerHtml).find((input) =>
-    htmlElementSelfMatches(input, inputSelector),
-  )
 }
 
 function htmlAttributeMatches(
@@ -3130,7 +3104,7 @@ function resolveConfiguredFormInputName(
   if (key === "$raw") return key
   if (login.selectors !== true) return key
 
-  const input = findHtmlInputElement(form, key) ?? findHtmlInputElement(document, key)
+  const input = selectHtmlFieldElement(form, key) ?? selectHtmlFieldElement(document, key)
   return input?.attributes.name ?? null
 }
 
