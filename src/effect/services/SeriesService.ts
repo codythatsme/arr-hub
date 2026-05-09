@@ -1,5 +1,5 @@
 import { SqlError } from "@effect/sql/SqlError"
-import { eq, like, and, between, type SQL } from "drizzle-orm"
+import { and, asc, between, eq, like, type SQL } from "drizzle-orm"
 import { Context, Effect, Layer } from "effect"
 
 import { series, seasons, episodes } from "#/db/schema"
@@ -367,6 +367,12 @@ export const SeriesServiceLive = Layer.effect(
                 eq(series.monitored, true),
                 eq(episodes.monitored, true),
               ),
+            )
+            .orderBy(
+              asc(episodes.airDate),
+              asc(series.title),
+              asc(seasons.seasonNumber),
+              asc(episodes.episodeNumber),
             )
 
           return rows

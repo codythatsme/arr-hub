@@ -75,6 +75,12 @@ test("operator UI smoke covers onboarding, settings, movies, TV, manual search, 
     .click()
   await expect(page.getByText("Manual search returned 0 releases.")).toBeVisible()
 
+  await page.goto("/calendar")
+  await expect(page.getByRole("heading", { name: "Calendar" })).toBeVisible()
+  await page.getByRole("textbox", { name: "Month" }).fill("2026-05")
+  await expect(page.getByText("Pilot").first()).toBeVisible()
+  await expect(page.getByRole("link", { name: /E2E Fixture Series/ }).first()).toBeVisible()
+
   await page.goto("/activity/queue")
   await expect(page.getByRole("heading", { name: "Queue" })).toBeVisible()
   await expect(page.getByText("No active downloads.")).toBeVisible()

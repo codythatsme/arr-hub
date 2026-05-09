@@ -43,6 +43,7 @@ const topLevelItems = [
   { title: "Dashboard", to: "/", icon: LayoutDashboard },
   { title: "Movies", to: "/movies", icon: Clapperboard },
   { title: "TV Shows", to: "/tv", icon: Tv },
+  { title: "Calendar", to: "/calendar", icon: Calendar },
 ] as const satisfies readonly NavItem[]
 
 const collapsibleGroups = [

@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SystemRouteImport } from './routes/system'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as CalendarRouteImport } from './routes/calendar'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TvIndexRouteImport } from './routes/tv/index'
 import { Route as SettingsIndexRouteImport } from './routes/settings/index'
@@ -53,6 +54,11 @@ const SystemRoute = SystemRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CalendarRoute = CalendarRouteImport.update({
+  id: '/calendar',
+  path: '/calendar',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -223,6 +229,7 @@ const ApiQueueIdBlocklistRoute = ApiQueueIdBlocklistRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/calendar': typeof CalendarRoute
   '/login': typeof LoginRoute
   '/system': typeof SystemRoute
   '/activity/history': typeof ActivityHistoryRoute
@@ -260,6 +267,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/calendar': typeof CalendarRoute
   '/login': typeof LoginRoute
   '/system': typeof SystemRoute
   '/activity/history': typeof ActivityHistoryRoute
@@ -298,6 +306,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/calendar': typeof CalendarRoute
   '/login': typeof LoginRoute
   '/system': typeof SystemRoute
   '/activity/history': typeof ActivityHistoryRoute
@@ -337,6 +346,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/calendar'
     | '/login'
     | '/system'
     | '/activity/history'
@@ -374,6 +384,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/calendar'
     | '/login'
     | '/system'
     | '/activity/history'
@@ -411,6 +422,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/calendar'
     | '/login'
     | '/system'
     | '/activity/history'
@@ -449,6 +461,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CalendarRoute: typeof CalendarRoute
   LoginRoute: typeof LoginRoute
   SystemRoute: typeof SystemRoute
   ActivityHistoryRoute: typeof ActivityHistoryRoute
@@ -496,6 +509,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/calendar': {
+      id: '/calendar'
+      path: '/calendar'
+      fullPath: '/calendar'
+      preLoaderRoute: typeof CalendarRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -750,6 +770,7 @@ const ApiQueueRouteWithChildren = ApiQueueRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CalendarRoute: CalendarRoute,
   LoginRoute: LoginRoute,
   SystemRoute: SystemRoute,
   ActivityHistoryRoute: ActivityHistoryRoute,
