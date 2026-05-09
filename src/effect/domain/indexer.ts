@@ -76,6 +76,25 @@ export interface IndexerDefinition extends IndexerDefinitionSeed {
   readonly updatedAt: Date
 }
 
+export type IndexerDefinitionSyncAction = "created" | "updated" | "unchanged"
+
+export interface IndexerDefinitionSyncItem {
+  readonly definitionKey: string
+  readonly displayName: string
+  readonly previousVersion: string | null
+  readonly version: string
+  readonly action: IndexerDefinitionSyncAction
+}
+
+export interface IndexerDefinitionSyncResult {
+  readonly total: number
+  readonly created: number
+  readonly updated: number
+  readonly unchanged: number
+  readonly refreshedAt: Date
+  readonly definitions: ReadonlyArray<IndexerDefinitionSyncItem>
+}
+
 export interface IndexerProxySettings {
   readonly tags?: ReadonlyArray<string>
   readonly flaresolverrTimeoutMs?: number

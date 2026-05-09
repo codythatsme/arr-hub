@@ -151,6 +151,15 @@ export const indexersRouter = {
     ),
   ),
 
+  refreshDefinitions: authedProcedure.mutation(() =>
+    runEffect(
+      Effect.gen(function* () {
+        const svc = yield* IndexerService
+        return yield* svc.refreshDefinitions()
+      }),
+    ),
+  ),
+
   listStats: authedProcedure.query(() =>
     runEffect(
       Effect.gen(function* () {

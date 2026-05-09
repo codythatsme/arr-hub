@@ -11,6 +11,15 @@ import { SchedulerService, SchedulerServiceLive } from "./SchedulerService"
 
 const mockIndexerCatalogMethods = {
   seedBuiltInDefinitions: () => Effect.void,
+  refreshDefinitions: () =>
+    Effect.succeed({
+      total: 0,
+      created: 0,
+      updated: 0,
+      unchanged: 0,
+      refreshedAt: new Date(),
+      definitions: [],
+    }),
   listDefinitions: () => Effect.succeed([]),
   listStats: () => Effect.succeed([]),
   aggregateCapabilities: () => Effect.succeed({ searchTypes: [], categories: [] }),

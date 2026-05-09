@@ -93,6 +93,37 @@ describe("IndexerService", () => {
     }).pipe(Effect.provide(TestLayer)),
   )
 
+  it.effect("refreshDefinitions reports created and unchanged definition versions", () =>
+    Effect.gen(function* () {
+      const svc = yield* IndexerService
+
+      const first = yield* svc.refreshDefinitions()
+      const second = yield* svc.refreshDefinitions()
+
+      expect(first).toMatchObject({
+        total: 4,
+        created: 4,
+        updated: 0,
+        unchanged: 0,
+      })
+      expect(first.definitions.map((definition) => definition.action)).toEqual([
+        "created",
+        "created",
+        "created",
+        "created",
+      ])
+      expect(second).toMatchObject({
+        total: 4,
+        created: 0,
+        updated: 0,
+        unchanged: 4,
+      })
+      expect(second.definitions.every((definition) => definition.previousVersion !== null)).toBe(
+        true,
+      )
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
   it.effect("list returns all indexers ordered by priority", () =>
     Effect.gen(function* () {
       const svc = yield* IndexerService

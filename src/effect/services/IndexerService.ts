@@ -16,6 +16,8 @@ import type {
   IndexerConfig,
   IndexerDefinition,
   IndexerDefinitionSeed,
+  IndexerDefinitionSyncAction,
+  IndexerDefinitionSyncResult,
   IndexerOutboundProxy,
   IndexerProtocol,
   IndexerProxy,
@@ -117,6 +119,7 @@ export class IndexerService extends Context.Tag("@arr-hub/IndexerService")<
       query: SearchQuery,
     ) => Effect.Effect<SearchResult, ValidationError | EncryptionError | SqlError>
     readonly seedBuiltInDefinitions: () => Effect.Effect<void, SqlError>
+    readonly refreshDefinitions: () => Effect.Effect<IndexerDefinitionSyncResult, SqlError>
     readonly listDefinitions: () => Effect.Effect<ReadonlyArray<IndexerDefinition>, SqlError>
     readonly listStats: () => Effect.Effect<ReadonlyArray<IndexerStats>, SqlError>
     readonly aggregateCapabilities: (
@@ -330,6 +333,30 @@ function isBackoffActive(health: typeof indexerHealth.$inferSelect | null): bool
   return Date.now() - health.lastCheck.getTime() < backoffMs
 }
 
+function sameJson(left: unknown, right: unknown): boolean {
+  return JSON.stringify(left) === JSON.stringify(right)
+}
+
+function definitionChanged(
+  row: typeof indexerDefinitions.$inferSelect,
+  definition: IndexerDefinitionSeed,
+): boolean {
+  return (
+    row.displayName !== definition.displayName ||
+    row.protocol !== definition.protocol ||
+    row.implementation !== definition.implementation ||
+    row.baseUrl !== definition.baseUrl ||
+    row.privacy !== definition.privacy ||
+    row.supportsRss !== definition.supportsRss ||
+    row.supportsSearch !== definition.supportsSearch ||
+    !sameJson(row.authFields, definition.authFields) ||
+    !sameJson(row.categories, definition.categories) ||
+    !sameJson(row.capabilities, definition.capabilities) ||
+    !sameJson(row.tags, definition.tags) ||
+    row.version !== definition.version
+  )
+}
+
 // ── Live implementation ──
 
 export const IndexerServiceLive = Layer.effect(
@@ -357,33 +384,72 @@ export const IndexerServiceLive = Layer.effect(
         return toWithHealth(row.indexers, row.indexer_health ?? undefined)
       })
 
-    const seedBuiltInDefinitions = () =>
-      Effect.forEach(
-        BUILT_IN_DEFINITIONS,
-        (definition) =>
-          db
-            .insert(indexerDefinitions)
-            .values(definition)
-            .onConflictDoUpdate({
-              target: indexerDefinitions.definitionKey,
-              set: {
-                displayName: definition.displayName,
-                protocol: definition.protocol,
-                implementation: definition.implementation,
-                baseUrl: definition.baseUrl,
-                privacy: definition.privacy,
-                supportsRss: definition.supportsRss,
-                supportsSearch: definition.supportsSearch,
-                authFields: definition.authFields,
-                categories: definition.categories,
-                capabilities: definition.capabilities,
-                tags: definition.tags,
-                version: definition.version,
-                updatedAt: new Date(),
-              },
-            }),
-        { discard: true },
-      )
+    const upsertDefinition = (definition: IndexerDefinitionSeed, now: Date) =>
+      db
+        .insert(indexerDefinitions)
+        .values(definition)
+        .onConflictDoUpdate({
+          target: indexerDefinitions.definitionKey,
+          set: {
+            displayName: definition.displayName,
+            protocol: definition.protocol,
+            implementation: definition.implementation,
+            baseUrl: definition.baseUrl,
+            privacy: definition.privacy,
+            supportsRss: definition.supportsRss,
+            supportsSearch: definition.supportsSearch,
+            authFields: definition.authFields,
+            categories: definition.categories,
+            capabilities: definition.capabilities,
+            tags: definition.tags,
+            version: definition.version,
+            updatedAt: now,
+          },
+        })
+
+    const refreshDefinitions = () =>
+      Effect.gen(function* () {
+        const now = new Date()
+        const existingRows = yield* db.select().from(indexerDefinitions)
+        const existingByKey = new Map(
+          existingRows.map((definition) => [definition.definitionKey, definition] as const),
+        )
+
+        const definitions = []
+
+        for (const definition of BUILT_IN_DEFINITIONS) {
+          const existing = existingByKey.get(definition.definitionKey)
+          const action: IndexerDefinitionSyncAction =
+            existing === undefined
+              ? "created"
+              : definitionChanged(existing, definition)
+                ? "updated"
+                : "unchanged"
+
+          if (action !== "unchanged") {
+            yield* upsertDefinition(definition, now)
+          }
+
+          definitions.push({
+            definitionKey: definition.definitionKey,
+            displayName: definition.displayName,
+            previousVersion: existing?.version ?? null,
+            version: definition.version,
+            action,
+          })
+        }
+
+        return {
+          total: definitions.length,
+          created: definitions.filter((definition) => definition.action === "created").length,
+          updated: definitions.filter((definition) => definition.action === "updated").length,
+          unchanged: definitions.filter((definition) => definition.action === "unchanged").length,
+          refreshedAt: now,
+          definitions,
+        } satisfies IndexerDefinitionSyncResult
+      })
+
+    const seedBuiltInDefinitions = () => refreshDefinitions().pipe(Effect.asVoid)
 
     const validateDefinitionKey = (definitionKey: string | null | undefined) =>
       Effect.gen(function* () {
@@ -833,6 +899,8 @@ export const IndexerServiceLive = Layer.effect(
         }),
 
       seedBuiltInDefinitions,
+
+      refreshDefinitions,
 
       listDefinitions: () =>
         Effect.gen(function* () {
