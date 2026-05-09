@@ -77,12 +77,23 @@ caps:
     expect(BUILT_IN_CARDIGANN_DEFINITIONS.map((definition) => definition.definitionKey)).toEqual([
       "public-domain-movie-torrents",
       "open-tv-torrents",
+      "nyaa",
     ])
-    expect(BUILT_IN_CARDIGANN_DEFINITIONS[0].capabilities.searchTypes).toEqual(["search", "movie"])
-    expect(BUILT_IN_CARDIGANN_DEFINITIONS[1].capabilities.searchTypes).toEqual([
-      "search",
-      "tvsearch",
-    ])
+    expect(
+      BUILT_IN_CARDIGANN_DEFINITIONS.find(
+        (definition) => definition.definitionKey === "public-domain-movie-torrents",
+      )?.capabilities.searchTypes,
+    ).toEqual(["search", "movie"])
+    expect(
+      BUILT_IN_CARDIGANN_DEFINITIONS.find((definition) => definition.definitionKey === "nyaa")
+        ?.capabilities,
+    ).toEqual({
+      searchTypes: ["search", "tvsearch"],
+      categories: [
+        { id: 5070, name: "Anime English-translated" },
+        { id: 5070, name: "Anime Raw" },
+      ],
+    })
   })
 
   it("parses first-pass Cardigann search runtime metadata", () => {

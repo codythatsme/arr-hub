@@ -121,6 +121,43 @@ search:
         limit: "{{ .Query.Limit }}"
 `
 
+const NYAA = `
+id: nyaa
+name: Nyaa
+description: Public anime BitTorrent releases exposed through the Nyaa RSS feed.
+type: public
+links:
+  - https://nyaa.si/
+version: builtin-cardigann-1
+tags:
+  - public
+  - anime
+  - rss
+caps:
+  categorymappings:
+    - id: 1_2
+      cat: anime
+      desc: Anime English-translated
+      newznab: 5070
+    - id: 1_4
+      cat: anime
+      desc: Anime Raw
+      newznab: 5070
+  modes:
+    search: [q]
+    tv-search: [q, season, ep]
+search:
+  paths:
+    - path: /
+      response:
+        type: rss
+      inputs:
+        page: rss
+        q: "{{ .Keywords }}"
+        f: "0"
+        c: "0_0"
+`
+
 const CATEGORY_NAME_TO_NEWZNAB: Readonly<Record<string, number>> = {
   anime: 5070,
   audio: 3000,
@@ -137,7 +174,7 @@ const CATEGORY_NAME_TO_NEWZNAB: Readonly<Record<string, number>> = {
   xxx: 6000,
 }
 
-const BUILT_IN_CARDIGANN_SOURCES = [PUBLIC_DOMAIN_MOVIE_TORRENTS, OPEN_TV_TORRENTS] as const
+const BUILT_IN_CARDIGANN_SOURCES = [PUBLIC_DOMAIN_MOVIE_TORRENTS, OPEN_TV_TORRENTS, NYAA] as const
 
 export const BUILT_IN_CARDIGANN_DEFINITIONS: ReadonlyArray<IndexerDefinitionSeed> =
   BUILT_IN_CARDIGANN_SOURCES.map(parseCardigannDefinitionYaml)

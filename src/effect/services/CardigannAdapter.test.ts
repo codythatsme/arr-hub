@@ -91,6 +91,46 @@ describe("CardigannAdapter", () => {
     expect(caps.categories.map((category) => category.id)).toEqual([5000, 5040])
   })
 
+  it("builds Nyaa RSS search requests from the built-in definition", async () => {
+    let requestUrl: string | undefined
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      requestUrl = String(input)
+      return new Response(RSS_XML, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 11,
+      name: "Nyaa",
+      type: "cardigann_yaml",
+      definitionKey: "nyaa",
+      baseUrl: "https://nyaa.si",
+      apiKey: "",
+      priority: 20,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Example Anime", type: "tv", categories: [5070] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const url = new URL(requestUrl ?? "")
+    expect(url.origin).toBe("https://nyaa.si")
+    expect(url.pathname).toBe("/")
+    expect(url.searchParams.get("page")).toBe("rss")
+    expect(url.searchParams.get("q")).toBe("Example Anime")
+    expect(url.searchParams.get("f")).toBe("0")
+    expect(url.searchParams.get("c")).toBe("0_0")
+    expect(releases[0]).toMatchObject({
+      title: "Example Movie 2026 1080p WEB-DL",
+      indexerId: 11,
+      indexerName: "Nyaa",
+      indexerPriority: 20,
+    })
+  })
+
   it("builds Cardigann-style POST search requests from definition paths", async () => {
     let requestUrl: string | undefined
     let requestInit: RequestInit | undefined

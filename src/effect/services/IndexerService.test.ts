@@ -113,8 +113,8 @@ describe("IndexerService", () => {
       const second = yield* svc.refreshDefinitions()
 
       expect(first).toMatchObject({
-        total: 4,
-        created: 4,
+        total: 5,
+        created: 5,
         updated: 0,
         unchanged: 0,
       })
@@ -123,12 +123,13 @@ describe("IndexerService", () => {
         "created",
         "created",
         "created",
+        "created",
       ])
       expect(second).toMatchObject({
-        total: 4,
+        total: 5,
         created: 0,
         updated: 0,
-        unchanged: 4,
+        unchanged: 5,
       })
       expect(second.definitions.every((definition) => definition.previousVersion !== null)).toBe(
         true,
@@ -255,6 +256,7 @@ describe("IndexerService", () => {
       expect(definitions.map((definition) => definition.definitionKey).toSorted()).toEqual([
         "generic-newznab",
         "generic-torznab",
+        "nyaa",
         "open-tv-torrents",
         "public-domain-movie-torrents",
       ])
@@ -266,6 +268,14 @@ describe("IndexerService", () => {
         implementation: "torznab",
         supportsRss: true,
         supportsSearch: true,
+      })
+      expect(definitions.find((definition) => definition.definitionKey === "nyaa")).toMatchObject({
+        displayName: "Nyaa",
+        protocol: "torrent",
+        implementation: "cardigann_yaml",
+        baseUrl: "https://nyaa.si/",
+        privacy: "public",
+        tags: ["public", "anime", "rss"],
       })
       expect(
         definitions.find((definition) => definition.definitionKey === "open-tv-torrents"),
