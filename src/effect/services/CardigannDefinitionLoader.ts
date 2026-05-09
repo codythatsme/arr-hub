@@ -41,6 +41,12 @@ export interface CardigannLoginTest {
   readonly selector: string
 }
 
+export interface CardigannLoginCaptcha {
+  readonly type?: string
+  readonly selector?: string
+  readonly input?: string
+}
+
 export interface CardigannFilter {
   readonly name: string
   readonly args: ReadonlyArray<string>
@@ -83,6 +89,7 @@ export interface CardigannLoginRuntime {
   readonly selectorInputs?: Readonly<Record<string, CardigannFieldSelector>>
   readonly getSelectorInputs?: Readonly<Record<string, CardigannFieldSelector>>
   readonly test?: CardigannLoginTest
+  readonly captcha?: CardigannLoginCaptcha
   readonly form?: string
   readonly submitPath?: string
 }
@@ -511,6 +518,7 @@ function parseLoginRuntime(value: unknown): CardigannLoginRuntime | null {
     "login get selector inputs",
   )
   const test = parseLoginTest(login.test)
+  const captcha = parseLoginCaptcha(login.captcha)
   return {
     method,
     inputs: parseInputMap(login.inputs),
@@ -529,6 +537,7 @@ function parseLoginRuntime(value: unknown): CardigannLoginRuntime | null {
     ...(Object.keys(selectorInputs).length > 0 ? { selectorInputs } : {}),
     ...(Object.keys(getSelectorInputs).length > 0 ? { getSelectorInputs } : {}),
     ...(test !== undefined ? { test } : {}),
+    ...(captcha !== undefined ? { captcha } : {}),
     ...(form !== null ? { form } : {}),
     ...(submitPath !== null ? { submitPath } : {}),
   }
@@ -638,6 +647,19 @@ function parseLoginTest(value: unknown): CardigannLoginTest | undefined {
   return {
     selector: requiredString(test, "selector"),
     ...(path !== null ? { path } : {}),
+  }
+}
+
+function parseLoginCaptcha(value: unknown): CardigannLoginCaptcha | undefined {
+  if (value === undefined) return undefined
+  const captcha = expectRecord(value, "login captcha")
+  const type = optionalScalarStringFromAny(captcha, ["type"])
+  const selector = optionalScalarStringFromAny(captcha, ["selector"])
+  const input = optionalScalarStringFromAny(captcha, ["input"])
+  return {
+    ...(type !== null ? { type } : {}),
+    ...(selector !== null ? { selector } : {}),
+    ...(input !== null ? { input } : {}),
   }
 }
 

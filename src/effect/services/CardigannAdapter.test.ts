@@ -1228,6 +1228,107 @@ search:
     expect(releases[0]?.title).toBe("Example Movie 2026 1080p WEB-DL")
   })
 
+  it("submits configured Cardigann form login captcha responses", async () => {
+    const requests: Array<{ url: string; init: RequestInit | undefined }> = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      requests.push({ url, init })
+      const pathname = new URL(url).pathname
+      if (pathname === "/login") {
+        return new Response(
+          `<html><body>
+            <img class="captcha" src="/captcha.png">
+            <form id="signin" action="/session">
+              <input id="username-field" type="text" name="user" value="">
+              <input id="password-field" type="password" name="pass" value="">
+              <input id="captcha-field" type="text" name="captcha_code" value="">
+            </form>
+          </body></html>`,
+          { status: 200 },
+        )
+      }
+      if (pathname === "/session") {
+        return new Response("ok", {
+          status: 200,
+          headers: { "set-cookie": "captcha=session; Path=/; HttpOnly" },
+        })
+      }
+      return new Response(RSS_XML, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 32,
+      name: "Captcha Form Login Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "captcha-form-login-cardigann",
+      definitionYaml: `
+id: captcha-form-login-cardigann
+name: Captcha Form Login Cardigann
+links:
+  - https://tracker.example
+settings:
+  - name: username
+    label: Username
+  - name: password
+    label: Password
+    type: password
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+  modes:
+    movie-search: [q]
+login:
+  path: /login
+  method: form
+  form: form#signin
+  selectors: true
+  inputs:
+    "#username-field": "{{ .Config.Username }}"
+    "#password-field": "{{ .Config.Password }}"
+  captcha:
+    type: image
+    selector: img.captcha
+    input: "#captcha-field"
+search:
+  paths:
+    - path: /api
+      response:
+        type: torznab
+      inputs:
+        q: "{{ .Keywords }}"
+`,
+      baseUrl: "https://tracker.example/root",
+      apiKey: "",
+      configValues: {
+        username: "alice",
+        password: "secret",
+        cardigannCaptcha: "human-answer",
+      },
+      priority: 15,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Captcha Movie", type: "movie", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    const submitBody = new URLSearchParams(String(requests[1]?.init?.body ?? ""))
+    expect(new URL(requests[1]?.url ?? "").pathname).toBe("/session")
+    expect(submitBody.get("user")).toBe("alice")
+    expect(submitBody.get("pass")).toBe("secret")
+    expect(submitBody.get("captcha_code")).toBe("human-answer")
+
+    const searchHeaders = new Headers(requests[2]?.init?.headers)
+    expect(searchHeaders.get("cookie")).toBe("captcha=session")
+    expect(new URL(requests[2]?.url ?? "").searchParams.get("q")).toBe("Captcha Movie")
+    expect(releases[0]?.title).toBe("Example Movie 2026 1080p WEB-DL")
+  })
+
   it("fails Cardigann login when a configured error selector matches", async () => {
     const fetchMock = vi.fn(
       async () =>

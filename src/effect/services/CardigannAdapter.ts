@@ -1279,6 +1279,7 @@ function selectorInputValue(
 }
 
 function resolveConfiguredFormInputName(
+  document: HtmlElementMatch,
   form: HtmlElementMatch,
   login: CardigannLoginRuntime,
   key: string,
@@ -1286,8 +1287,51 @@ function resolveConfiguredFormInputName(
   if (key === "$raw") return key
   if (login.selectors !== true) return key
 
-  const input = findHtmlInputElement(form, key)
+  const input = findHtmlInputElement(form, key) ?? findHtmlInputElement(document, key)
   return input?.attributes.name ?? null
+}
+
+function captchaTemplateValue(variables: Record<string, TemplateValue>): string {
+  for (const key of [
+    ".Config.CAPTCHA",
+    ".Config.Captcha",
+    ".Config.captcha",
+    ".Config.cardigannCaptcha",
+    ".Config.CardigannCaptcha",
+    ".Config.cardiganncaptcha",
+    ".Config.CARDIGANNCAPTCHA",
+  ]) {
+    const value = templateValueToString(variables[key]).trim()
+    if (value.length > 0) return value
+  }
+  return ""
+}
+
+function appendCaptchaFormParam(
+  document: HtmlElementMatch,
+  form: HtmlElementMatch,
+  login: CardigannLoginRuntime,
+  variables: Record<string, TemplateValue>,
+  params: URLSearchParams,
+): string | null {
+  const captcha = login.captcha
+  if (captcha === undefined) return null
+
+  const value = captchaTemplateValue(variables)
+  if (value.length === 0) return null
+
+  const input = captcha.input
+  if (input === undefined || input.length === 0) {
+    return "Cardigann login failed: captcha input is not configured"
+  }
+
+  const inputName = resolveConfiguredFormInputName(document, form, login, input)
+  if (inputName === null) {
+    return `Cardigann login failed: captcha input selector not found: ${input}`
+  }
+
+  params.set(inputName, value)
+  return null
 }
 
 function formParamsFromHtml(
@@ -1313,7 +1357,7 @@ function formParamsFromHtml(
     const value = renderTemplate(template, variables)
     if (value.length === 0) continue
 
-    const inputName = resolveConfiguredFormInputName(form, login, key)
+    const inputName = resolveConfiguredFormInputName(document, form, login, key)
     if (inputName === null) return `Cardigann login failed: form input selector not found: ${key}`
 
     if (inputName === "$raw") {
@@ -1335,6 +1379,9 @@ function formParamsFromHtml(
     if (result.error !== undefined) return result.error
     if (result.value !== undefined) queryParams.set(key, result.value)
   }
+
+  const captchaError = appendCaptchaFormParam(document, form, login, variables, params)
+  if (captchaError !== null) return captchaError
 
   return { params, queryParams }
 }

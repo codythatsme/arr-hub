@@ -819,6 +819,38 @@ search:
     })
   })
 
+  it("parses Cardigann login captcha metadata", () => {
+    const runtime = parseCardigannRuntimeDefinitionYaml(`
+id: login-captcha-cardigann
+name: Login Captcha Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+login:
+  method: form
+  path: /login
+  captcha:
+    type: image
+    selector: img.captcha
+    input: "#captcha-field"
+search:
+  paths:
+    - path: /browse
+`)
+
+    expect(runtime.login).toMatchObject({
+      method: "form",
+      captcha: {
+        type: "image",
+        selector: "img.captcha",
+        input: "#captcha-field",
+      },
+    })
+  })
+
   it("exposes built-in runtime definitions by key", () => {
     const runtime = getBuiltInCardigannRuntimeDefinition("public-domain-movie-torrents")
     expect(runtime?.search.paths[0]).toMatchObject({
