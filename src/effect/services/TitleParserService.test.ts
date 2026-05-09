@@ -180,6 +180,43 @@ describe("TitleParserService", () => {
     }).pipe(Effect.provide(TestLayer)),
   )
 
+  it.effect("parses a vendor-inspired release corpus", () =>
+    Effect.gen(function* () {
+      const svc = yield* TitleParserService
+      const cases = [
+        {
+          title: "Series-S03E14-720p-HDTV-X264-DIMENSION",
+          expected: { title: "Series", season: 3, episode: 14, qualityName: "HDTV720p" },
+        },
+        {
+          title: "Series.2022.S03E14.720p.HDTV.X264-DIMENSION",
+          expected: { title: "Series", year: 2022, season: 3, episode: 14 },
+        },
+        {
+          title: "Movie.2018.1080p.AMZN.WEB-DL.DD5.1.H.264-NTG",
+          expected: { title: "Movie", year: 2018, qualityName: "WEBDL1080p", codec: "x264" },
+        },
+        {
+          title: "World.Movie.Z.2.EXTENDED.2013.1080p.BluRay.x264-GRP",
+          expected: { title: "World Movie Z 2", year: 2013, edition: "extended" },
+        },
+        {
+          title: "Movie.Name.S04E87.REPACK.720p.HDTV.x264-aAF",
+          expected: { title: "Movie Name", season: 4, episode: 87, proper: true },
+        },
+        {
+          title: "Movie.Name.S02E04.480p.WEB.DL.nSD.x264-NhaNc3",
+          expected: { title: "Movie Name", season: 2, episode: 4, qualityName: "WEBDL480p" },
+        },
+      ] as const
+
+      for (const item of cases) {
+        const parsed = yield* svc.parse(item.title)
+        expect(parsed).toMatchObject(item.expected)
+      }
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
   // ── Quality resolution combos ──
 
   it.effect("SDTV (no resolution + tv source)", () =>
