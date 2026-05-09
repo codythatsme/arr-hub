@@ -1706,6 +1706,20 @@ function assignCardigannResultField(
   return fields[name] ?? ""
 }
 
+function shouldAssignCardigannResultField(
+  fields: Readonly<Record<string, string>>,
+  name: string,
+  value: string,
+  field: CardigannFieldSelector,
+  modifiers: ReadonlySet<string>,
+): boolean {
+  return (
+    value.length > 0 ||
+    (field.optional !== true && !modifiers.has("optional")) ||
+    fields[name] === undefined
+  )
+}
+
 function firstNumber(value: string): number {
   const match = value.replaceAll(",", "").match(/-?\d+(?:\.\d+)?/)
   return match ? Number(match[0]) : 0
@@ -1831,6 +1845,9 @@ function parseHtmlReleases(
     for (const [rawName, field] of Object.entries(definition.search.fields)) {
       const { name, modifiers } = cardigannFieldNameParts(rawName)
       const value = htmlFieldValue(row, field, variables)
+      if (!shouldAssignCardigannResultField(resultFields, name, value, field, modifiers)) {
+        continue
+      }
       variables[`.Result.${name}`] = assignCardigannResultField(
         resultFields,
         name,
@@ -1941,6 +1958,9 @@ function parseJsonReleases(
     for (const [rawName, field] of Object.entries(definition.search.fields)) {
       const { name, modifiers } = cardigannFieldNameParts(rawName)
       const value = jsonFieldValue(row, field, variables)
+      if (!shouldAssignCardigannResultField(resultFields, name, value, field, modifiers)) {
+        continue
+      }
       variables[`.Result.${name}`] = assignCardigannResultField(
         resultFields,
         name,

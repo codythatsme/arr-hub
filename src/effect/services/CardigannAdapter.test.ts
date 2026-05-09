@@ -1074,6 +1074,13 @@ search:
       attribute: href
     category:
       selector: td.category
+    category|noappend:
+      selector: td.category a
+      attribute: href
+      optional: true
+      filters:
+        - name: querystring
+          args: cat
     seeders:
       selector: td.seeders
 `,
