@@ -270,6 +270,53 @@ caps:
     ])
   })
 
+  it("expands Cardigann category mappings with multiple Newznab categories", () => {
+    const definition = parseCardigannDefinitionYaml(`
+id: multi-category-cardigann
+name: Multi Category Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: media
+      cat:
+        - Movies
+        - TV
+      desc: Mixed Media
+      default: true
+    - id: books
+      newznab:
+        - 7000
+        - 7020
+      desc: Books
+  modes:
+    search: [q]
+`)
+
+    expect(definition.categories).toEqual([
+      {
+        trackerCategory: "media",
+        trackerCategoryDesc: "Mixed Media",
+        newznabCategory: 2000,
+        defaultCategory: true,
+      },
+      {
+        trackerCategory: "media",
+        trackerCategoryDesc: "Mixed Media",
+        newznabCategory: 5000,
+        defaultCategory: true,
+      },
+      { trackerCategory: "books", trackerCategoryDesc: "Books", newznabCategory: 7000 },
+      { trackerCategory: "books", trackerCategoryDesc: "Books", newznabCategory: 7020 },
+    ])
+    expect(definition.capabilities.categories).toEqual([
+      { id: 2000, name: "Mixed Media" },
+      { id: 5000, name: "Mixed Media" },
+      { id: 7000, name: "Books" },
+      { id: 7020, name: "Books" },
+    ])
+  })
+
   it("parses first-pass Cardigann search runtime metadata", () => {
     const runtime = parseCardigannRuntimeDefinitionYaml(`
 id: runtime-cardigann

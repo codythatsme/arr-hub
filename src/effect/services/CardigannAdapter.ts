@@ -83,16 +83,24 @@ function mappedTrackerCategories(
   definition: CardigannRuntimeDefinition,
   query: SearchQuery,
 ): ReadonlyArray<string> {
-  const defaultCategories = definition.categories
-    .filter((category) => category.defaultCategory === true)
-    .map((category) => category.trackerCategory)
+  const defaultCategories = uniqueStrings(
+    definition.categories
+      .filter((category) => category.defaultCategory === true)
+      .map((category) => category.trackerCategory),
+  )
   if (!query.categories || query.categories.length === 0) return defaultCategories
 
   const requested = new Set(query.categories)
-  const mapped = definition.categories
-    .filter((category) => requested.has(category.newznabCategory))
-    .map((category) => category.trackerCategory)
+  const mapped = uniqueStrings(
+    definition.categories
+      .filter((category) => requested.has(category.newznabCategory))
+      .map((category) => category.trackerCategory),
+  )
   return mapped.length > 0 ? mapped : defaultCategories
+}
+
+function uniqueStrings(values: ReadonlyArray<string>): ReadonlyArray<string> {
+  return Array.from(new Set(values))
 }
 
 function categoriesForPath(

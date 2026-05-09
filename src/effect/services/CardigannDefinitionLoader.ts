@@ -604,32 +604,44 @@ function parseCategories(value: unknown): ReadonlyArray<IndexerCategoryMapping> 
   }
 
   if (!Array.isArray(value)) throw new Error("categories must be a list")
-  return value.map((item) => {
+  return value.flatMap((item) => {
     const category = expectRecord(item, "category")
     const trackerCategory = requiredStringFromAny(category, ["tracker", "id"])
-    return {
-      trackerCategory,
-      trackerCategoryDesc:
-        optionalString(category, "description") ??
-        optionalString(category, "desc") ??
+    const trackerCategoryDesc =
+      optionalString(category, "description") ?? optionalString(category, "desc") ?? trackerCategory
+    const defaultCategory = optionalBoolean(category, "default") === true
+    const newznabCategories = resolveNewznabCategories(category)
+    return newznabCategories.map((newznabCategory) => {
+      const mapping: IndexerCategoryMapping = {
         trackerCategory,
-      newznabCategory: resolveNewznabCategory(category),
-      ...(optionalBoolean(category, "default") === true ? { defaultCategory: true } : {}),
-    }
+        trackerCategoryDesc,
+        newznabCategory,
+      }
+      return defaultCategory ? Object.assign(mapping, { defaultCategory: true }) : mapping
+    })
   })
 }
 
-function resolveNewznabCategory(record: Record<string, unknown>): number {
+function resolveNewznabCategories(record: Record<string, unknown>): ReadonlyArray<number> {
   const explicit = record.newznab ?? record.newznabCategory
-  if (explicit !== undefined) return positiveIntFromValue(explicit, "newznab")
+  if (explicit !== undefined) {
+    const values = Array.isArray(explicit) ? explicit : [explicit]
+    return uniqueNumbers(values.map((item) => positiveIntFromValue(item, "newznab")))
+  }
 
   const category = record.cat
-  const resolved = Array.isArray(category)
-    ? category.map(newznabFromCategoryName).find((item) => item !== null)
-    : newznabFromCategoryName(category)
-  if (resolved !== null && resolved !== undefined) return resolved
+  const values = Array.isArray(category) ? category : [category]
+  const resolved = values.flatMap((item) => {
+    const newznabCategory = newznabFromCategoryName(item)
+    return newznabCategory === null ? [] : [newznabCategory]
+  })
+  if (resolved.length > 0) return uniqueNumbers(resolved)
 
   throw new Error("category must include a known cat or newznab category")
+}
+
+function uniqueNumbers(values: ReadonlyArray<number>): ReadonlyArray<number> {
+  return Array.from(new Set(values))
 }
 
 function newznabFromCategoryName(value: unknown): number | null {
