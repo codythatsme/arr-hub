@@ -119,6 +119,22 @@ const HTML_FIELD_FILTER_RESULTS = `<!doctype html>
   </body>
 </html>`
 
+const HTML_JSON_JOIN_FIELD_FILTER_RESULTS = `<!doctype html>
+<html>
+  <body>
+    <table>
+      <tbody>
+        <tr class="torrent">
+          <td class="title-json">{"parts":["JSON","Join","Movie","2026","1080p","WEB-DL"]}</td>
+          <td><a class="download" href="/download/json-joined">Download</a></td>
+          <td class="category-json">{"categories":["Movies"]}</td>
+          <td class="date">2026-05-07T00:00:00.000Z</td>
+        </tr>
+      </tbody>
+    </table>
+  </body>
+</html>`
+
 const HTML_ROW_FILTER_RESULTS = `<!doctype html>
 <html>
   <body>
@@ -684,6 +700,79 @@ search:
       category: "2000",
     })
     expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-06T00:00:00.000Z")
+  })
+
+  it("applies Cardigann jsonjoinarray field filters to HTML fields", async () => {
+    const fetchMock = vi.fn(
+      async () => new Response(HTML_JSON_JOIN_FIELD_FILTER_RESULTS, { status: 200 }),
+    )
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 56,
+      name: "JSON Join Field Filter HTML Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "json-join-field-filter-html-cardigann",
+      definitionYaml: `
+id: json-join-field-filter-html-cardigann
+name: JSON Join Field Filter HTML Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: Movies
+      cat: Movies
+      desc: Movies
+      newznab: 2000
+  modes:
+    search: [q]
+search:
+  paths:
+    - path: /browse
+      response:
+        type: html
+  rows:
+    selector: tr.torrent
+  fields:
+    title:
+      selector: td.title-json
+      filters:
+        - name: jsonjoinarray
+          args:
+            - $.parts
+            - " "
+    download:
+      selector: a.download
+      attribute: href
+    category:
+      selector: td.category-json
+      filters:
+        - name: jsonjoinarray
+          args:
+            - $.categories
+            - ", "
+    date:
+      selector: td.date
+`,
+      baseUrl: "https://tracker.example",
+      apiKey: "",
+      priority: 35,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "JSON Join Movie", type: "general", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "JSON Join Movie 2026 1080p WEB-DL",
+      downloadUrl: "https://tracker.example/download/json-joined",
+      category: "2000",
+    })
+    expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-07T00:00:00.000Z")
   })
 
   it("applies Cardigann andmatch row filters to HTML results", async () => {

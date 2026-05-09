@@ -911,6 +911,122 @@ function validatedTerms(value: string, allowed: string): string {
     .join(", ")
 }
 
+type JsonPathToken = "*" | number | string
+
+function parseJsonPath(path: string): ReadonlyArray<JsonPathToken> | null {
+  const text = path.trim()
+  if (text.length === 0) return []
+
+  const tokens: Array<JsonPathToken> = []
+  let index = text.startsWith("$") ? 1 : 0
+
+  while (index < text.length) {
+    const char = text[index]
+    if (char === ".") {
+      index += 1
+      if (text[index] === "*") {
+        tokens.push("*")
+        index += 1
+        continue
+      }
+
+      const start = index
+      while (index < text.length && text[index] !== "." && text[index] !== "[") {
+        index += 1
+      }
+
+      const key = text.slice(start, index)
+      if (key.length === 0) return null
+      tokens.push(key)
+      continue
+    }
+
+    if (char === "[") {
+      const close = text.indexOf("]", index + 1)
+      if (close === -1) return null
+
+      const raw = text.slice(index + 1, close).trim()
+      if (raw === "*") {
+        tokens.push("*")
+      } else if (/^\d+$/.test(raw)) {
+        tokens.push(Number.parseInt(raw, 10))
+      } else {
+        const quote = raw[0]
+        if ((quote !== `"` && quote !== "'") || !raw.endsWith(quote)) return null
+        tokens.push(raw.slice(1, -1))
+      }
+
+      index = close + 1
+      continue
+    }
+
+    const start = index
+    while (index < text.length && text[index] !== "." && text[index] !== "[") {
+      index += 1
+    }
+
+    const key = text.slice(start, index)
+    if (key.length === 0) return null
+    tokens.push(key)
+  }
+
+  return tokens
+}
+
+function isJsonRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+function selectJsonPathValues(
+  value: unknown,
+  tokens: ReadonlyArray<JsonPathToken>,
+): ReadonlyArray<unknown> {
+  let values: ReadonlyArray<unknown> = [value]
+
+  for (const token of tokens) {
+    const next: Array<unknown> = []
+    for (const current of values) {
+      if (token === "*") {
+        if (Array.isArray(current)) {
+          next.push(...current)
+        } else if (isJsonRecord(current)) {
+          next.push(...Object.values(current))
+        }
+      } else if (typeof token === "number") {
+        if (Array.isArray(current) && token < current.length) next.push(current[token])
+      } else if (isJsonRecord(current) && Object.hasOwn(current, token)) {
+        next.push(current[token])
+      }
+    }
+    values = next
+  }
+
+  return values
+}
+
+function jsonValueToString(value: unknown): string {
+  if (value === null || value === undefined) return ""
+  if (typeof value === "string") return value
+  if (typeof value === "number" || typeof value === "boolean") return String(value)
+  return JSON.stringify(value)
+}
+
+function jsonJoinArray(value: string, path: string, separator: string): string | null {
+  const tokens = parseJsonPath(path)
+  if (tokens === null) return null
+
+  try {
+    const selected = selectJsonPathValues(JSON.parse(value) as unknown, tokens)
+    const values =
+      selected.length === 1 && Array.isArray(selected[0])
+        ? (selected[0] as ReadonlyArray<unknown>)
+        : selected
+    return values.map((item) => jsonValueToString(item)).join(separator)
+  } catch {
+    return null
+  }
+}
+
 function applyCardigannKeywordFilter(
   value: string,
   filter: CardigannFilter,
@@ -935,6 +1051,14 @@ function applyCardigannKeywordFilter(
       return first === "replace" ? stripDiacritics(value) : value
     case "fuzzytime":
       return parseFuzzyDate(value)?.toUTCString() ?? value
+    case "jsonjoinarray":
+      return first
+        ? (jsonJoinArray(
+            value,
+            renderTemplate(first, variables),
+            renderTemplate(second, variables),
+          ) ?? value)
+        : value
     case "prepend":
       return `${renderTemplate(first, variables)}${value}`
     case "querystring":
