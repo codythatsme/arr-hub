@@ -45,107 +45,6 @@ export class TmdbClient extends Context.Tag("@arr-hub/TmdbClient")<
 
 const BASE_URL = "https://api.themoviedb.org/3"
 const PROVIDER = "tmdb"
-const E2E_MOVIE: TmdbMovie = {
-  id: 990001,
-  title: "E2E Fixture Movie",
-  originalTitle: "E2E Fixture Movie",
-  overview: "A deterministic movie returned only for browser smoke tests.",
-  releaseDate: "2026-05-09",
-  year: 2026,
-  posterPath: null,
-  backdropPath: null,
-  popularity: 1,
-  voteAverage: 7,
-  voteCount: 1,
-  genreIds: [],
-  originalLanguage: "en",
-}
-const E2E_MOVIE_DETAILS: TmdbMovieDetails = {
-  ...E2E_MOVIE,
-  imdbId: "tt990001",
-  runtime: 90,
-  status: "Released",
-  tagline: null,
-  genres: [],
-  productionCompanies: [],
-  budget: 0,
-  revenue: 0,
-}
-const E2E_TV_SERIES: TmdbTvSeriesDetails = {
-  id: 990002,
-  tvdbId: 990002,
-  imdbId: "tt990002",
-  name: "E2E Fixture Series",
-  originalName: "E2E Fixture Series",
-  overview: "A deterministic series returned only for browser smoke tests.",
-  firstAirDate: "2026-05-09",
-  year: 2026,
-  posterPath: null,
-  backdropPath: null,
-  popularity: 1,
-  voteAverage: 8,
-  voteCount: 1,
-  genreIds: [],
-  originalLanguage: "en",
-  originCountry: ["US"],
-  status: "Returning Series",
-  type: "Scripted",
-  genres: [],
-  networks: [
-    {
-      id: 990,
-      name: "E2E Network",
-      logoPath: null,
-      originCountry: "US",
-    },
-  ],
-  episodeRunTime: [45],
-  seasons: [
-    {
-      id: 990201,
-      seasonNumber: 1,
-      episodeCount: 2,
-      name: "Season 1",
-      overview: "Fixture season.",
-      airDate: "2026-05-09",
-      posterPath: null,
-    },
-  ],
-}
-const E2E_TV_SEASON: TmdbTvSeason = {
-  id: 990201,
-  seasonNumber: 1,
-  name: "Season 1",
-  overview: "Fixture season.",
-  airDate: "2026-05-09",
-  posterPath: null,
-  episodes: [
-    {
-      id: 9902001,
-      title: "Pilot",
-      overview: "Fixture pilot.",
-      seasonNumber: 1,
-      episodeNumber: 1,
-      airDate: "2026-05-09",
-      stillPath: null,
-      runtime: 45,
-      voteAverage: 8,
-      voteCount: 1,
-    },
-    {
-      id: 9902002,
-      title: "Second",
-      overview: "Fixture second episode.",
-      seasonNumber: 1,
-      episodeNumber: 2,
-      airDate: "2026-05-16",
-      stillPath: null,
-      runtime: 45,
-      voteAverage: 8,
-      voteCount: 1,
-    },
-  ],
-}
 
 // ── Helpers ──
 
@@ -269,10 +168,6 @@ function toStrArray(val: unknown): ReadonlyArray<string> {
 
 function toArray(val: unknown): ReadonlyArray<unknown> {
   return Array.isArray(val) ? val : []
-}
-
-function fixturesEnabled(): boolean {
-  return process.env.ARR_HUB_E2E_FIXTURES === "1"
 }
 
 function parseMovie(raw: unknown): TmdbMovie {
@@ -444,14 +339,6 @@ function parseMovieDetails(raw: unknown): TmdbMovieDetails {
 export const TmdbClientLive = Layer.succeed(TmdbClient, {
   searchMovies: (query, page) =>
     Effect.gen(function* () {
-      if (fixturesEnabled()) {
-        return {
-          page: page ?? 1,
-          totalPages: 1,
-          totalResults: 1,
-          results: [{ ...E2E_MOVIE, title: `${E2E_MOVIE.title}: ${query}` }],
-        }
-      }
       const apiKey = yield* requireApiKey()
       const url = buildUrl("/search/movie", apiKey, { query, page })
       const json = yield* fetchJson(url)
@@ -460,9 +347,6 @@ export const TmdbClientLive = Layer.succeed(TmdbClient, {
 
   getMovie: (tmdbId) =>
     Effect.gen(function* () {
-      if (fixturesEnabled() && tmdbId === E2E_MOVIE.id) {
-        return E2E_MOVIE_DETAILS
-      }
       const apiKey = yield* requireApiKey()
       const url = buildUrl(`/movie/${tmdbId}`, apiKey, {})
       const json = yield* fetchJson(url)
@@ -471,14 +355,6 @@ export const TmdbClientLive = Layer.succeed(TmdbClient, {
 
   getPopular: (page) =>
     Effect.gen(function* () {
-      if (fixturesEnabled()) {
-        return {
-          page: page ?? 1,
-          totalPages: 1,
-          totalResults: 1,
-          results: [E2E_MOVIE],
-        }
-      }
       const apiKey = yield* requireApiKey()
       const url = buildUrl("/movie/popular", apiKey, { page })
       const json = yield* fetchJson(url)
@@ -487,9 +363,6 @@ export const TmdbClientLive = Layer.succeed(TmdbClient, {
 
   getTrending: (timeWindow) =>
     Effect.gen(function* () {
-      if (fixturesEnabled()) {
-        return { page: 1, totalPages: 1, totalResults: 1, results: [E2E_MOVIE] }
-      }
       const apiKey = yield* requireApiKey()
       const window = timeWindow ?? "week"
       const url = buildUrl(`/trending/movie/${window}`, apiKey, {})
@@ -499,14 +372,6 @@ export const TmdbClientLive = Layer.succeed(TmdbClient, {
 
   searchTvSeries: (query, page) =>
     Effect.gen(function* () {
-      if (fixturesEnabled()) {
-        return {
-          page: page ?? 1,
-          totalPages: 1,
-          totalResults: 1,
-          results: [{ ...E2E_TV_SERIES, name: `${E2E_TV_SERIES.name}: ${query}` }],
-        }
-      }
       const apiKey = yield* requireApiKey()
       const url = buildUrl("/search/tv", apiKey, { query, page })
       const json = yield* fetchJson(url)
@@ -515,9 +380,6 @@ export const TmdbClientLive = Layer.succeed(TmdbClient, {
 
   getTvSeries: (tmdbId) =>
     Effect.gen(function* () {
-      if (fixturesEnabled() && tmdbId === E2E_TV_SERIES.id) {
-        return E2E_TV_SERIES
-      }
       const apiKey = yield* requireApiKey()
       const url = buildUrl(`/tv/${tmdbId}`, apiKey, { append_to_response: "external_ids" })
       const json = yield* fetchJson(url)
@@ -526,9 +388,6 @@ export const TmdbClientLive = Layer.succeed(TmdbClient, {
 
   getTvSeason: (tmdbId, seasonNumber) =>
     Effect.gen(function* () {
-      if (fixturesEnabled() && tmdbId === E2E_TV_SERIES.id) {
-        return { ...E2E_TV_SEASON, seasonNumber }
-      }
       const apiKey = yield* requireApiKey()
       const url = buildUrl(`/tv/${tmdbId}/season/${seasonNumber}`, apiKey, {})
       const json = yield* fetchJson(url)

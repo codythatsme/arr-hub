@@ -1,27 +1,11 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect } from "effect"
 
-import { TmdbClient, TmdbClientLive } from "./TmdbClient"
+import { TmdbClientE2EFixtures } from "../fixtures/TmdbClientFixtures"
+import { TmdbClient } from "./TmdbClient"
 
 const withFixtures = <A, E>(effect: Effect.Effect<A, E, TmdbClient>) =>
-  Effect.acquireUseRelease(
-    Effect.sync(() => process.env.ARR_HUB_E2E_FIXTURES),
-    () =>
-      Effect.sync(() => {
-        process.env.ARR_HUB_E2E_FIXTURES = "1"
-      }).pipe(
-        Effect.flatMap(() => effect),
-        Effect.provide(TmdbClientLive),
-      ),
-    (previous) =>
-      Effect.sync(() => {
-        if (previous === undefined) {
-          delete process.env.ARR_HUB_E2E_FIXTURES
-          return
-        }
-        process.env.ARR_HUB_E2E_FIXTURES = previous
-      }),
-  )
+  effect.pipe(Effect.provide(TmdbClientE2EFixtures))
 
 describe("TmdbClient", () => {
   it.effect("returns deterministic TV search fixtures", () =>

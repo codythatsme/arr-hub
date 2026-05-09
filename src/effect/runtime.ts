@@ -3,7 +3,8 @@ import { Effect, ManagedRuntime } from "effect"
 import { users } from "#/db/schema"
 
 import { resolveInitialAdminPassword } from "./bootstrap"
-import { AppLive } from "./layers"
+import { TmdbClientE2EFixtures } from "./fixtures/TmdbClientFixtures"
+import { AppLive, makeAppLayer } from "./layers"
 import { CryptoService } from "./services/CryptoService"
 import { Db } from "./services/Db"
 import { NotificationService } from "./services/NotificationService"
@@ -11,7 +12,10 @@ import { PlexSessionMonitor } from "./services/PlexSessionMonitor"
 import { createSchedulerLoop } from "./services/SchedulerLoop"
 import { SchedulerService } from "./services/SchedulerService"
 
-export const AppRuntime = ManagedRuntime.make(AppLive)
+const AppLayer =
+  process.env.ARR_HUB_E2E_FIXTURES === "1" ? makeAppLayer(TmdbClientE2EFixtures) : AppLive
+
+export const AppRuntime = ManagedRuntime.make(AppLayer)
 
 /**
  * Seed scheduler config + start background services.

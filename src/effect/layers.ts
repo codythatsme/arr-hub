@@ -33,48 +33,53 @@ import { SettingsServiceLive } from "./services/SettingsService"
 import { StatsServiceLive } from "./services/StatsService"
 import { TitleParserServiceLive } from "./services/TitleParserService"
 import { TmdbClientLive } from "./services/TmdbClient"
+import type { TmdbClient } from "./services/TmdbClient"
 
 const DownloadMonitorWithImportLive = DownloadMonitorLive.pipe(
   Layer.provideMerge(MediaImportServiceLive),
 )
 
 /** All application services, fully wired. Db + CryptoService also exposed for direct use. */
-export const AppLive = Layer.mergeAll(
-  DiagnosticsServiceLive,
-  QueueServiceLive,
-  AcquisitionPipelineLive,
-  DownloadMonitorWithImportLive,
-  PlexSessionMonitorLive,
-  PluginLoaderLive,
-  MetadataRefreshServiceLive,
-  ImportServiceLive,
-).pipe(
-  Layer.provideMerge(SchedulerServiceLive),
-  Layer.provideMerge(OnboardingServiceLive),
-  Layer.provideMerge(AuthServiceLive),
-  Layer.provideMerge(
-    Layer.mergeAll(
-      MovieServiceLive,
-      SeriesServiceLive,
-      IndexerServiceLive,
-      DownloadClientServiceLive,
-      MediaServerServiceLive,
-      ReleasePolicyEngineLive,
-      SessionHistoryServiceLive,
-      PlexUserServiceLive,
-      StatsServiceLive,
+export function makeAppLayer(tmdbClientLayer: Layer.Layer<TmdbClient> = TmdbClientLive) {
+  return Layer.mergeAll(
+    DiagnosticsServiceLive,
+    QueueServiceLive,
+    AcquisitionPipelineLive,
+    DownloadMonitorWithImportLive,
+    PlexSessionMonitorLive,
+    PluginLoaderLive,
+    MetadataRefreshServiceLive,
+    ImportServiceLive,
+  ).pipe(
+    Layer.provideMerge(SchedulerServiceLive),
+    Layer.provideMerge(OnboardingServiceLive),
+    Layer.provideMerge(AuthServiceLive),
+    Layer.provideMerge(
+      Layer.mergeAll(
+        MovieServiceLive,
+        SeriesServiceLive,
+        IndexerServiceLive,
+        DownloadClientServiceLive,
+        MediaServerServiceLive,
+        ReleasePolicyEngineLive,
+        SessionHistoryServiceLive,
+        PlexUserServiceLive,
+        StatsServiceLive,
+      ),
     ),
-  ),
-  Layer.provideMerge(TitleParserServiceLive),
-  Layer.provideMerge(ProfileDefaultsEngineLive),
-  Layer.provideMerge(ConfigServiceLive),
-  Layer.provideMerge(SettingsServiceLive),
-  Layer.provideMerge(NotificationServiceLive),
-  Layer.provideMerge(RootFolderServiceLive),
-  Layer.provideMerge(ProfileServiceLive),
-  Layer.provideMerge(MonitoringTriggerBusLive),
-  Layer.provideMerge(AdapterRegistryLive),
-  Layer.provideMerge(CryptoServiceLive),
-  Layer.provideMerge(TmdbClientLive),
-  Layer.provideMerge(DbLive),
-)
+    Layer.provideMerge(TitleParserServiceLive),
+    Layer.provideMerge(ProfileDefaultsEngineLive),
+    Layer.provideMerge(ConfigServiceLive),
+    Layer.provideMerge(SettingsServiceLive),
+    Layer.provideMerge(NotificationServiceLive),
+    Layer.provideMerge(RootFolderServiceLive),
+    Layer.provideMerge(ProfileServiceLive),
+    Layer.provideMerge(MonitoringTriggerBusLive),
+    Layer.provideMerge(AdapterRegistryLive),
+    Layer.provideMerge(CryptoServiceLive),
+    Layer.provideMerge(tmdbClientLayer),
+    Layer.provideMerge(DbLive),
+  )
+}
+
+export const AppLive = makeAppLayer()
