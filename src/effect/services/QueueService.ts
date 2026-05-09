@@ -57,6 +57,7 @@ export class QueueService extends Context.Tag("@arr-hub/QueueService")<
       id: number,
       options?: { readonly deleteFiles?: boolean },
     ) => Effect.Effect<void, NotFoundError | SqlError>
+    readonly clearError: (id: number) => Effect.Effect<QueueItem, NotFoundError | SqlError>
     readonly blocklist: (
       id: number,
     ) => Effect.Effect<QueueItem, NotFoundError | SchedulerError | SqlError>
@@ -158,6 +159,16 @@ export const QueueServiceLive = Layer.effect(
                 db.delete(downloadQueue).where(eq(downloadQueue.id, id)).pipe(Effect.asVoid),
               ),
             )
+        }),
+
+      clearError: (id) =>
+        Effect.gen(function* () {
+          yield* fetchItem(id)
+          yield* db
+            .update(downloadQueue)
+            .set({ errorMessage: null, updatedAt: new Date() })
+            .where(eq(downloadQueue.id, id))
+          return yield* fetchItem(id)
         }),
 
       blocklist: (id) =>

@@ -56,6 +56,15 @@ export const queueRouter = {
       ),
     ),
 
+  clearError: authedProcedure.input(z.object({ id: z.number().int() })).mutation(({ input }) =>
+    runEffect(
+      Effect.gen(function* () {
+        const queue = yield* QueueService
+        return yield* queue.clearError(input.id)
+      }),
+    ),
+  ),
+
   blocklist: authedProcedure.input(z.object({ id: z.number().int() })).mutation(({ input }) =>
     runEffect(
       Effect.gen(function* () {

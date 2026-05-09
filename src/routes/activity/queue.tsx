@@ -14,25 +14,49 @@ function Queue() {
   const queryClient = useQueryClient()
   const [status, setStatus] = useState<StatusFilter>("all")
   const [mediaType, setMediaType] = useState<MediaTypeFilter>("all")
+  const [deleteFilesById, setDeleteFilesById] = useState<Record<number, boolean>>({})
+  const [message, setMessage] = useState<string | null>(null)
 
   const listKey = trpc.queue.list.queryKey({ status, mediaType })
   const query = useQuery(trpc.queue.list.queryOptions({ status, mediaType }))
   const retry = useMutation(
     trpc.queue.retry.mutationOptions({
-      onSuccess: () => queryClient.invalidateQueries({ queryKey: listKey }),
+      onSuccess: async () => {
+        await queryClient.invalidateQueries({ queryKey: listKey })
+        setMessage("Queue item retried.")
+      },
     }),
   )
   const remove = useMutation(
     trpc.queue.remove.mutationOptions({
-      onSuccess: () => queryClient.invalidateQueries({ queryKey: listKey }),
+      onSuccess: async () => {
+        await queryClient.invalidateQueries({ queryKey: listKey })
+        setMessage("Queue item removed.")
+      },
+    }),
+  )
+  const clearError = useMutation(
+    trpc.queue.clearError.mutationOptions({
+      onSuccess: async () => {
+        await queryClient.invalidateQueries({ queryKey: listKey })
+        setMessage("Queue error cleared.")
+      },
     }),
   )
   const blocklist = useMutation(
     trpc.queue.blocklist.mutationOptions({
-      onSuccess: () => queryClient.invalidateQueries({ queryKey: listKey }),
+      onSuccess: async () => {
+        await queryClient.invalidateQueries({ queryKey: listKey })
+        setMessage("Queue item blocklisted.")
+      },
     }),
   )
-  const pending = retry.isPending || remove.isPending || blocklist.isPending
+  const pending = retry.isPending || remove.isPending || clearError.isPending || blocklist.isPending
+  const mutationError =
+    retry.error?.message ??
+    remove.error?.message ??
+    clearError.error?.message ??
+    blocklist.error?.message
 
   return (
     <div className="space-y-4 p-6">
@@ -74,6 +98,8 @@ function Queue() {
       </header>
 
       {query.isLoading && <p className="text-muted-foreground">Loading queue...</p>}
+      {message && <p className="text-sm text-emerald-600">{message}</p>}
+      {mutationError && <p className="text-destructive text-sm">{mutationError}</p>}
       {query.error && (
         <p className="text-destructive">Failed to load queue: {query.error.message}</p>
       )}
@@ -113,20 +139,53 @@ function Queue() {
                   <td className="px-3 py-2 text-right">{formatBytes(item.sizeBytes)}</td>
                   <td className="px-3 py-2">{item.status}</td>
                   <td className="px-3 py-2">
-                    <div className="flex justify-end gap-2">
+                    <div className="flex flex-wrap justify-end gap-2">
                       <button
                         type="button"
                         className="rounded border px-2 py-1 text-xs disabled:opacity-50"
                         disabled={pending || item.status !== "failed"}
-                        onClick={() => retry.mutate({ id: item.id })}
+                        onClick={() => {
+                          setMessage(null)
+                          retry.mutate({ id: item.id })
+                        }}
                       >
                         Retry
                       </button>
                       <button
                         type="button"
                         className="rounded border px-2 py-1 text-xs disabled:opacity-50"
+                        disabled={pending || item.errorMessage === null}
+                        onClick={() => {
+                          setMessage(null)
+                          clearError.mutate({ id: item.id })
+                        }}
+                      >
+                        Clear error
+                      </button>
+                      <label className="flex items-center gap-1 rounded border px-2 py-1 text-xs">
+                        <input
+                          type="checkbox"
+                          checked={deleteFilesById[item.id] ?? false}
+                          onChange={(event) =>
+                            setDeleteFilesById((current) => ({
+                              ...current,
+                              [item.id]: event.target.checked,
+                            }))
+                          }
+                        />
+                        Delete files
+                      </label>
+                      <button
+                        type="button"
+                        className="rounded border px-2 py-1 text-xs disabled:opacity-50"
                         disabled={pending}
-                        onClick={() => remove.mutate({ id: item.id })}
+                        onClick={() => {
+                          setMessage(null)
+                          remove.mutate({
+                            id: item.id,
+                            deleteFiles: deleteFilesById[item.id] ?? false,
+                          })
+                        }}
                       >
                         Remove
                       </button>
@@ -134,7 +193,10 @@ function Queue() {
                         type="button"
                         className="rounded border px-2 py-1 text-xs disabled:opacity-50"
                         disabled={pending}
-                        onClick={() => blocklist.mutate({ id: item.id })}
+                        onClick={() => {
+                          setMessage(null)
+                          blocklist.mutate({ id: item.id })
+                        }}
                       >
                         Blocklist
                       </button>

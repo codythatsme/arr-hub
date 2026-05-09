@@ -105,6 +105,17 @@ describe("QueueService", () => {
     }).pipe(Effect.provide(TestLayer)),
   )
 
+  it.effect("clears a queue item error without changing status", () =>
+    Effect.gen(function* () {
+      const seeded = yield* seedQueue("failed")
+      const service = yield* QueueService
+      const cleared = yield* service.clearError(seeded.queueId)
+
+      expect(cleared.status).toBe("failed")
+      expect(cleared.errorMessage).toBeNull()
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
   it.effect("blocklists a queue item and records decision rationale", () =>
     Effect.gen(function* () {
       const seeded = yield* seedQueue("failed")
