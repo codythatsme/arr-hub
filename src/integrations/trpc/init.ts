@@ -14,6 +14,7 @@ import type {
   EncryptionError,
   ImportError,
   IndexerError,
+  MediaImportError,
   MediaServerError,
   MetadataError,
   NotFoundError,
@@ -69,6 +70,7 @@ export type DomainError =
   | OnboardingError
   | ImportError
   | PluginError
+  | MediaImportError
 
 export function domainToTRPC(error: DomainError): TRPCError {
   switch (error._tag) {
@@ -209,6 +211,20 @@ export function domainToTRPC(error: DomainError): TRPCError {
       return new TRPCError({
         code: codeMap[error.reason] ?? "BAD_REQUEST",
         message: `[${error.pluginName}] ${error.message}`,
+      })
+    }
+    case "MediaImportError": {
+      const codeMap: Record<string, TRPCError["code"]> = {
+        missing_output_path: "PRECONDITION_FAILED",
+        source_not_found: "NOT_FOUND",
+        no_media_files: "BAD_REQUEST",
+        root_folder_missing: "PRECONDITION_FAILED",
+        file_operation_failed: "INTERNAL_SERVER_ERROR",
+        episode_match_failed: "BAD_REQUEST",
+      }
+      return new TRPCError({
+        code: codeMap[error.reason] ?? "BAD_REQUEST",
+        message: error.message,
       })
     }
   }

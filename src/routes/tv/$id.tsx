@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
-import { Download, Save, Search, Trash2 } from "lucide-react"
+import { Download, FileUp, RefreshCw, Save, Search, Trash2 } from "lucide-react"
 import { type FormEvent, useEffect, useState } from "react"
 
 import { useTRPC } from "#/integrations/trpc/react"
@@ -44,6 +44,8 @@ function SeriesDetail() {
   const [seasonFolder, setSeasonFolder] = useState(true)
   const [selectedSeasonId, setSelectedSeasonId] = useState("")
   const [selectedEpisodeId, setSelectedEpisodeId] = useState("")
+  const [manualImportPath, setManualImportPath] = useState("")
+  const [manualImportTitle, setManualImportTitle] = useState("")
   const [decisionEpisodeId, setDecisionEpisodeId] = useState<number | null>(null)
   const [decisions, setDecisions] = useState<ReadonlyArray<DecisionRow>>([])
   const [message, setMessage] = useState<string | null>(null)
@@ -51,6 +53,13 @@ function SeriesDetail() {
   const seriesKey = trpc.series.get.queryKey({ id: seriesId })
   const historyKey = trpc.history.getForSeries.queryKey({ seriesId })
   const series = useQuery(trpc.series.get.queryOptions({ id: seriesId }))
+  const hasEpisodeFiles = series.data?.seasons.some((season) => season.availableCount > 0) ?? false
+  const renamePreview = useQuery(
+    trpc.mediaManagement.previewSeriesRename.queryOptions(
+      { seriesId },
+      { enabled: seriesId > 0 && hasEpisodeFiles },
+    ),
+  )
   const history = useQuery(
     trpc.history.getForSeries.queryOptions({ seriesId }, { enabled: seriesId > 0 }),
   )
@@ -123,6 +132,30 @@ function SeriesDetail() {
       },
     }),
   )
+  const manualImport = useMutation(
+    trpc.mediaManagement.manualImportEpisodes.mutationOptions({
+      onSuccess: async (results) => {
+        await invalidateSeries()
+        await queryClient.invalidateQueries({
+          queryKey: trpc.mediaManagement.previewSeriesRename.queryKey({ seriesId }),
+        })
+        setManualImportPath("")
+        setManualImportTitle("")
+        setMessage(`Imported ${results.length} episode file${results.length === 1 ? "" : "s"}.`)
+      },
+    }),
+  )
+  const renameSeries = useMutation(
+    trpc.mediaManagement.renameSeries.mutationOptions({
+      onSuccess: async (plans) => {
+        await invalidateSeries()
+        await queryClient.invalidateQueries({
+          queryKey: trpc.mediaManagement.previewSeriesRename.queryKey({ seriesId }),
+        })
+        setMessage(`Renamed ${plans.length} file${plans.length === 1 ? "" : "s"}.`)
+      },
+    }),
+  )
 
   useEffect(() => {
     if (!series.data) return
@@ -154,7 +187,9 @@ function SeriesDetail() {
     searchSeries.isPending ||
     searchSeason.isPending ||
     evaluateEpisode.isPending ||
-    grabEpisode.isPending
+    grabEpisode.isPending ||
+    manualImport.isPending ||
+    renameSeries.isPending
   const error =
     updateSeries.error?.message ??
     removeSeries.error?.message ??
@@ -164,6 +199,9 @@ function SeriesDetail() {
     searchSeason.error?.message ??
     evaluateEpisode.error?.message ??
     grabEpisode.error?.message ??
+    manualImport.error?.message ??
+    renameSeries.error?.message ??
+    renamePreview.error?.message ??
     series.error?.message ??
     profiles.error?.message ??
     rootFolders.error?.message
@@ -193,6 +231,19 @@ function SeriesDetail() {
     setSelectedEpisodeId(String(episodeId))
     setDecisions([])
     evaluateEpisode.mutate({ episodeId })
+  }
+
+  const importEpisodeFile = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const episodeId = Number(selectedEpisodeId)
+    if (!Number.isFinite(episodeId)) return
+    setMessage(null)
+    manualImport.mutate({
+      seriesId,
+      episodeIds: [episodeId],
+      sourcePath: manualImportPath.trim(),
+      releaseTitle: manualImportTitle.trim().length > 0 ? manualImportTitle.trim() : null,
+    })
   }
 
   return (
@@ -362,6 +413,78 @@ function SeriesDetail() {
             </form>
 
             <section className="space-y-4">
+              <div className="rounded-md border p-4">
+                <h2 className="text-lg font-semibold">File Operations</h2>
+                <form className="mt-4 space-y-3" onSubmit={importEpisodeFile}>
+                  <label className="block text-sm">
+                    <span className="font-medium">Episode</span>
+                    <select
+                      className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                      value={selectedEpisodeId}
+                      onChange={(event) => setSelectedEpisodeId(event.target.value)}
+                    >
+                      {series.data.seasons.flatMap((season) =>
+                        season.episodes.map((episode) => (
+                          <option key={episode.id} value={episode.id}>
+                            S{season.season.seasonNumber}E{episode.episodeNumber} · {episode.title}
+                          </option>
+                        )),
+                      )}
+                    </select>
+                  </label>
+                  <label className="block text-sm">
+                    <span className="font-medium">Source path</span>
+                    <input
+                      className="mt-1 w-full rounded border bg-transparent px-3 py-2 font-mono"
+                      value={manualImportPath}
+                      onChange={(event) => setManualImportPath(event.target.value)}
+                      placeholder="/downloads/show.s01e01.mkv"
+                      required
+                    />
+                  </label>
+                  <label className="block text-sm">
+                    <span className="font-medium">Release title</span>
+                    <input
+                      className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                      value={manualImportTitle}
+                      onChange={(event) => setManualImportTitle(event.target.value)}
+                      placeholder="Optional"
+                    />
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="submit"
+                      className="bg-primary text-primary-foreground inline-flex items-center gap-2 rounded px-3 py-2 text-sm disabled:opacity-50"
+                      disabled={
+                        pending ||
+                        selectedEpisodeId.length === 0 ||
+                        manualImportPath.trim().length === 0
+                      }
+                    >
+                      <FileUp className="size-4" />
+                      Import file
+                    </button>
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-2 rounded border px-3 py-2 text-sm disabled:opacity-50"
+                      disabled={pending || (renamePreview.data?.length ?? 0) === 0}
+                      onClick={() => {
+                        setMessage(null)
+                        renameSeries.mutate({ seriesId })
+                      }}
+                    >
+                      <RefreshCw className="size-4" />
+                      Rename
+                    </button>
+                  </div>
+                </form>
+                {renamePreview.data && renamePreview.data.length > 0 && (
+                  <p className="text-muted-foreground mt-3 truncate text-xs">
+                    Next rename: {renamePreview.data[0].targetPath}
+                  </p>
+                )}
+              </div>
+
               <div className="rounded-md border p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>

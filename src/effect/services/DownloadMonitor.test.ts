@@ -138,6 +138,23 @@ const MockMediaImportService = Layer.effect(
           }
           return results
         }),
+      manualImportMovie: () => Effect.die("not implemented"),
+      manualImportEpisodes: () => Effect.die("not implemented"),
+      listRemotePathMappings: () => Effect.succeed([]),
+      addRemotePathMapping: () => Effect.die("not implemented"),
+      updateRemotePathMapping: () => Effect.die("not implemented"),
+      removeRemotePathMapping: () => Effect.die("not implemented"),
+      scanLibraries: () =>
+        Effect.succeed({
+          moviesScanned: 0,
+          moviesImported: 0,
+          seriesScanned: 0,
+          episodesImported: 0,
+        }),
+      previewMovieRename: () => Effect.succeed([]),
+      renameMovie: () => Effect.succeed([]),
+      previewSeriesRename: () => Effect.succeed([]),
+      renameSeries: () => Effect.succeed([]),
     }
   }),
 )

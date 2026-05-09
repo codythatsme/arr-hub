@@ -16,12 +16,13 @@ import {
   seasons,
   series,
 } from "#/db/schema"
-import type { QualityName } from "#/effect/domain/quality"
+import { parseQualityName, type QualityName } from "#/effect/domain/quality"
 import {
   MediaImportError,
   type MediaImportErrorReason,
   NotFoundError,
   type SettingsError,
+  ValidationError,
 } from "#/effect/errors"
 
 import { Db } from "./Db"
@@ -75,7 +76,41 @@ export interface EpisodeImportInput {
   readonly downloadClientId?: number | null
 }
 
+export interface ManualMovieImportInput {
+  readonly movieId: number
+  readonly sourcePath: string
+  readonly releaseTitle?: string | null
+}
+
+export interface ManualEpisodeImportInput {
+  readonly seriesId: number
+  readonly episodeIds: ReadonlyArray<number>
+  readonly sourcePath: string
+  readonly releaseTitle?: string | null
+}
+
+export interface RemotePathMappingInput {
+  readonly downloadClientId?: number | null
+  readonly remotePath: string
+  readonly localPath: string
+}
+
+export interface LibraryScanResult {
+  readonly moviesScanned: number
+  readonly moviesImported: number
+  readonly seriesScanned: number
+  readonly episodesImported: number
+}
+
+export interface RenamePlan {
+  readonly mediaKind: MediaKind
+  readonly mediaId: number
+  readonly currentPath: string
+  readonly targetPath: string
+}
+
 type MediaImportFailure = MediaImportError | NotFoundError | SettingsError | SqlError
+type MediaManagementFailure = MediaImportFailure | ValidationError
 
 export class MediaImportService extends Context.Tag("@arr-hub/MediaImportService")<
   MediaImportService,
@@ -86,6 +121,37 @@ export class MediaImportService extends Context.Tag("@arr-hub/MediaImportService
     readonly importEpisodes: (
       input: EpisodeImportInput,
     ) => Effect.Effect<ReadonlyArray<MediaImportResult>, MediaImportFailure>
+    readonly manualImportMovie: (
+      input: ManualMovieImportInput,
+    ) => Effect.Effect<MediaImportResult, MediaImportFailure>
+    readonly manualImportEpisodes: (
+      input: ManualEpisodeImportInput,
+    ) => Effect.Effect<ReadonlyArray<MediaImportResult>, MediaImportFailure>
+    readonly listRemotePathMappings: () => Effect.Effect<
+      ReadonlyArray<typeof remotePathMappings.$inferSelect>,
+      SqlError
+    >
+    readonly addRemotePathMapping: (
+      input: RemotePathMappingInput,
+    ) => Effect.Effect<typeof remotePathMappings.$inferSelect, MediaManagementFailure>
+    readonly updateRemotePathMapping: (
+      id: number,
+      input: RemotePathMappingInput,
+    ) => Effect.Effect<typeof remotePathMappings.$inferSelect, MediaManagementFailure>
+    readonly removeRemotePathMapping: (id: number) => Effect.Effect<void, NotFoundError | SqlError>
+    readonly scanLibraries: () => Effect.Effect<LibraryScanResult, MediaImportFailure>
+    readonly previewMovieRename: (
+      movieId: number,
+    ) => Effect.Effect<ReadonlyArray<RenamePlan>, MediaImportFailure>
+    readonly renameMovie: (
+      movieId: number,
+    ) => Effect.Effect<ReadonlyArray<RenamePlan>, MediaImportFailure>
+    readonly previewSeriesRename: (
+      seriesId: number,
+    ) => Effect.Effect<ReadonlyArray<RenamePlan>, MediaImportFailure>
+    readonly renameSeries: (
+      seriesId: number,
+    ) => Effect.Effect<ReadonlyArray<RenamePlan>, MediaImportFailure>
   }
 >() {}
 
@@ -176,6 +242,25 @@ function episodeKeyFromPath(
 
 function parseFileHandling(value: string): FileHandlingMode {
   return value === "move" || value === "hardlink" ? value : "copy"
+}
+
+function releaseTitleFromPath(sourcePath: string): string {
+  return path.basename(stripTrailingPathSeparators(sourcePath.trim())) || sourcePath.trim()
+}
+
+function validateRemotePathMappingInput(input: RemotePathMappingInput) {
+  const remotePath = input.remotePath.trim()
+  const localPath = input.localPath.trim()
+  if (remotePath.length === 0 || localPath.length === 0) {
+    return Effect.fail(
+      new ValidationError({ message: "remote and local paths are required for path mappings" }),
+    )
+  }
+  return Effect.succeed({
+    downloadClientId: input.downloadClientId ?? null,
+    remotePath,
+    localPath,
+  })
 }
 
 function stripTrailingPathSeparators(value: string): string {
@@ -425,6 +510,32 @@ function collectMediaFiles(
   )
 }
 
+function candidateFromPath(filePath: string): Effect.Effect<MediaFileCandidate, MediaImportError> {
+  return Effect.tryPromise({
+    try: async () => {
+      const fileStats = await stat(filePath)
+      if (!fileStats.isFile()) {
+        throw Object.assign(new Error(`not a file: ${filePath}`), { code: "ENOTFILE" })
+      }
+      return {
+        path: filePath,
+        extension: path.extname(filePath).toLowerCase(),
+        sizeBytes: fileStats.size,
+      }
+    },
+    catch: (error) => {
+      if (nodeCode(error) === "ENOENT") {
+        return mediaImportError("source_not_found", `media file does not exist: ${filePath}`, true)
+      }
+      return mediaImportError(
+        "file_operation_failed",
+        `failed to inspect media file: ${errorMessage(error)}`,
+        true,
+      )
+    },
+  })
+}
+
 function targetExists(targetPath: string): Promise<boolean> {
   return access(targetPath, constants.F_OK).then(
     () => true,
@@ -467,6 +578,86 @@ function transferFile(
         `failed to ${mode} media file: ${errorMessage(error)}`,
         true,
       ),
+  })
+}
+
+function renameMediaFile(
+  sourcePath: string,
+  targetPath: string,
+): Effect.Effect<void, MediaImportError> {
+  return Effect.tryPromise({
+    try: async () => {
+      if (path.resolve(sourcePath) === path.resolve(targetPath)) return
+      await mkdir(path.dirname(targetPath), { recursive: true })
+      if (await targetExists(targetPath)) {
+        throw new Error(`target already exists: ${targetPath}`)
+      }
+
+      try {
+        await rename(sourcePath, targetPath)
+      } catch (error) {
+        if (nodeCode(error) !== "EXDEV") throw error
+        await copyFile(sourcePath, targetPath)
+        await unlink(sourcePath)
+      }
+    },
+    catch: (error) =>
+      mediaImportError(
+        "file_operation_failed",
+        `failed to rename media file: ${errorMessage(error)}`,
+        true,
+      ),
+  })
+}
+
+function recordRenamedMediaFile(
+  db: Context.Tag.Service<typeof Db>,
+  input: {
+    readonly mediaKind: "movie" | "episode"
+    readonly mediaId: number
+    readonly currentPath: string
+    readonly targetPath: string
+    readonly sizeBytes: number
+    readonly qualityName: QualityName
+    readonly qualityRank: number | null
+    readonly formatScore: number
+  },
+): Effect.Effect<void, SqlError> {
+  return Effect.gen(function* () {
+    const now = new Date()
+    const rows = yield* db
+      .select({ id: mediaFiles.id })
+      .from(mediaFiles)
+      .where(and(eq(mediaFiles.mediaKind, input.mediaKind), eq(mediaFiles.mediaId, input.mediaId)))
+      .limit(1)
+
+    if (rows[0]) {
+      yield* db
+        .update(mediaFiles)
+        .set({
+          path: input.targetPath,
+          sizeBytes: input.sizeBytes,
+          qualityName: input.qualityName,
+          qualityRank: input.qualityRank,
+          formatScore: input.formatScore,
+          updatedAt: now,
+        })
+        .where(eq(mediaFiles.id, rows[0].id))
+      return
+    }
+
+    yield* db.insert(mediaFiles).values({
+      mediaKind: input.mediaKind,
+      mediaId: input.mediaId,
+      path: input.targetPath,
+      sourcePath: input.currentPath,
+      sizeBytes: input.sizeBytes,
+      qualityName: input.qualityName,
+      qualityRank: input.qualityRank,
+      formatScore: input.formatScore,
+      importedAt: now,
+      updatedAt: now,
+    })
   })
 }
 
@@ -607,156 +798,483 @@ export const MediaImportServiceLive = Layer.effect(
     const loadNaming = () =>
       settings.get("media.namingConvention").pipe(Effect.map((setting) => setting.value))
 
-    return {
-      importMovie: (input) =>
-        Effect.gen(function* () {
-          const movieRows = yield* db.select().from(movies).where(eq(movies.id, input.movieId))
-          const movie = movieRows[0]
-          if (!movie) return yield* new NotFoundError({ entity: "movie", id: input.movieId })
+    const importMovie = (input: MovieImportInput) =>
+      Effect.gen(function* () {
+        const movieRows = yield* db.select().from(movies).where(eq(movies.id, input.movieId))
+        const movie = movieRows[0]
+        if (!movie) return yield* new NotFoundError({ entity: "movie", id: input.movieId })
 
-          const resolvedSourcePath = yield* resolveSourcePath(
-            db,
-            input.sourcePath,
-            input.downloadClientId ?? null,
+        const resolvedSourcePath = yield* resolveSourcePath(
+          db,
+          input.sourcePath,
+          input.downloadClientId ?? null,
+        )
+        const [handling, namingConvention, qualityName, candidates] = yield* Effect.all([
+          loadHandling(),
+          loadNaming(),
+          parseQuality(input.releaseTitle),
+          collectMediaFiles(resolvedSourcePath),
+        ])
+        const candidate = candidates.toSorted(compareBySizeDesc)[0]
+        const targetPath = yield* targetMoviePath(
+          movie,
+          namingConvention,
+          input.releaseTitle,
+          qualityName,
+          candidate,
+        )
+
+        const decision = yield* movieDecision(db, movie.id, input.releaseTitle)
+        const qualityRank =
+          decision?.qualityRank ??
+          (yield* qualityRankFallback(db, movie.qualityProfileId, qualityName))
+        const formatScore = decision?.formatScore ?? 0
+
+        yield* transferFile(candidate.path, targetPath, handling)
+
+        yield* db
+          .update(movies)
+          .set({
+            status: "available",
+            hasFile: true,
+            filePath: targetPath,
+            existingQualityName: qualityName,
+            existingQualityRank: qualityRank,
+            existingFormatScore: formatScore,
+          })
+          .where(eq(movies.id, movie.id))
+        yield* upsertMediaFile(db, {
+          mediaKind: "movie",
+          mediaId: movie.id,
+          path: targetPath,
+          sourcePath: candidate.path,
+          sizeBytes: candidate.sizeBytes,
+          qualityName,
+          qualityRank,
+          formatScore,
+        })
+
+        return {
+          mediaKind: "movie" as const,
+          mediaId: movie.id,
+          sourcePath: candidate.path,
+          targetPath,
+          sizeBytes: candidate.sizeBytes,
+          qualityName,
+          qualityRank,
+          formatScore,
+        }
+      })
+
+    const importEpisodes = (input: EpisodeImportInput) =>
+      Effect.gen(function* () {
+        if (input.episodeIds.length === 0) {
+          return yield* mediaImportError(
+            "episode_match_failed",
+            "episode import requires at least one episode id",
+            false,
           )
-          const [handling, namingConvention, qualityName, candidates] = yield* Effect.all([
-            loadHandling(),
-            loadNaming(),
-            parseQuality(input.releaseTitle),
-            collectMediaFiles(resolvedSourcePath),
-          ])
-          const candidate = candidates.toSorted(compareBySizeDesc)[0]
-          const targetPath = yield* targetMoviePath(
-            movie,
-            namingConvention,
-            input.releaseTitle,
-            qualityName,
-            candidate,
-          )
+        }
 
-          const decision = yield* movieDecision(db, movie.id, input.releaseTitle)
-          const qualityRank =
-            decision?.qualityRank ??
-            (yield* qualityRankFallback(db, movie.qualityProfileId, qualityName))
-          const formatScore = decision?.formatScore ?? 0
+        const episodeRows = yield* db
+          .select({ episode: episodes, season: seasons, series })
+          .from(episodes)
+          .innerJoin(seasons, eq(episodes.seasonId, seasons.id))
+          .innerJoin(series, eq(seasons.seriesId, series.id))
+          .where(and(eq(series.id, input.seriesId), inArray(episodes.id, [...input.episodeIds])))
+          .orderBy(asc(seasons.seasonNumber), asc(episodes.episodeNumber))
 
-          yield* transferFile(candidate.path, targetPath, handling)
+        if (episodeRows.length !== input.episodeIds.length) {
+          const foundIds = new Set(episodeRows.map((row) => row.episode.id))
+          const missingId = input.episodeIds.find((id) => !foundIds.has(id)) ?? input.episodeIds[0]
+          return yield* new NotFoundError({ entity: "episode", id: missingId })
+        }
 
+        const resolvedSourcePath = yield* resolveSourcePath(
+          db,
+          input.sourcePath,
+          input.downloadClientId ?? null,
+        )
+        const [handling, qualityName, candidates] = yield* Effect.all([
+          loadHandling(),
+          parseQuality(input.releaseTitle),
+          collectMediaFiles(resolvedSourcePath),
+        ])
+        const targets = yield* selectEpisodeFiles(episodeRows, candidates)
+        const decision = yield* tvDecision(db, input.releaseTitle)
+        const profileId = episodeRows[0]?.series.qualityProfileId ?? null
+        const qualityRank =
+          decision?.qualityRank ?? (yield* qualityRankFallback(db, profileId, qualityName))
+        const formatScore = decision?.formatScore ?? 0
+        const results: Array<MediaImportResult> = []
+
+        for (const target of targets) {
+          const targetPath = yield* targetEpisodePath(target, qualityName, target.candidate)
+          yield* transferFile(target.candidate.path, targetPath, handling)
           yield* db
-            .update(movies)
+            .update(episodes)
             .set({
-              status: "available",
               hasFile: true,
               filePath: targetPath,
               existingQualityName: qualityName,
               existingQualityRank: qualityRank,
               existingFormatScore: formatScore,
             })
-            .where(eq(movies.id, movie.id))
+            .where(eq(episodes.id, target.episode.id))
           yield* upsertMediaFile(db, {
-            mediaKind: "movie",
-            mediaId: movie.id,
+            mediaKind: "episode",
+            mediaId: target.episode.id,
             path: targetPath,
-            sourcePath: candidate.path,
-            sizeBytes: candidate.sizeBytes,
+            sourcePath: target.candidate.path,
+            sizeBytes: target.candidate.sizeBytes,
             qualityName,
             qualityRank,
             formatScore,
           })
 
-          return {
-            mediaKind: "movie" as const,
-            mediaId: movie.id,
-            sourcePath: candidate.path,
+          results.push({
+            mediaKind: "episode",
+            mediaId: target.episode.id,
+            sourcePath: target.candidate.path,
             targetPath,
-            sizeBytes: candidate.sizeBytes,
+            sizeBytes: target.candidate.sizeBytes,
             qualityName,
             qualityRank,
             formatScore,
-          }
-        }),
+          })
+        }
 
-      importEpisodes: (input) =>
-        Effect.gen(function* () {
-          if (input.episodeIds.length === 0) {
-            return yield* mediaImportError(
-              "episode_match_failed",
-              "episode import requires at least one episode id",
-              false,
-            )
-          }
+        return results
+      })
 
+    const manualImportMovie = (input: ManualMovieImportInput) =>
+      importMovie({
+        movieId: input.movieId,
+        sourcePath: input.sourcePath,
+        releaseTitle: input.releaseTitle?.trim() || releaseTitleFromPath(input.sourcePath),
+        downloadClientId: null,
+      })
+
+    const manualImportEpisodes = (input: ManualEpisodeImportInput) =>
+      importEpisodes({
+        seriesId: input.seriesId,
+        episodeIds: input.episodeIds,
+        sourcePath: input.sourcePath,
+        releaseTitle: input.releaseTitle?.trim() || releaseTitleFromPath(input.sourcePath),
+        downloadClientId: null,
+      })
+
+    const listRemotePathMappings = () =>
+      db.select().from(remotePathMappings).orderBy(asc(remotePathMappings.remotePath))
+
+    const addRemotePathMapping = (input: RemotePathMappingInput) =>
+      Effect.gen(function* () {
+        const values = yield* validateRemotePathMappingInput(input)
+        const rows = yield* db.insert(remotePathMappings).values(values).returning()
+        return rows[0]
+      })
+
+    const updateRemotePathMapping = (id: number, input: RemotePathMappingInput) =>
+      Effect.gen(function* () {
+        const values = yield* validateRemotePathMappingInput(input)
+        const rows = yield* db
+          .update(remotePathMappings)
+          .set({
+            downloadClientId: values.downloadClientId,
+            remotePath: values.remotePath,
+            localPath: values.localPath,
+            updatedAt: new Date(),
+          })
+          .where(eq(remotePathMappings.id, id))
+          .returning()
+        if (rows.length === 0)
+          return yield* new NotFoundError({ entity: "remote_path_mapping", id })
+        return rows[0]
+      })
+
+    const removeRemotePathMapping = (id: number) =>
+      Effect.gen(function* () {
+        const rows = yield* db
+          .delete(remotePathMappings)
+          .where(eq(remotePathMappings.id, id))
+          .returning({ id: remotePathMappings.id })
+        if (rows.length === 0)
+          return yield* new NotFoundError({ entity: "remote_path_mapping", id })
+      })
+
+    const qualityForExisting = (
+      qualityName: string | null,
+      releaseTitle: string,
+    ): Effect.Effect<QualityName, never> => {
+      const parsed = qualityName ? parseQualityName(qualityName) : null
+      return parsed ? Effect.succeed(parsed) : parseQuality(releaseTitle)
+    }
+
+    const scanLibraries = (): Effect.Effect<LibraryScanResult, MediaImportFailure> =>
+      Effect.gen(function* () {
+        const movieRows = yield* db.select().from(movies)
+        const seriesRows = yield* db.select().from(series)
+        let moviesImported = 0
+        let episodesImported = 0
+
+        for (const movie of movieRows) {
+          if (movie.rootFolderPath === null) continue
+          const movieFolder = path.join(
+            movie.rootFolderPath,
+            safeSegment(
+              movie.year ? `${movie.title} (${movie.year})` : movie.title,
+              `movie-${movie.id}`,
+            ),
+          )
+          const candidates = yield* collectMediaFiles(movieFolder).pipe(
+            Effect.catchIf(
+              (error) => error.reason === "source_not_found" || error.reason === "no_media_files",
+              () => Effect.succeed([] as ReadonlyArray<MediaFileCandidate>),
+            ),
+          )
+          const candidate = candidates.toSorted(compareBySizeDesc)[0]
+          if (!candidate) continue
+          const releaseTitle = path.basename(candidate.path)
+          const qualityName = yield* parseQuality(releaseTitle)
+          const qualityRank = yield* qualityRankFallback(db, movie.qualityProfileId, qualityName)
+          yield* db
+            .update(movies)
+            .set({
+              status: "available",
+              hasFile: true,
+              filePath: candidate.path,
+              existingQualityName: qualityName,
+              existingQualityRank: qualityRank,
+              existingFormatScore: 0,
+            })
+            .where(eq(movies.id, movie.id))
+          yield* upsertMediaFile(db, {
+            mediaKind: "movie",
+            mediaId: movie.id,
+            path: candidate.path,
+            sourcePath: candidate.path,
+            sizeBytes: candidate.sizeBytes,
+            qualityName,
+            qualityRank,
+            formatScore: 0,
+          })
+          moviesImported += 1
+        }
+
+        for (const show of seriesRows) {
+          if (show.rootFolderPath === null) continue
+          const showFolder = path.join(
+            show.rootFolderPath,
+            safeSegment(show.title, `series-${show.id}`),
+          )
+          const candidates = yield* collectMediaFiles(showFolder).pipe(
+            Effect.catchIf(
+              (error) => error.reason === "source_not_found" || error.reason === "no_media_files",
+              () => Effect.succeed([] as ReadonlyArray<MediaFileCandidate>),
+            ),
+          )
+          if (candidates.length === 0) continue
           const episodeRows = yield* db
-            .select({ episode: episodes, season: seasons, series })
+            .select({ episode: episodes, season: seasons })
             .from(episodes)
             .innerJoin(seasons, eq(episodes.seasonId, seasons.id))
-            .innerJoin(series, eq(seasons.seriesId, series.id))
-            .where(and(eq(series.id, input.seriesId), inArray(episodes.id, [...input.episodeIds])))
-            .orderBy(asc(seasons.seasonNumber), asc(episodes.episodeNumber))
-
-          if (episodeRows.length !== input.episodeIds.length) {
-            const foundIds = new Set(episodeRows.map((row) => row.episode.id))
-            const missingId =
-              input.episodeIds.find((id) => !foundIds.has(id)) ?? input.episodeIds[0]
-            return yield* new NotFoundError({ entity: "episode", id: missingId })
-          }
-
-          const resolvedSourcePath = yield* resolveSourcePath(
-            db,
-            input.sourcePath,
-            input.downloadClientId ?? null,
+            .where(eq(seasons.seriesId, show.id))
+          const episodeByKey = new Map(
+            episodeRows.map((row) => [
+              `${row.season.seasonNumber}:${row.episode.episodeNumber}`,
+              row,
+            ]),
           )
-          const [handling, qualityName, candidates] = yield* Effect.all([
-            loadHandling(),
-            parseQuality(input.releaseTitle),
-            collectMediaFiles(resolvedSourcePath),
-          ])
-          const targets = yield* selectEpisodeFiles(episodeRows, candidates)
-          const decision = yield* tvDecision(db, input.releaseTitle)
-          const profileId = episodeRows[0]?.series.qualityProfileId ?? null
-          const qualityRank =
-            decision?.qualityRank ?? (yield* qualityRankFallback(db, profileId, qualityName))
-          const formatScore = decision?.formatScore ?? 0
-          const results: Array<MediaImportResult> = []
-
-          for (const target of targets) {
-            const targetPath = yield* targetEpisodePath(target, qualityName, target.candidate)
-            yield* transferFile(target.candidate.path, targetPath, handling)
+          const importedEpisodeIds = new Set<number>()
+          for (const candidate of candidates) {
+            const key = episodeKeyFromPath(candidate.path)
+            if (key === null) continue
+            const row = episodeByKey.get(`${key.season}:${key.episode}`)
+            if (!row || importedEpisodeIds.has(row.episode.id)) continue
+            const releaseTitle = path.basename(candidate.path)
+            const qualityName = yield* parseQuality(releaseTitle)
+            const qualityRank = yield* qualityRankFallback(db, show.qualityProfileId, qualityName)
             yield* db
               .update(episodes)
               .set({
                 hasFile: true,
-                filePath: targetPath,
+                filePath: candidate.path,
                 existingQualityName: qualityName,
                 existingQualityRank: qualityRank,
-                existingFormatScore: formatScore,
+                existingFormatScore: 0,
               })
-              .where(eq(episodes.id, target.episode.id))
+              .where(eq(episodes.id, row.episode.id))
             yield* upsertMediaFile(db, {
               mediaKind: "episode",
-              mediaId: target.episode.id,
-              path: targetPath,
-              sourcePath: target.candidate.path,
-              sizeBytes: target.candidate.sizeBytes,
+              mediaId: row.episode.id,
+              path: candidate.path,
+              sourcePath: candidate.path,
+              sizeBytes: candidate.sizeBytes,
               qualityName,
               qualityRank,
-              formatScore,
+              formatScore: 0,
             })
+            importedEpisodeIds.add(row.episode.id)
+            episodesImported += 1
+          }
+        }
 
-            results.push({
+        return {
+          moviesScanned: movieRows.length,
+          moviesImported,
+          seriesScanned: seriesRows.length,
+          episodesImported,
+        }
+      })
+
+    const previewMovieRename = (
+      movieId: number,
+    ): Effect.Effect<ReadonlyArray<RenamePlan>, MediaImportFailure> =>
+      Effect.gen(function* () {
+        const movieRows = yield* db.select().from(movies).where(eq(movies.id, movieId))
+        const movie = movieRows[0]
+        if (!movie) return yield* new NotFoundError({ entity: "movie", id: movieId })
+        if (!movie.hasFile || movie.filePath === null) return []
+        const candidate = yield* candidateFromPath(movie.filePath)
+        const qualityName = yield* qualityForExisting(movie.existingQualityName, movie.filePath)
+        const namingConvention = yield* loadNaming()
+        const targetPath = yield* targetMoviePath(
+          movie,
+          namingConvention,
+          path.basename(movie.filePath),
+          qualityName,
+          candidate,
+        )
+        return path.resolve(movie.filePath) === path.resolve(targetPath)
+          ? []
+          : [
+              {
+                mediaKind: "movie" as const,
+                mediaId: movie.id,
+                currentPath: movie.filePath,
+                targetPath,
+              },
+            ]
+      })
+
+    const renameMovie = (
+      movieId: number,
+    ): Effect.Effect<ReadonlyArray<RenamePlan>, MediaImportFailure> =>
+      Effect.gen(function* () {
+        const plans = yield* previewMovieRename(movieId)
+        for (const plan of plans) {
+          const before = yield* candidateFromPath(plan.currentPath)
+          const movieRows = yield* db.select().from(movies).where(eq(movies.id, plan.mediaId))
+          const movie = movieRows[0]
+          if (!movie) return yield* new NotFoundError({ entity: "movie", id: plan.mediaId })
+          const qualityName = yield* qualityForExisting(movie.existingQualityName, plan.currentPath)
+          yield* renameMediaFile(plan.currentPath, plan.targetPath)
+          yield* db
+            .update(movies)
+            .set({ filePath: plan.targetPath })
+            .where(eq(movies.id, plan.mediaId))
+          yield* recordRenamedMediaFile(db, {
+            mediaKind: "movie",
+            mediaId: plan.mediaId,
+            currentPath: plan.currentPath,
+            targetPath: plan.targetPath,
+            sizeBytes: before.sizeBytes,
+            qualityName,
+            qualityRank: movie.existingQualityRank,
+            formatScore: movie.existingFormatScore ?? 0,
+          })
+        }
+        return plans
+      })
+
+    const episodeRowsForRename = (seriesId: number) =>
+      db
+        .select({ episode: episodes, season: seasons, series })
+        .from(episodes)
+        .innerJoin(seasons, eq(episodes.seasonId, seasons.id))
+        .innerJoin(series, eq(seasons.seriesId, series.id))
+        .where(and(eq(series.id, seriesId), eq(episodes.hasFile, true)))
+
+    const previewSeriesRename = (
+      seriesId: number,
+    ): Effect.Effect<ReadonlyArray<RenamePlan>, MediaImportFailure> =>
+      Effect.gen(function* () {
+        const rows = yield* episodeRowsForRename(seriesId)
+        if (rows.length === 0) {
+          const exists = yield* db
+            .select({ id: series.id })
+            .from(series)
+            .where(eq(series.id, seriesId))
+          if (!exists[0]) return yield* new NotFoundError({ entity: "series", id: seriesId })
+        }
+        const plans: Array<RenamePlan> = []
+        for (const row of rows) {
+          if (row.episode.filePath === null) continue
+          const candidate = yield* candidateFromPath(row.episode.filePath)
+          const qualityName = yield* qualityForExisting(
+            row.episode.existingQualityName,
+            row.episode.filePath,
+          )
+          const targetPath = yield* targetEpisodePath(row, qualityName, candidate)
+          if (path.resolve(row.episode.filePath) !== path.resolve(targetPath)) {
+            plans.push({
               mediaKind: "episode",
-              mediaId: target.episode.id,
-              sourcePath: target.candidate.path,
+              mediaId: row.episode.id,
+              currentPath: row.episode.filePath,
               targetPath,
-              sizeBytes: target.candidate.sizeBytes,
-              qualityName,
-              qualityRank,
-              formatScore,
             })
           }
+        }
+        return plans
+      })
 
-          return results
-        }),
+    const renameSeries = (
+      seriesId: number,
+    ): Effect.Effect<ReadonlyArray<RenamePlan>, MediaImportFailure> =>
+      Effect.gen(function* () {
+        const plans = yield* previewSeriesRename(seriesId)
+        for (const plan of plans) {
+          const before = yield* candidateFromPath(plan.currentPath)
+          const episodeRows = yield* db.select().from(episodes).where(eq(episodes.id, plan.mediaId))
+          const episode = episodeRows[0]
+          if (!episode) return yield* new NotFoundError({ entity: "episode", id: plan.mediaId })
+          const qualityName = yield* qualityForExisting(
+            episode.existingQualityName,
+            plan.currentPath,
+          )
+          yield* renameMediaFile(plan.currentPath, plan.targetPath)
+          yield* db
+            .update(episodes)
+            .set({ filePath: plan.targetPath })
+            .where(eq(episodes.id, plan.mediaId))
+          yield* recordRenamedMediaFile(db, {
+            mediaKind: "episode",
+            mediaId: plan.mediaId,
+            currentPath: plan.currentPath,
+            targetPath: plan.targetPath,
+            sizeBytes: before.sizeBytes,
+            qualityName,
+            qualityRank: episode.existingQualityRank,
+            formatScore: episode.existingFormatScore ?? 0,
+          })
+        }
+        return plans
+      })
+
+    return {
+      importMovie,
+      importEpisodes,
+      manualImportMovie,
+      manualImportEpisodes,
+      listRemotePathMappings,
+      addRemotePathMapping,
+      updateRemotePathMapping,
+      removeRemotePathMapping,
+      scanLibraries,
+      previewMovieRename,
+      renameMovie,
+      previewSeriesRename,
+      renameSeries,
     }
   }),
 )

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
-import { Download, Save, Search, Trash2 } from "lucide-react"
+import { Download, FileUp, RefreshCw, Save, Search, Trash2 } from "lucide-react"
 import { type FormEvent, useEffect, useState } from "react"
 
 import { useTRPC } from "#/integrations/trpc/react"
@@ -39,12 +39,20 @@ function MovieDetail() {
   const [qualityProfileId, setQualityProfileId] = useState("")
   const [rootFolderPath, setRootFolderPath] = useState("")
   const [monitored, setMonitored] = useState(true)
+  const [manualImportPath, setManualImportPath] = useState("")
+  const [manualImportTitle, setManualImportTitle] = useState("")
   const [decisions, setDecisions] = useState<ReadonlyArray<DecisionRow>>([])
   const [message, setMessage] = useState<string | null>(null)
 
   const movieKey = trpc.movies.get.queryKey({ id: movieId })
   const historyKey = trpc.history.getForMedia.queryKey({ kind: "movie", movieId })
   const movie = useQuery(trpc.movies.get.queryOptions({ id: movieId }))
+  const renamePreview = useQuery(
+    trpc.mediaManagement.previewMovieRename.queryOptions(
+      { movieId },
+      { enabled: movieId > 0 && movie.data?.hasFile === true },
+    ),
+  )
   const history = useQuery(
     trpc.history.getForMedia.queryOptions({ kind: "movie", movieId }, { enabled: movieId > 0 }),
   )
@@ -87,6 +95,30 @@ function MovieDetail() {
       },
     }),
   )
+  const manualImport = useMutation(
+    trpc.mediaManagement.manualImportMovie.mutationOptions({
+      onSuccess: async (result) => {
+        await invalidateMovie()
+        await queryClient.invalidateQueries({
+          queryKey: trpc.mediaManagement.previewMovieRename.queryKey({ movieId }),
+        })
+        setManualImportPath("")
+        setManualImportTitle("")
+        setMessage(`Imported ${result.qualityName} file.`)
+      },
+    }),
+  )
+  const renameMovie = useMutation(
+    trpc.mediaManagement.renameMovie.mutationOptions({
+      onSuccess: async (plans) => {
+        await invalidateMovie()
+        await queryClient.invalidateQueries({
+          queryKey: trpc.mediaManagement.previewMovieRename.queryKey({ movieId }),
+        })
+        setMessage(`Renamed ${plans.length} file${plans.length === 1 ? "" : "s"}.`)
+      },
+    }),
+  )
 
   useEffect(() => {
     if (!movie.data) return
@@ -101,12 +133,20 @@ function MovieDetail() {
   }, [movie.data])
 
   const pending =
-    updateMovie.isPending || removeMovie.isPending || searchMovie.isPending || grabMovie.isPending
+    updateMovie.isPending ||
+    removeMovie.isPending ||
+    searchMovie.isPending ||
+    grabMovie.isPending ||
+    manualImport.isPending ||
+    renameMovie.isPending
   const error =
     updateMovie.error?.message ??
     removeMovie.error?.message ??
     searchMovie.error?.message ??
     grabMovie.error?.message ??
+    manualImport.error?.message ??
+    renameMovie.error?.message ??
+    renamePreview.error?.message ??
     movie.error?.message ??
     profiles.error?.message ??
     rootFolders.error?.message
@@ -124,6 +164,15 @@ function MovieDetail() {
         rootFolderPath: rootFolderPath.length > 0 ? rootFolderPath : null,
         monitored,
       },
+    })
+  }
+  const importMovieFile = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setMessage(null)
+    manualImport.mutate({
+      movieId,
+      sourcePath: manualImportPath.trim(),
+      releaseTitle: manualImportTitle.trim().length > 0 ? manualImportTitle.trim() : null,
     })
   }
 
@@ -255,6 +304,58 @@ function MovieDetail() {
             </form>
 
             <section className="space-y-3">
+              <div className="rounded-md border p-4">
+                <h2 className="text-lg font-semibold">File Operations</h2>
+                <form className="mt-4 space-y-3" onSubmit={importMovieFile}>
+                  <label className="block text-sm">
+                    <span className="font-medium">Source path</span>
+                    <input
+                      className="mt-1 w-full rounded border bg-transparent px-3 py-2 font-mono"
+                      value={manualImportPath}
+                      onChange={(event) => setManualImportPath(event.target.value)}
+                      placeholder="/downloads/movie.mkv"
+                      required
+                    />
+                  </label>
+                  <label className="block text-sm">
+                    <span className="font-medium">Release title</span>
+                    <input
+                      className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                      value={manualImportTitle}
+                      onChange={(event) => setManualImportTitle(event.target.value)}
+                      placeholder="Optional"
+                    />
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="submit"
+                      className="bg-primary text-primary-foreground inline-flex items-center gap-2 rounded px-3 py-2 text-sm disabled:opacity-50"
+                      disabled={pending || manualImportPath.trim().length === 0}
+                    >
+                      <FileUp className="size-4" />
+                      Import file
+                    </button>
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-2 rounded border px-3 py-2 text-sm disabled:opacity-50"
+                      disabled={pending || (renamePreview.data?.length ?? 0) === 0}
+                      onClick={() => {
+                        setMessage(null)
+                        renameMovie.mutate({ movieId })
+                      }}
+                    >
+                      <RefreshCw className="size-4" />
+                      Rename
+                    </button>
+                  </div>
+                </form>
+                {renamePreview.data && renamePreview.data.length > 0 && (
+                  <p className="text-muted-foreground mt-3 truncate text-xs">
+                    Next rename: {renamePreview.data[0].targetPath}
+                  </p>
+                )}
+              </div>
+
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h2 className="text-lg font-semibold">Manual Search</h2>

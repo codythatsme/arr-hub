@@ -15,12 +15,18 @@ function MediaManagement() {
   const [namingConvention, setNamingConvention] = useState("{Title} ({Year})")
   const [fileHandling, setFileHandling] = useState("copy")
   const [rootFolderPath, setRootFolderPath] = useState("")
+  const [mappingDownloadClientId, setMappingDownloadClientId] = useState("")
+  const [mappingRemotePath, setMappingRemotePath] = useState("")
+  const [mappingLocalPath, setMappingLocalPath] = useState("")
   const [message, setMessage] = useState<string | null>(null)
 
   const settingsKey = trpc.settings.list.queryKey()
   const rootFoldersKey = trpc.rootFolders.list.queryKey()
+  const mappingsKey = trpc.mediaManagement.listRemotePathMappings.queryKey()
   const settings = useQuery(trpc.settings.list.queryOptions())
   const rootFolders = useQuery(trpc.rootFolders.list.queryOptions())
+  const downloadClients = useQuery(trpc.downloadClients.list.queryOptions())
+  const remotePathMappings = useQuery(trpc.mediaManagement.listRemotePathMappings.queryOptions())
 
   const setSetting = useMutation(
     trpc.settings.set.mutationOptions({
@@ -55,6 +61,33 @@ function MediaManagement() {
       },
     }),
   )
+  const addRemotePathMapping = useMutation(
+    trpc.mediaManagement.addRemotePathMapping.mutationOptions({
+      onSuccess: async (mapping) => {
+        await queryClient.invalidateQueries({ queryKey: mappingsKey })
+        setMappingRemotePath("")
+        setMappingLocalPath("")
+        setMessage(`Remote path mapping added: ${mapping.remotePath}`)
+      },
+    }),
+  )
+  const removeRemotePathMapping = useMutation(
+    trpc.mediaManagement.removeRemotePathMapping.mutationOptions({
+      onSuccess: async () => {
+        await queryClient.invalidateQueries({ queryKey: mappingsKey })
+        setMessage("Remote path mapping removed.")
+      },
+    }),
+  )
+  const scanLibraries = useMutation(
+    trpc.mediaManagement.scanLibraries.mutationOptions({
+      onSuccess: (result) => {
+        setMessage(
+          `Scan imported ${result.moviesImported} movie file(s) and ${result.episodesImported} episode file(s).`,
+        )
+      },
+    }),
+  )
 
   useEffect(() => {
     const rows = settings.data ?? []
@@ -68,14 +101,22 @@ function MediaManagement() {
     setSetting.isPending ||
     addRootFolder.isPending ||
     removeRootFolder.isPending ||
-    refreshRootFolder.isPending
+    refreshRootFolder.isPending ||
+    addRemotePathMapping.isPending ||
+    removeRemotePathMapping.isPending ||
+    scanLibraries.isPending
   const error =
     setSetting.error?.message ??
     addRootFolder.error?.message ??
     removeRootFolder.error?.message ??
     refreshRootFolder.error?.message ??
+    addRemotePathMapping.error?.message ??
+    removeRemotePathMapping.error?.message ??
+    scanLibraries.error?.message ??
     settings.error?.message ??
-    rootFolders.error?.message
+    rootFolders.error?.message ??
+    remotePathMappings.error?.message ??
+    downloadClients.error?.message
 
   const saveNaming = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -92,6 +133,20 @@ function MediaManagement() {
     setMessage(null)
     addRootFolder.mutate({ path: rootFolderPath.trim() })
   }
+  const addMapping = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setMessage(null)
+    addRemotePathMapping.mutate({
+      downloadClientId: mappingDownloadClientId.length > 0 ? Number(mappingDownloadClientId) : null,
+      remotePath: mappingRemotePath.trim(),
+      localPath: mappingLocalPath.trim(),
+    })
+  }
+
+  const clientName = (id: number | null) =>
+    id === null
+      ? "Global"
+      : ((downloadClients.data ?? []).find((client) => client.id === id)?.name ?? `Client ${id}`)
 
   return (
     <div className="space-y-6 p-6">
@@ -240,6 +295,116 @@ function MediaManagement() {
               </table>
             </div>
           )}
+        </div>
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
+        <form className="h-fit rounded-md border p-4" onSubmit={addMapping}>
+          <h2 className="text-lg font-semibold">Remote Path Mapping</h2>
+          <label className="mt-4 block text-sm">
+            <span className="font-medium">Download client</span>
+            <select
+              className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+              value={mappingDownloadClientId}
+              onChange={(event) => setMappingDownloadClientId(event.target.value)}
+            >
+              <option value="">Global</option>
+              {(downloadClients.data ?? []).map((client) => (
+                <option key={client.id} value={client.id}>
+                  {client.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="mt-4 block text-sm">
+            <span className="font-medium">Remote path</span>
+            <input
+              className="mt-1 w-full rounded border bg-transparent px-3 py-2 font-mono"
+              value={mappingRemotePath}
+              onChange={(event) => setMappingRemotePath(event.target.value)}
+              placeholder="/downloads"
+              required
+            />
+          </label>
+          <label className="mt-4 block text-sm">
+            <span className="font-medium">Local path</span>
+            <input
+              className="mt-1 w-full rounded border bg-transparent px-3 py-2 font-mono"
+              value={mappingLocalPath}
+              onChange={(event) => setMappingLocalPath(event.target.value)}
+              placeholder="/mnt/downloads"
+              required
+            />
+          </label>
+          <button
+            type="submit"
+            className="bg-primary text-primary-foreground mt-4 inline-flex items-center gap-2 rounded px-3 py-2 text-sm disabled:opacity-50"
+            disabled={
+              pending ||
+              mappingRemotePath.trim().length === 0 ||
+              mappingLocalPath.trim().length === 0
+            }
+          >
+            <Save className="size-4" />
+            Add mapping
+          </button>
+        </form>
+
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold">Import Maintenance</h2>
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 rounded border px-3 py-2 text-sm disabled:opacity-50"
+              disabled={pending}
+              onClick={() => {
+                setMessage(null)
+                scanLibraries.mutate()
+              }}
+            >
+              <RefreshCw className="size-4" />
+              Scan libraries
+            </button>
+          </div>
+          <div className="overflow-hidden rounded-md border">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50 text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2 text-left font-medium">Client</th>
+                  <th className="px-3 py-2 text-left font-medium">Remote</th>
+                  <th className="px-3 py-2 text-left font-medium">Local</th>
+                  <th className="px-3 py-2 text-right font-medium">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {remotePathMappings.data?.map((mapping) => (
+                  <tr key={mapping.id} className="border-t">
+                    <td className="px-3 py-2">{clientName(mapping.downloadClientId)}</td>
+                    <td className="px-3 py-2 font-mono">{mapping.remotePath}</td>
+                    <td className="px-3 py-2 font-mono">{mapping.localPath}</td>
+                    <td className="px-3 py-2 text-right">
+                      <button
+                        type="button"
+                        aria-label={`Delete mapping ${mapping.remotePath}`}
+                        className="rounded border p-1.5 disabled:opacity-50"
+                        disabled={pending}
+                        onClick={() => removeRemotePathMapping.mutate({ id: mapping.id })}
+                      >
+                        <Trash2 className="size-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {remotePathMappings.data?.length === 0 && (
+                  <tr>
+                    <td className="text-muted-foreground px-3 py-4 text-sm" colSpan={4}>
+                      No remote path mappings configured.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
     </div>

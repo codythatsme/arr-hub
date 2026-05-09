@@ -6,6 +6,7 @@ import { formatsRouter } from "./routers/formats"
 import { historyRouter } from "./routers/history"
 import { importRouter } from "./routers/import"
 import { indexersRouter } from "./routers/indexers"
+import { mediaManagementRouter } from "./routers/mediaManagement"
 import { mediaServersRouter } from "./routers/mediaServers"
 import { moviesRouter } from "./routers/movies"
 import { notificationsRouter } from "./routers/notifications"
@@ -33,6 +34,7 @@ export const trpcRouter = createTRPCRouter({
   formats: formatsRouter,
   indexers: indexersRouter,
   downloadClients: downloadClientsRouter,
+  mediaManagement: mediaManagementRouter,
   mediaServers: mediaServersRouter,
   plexUsers: plexUsersRouter,
   plugins: pluginsRouter,

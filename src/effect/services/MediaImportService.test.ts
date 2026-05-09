@@ -174,6 +174,44 @@ describe("MediaImportService", () => {
     }).pipe(Effect.provide(TestLayer)),
   )
 
+  it.effect("manages remote path mappings", () =>
+    Effect.gen(function* () {
+      const db = yield* Db
+      const client = yield* db
+        .insert(downloadClients)
+        .values({
+          name: "qBit",
+          type: "qbittorrent",
+          host: "download-host",
+          port: 8080,
+          username: "admin",
+          passwordEncrypted: "enc",
+        })
+        .returning({ id: downloadClients.id })
+      const importer = yield* MediaImportService
+
+      const added = yield* importer.addRemotePathMapping({
+        downloadClientId: client[0].id,
+        remotePath: "/downloads",
+        localPath: "/mnt/downloads",
+      })
+      expect(added.remotePath).toBe("/downloads")
+
+      const updated = yield* importer.updateRemotePathMapping(added.id, {
+        downloadClientId: client[0].id,
+        remotePath: "/remote",
+        localPath: "/local",
+      })
+      expect(updated.remotePath).toBe("/remote")
+      expect(updated.localPath).toBe("/local")
+
+      const rows = yield* importer.listRemotePathMappings()
+      expect(rows).toHaveLength(1)
+      yield* importer.removeRemotePathMapping(added.id)
+      expect(yield* importer.listRemotePathMappings()).toHaveLength(0)
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
   it.scoped("moves season-pack files to season folders and updates episodes", () =>
     Effect.gen(function* () {
       const workspace = yield* withTempDir
@@ -281,6 +319,165 @@ describe("MediaImportService", () => {
       ])
       expect(sourceStats.ino).toBe(targetStats.ino)
       expect(targetStats.nlink).toBeGreaterThanOrEqual(2)
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.scoped("scans existing movie and episode files into the library", () =>
+    Effect.gen(function* () {
+      const workspace = yield* withTempDir
+      const movieRoot = path.join(workspace, "movies")
+      const tvRoot = path.join(workspace, "tv")
+      const movieFile = path.join(
+        movieRoot,
+        "Example Movie (2026)",
+        "Example.Movie.2026.1080p.WEB-DL.mkv",
+      )
+      const episodeFile = path.join(
+        tvRoot,
+        "Test Show",
+        "Season 01",
+        "Test.Show.S01E01.720p.HDTV.mkv",
+      )
+      yield* writeMediaFile(movieFile, "movie")
+      yield* writeMediaFile(episodeFile, "episode")
+
+      const db = yield* Db
+      const { movieId } = yield* seedMovie(movieRoot, 14)
+      const profile = yield* db
+        .insert(qualityProfiles)
+        .values({ name: "Scan TV Profile" })
+        .returning({ id: qualityProfiles.id })
+      yield* db.insert(qualityItems).values({
+        profileId: profile[0].id,
+        qualityName: "HDTV720p",
+        weight: 20,
+        allowed: true,
+      })
+      const show = yield* db
+        .insert(series)
+        .values({
+          tvdbId: 300,
+          title: "Test Show",
+          rootFolderPath: tvRoot,
+          qualityProfileId: profile[0].id,
+        })
+        .returning({ id: series.id })
+      const season = yield* db
+        .insert(seasons)
+        .values({ seriesId: show[0].id, seasonNumber: 1 })
+        .returning({ id: seasons.id })
+      const episode = yield* db
+        .insert(episodes)
+        .values({ seasonId: season[0].id, tvdbId: 3001, title: "Pilot", episodeNumber: 1 })
+        .returning({ id: episodes.id })
+
+      const importer = yield* MediaImportService
+      const result = yield* importer.scanLibraries()
+      expect(result.moviesImported).toBe(1)
+      expect(result.episodesImported).toBe(1)
+
+      const movieRows = yield* db.select().from(movies).where(eq(movies.id, movieId))
+      expect(movieRows[0].filePath).toBe(movieFile)
+      const episodeRows = yield* db.select().from(episodes).where(eq(episodes.id, episode[0].id))
+      expect(episodeRows[0].filePath).toBe(episodeFile)
+      expect(yield* db.select().from(mediaFiles)).toHaveLength(2)
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.scoped("previews and applies movie renames", () =>
+    Effect.gen(function* () {
+      const workspace = yield* withTempDir
+      const rootFolder = path.join(workspace, "library")
+      const currentPath = path.join(rootFolder, "Example Movie (2026)", "bad-name.mkv")
+      yield* writeMediaFile(currentPath, "movie")
+      const { movieId } = yield* seedMovie(rootFolder, 15)
+      const db = yield* Db
+      yield* db
+        .update(movies)
+        .set({
+          status: "available",
+          hasFile: true,
+          filePath: currentPath,
+          existingQualityName: "WEBDL1080p",
+          existingQualityRank: 40,
+          existingFormatScore: 0,
+        })
+        .where(eq(movies.id, movieId))
+      yield* db.insert(mediaFiles).values({
+        mediaKind: "movie",
+        mediaId: movieId,
+        path: currentPath,
+        sourcePath: currentPath,
+        sizeBytes: 5,
+        qualityName: "WEBDL1080p",
+        qualityRank: 40,
+      })
+
+      const importer = yield* MediaImportService
+      const preview = yield* importer.previewMovieRename(movieId)
+      expect(preview).toHaveLength(1)
+      expect(preview[0].targetPath).toContain("Example Movie (2026) - WEBDL1080p.mkv")
+      const applied = yield* importer.renameMovie(movieId)
+      expect(applied).toEqual(preview)
+      expect(yield* pathExists(currentPath)).toBe(false)
+      expect(yield* pathExists(preview[0].targetPath)).toBe(true)
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.scoped("previews and applies series episode renames", () =>
+    Effect.gen(function* () {
+      const workspace = yield* withTempDir
+      const rootFolder = path.join(workspace, "tv")
+      const currentPath = path.join(rootFolder, "Test Show", "bad-name.mkv")
+      yield* writeMediaFile(currentPath, "episode")
+
+      const db = yield* Db
+      const show = yield* db
+        .insert(series)
+        .values({
+          tvdbId: 400,
+          title: "Test Show",
+          rootFolderPath: rootFolder,
+          seasonFolder: true,
+        })
+        .returning({ id: series.id })
+      const season = yield* db
+        .insert(seasons)
+        .values({ seriesId: show[0].id, seasonNumber: 1 })
+        .returning({ id: seasons.id })
+      const episode = yield* db
+        .insert(episodes)
+        .values({
+          seasonId: season[0].id,
+          tvdbId: 4001,
+          title: "Pilot",
+          episodeNumber: 1,
+          hasFile: true,
+          filePath: currentPath,
+          existingQualityName: "HDTV720p",
+          existingQualityRank: 20,
+          existingFormatScore: 5,
+        })
+        .returning({ id: episodes.id })
+
+      const importer = yield* MediaImportService
+      const preview = yield* importer.previewSeriesRename(show[0].id)
+      expect(preview).toHaveLength(1)
+      expect(preview[0].targetPath).toContain("Test Show - S01E01 - Pilot - HDTV720p.mkv")
+      const applied = yield* importer.renameSeries(show[0].id)
+      expect(applied).toEqual(preview)
+      expect(yield* pathExists(currentPath)).toBe(false)
+      expect(yield* pathExists(preview[0].targetPath)).toBe(true)
+
+      const episodeRows = yield* db.select().from(episodes).where(eq(episodes.id, episode[0].id))
+      expect(episodeRows[0].filePath).toBe(preview[0].targetPath)
+      const fileRows = yield* db
+        .select()
+        .from(mediaFiles)
+        .where(eq(mediaFiles.mediaId, episode[0].id))
+      expect(fileRows).toHaveLength(1)
+      expect(fileRows[0].path).toBe(preview[0].targetPath)
+      expect(fileRows[0].qualityName).toBe("HDTV720p")
     }).pipe(Effect.provide(TestLayer)),
   )
 
