@@ -2,7 +2,17 @@ import { Context, Effect, Layer } from "effect"
 
 import { env } from "#/env"
 
-import type { TmdbMovie, TmdbMovieDetails, TmdbSearchResult } from "../domain/tmdb"
+import type {
+  TmdbMovie,
+  TmdbMovieDetails,
+  TmdbSearchResult,
+  TmdbTvEpisode,
+  TmdbTvSearchResult,
+  TmdbTvSeason,
+  TmdbTvSeasonSummary,
+  TmdbTvSeries,
+  TmdbTvSeriesDetails,
+} from "../domain/tmdb"
 import { MetadataError, type MetadataErrorReason } from "../errors"
 
 // ── Service tag ──
@@ -19,6 +29,15 @@ export class TmdbClient extends Context.Tag("@arr-hub/TmdbClient")<
     readonly getTrending: (
       timeWindow?: "day" | "week",
     ) => Effect.Effect<TmdbSearchResult, MetadataError>
+    readonly searchTvSeries: (
+      query: string,
+      page?: number,
+    ) => Effect.Effect<TmdbTvSearchResult, MetadataError>
+    readonly getTvSeries: (tmdbId: number) => Effect.Effect<TmdbTvSeriesDetails, MetadataError>
+    readonly getTvSeason: (
+      tmdbId: number,
+      seasonNumber: number,
+    ) => Effect.Effect<TmdbTvSeason, MetadataError>
   }
 >() {}
 
@@ -26,7 +45,6 @@ export class TmdbClient extends Context.Tag("@arr-hub/TmdbClient")<
 
 const BASE_URL = "https://api.themoviedb.org/3"
 const PROVIDER = "tmdb"
-const E2E_FIXTURES_ENABLED = process.env.ARR_HUB_E2E_FIXTURES === "1"
 const E2E_MOVIE: TmdbMovie = {
   id: 990001,
   title: "E2E Fixture Movie",
@@ -52,6 +70,81 @@ const E2E_MOVIE_DETAILS: TmdbMovieDetails = {
   productionCompanies: [],
   budget: 0,
   revenue: 0,
+}
+const E2E_TV_SERIES: TmdbTvSeriesDetails = {
+  id: 990002,
+  tvdbId: 990002,
+  imdbId: "tt990002",
+  name: "E2E Fixture Series",
+  originalName: "E2E Fixture Series",
+  overview: "A deterministic series returned only for browser smoke tests.",
+  firstAirDate: "2026-05-09",
+  year: 2026,
+  posterPath: null,
+  backdropPath: null,
+  popularity: 1,
+  voteAverage: 8,
+  voteCount: 1,
+  genreIds: [],
+  originalLanguage: "en",
+  originCountry: ["US"],
+  status: "Returning Series",
+  type: "Scripted",
+  genres: [],
+  networks: [
+    {
+      id: 990,
+      name: "E2E Network",
+      logoPath: null,
+      originCountry: "US",
+    },
+  ],
+  episodeRunTime: [45],
+  seasons: [
+    {
+      id: 990201,
+      seasonNumber: 1,
+      episodeCount: 2,
+      name: "Season 1",
+      overview: "Fixture season.",
+      airDate: "2026-05-09",
+      posterPath: null,
+    },
+  ],
+}
+const E2E_TV_SEASON: TmdbTvSeason = {
+  id: 990201,
+  seasonNumber: 1,
+  name: "Season 1",
+  overview: "Fixture season.",
+  airDate: "2026-05-09",
+  posterPath: null,
+  episodes: [
+    {
+      id: 9902001,
+      title: "Pilot",
+      overview: "Fixture pilot.",
+      seasonNumber: 1,
+      episodeNumber: 1,
+      airDate: "2026-05-09",
+      stillPath: null,
+      runtime: 45,
+      voteAverage: 8,
+      voteCount: 1,
+    },
+    {
+      id: 9902002,
+      title: "Second",
+      overview: "Fixture second episode.",
+      seasonNumber: 1,
+      episodeNumber: 2,
+      airDate: "2026-05-16",
+      stillPath: null,
+      runtime: 45,
+      voteAverage: 8,
+      voteCount: 1,
+    },
+  ],
 }
 
 // ── Helpers ──
@@ -166,8 +259,20 @@ function toNumOrNull(val: unknown): number | null {
   return typeof val === "number" ? val : null
 }
 
+function toNumArray(val: unknown): ReadonlyArray<number> {
+  return toArray(val).filter((v): v is number => typeof v === "number")
+}
+
+function toStrArray(val: unknown): ReadonlyArray<string> {
+  return toArray(val).filter((v): v is string => typeof v === "string")
+}
+
 function toArray(val: unknown): ReadonlyArray<unknown> {
   return Array.isArray(val) ? val : []
+}
+
+function fixturesEnabled(): boolean {
+  return process.env.ARR_HUB_E2E_FIXTURES === "1"
 }
 
 function parseMovie(raw: unknown): TmdbMovie {
@@ -185,8 +290,113 @@ function parseMovie(raw: unknown): TmdbMovie {
     popularity: toNum(r["popularity"], 0),
     voteAverage: toNum(r["vote_average"], 0),
     voteCount: toNum(r["vote_count"], 0),
-    genreIds: toArray(r["genre_ids"]).filter((v): v is number => typeof v === "number"),
+    genreIds: toNumArray(r["genre_ids"]),
     originalLanguage: toStr(r["original_language"]),
+  }
+}
+
+function parseGenre(raw: unknown): { readonly id: number; readonly name: string } {
+  const r = toRec(raw)
+  return { id: toNum(r["id"], 0), name: toStr(r["name"]) }
+}
+
+function parseTvSeries(raw: unknown): TmdbTvSeries {
+  const r = toRec(raw)
+  const firstAirDate = toStrOrNull(r["first_air_date"])
+  return {
+    id: toNum(r["id"], 0),
+    name: toStr(r["name"]),
+    originalName: toStr(r["original_name"]),
+    overview: toStr(r["overview"]),
+    firstAirDate,
+    year: extractYear(firstAirDate),
+    posterPath: toStrOrNull(r["poster_path"]),
+    backdropPath: toStrOrNull(r["backdrop_path"]),
+    popularity: toNum(r["popularity"], 0),
+    voteAverage: toNum(r["vote_average"], 0),
+    voteCount: toNum(r["vote_count"], 0),
+    genreIds: toNumArray(r["genre_ids"]),
+    originalLanguage: toStr(r["original_language"]),
+    originCountry: toStrArray(r["origin_country"]),
+  }
+}
+
+function parseTvSearchResult(raw: unknown): TmdbTvSearchResult {
+  const r = toRec(raw)
+  return {
+    page: toNum(r["page"], 1),
+    totalPages: toNum(r["total_pages"], 1),
+    totalResults: toNum(r["total_results"], 0),
+    results: toArray(r["results"]).map(parseTvSeries),
+  }
+}
+
+function parseNetwork(raw: unknown) {
+  const r = toRec(raw)
+  return {
+    id: toNum(r["id"], 0),
+    name: toStr(r["name"]),
+    logoPath: toStrOrNull(r["logo_path"]),
+    originCountry: toStr(r["origin_country"]),
+  }
+}
+
+function parseSeasonSummary(raw: unknown): TmdbTvSeasonSummary {
+  const r = toRec(raw)
+  return {
+    id: toNum(r["id"], 0),
+    seasonNumber: toNum(r["season_number"], 0),
+    episodeCount: toNum(r["episode_count"], 0),
+    name: toStr(r["name"]),
+    overview: toStr(r["overview"]),
+    airDate: toStrOrNull(r["air_date"]),
+    posterPath: toStrOrNull(r["poster_path"]),
+  }
+}
+
+function parseTvSeriesDetails(raw: unknown): TmdbTvSeriesDetails {
+  const base = parseTvSeries(raw)
+  const r = toRec(raw)
+  const externalIds = toRec(r["external_ids"])
+  return {
+    ...base,
+    tvdbId: toNumOrNull(externalIds["tvdb_id"]),
+    imdbId: toStrOrNull(externalIds["imdb_id"]),
+    status: toStr(r["status"]),
+    type: toStr(r["type"]),
+    genres: toArray(r["genres"]).map(parseGenre),
+    networks: toArray(r["networks"]).map(parseNetwork),
+    episodeRunTime: toNumArray(r["episode_run_time"]),
+    seasons: toArray(r["seasons"]).map(parseSeasonSummary),
+  }
+}
+
+function parseTvEpisode(raw: unknown): TmdbTvEpisode {
+  const r = toRec(raw)
+  return {
+    id: toNum(r["id"], 0),
+    title: toStr(r["name"]),
+    overview: toStr(r["overview"]),
+    seasonNumber: toNum(r["season_number"], 0),
+    episodeNumber: toNum(r["episode_number"], 0),
+    airDate: toStrOrNull(r["air_date"]),
+    stillPath: toStrOrNull(r["still_path"]),
+    runtime: toNumOrNull(r["runtime"]),
+    voteAverage: toNum(r["vote_average"], 0),
+    voteCount: toNum(r["vote_count"], 0),
+  }
+}
+
+function parseTvSeason(raw: unknown): TmdbTvSeason {
+  const r = toRec(raw)
+  return {
+    id: toNum(r["id"], 0),
+    seasonNumber: toNum(r["season_number"], 0),
+    name: toStr(r["name"]),
+    overview: toStr(r["overview"]),
+    airDate: toStrOrNull(r["air_date"]),
+    posterPath: toStrOrNull(r["poster_path"]),
+    episodes: toArray(r["episodes"]).map(parseTvEpisode),
   }
 }
 
@@ -234,7 +444,7 @@ function parseMovieDetails(raw: unknown): TmdbMovieDetails {
 export const TmdbClientLive = Layer.succeed(TmdbClient, {
   searchMovies: (query, page) =>
     Effect.gen(function* () {
-      if (E2E_FIXTURES_ENABLED) {
+      if (fixturesEnabled()) {
         return {
           page: page ?? 1,
           totalPages: 1,
@@ -250,7 +460,7 @@ export const TmdbClientLive = Layer.succeed(TmdbClient, {
 
   getMovie: (tmdbId) =>
     Effect.gen(function* () {
-      if (E2E_FIXTURES_ENABLED && tmdbId === E2E_MOVIE.id) {
+      if (fixturesEnabled() && tmdbId === E2E_MOVIE.id) {
         return E2E_MOVIE_DETAILS
       }
       const apiKey = yield* requireApiKey()
@@ -261,7 +471,7 @@ export const TmdbClientLive = Layer.succeed(TmdbClient, {
 
   getPopular: (page) =>
     Effect.gen(function* () {
-      if (E2E_FIXTURES_ENABLED) {
+      if (fixturesEnabled()) {
         return {
           page: page ?? 1,
           totalPages: 1,
@@ -277,7 +487,7 @@ export const TmdbClientLive = Layer.succeed(TmdbClient, {
 
   getTrending: (timeWindow) =>
     Effect.gen(function* () {
-      if (E2E_FIXTURES_ENABLED) {
+      if (fixturesEnabled()) {
         return { page: 1, totalPages: 1, totalResults: 1, results: [E2E_MOVIE] }
       }
       const apiKey = yield* requireApiKey()
@@ -285,6 +495,44 @@ export const TmdbClientLive = Layer.succeed(TmdbClient, {
       const url = buildUrl(`/trending/movie/${window}`, apiKey, {})
       const json = yield* fetchJson(url)
       return parseSearchResult(json)
+    }),
+
+  searchTvSeries: (query, page) =>
+    Effect.gen(function* () {
+      if (fixturesEnabled()) {
+        return {
+          page: page ?? 1,
+          totalPages: 1,
+          totalResults: 1,
+          results: [{ ...E2E_TV_SERIES, name: `${E2E_TV_SERIES.name}: ${query}` }],
+        }
+      }
+      const apiKey = yield* requireApiKey()
+      const url = buildUrl("/search/tv", apiKey, { query, page })
+      const json = yield* fetchJson(url)
+      return parseTvSearchResult(json)
+    }),
+
+  getTvSeries: (tmdbId) =>
+    Effect.gen(function* () {
+      if (fixturesEnabled() && tmdbId === E2E_TV_SERIES.id) {
+        return E2E_TV_SERIES
+      }
+      const apiKey = yield* requireApiKey()
+      const url = buildUrl(`/tv/${tmdbId}`, apiKey, { append_to_response: "external_ids" })
+      const json = yield* fetchJson(url)
+      return parseTvSeriesDetails(json)
+    }),
+
+  getTvSeason: (tmdbId, seasonNumber) =>
+    Effect.gen(function* () {
+      if (fixturesEnabled() && tmdbId === E2E_TV_SERIES.id) {
+        return { ...E2E_TV_SEASON, seasonNumber }
+      }
+      const apiKey = yield* requireApiKey()
+      const url = buildUrl(`/tv/${tmdbId}/season/${seasonNumber}`, apiKey, {})
+      const json = yield* fetchJson(url)
+      return parseTvSeason(json)
     }),
 })
 

@@ -48,4 +48,35 @@ export const tmdbRouter = {
         }),
       ),
     ),
+
+  searchTvSeries: authedProcedure
+    .input(z.object({ query: z.string(), page: z.number().int().positive().optional() }))
+    .query(({ input }) =>
+      runEffect(
+        Effect.gen(function* () {
+          const svc = yield* TmdbClient
+          return yield* svc.searchTvSeries(input.query, input.page)
+        }),
+      ),
+    ),
+
+  getTvSeries: authedProcedure.input(z.object({ tmdbId: z.number().int() })).query(({ input }) =>
+    runEffect(
+      Effect.gen(function* () {
+        const svc = yield* TmdbClient
+        return yield* svc.getTvSeries(input.tmdbId)
+      }),
+    ),
+  ),
+
+  getTvSeason: authedProcedure
+    .input(z.object({ tmdbId: z.number().int(), seasonNumber: z.number().int() }))
+    .query(({ input }) =>
+      runEffect(
+        Effect.gen(function* () {
+          const svc = yield* TmdbClient
+          return yield* svc.getTvSeason(input.tmdbId, input.seasonNumber)
+        }),
+      ),
+    ),
 } satisfies TRPCRouterRecord
