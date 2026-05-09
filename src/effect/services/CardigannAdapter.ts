@@ -1714,9 +1714,10 @@ function htmlDateHeaderValue(
   }
 
   if (dateHeaders.selector === undefined) return ""
+  const headerSelector = renderTemplate(dateHeaders.selector, variables)
 
   const { selector: _selector, ...headerField } = dateHeaders
-  const headerElements = findHtmlElements(precedingHtml, dateHeaders.selector)
+  const headerElements = findHtmlElements(precedingHtml, headerSelector)
   for (let index = headerElements.length - 1; index >= 0; index -= 1) {
     const headerElement = headerElements[index]
     if (headerElement === undefined) continue
@@ -1794,14 +1795,16 @@ function htmlFieldValue(
   field: CardigannFieldSelector,
   variables: Record<string, TemplateValue>,
 ): string {
-  const selected = field.selector ? selectHtmlFieldElement(row, field.selector) : row
+  const selected = field.selector
+    ? selectHtmlFieldElement(row, renderTemplate(field.selector, variables))
+    : row
   let value = ""
   if (field.text !== undefined) {
     value = renderTemplate(field.text, variables)
   } else if (selected) {
     const selectedInnerHtml =
       field.remove !== undefined
-        ? removeHtmlElements(selected.innerHtml, field.remove)
+        ? removeHtmlElements(selected.innerHtml, renderTemplate(field.remove, variables))
         : selected.innerHtml
     value =
       htmlCaseValue(selected, selectedInnerHtml, field.case, variables) ??
@@ -2038,7 +2041,8 @@ function parseHtmlReleases(
   const rowSelector = definition.search.rows
   if (rowSelector === null) return []
 
-  const rows = mergeHtmlRows(findHtmlElements(html, rowSelector.selector), rowSelector.after)
+  const rowSelectorText = renderTemplate(rowSelector.selector, request.variables)
+  const rows = mergeHtmlRows(findHtmlElements(html, rowSelectorText), rowSelector.after)
   const filteredRows = filterHtmlRows(rows, rowSelector.filters, request.variables)
   const now = Date.now()
 
