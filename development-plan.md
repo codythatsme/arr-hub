@@ -14,13 +14,14 @@ What exists today:
 - SQLite/Drizzle schema for users, API keys, movies, series/seasons/episodes, quality profiles, custom formats, indexers, download clients, media servers, queue, notifications, plugins, release decisions, scheduler, onboarding, and Plex playback history.
 - Built-in adapters for qBittorrent, SABnzbd, Torznab/Newznab, Plex, and experimental Jellyfin.
 - Basic release parsing, quality/profile scoring, search/grab pipeline, queue polling, and scheduler loop.
+- TMDB-backed movie/TV metadata lookup, metadata-backed add flows, series episode hydration, Sonarr episode import, metadata refresh jobs, and a TV episode calendar.
 - First-run onboarding, local admin login, API key creation, Dockerfile/compose, and a system health endpoint.
 - Plex-oriented dashboard/history/users/stats functionality.
 
 Primary blockers:
 
 - The operator UI now exposes the existing backend workflows and has persisted browser smoke coverage, but deeper workflows still depend on backend work listed below.
-- Metadata is thin. Movies have a TMDB client, but TV has no real metadata provider, Sonarr import does not import episodes, and there is no metadata refresh lifecycle.
+- The metadata lifecycle is now functional for TMDB-backed movie/TV adds, Sonarr episode import, refresh jobs, and calendar population, but still lacks Sonarr/Radarr-depth alternate titles, ratings, local artwork cache, availability semantics, and TVDB/SkyHook parity.
 - Completed download handling is not a real media import pipeline. It mostly marks rows as available; it does not inspect, move, hardlink, rename, validate, or import files.
 - The release decision engine is far smaller than Sonarr/Radarr. It lacks many required rejection rules, blocklist enforcement, size/age/retention/free-space checks, language/release profiles, proper title matching, and TV/anime edge cases.
 - Prowlarr replacement scope is mostly absent. The app only consumes Torznab/Newznab endpoints; it does not manage a Prowlarr-scale indexer catalogue, Cardigann definitions, indexer proxies, stats, app sync, or external Torznab/Newznab proxy endpoints.
@@ -32,8 +33,8 @@ Primary blockers:
 Commands run from `/Users/codythatsme/Developer/arr-hub`:
 
 - `bun run typecheck`: passed.
-- `bun run test`: passed, 29 test files plus 1 skipped live suite, 285 passed and 4 skipped tests.
-- `bun run test:e2e`: passed, 1 Chromium smoke test covering onboarding, settings, add movie, add TV, manual search display, and queue page.
+- `bun run test`: passed, 32 test files plus 1 skipped live suite, 292 passed and 4 skipped tests.
+- `bun run test:e2e`: passed, 1 Chromium smoke test covering onboarding, settings, add movie, add TV from metadata, manual search display, calendar population, and queue page.
 - `bun run lint`: passed with warnings and 0 errors.
 - `bun run build`: passed with chunk-size and external dependency warnings.
 
@@ -54,8 +55,13 @@ Completed in atomic commits after this plan was written:
 - `688ac6f283` added profile create/edit/delete/apply-bundle UI.
 - `ab7f7dbffa` added queue delete-files and clear-error actions.
 - `f8c3a19976` added persisted Playwright operator smoke tests and deterministic e2e fixtures.
+- `a42c44f420` added TMDB TV search/details/season metadata support.
+- `9ebe255f06` added the metadata-backed TV add flow that creates seasons and episodes.
+- `0438ca577f` imported Sonarr episodes, files, monitored flags, air dates, and existing quality data.
+- `6cb918f655` added movie and series metadata refresh jobs plus scheduler integration.
+- `bf7597a151` added a calendar UI populated from real monitored episode air dates.
 
-Milestone 1 is complete against the current backend surface. Later milestones remain open and are still required before ARR Hub can honestly claim Sonarr/Radarr/Prowlarr replacement-grade behavior.
+Milestones 1 and 2 are complete against the current backend surface. Later milestones remain open and are still required before ARR Hub can honestly claim Sonarr/Radarr/Prowlarr replacement-grade behavior.
 
 ## Current Functionality Inventory
 
@@ -63,8 +69,8 @@ Backend/service surfaces:
 
 - `src/db/schema.ts`: core tables for admin auth, media, profiles, integrations, queue, Plex/session analytics, notifications, plugins, release decisions, scheduler, and onboarding.
 - `src/effect/services/MovieService.ts`: CRUD/list/lookup over local movie rows.
-- `src/effect/services/SeriesService.ts`: CRUD/list/local lookup, season/episode monitor toggles, basic calendar.
-- `src/effect/services/TmdbClient.ts`: movie-only TMDB search/details/popular/trending.
+- `src/effect/services/SeriesService.ts`: CRUD/list/local lookup, season/episode monitor toggles, and monitored episode calendar queries.
+- `src/effect/services/TmdbClient.ts`: movie TMDB search/details/popular/trending plus TV search/details/season hydration.
 - `src/effect/services/IndexerService.ts` and `src/effect/services/TorznabAdapter.ts`: Torznab/Newznab connection testing and search.
 - `src/effect/services/DownloadClientService.ts`, `QBittorrentAdapter.ts`, `SABnzbdAdapter.ts`: add/list/test/grab/queue/remove downloads for qBittorrent and SABnzbd.
 - `src/effect/services/ReleasePolicyEngine.ts`: parses titles, checks allowed quality, custom format score, and basic upgrade scoring.
@@ -73,15 +79,16 @@ Backend/service surfaces:
 - `src/effect/services/MediaServerService.ts` and `PlexAdapter.ts`: Plex connection, libraries, library sync matching, refresh, active sessions, shared users.
 - `src/effect/services/PlexSessionMonitor.ts`: active stream monitoring and notification trigger emission.
 - `src/effect/services/NotificationService.ts`: in-app and webhook notification channels.
-- `src/effect/services/SchedulerService.ts` and `SchedulerLoop.ts`: recurring RSS/cutoff/download monitor jobs plus TV job types.
-- `src/effect/services/ImportService.ts`: one-time setup import from Radarr movies and Sonarr series.
+- `src/effect/services/SchedulerService.ts` and `SchedulerLoop.ts`: recurring RSS/cutoff/download monitor jobs, TV job types, and metadata refresh jobs.
+- `src/effect/services/MetadataRefreshService.ts`: refreshes movie and series metadata from TMDB and upserts season/episode data.
+- `src/effect/services/ImportService.ts`: one-time setup import from Radarr movies and Sonarr series, including Sonarr seasons, episodes, file paths, monitored state, and existing quality.
 - `src/effect/services/PluginLoader.ts`: trusted local plugin loading.
 
 UI surfaces:
 
-- Dashboard, Movies list/detail, TV list/detail.
+- Dashboard, Movies list/detail, TV list/detail, and TV episode calendar.
 - Movies: TMDB search/add, edit/delete, monitor toggle, profile/root assignment, manual release evaluate/grab.
-- TV: manual series add with season/episode scaffolding, edit/delete, show/season/episode monitor toggles, series/season search, episode evaluate/grab.
+- TV: TMDB metadata search/add with season/episode hydration, manual series add with season/episode scaffolding, edit/delete, show/season/episode monitor toggles, series/season search, episode evaluate/grab.
 - Activity queue/history/users/stats. Queue supports retry, remove with delete-files option, clear error, and blocklist.
 - Settings: indexers, download clients, media servers, scheduler, general, media management/root folders, notifications, profiles, security, and plugins now have operational UI.
 - Onboarding quickstart and advanced wizard.
@@ -121,13 +128,13 @@ ARR Hub should be considered viable only when it can do the following without di
 
 Current state:
 
-- `src/routes/settings/indexers.tsx`, `download-clients.tsx`, `media-servers.tsx`, `scheduler.tsx`, `general.tsx`, and `media-management.tsx` are placeholder pages.
-- `src/routes/movies/index.tsx` and `src/routes/tv/index.tsx` mostly list existing rows.
-- Backend tRPC routers already expose more behavior than the UI uses.
+- Core operator pages now exist for settings, movies, TV, profiles, queue, scheduler, and calendar.
+- The UI covers the current backend surface for configuration, add/search/manage, manual release inspection, queue actions, and metadata-backed TV adds.
+- Deeper UI work now depends mostly on backend surfaces that do not exist yet, especially media import, rename/rescan, richer release decisions, and Prowlarr-scale indexer management.
 
 Gap:
 
-- An operator cannot manage ARR Hub like Sonarr/Radarr/Prowlarr through the web app.
+- The core UI gap is closed for the current backend, but replacement-grade UI will still need to expose the later backend features as they are built.
 
 Tasks:
 
@@ -150,14 +157,15 @@ Acceptance criteria:
 
 Current state:
 
-- `TmdbClient` supports movies only.
-- `MovieService.lookup` and `SeriesService.lookup` search local database rows, not external metadata.
-- Series/episode data must be manually supplied or imported partially.
-- Sonarr import inserts series and seasons only, not episodes.
+- `TmdbClient` supports movies, TV search/details, and TV season hydration.
+- Movie and TV add flows can hydrate metadata before insert.
+- Series metadata refresh upserts seasons and episodes while preserving monitored/file state.
+- Sonarr import now imports series, seasons, episodes, file status, file paths, monitored flags, air dates, and existing quality.
+- The calendar UI is populated from monitored episode air dates.
 
 Gap:
 
-- Sonarr/Radarr replacements need metadata refresh, episode lists, air dates, titles, artwork, alternate titles, IDs, and continuing/ended status updates.
+- The minimum metadata lifecycle is implemented, but Sonarr/Radarr parity still requires deeper artwork handling, alternate titles, ratings, availability rules, certification details, provider parity, and local cover caching.
 
 Tasks:
 
