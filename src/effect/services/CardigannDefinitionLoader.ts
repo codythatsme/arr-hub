@@ -5259,6 +5259,139 @@ search:
       text: "1"
 `
 
+const SECRET_CINEMA = `
+id: secret-cinema
+name: Secret Cinema
+description: Private rare movie tracker exposed through a first-pass Gazelle JSON Cardigann definition.
+type: private
+links:
+  - https://secret-cinema.pw/
+version: builtin-cardigann-1
+rss: false
+tags:
+  - private
+  - movies
+  - music
+  - json
+  - gazelle
+settings:
+  - name: username
+    label: Username
+    type: text
+    required: true
+  - name: password
+    label: Password
+    type: password
+    required: true
+  - name: useFreeleechToken
+    label: Use Freeleech Tokens
+    type: select
+    default: "0"
+    required: false
+    options:
+      - value: "0"
+        label: Never
+      - value: "1"
+        label: Preferred
+      - value: "2"
+        label: Required
+caps:
+  categorymappings:
+    - id: "1"
+      cat: Movies
+      desc: Movies
+      newznab: 2000
+    - id: "2"
+      cat: Audio
+      desc: Music
+      newznab: 3000
+  modes:
+    search: [q]
+    movie-search: [q, imdbid]
+login:
+  method: post
+  path: login.php
+  inputs:
+    username: "{{ .Config.Username }}"
+    password: "{{ .Config.Password }}"
+    keeplogged: "1"
+search:
+  paths:
+    - path: /ajax.php
+      response:
+        type: json
+      inputs:
+        action: browse
+        order_by: time
+        order_way: desc
+        searchstr: "{{ .Keywords }}"
+        cataloguenumber: "{{ .Query.IMDBID }}"
+        $raw: '{{ range .Categories }}filter_cat[{{ . }}]=1&{{ end }}'
+  rows:
+    selector: $.response.results, $.Response.Results
+    attribute: torrents, Torrents
+    multiple: true
+    missingAttributeEqualsNoResults: true
+  fields:
+    id:
+      selector: torrentId, TorrentId
+    groupid:
+      selector: ..groupId
+    groupname:
+      selector: ..groupName
+      filters:
+        - name: htmldecode
+    groupyear:
+      selector: ..groupYear
+    media:
+      selector: media, Media
+    remastertitle:
+      selector: remasterTitle, RemasterTitle
+      optional: true
+      filters:
+        - name: htmldecode
+    title:
+      text: "{{ .Result.groupname }} ({{ .Result.groupyear }}) {{ .Result.media }}{{ if .Result.remastertitle }} [{{ .Result.remastertitle }}]{{ end }}"
+    details:
+      text: "/torrents.php?id={{ .Result.groupid }}&torrentid={{ .Result.id }}"
+    download:
+      text: '/torrents.php?action=download&id={{ .Result.id }}{{ if ne .Config.UseFreeleechToken "0" }}&useToken=1{{ end }}'
+    category:
+      selector: category, Category
+      default: "1"
+      case:
+        "Movie": "1"
+        "Movies": "1"
+        "Music": "2"
+        "Select Category": "1"
+    date:
+      selector: time, Time
+    size:
+      selector: size, Size
+    files:
+      selector: fileCount, FileCount
+    grabs:
+      selector: snatches, Snatches
+    seeders:
+      selector: seeders, Seeders
+    leechers:
+      selector: leechers, Leechers
+    freeflags:
+      selector: isFreeLeech, IsFreeLeech, isNeutralLeech, IsNeutralLeech, isPersonalFreeLeech, IsPersonalFreeLeech
+      filters:
+        - name: regexp
+          args: "true"
+    neutralflag:
+      selector: isNeutralLeech, IsNeutralLeech
+      filters:
+        - name: regexp
+          args: "true"
+    downloadvolumefactor:
+      text: "{{ if .Result.freeflags }}0{{ else }}1{{ end }}"
+    uploadvolumefactor:
+      text: "{{ if .Result.neutralflag }}0{{ else }}1{{ end }}"
+`
+
 const REVOLUTION_TT = `
 id: revolutiontt
 name: RevolutionTT
@@ -5980,6 +6113,7 @@ const BUILT_IN_CARDIGANN_SOURCES = [
   XTHOR,
   HDBITS,
   PIXELHD,
+  SECRET_CINEMA,
   REVOLUTION_TT,
   PRETOME,
   MORE_THAN_TV,

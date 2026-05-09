@@ -106,6 +106,7 @@ caps:
       "xthor",
       "hdbits",
       "pixelhd",
+      "secret-cinema",
       "revolutiontt",
       "pretome",
       "morethantv",
@@ -814,6 +815,39 @@ caps:
       capabilities: {
         searchTypes: ["search", "movie"],
         categories: expect.arrayContaining([{ id: 2040, name: "Movies HD" }]),
+      },
+    })
+    expect(
+      BUILT_IN_CARDIGANN_DEFINITIONS.find(
+        (definition) => definition.definitionKey === "secret-cinema",
+      ),
+    ).toMatchObject({
+      displayName: "Secret Cinema",
+      baseUrl: "https://secret-cinema.pw/",
+      privacy: "private",
+      supportsRss: false,
+      supportsSearch: true,
+      tags: ["private", "movies", "music", "json", "gazelle"],
+      authFields: expect.arrayContaining([
+        expect.objectContaining({ name: "username", type: "text", required: true }),
+        expect.objectContaining({ name: "password", type: "password", required: true }),
+        expect.objectContaining({
+          name: "useFreeleechToken",
+          type: "select",
+          defaultValue: "0",
+          options: [
+            { value: "0", label: "Never" },
+            { value: "1", label: "Preferred" },
+            { value: "2", label: "Required" },
+          ],
+        }),
+      ]),
+      capabilities: {
+        searchTypes: ["search", "movie"],
+        categories: expect.arrayContaining([
+          { id: 2000, name: "Movies" },
+          { id: 3000, name: "Music" },
+        ]),
       },
     })
     expect(

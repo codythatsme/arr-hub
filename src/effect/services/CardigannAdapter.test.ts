@@ -714,6 +714,57 @@ const PIXELHD_HTML_RESULTS = `
   </table>
 </body></html>`
 
+const SECRET_CINEMA_JSON_RESULTS = JSON.stringify({
+  status: "success",
+  response: {
+    results: [
+      {
+        groupId: "555",
+        groupName: "Secret Cinema Movie",
+        groupYear: "2026",
+        torrents: [
+          {
+            torrentId: 777,
+            media: "WEB-DL",
+            remasterTitle: "Director's Cut",
+            time: "2026-05-10T08:20:00.000Z",
+            size: "6123456000",
+            fileCount: 4,
+            snatches: 13,
+            seeders: "38",
+            leechers: "2",
+            category: "Movies",
+            isFreeLeech: true,
+            isNeutralLeech: false,
+            isPersonalFreeLeech: false,
+          },
+        ],
+      },
+      {
+        groupId: "556",
+        groupName: "Secret Cinema Album",
+        groupYear: "2026",
+        torrents: [
+          {
+            torrentId: 778,
+            media: "FLAC",
+            time: "2026-05-09T06:45:00.000Z",
+            size: "712345600",
+            fileCount: 11,
+            snatches: 5,
+            seeders: "9",
+            leechers: "1",
+            category: "Music",
+            isFreeLeech: false,
+            isNeutralLeech: true,
+            isPersonalFreeLeech: false,
+          },
+        ],
+      },
+    ],
+  },
+})
+
 const REVOLUTIONTT_HTML_RESULTS = `
 <html><body>
   <table id="torrents-table">
@@ -4321,6 +4372,91 @@ search:
       uploadFactor: 1,
     })
     expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-10T19:05:00.000Z")
+  })
+
+  it("parses Secret Cinema Gazelle JSON results after POST login", async () => {
+    const requests: Array<{ url: string; init: RequestInit | undefined }> = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(String(input))
+      requests.push({ url: String(input), init })
+      if (url.pathname === "/login.php") {
+        return new Response(JSON.stringify({ status: "success" }), {
+          status: 200,
+          headers: { "set-cookie": "sc_session=abc; Path=/" },
+        })
+      }
+      return new Response(SECRET_CINEMA_JSON_RESULTS, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 108,
+      name: "Secret Cinema",
+      type: "cardigann_yaml",
+      definitionKey: "secret-cinema",
+      baseUrl: "https://secret-cinema.pw/",
+      apiKey: "",
+      configValues: {
+        username: "alice",
+        password: "secret",
+        useFreeleechToken: "1",
+      },
+      priority: 44,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({
+        term: "Secret Cinema Movie",
+        type: "movie",
+        categories: [2000],
+        imdbId: "tt7654321",
+      }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    const loginRequest = requests[0]
+    expect(loginRequest?.url).toBe("https://secret-cinema.pw/login.php")
+    expect(loginRequest?.init?.method).toBe("POST")
+    const loginBody = new URLSearchParams(String(loginRequest?.init?.body ?? ""))
+    expect(loginBody.get("username")).toBe("alice")
+    expect(loginBody.get("password")).toBe("secret")
+    expect(loginBody.get("keeplogged")).toBe("1")
+
+    const searchRequest = requests[1]
+    const searchUrl = new URL(searchRequest?.url ?? "")
+    expect(searchUrl.origin).toBe("https://secret-cinema.pw")
+    expect(searchUrl.pathname).toBe("/ajax.php")
+    expect(searchUrl.searchParams.get("action")).toBe("browse")
+    expect(searchUrl.searchParams.get("order_by")).toBe("time")
+    expect(searchUrl.searchParams.get("order_way")).toBe("desc")
+    expect(searchUrl.searchParams.get("searchstr")).toBe("Secret Cinema Movie")
+    expect(searchUrl.searchParams.get("cataloguenumber")).toBe("tt7654321")
+    expect(searchUrl.searchParams.get("filter_cat[1]")).toBe("1")
+    expect(new Headers(searchRequest?.init?.headers).get("cookie")).toBe("sc_session=abc")
+    expect(releases).toHaveLength(2)
+    expect(releases[0]).toMatchObject({
+      title: "Secret Cinema Movie (2026) WEB-DL [Director's Cut]",
+      downloadUrl: "https://secret-cinema.pw/torrents.php?action=download&id=777&useToken=1",
+      infoUrl: "https://secret-cinema.pw/torrents.php?id=555&torrentid=777",
+      category: "2000",
+      size: 6_123_456_000,
+      seeders: 38,
+      leechers: 2,
+      indexerId: 108,
+      indexerName: "Secret Cinema",
+      indexerPriority: 44,
+      downloadFactor: 0,
+      uploadFactor: 1,
+    })
+    expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-10T08:20:00.000Z")
+    expect(releases[1]).toMatchObject({
+      title: "Secret Cinema Album (2026) FLAC",
+      category: "3000",
+      downloadFactor: 0,
+      uploadFactor: 0,
+    })
   })
 
   it("parses RevolutionTT HTML results after POST login", async () => {

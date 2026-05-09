@@ -119,19 +119,19 @@ describe("IndexerService", () => {
       const second = yield* svc.refreshDefinitions()
 
       expect(first).toMatchObject({
-        total: 38,
-        created: 38,
+        total: 39,
+        created: 39,
         updated: 0,
         unchanged: 0,
       })
       expect(first.definitions.map((definition) => definition.action)).toEqual(
-        Array(38).fill("created"),
+        Array(39).fill("created"),
       )
       expect(second).toMatchObject({
-        total: 38,
+        total: 39,
         created: 0,
         updated: 0,
-        unchanged: 38,
+        unchanged: 39,
       })
       expect(second.definitions.every((definition) => definition.previousVersion !== null)).toBe(
         true,
@@ -428,6 +428,7 @@ describe("IndexerService", () => {
         "revolutiontt",
         "scenehd",
         "scenetime",
+        "secret-cinema",
         "shizaproject",
         "speedapp",
         "speedcd",
@@ -748,6 +749,17 @@ describe("IndexerService", () => {
         privacy: "private",
         supportsRss: false,
         tags: ["private", "movies", "html"],
+      })
+      expect(
+        definitions.find((definition) => definition.definitionKey === "secret-cinema"),
+      ).toMatchObject({
+        displayName: "Secret Cinema",
+        protocol: "torrent",
+        implementation: "cardigann_yaml",
+        baseUrl: "https://secret-cinema.pw/",
+        privacy: "private",
+        supportsRss: false,
+        tags: ["private", "movies", "music", "json", "gazelle"],
       })
       expect(
         definitions.find((definition) => definition.definitionKey === "revolutiontt"),
