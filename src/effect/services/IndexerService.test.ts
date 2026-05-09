@@ -119,8 +119,8 @@ describe("IndexerService", () => {
       const second = yield* svc.refreshDefinitions()
 
       expect(first).toMatchObject({
-        total: 26,
-        created: 26,
+        total: 27,
+        created: 27,
         updated: 0,
         unchanged: 0,
       })
@@ -151,12 +151,13 @@ describe("IndexerService", () => {
         "created",
         "created",
         "created",
+        "created",
       ])
       expect(second).toMatchObject({
-        total: 26,
+        total: 27,
         created: 0,
         updated: 0,
-        unchanged: 26,
+        unchanged: 27,
       })
       expect(second.definitions.every((definition) => definition.previousVersion !== null)).toBe(
         true,
@@ -452,6 +453,7 @@ describe("IndexerService", () => {
         "torrentbytes",
         "torrentday",
         "torrents-csv",
+        "xspeeds",
       ])
       expect(
         definitions.find((definition) => definition.definitionKey === "generic-torznab"),
@@ -651,6 +653,17 @@ describe("IndexerService", () => {
         protocol: "torrent",
         implementation: "cardigann_yaml",
         baseUrl: "https://immortalseed.me/",
+        privacy: "private",
+        supportsRss: false,
+        tags: ["private", "general", "movies", "tv", "music", "books", "html"],
+      })
+      expect(
+        definitions.find((definition) => definition.definitionKey === "xspeeds"),
+      ).toMatchObject({
+        displayName: "XSpeeds",
+        protocol: "torrent",
+        implementation: "cardigann_yaml",
+        baseUrl: "https://www.xspeeds.eu/",
         privacy: "private",
         supportsRss: false,
         tags: ["private", "general", "movies", "tv", "music", "books", "html"],

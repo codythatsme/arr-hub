@@ -421,6 +421,49 @@ const IMMORTAL_SEED_HTML_RESULTS = `
   </table>
 </body></html>`
 
+const XSPEEDS_HTML_RESULTS = `
+<html><body>
+  <table id="sortabletable">
+    <tbody>
+      <tr>
+        <td><a href="browse.php?category=10">DVDR</a></td>
+        <td>
+          <div>
+            <a href="details.php?id=131">XSpeeds Movie 2026 DVDR</a>
+            <a href="download.php?id=131">Download</a>
+            <img title="Free Torrent" src="/pic/free.png">
+            <img title="x2 Torrent" src="/pic/x2.png">
+          </div>
+          <div>10-05-2026 19:05</div>
+        </td>
+        <td>Uploader</td>
+        <td>Comments</td>
+        <td>4.7 GB</td>
+        <td>15</td>
+        <td>64</td>
+        <td>8</td>
+      </tr>
+      <tr>
+        <td><a href="browse.php?category=117">Movies 4K</a></td>
+        <td>
+          <div>
+            <a href="details.php?id=132">XSpeeds Movie 2026 2160p Silver</a>
+            <a href="download.php?id=132">Download</a>
+            <img title="Silver Torrent" src="/pic/silver.png">
+          </div>
+          <div>10-05-2026 20:30</div>
+        </td>
+        <td>Uploader</td>
+        <td>Comments</td>
+        <td>14 GB</td>
+        <td>3</td>
+        <td>31</td>
+        <td>4</td>
+      </tr>
+    </tbody>
+  </table>
+</body></html>`
+
 const RETROFLIX_JSON_RESULTS = JSON.stringify([
   {
     download_volume_factor: 0,
@@ -3328,6 +3371,77 @@ search:
       uploadFactor: 2,
     })
     expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-10T17:45:00.000Z")
+  })
+
+  it("parses XSpeeds HTML results after POST login with freeleech filtering", async () => {
+    const requests: Array<{ url: string; init: RequestInit | undefined }> = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(String(input))
+      requests.push({ url: String(input), init })
+      if (url.pathname === "/takelogin.php") {
+        return new Response('<html><body><a href="logout.php">Logout</a></body></html>', {
+          status: 200,
+          headers: { "set-cookie": "xs_session=abc; Path=/" },
+        })
+      }
+      return new Response(XSPEEDS_HTML_RESULTS, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 104,
+      name: "XSpeeds",
+      type: "cardigann_yaml",
+      definitionKey: "xspeeds",
+      baseUrl: "https://www.xspeeds.eu/",
+      apiKey: "",
+      configValues: {
+        username: "alice",
+        password: "secret",
+        freeleechOnly: "true",
+      },
+      priority: 40,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({
+        term: "XSpeeds.Movie",
+        type: "movie",
+        categories: [2070],
+      }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    const loginRequest = requests[0]
+    expect(loginRequest?.url).toBe("https://www.xspeeds.eu/takelogin.php")
+    expect(loginRequest?.init?.method).toBe("POST")
+    const loginBody = new URLSearchParams(String(loginRequest?.init?.body ?? ""))
+    expect(loginBody.get("username")).toBe("alice")
+    expect(loginBody.get("password")).toBe("secret")
+
+    const searchRequest = requests[1]
+    expect(searchRequest?.url).toBe(
+      "https://www.xspeeds.eu/browse.php?category=10&include_dead_torrents=yes&sort=added&order=desc&do=search&keywords=XSpeeds%20Movie&search_type=t_name",
+    )
+    expect(new Headers(searchRequest?.init?.headers).get("cookie")).toBe("xs_session=abc")
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "XSpeeds Movie 2026 DVDR",
+      downloadUrl: "https://www.xspeeds.eu/download.php?id=131",
+      infoUrl: "https://www.xspeeds.eu/details.php?id=131",
+      category: "2070",
+      size: 4_700_000_000,
+      seeders: 64,
+      leechers: 8,
+      indexerId: 104,
+      indexerName: "XSpeeds",
+      indexerPriority: 40,
+      downloadFactor: 0,
+      uploadFactor: 2,
+    })
+    expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-10T19:05:00.000Z")
   })
 
   it("parses RetroFlix SpeedApp JSON results with bearer auth", async () => {

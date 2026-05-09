@@ -3488,6 +3488,374 @@ search:
         tr: "1"
 `
 
+const X_SPEEDS = `
+id: xspeeds
+name: XSpeeds
+description: Private general tracker exposed through a first-pass POST-login HTML Cardigann definition.
+type: private
+links:
+  - https://www.xspeeds.eu/
+version: builtin-cardigann-1
+rss: false
+tags:
+  - private
+  - general
+  - movies
+  - tv
+  - music
+  - books
+  - html
+settings:
+  - name: username
+    label: Username
+    type: text
+    required: true
+  - name: password
+    label: Password
+    type: password
+    required: true
+  - name: freeleechOnly
+    label: Freeleech only
+    type: checkbox
+    default: false
+    helpText: Show freeleech releases only.
+caps:
+  categorymappings:
+    - id: "70"
+      cat: TV/Anime
+      desc: Anime
+      newznab: 5070
+    - id: "113"
+      cat: TV/Anime
+      desc: Anime Boxsets
+      newznab: 5070
+    - id: "112"
+      cat: Movies/Other
+      desc: Anime Movies
+      newznab: 2020
+    - id: "111"
+      cat: Movies/Other
+      desc: Anime TV
+      newznab: 2020
+    - id: "150"
+      cat: PC
+      desc: Apps
+      newznab: 4000
+    - id: "153"
+      cat: Books
+      desc: Books
+      newznab: 7000
+    - id: "154"
+      cat: Audio/Audiobook
+      desc: Books Audiobooks
+      newznab: 3030
+    - id: "155"
+      cat: Books
+      desc: Books eBooks & Magazines
+      newznab: 7000
+    - id: "68"
+      cat: Movies/Other
+      desc: Cams/TS
+      newznab: 2020
+    - id: "140"
+      cat: TV/Documentary
+      desc: Documentary
+      newznab: 5080
+    - id: "10"
+      cat: Movies/DVD
+      desc: DVDR
+      newznab: 2070
+    - id: "109"
+      cat: Movies/BluRay
+      desc: DVDR Bluray Disc
+      newznab: 2050
+    - id: "131"
+      cat: TV/Sport
+      desc: Fighting
+      newznab: 5060
+    - id: "134"
+      cat: TV/Sport
+      desc: Fighting Boxing
+      newznab: 5060
+    - id: "133"
+      cat: TV/Sport
+      desc: Fighting MMA
+      newznab: 5060
+    - id: "132"
+      cat: TV/Sport
+      desc: Fighting Wrestling
+      newznab: 5060
+    - id: "72"
+      cat: Movies/Foreign
+      desc: Foreign
+      newznab: 2010
+    - id: "116"
+      cat: TV/Foreign
+      desc: Foreign Boxsets
+      newznab: 5020
+    - id: "114"
+      cat: Movies/Foreign
+      desc: Foreign Movies
+      newznab: 2010
+    - id: "115"
+      cat: TV/Foreign
+      desc: Foreign TV
+      newznab: 5020
+    - id: "103"
+      cat: Console/Other
+      desc: Games Console
+      newznab: 1090
+    - id: "105"
+      cat: Console/Other
+      desc: Games Console Nintendo
+      newznab: 1090
+    - id: "104"
+      cat: Console/PS4
+      desc: Games Console Playstation
+      newznab: 1180
+    - id: "106"
+      cat: Console/Xbox
+      desc: Games Console XBOX
+      newznab: 1040
+    - id: "6"
+      cat: PC/Games
+      desc: Games PC
+      newznab: 4050
+    - id: "108"
+      cat: PC
+      desc: Games PC Linux
+      newznab: 4000
+    - id: "107"
+      cat: PC/Mac
+      desc: Games PC Mac
+      newznab: 4030
+    - id: "11"
+      cat: Movies
+      desc: Movie Boxsets
+      newznab: 2000
+    - id: "118"
+      cat: Movies/UHD
+      desc: Movie Boxsets 4K
+      newznab: 2045
+    - id: "162"
+      cat: Movies/HD
+      desc: Movie Boxsets AV1
+      newznab: 2040
+    - id: "143"
+      cat: Movies/HD
+      desc: Movie Boxsets HD
+      newznab: 2040
+    - id: "119"
+      cat: Movies/HD
+      desc: Movie Boxsets HEVC
+      newznab: 2040
+    - id: "144"
+      cat: Movies/SD
+      desc: Movie Boxsets SD
+      newznab: 2030
+    - id: "12"
+      cat: Movies
+      desc: Movies
+      newznab: 2000
+    - id: "117"
+      cat: Movies/UHD
+      desc: Movies 4K
+      newznab: 2045
+    - id: "163"
+      cat: Movies/HD
+      desc: Movies AV1
+      newznab: 2040
+    - id: "145"
+      cat: Movies/HD
+      desc: Movies HD
+      newznab: 2040
+    - id: "100"
+      cat: Movies/HD
+      desc: Movies HEVC
+      newznab: 2040
+    - id: "146"
+      cat: Movies/SD
+      desc: Movies SD
+      newznab: 2030
+    - id: "13"
+      cat: Audio
+      desc: Music
+      newznab: 3000
+    - id: "135"
+      cat: Audio/Lossless
+      desc: Music FLAC
+      newznab: 3040
+    - id: "151"
+      cat: Audio
+      desc: Music Karaoke
+      newznab: 3000
+    - id: "136"
+      cat: Audio
+      desc: Music Boxset
+      newznab: 3000
+    - id: "148"
+      cat: Audio/Video
+      desc: Music Videos
+      newznab: 3020
+    - id: "9"
+      cat: Other
+      desc: Other
+      newznab: 8000
+    - id: "125"
+      cat: Other
+      desc: Other Pictures
+      newznab: 8000
+    - id: "54"
+      cat: TV/Other
+      desc: Other Soaps
+      newznab: 5050
+    - id: "83"
+      cat: TV/Other
+      desc: Other Specials
+      newznab: 5050
+    - id: "139"
+      cat: TV
+      desc: TOTM (Freeleech)
+      newznab: 5000
+    - id: "138"
+      cat: TV
+      desc: TOTW (x2 upload)
+      newznab: 5000
+    - id: "139"
+      cat: Movies
+      desc: TOTM (Freeleech)
+      newznab: 2000
+    - id: "138"
+      cat: Movies
+      desc: TOTW (x2 upload)
+      newznab: 2000
+    - id: "20"
+      cat: TV/Sport
+      desc: Sports
+      newznab: 5060
+    - id: "88"
+      cat: TV/Sport
+      desc: Sports/Football
+      newznab: 5060
+    - id: "86"
+      cat: TV/Sport
+      desc: Sports/MotorSports
+      newznab: 5060
+    - id: "89"
+      cat: TV/Sport
+      desc: Sports/Olympics
+      newznab: 5060
+    - id: "126"
+      cat: TV
+      desc: TV
+      newznab: 5000
+    - id: "127"
+      cat: TV/UHD
+      desc: TV 4K
+      newznab: 5045
+    - id: "164"
+      cat: TV/HD
+      desc: TV AV1
+      newznab: 5040
+    - id: "129"
+      cat: TV/HD
+      desc: TV HD
+      newznab: 5040
+    - id: "130"
+      cat: TV/HD
+      desc: TV HEVC
+      newznab: 5040
+    - id: "128"
+      cat: TV/SD
+      desc: TV SD
+      newznab: 5030
+    - id: "149"
+      cat: TV
+      desc: TV Specials
+      newznab: 5000
+    - id: "21"
+      cat: TV/SD
+      desc: TV Boxsets
+      newznab: 5030
+    - id: "120"
+      cat: TV/UHD
+      desc: TV Boxset 4K
+      newznab: 5045
+    - id: "165"
+      cat: TV/UHD
+      desc: TV Boxset AV1
+      newznab: 5045
+    - id: "76"
+      cat: TV/HD
+      desc: TV Boxset HD
+      newznab: 5040
+    - id: "97"
+      cat: TV/HD
+      desc: TV Boxset HEVC
+      newznab: 5040
+    - id: "147"
+      cat: TV/SD
+      desc: TV Boxset SD
+      newznab: 5030
+  modes:
+    search: [q]
+    movie-search: [q]
+    tv-search: [q, season, ep]
+    music-search: [q]
+    book-search: [q]
+login:
+  method: post
+  path: takelogin.php
+  inputs:
+    username: "{{ .Config.Username }}"
+    password: "{{ .Config.Password }}"
+search:
+  paths:
+    - path: 'browse.php?category={{ if .Categories }}{{ .Categories | join "," }}{{ else }}0{{ end }}&include_dead_torrents=yes&sort=added&order=desc{{ if .Keywords }}&do=search&keywords={{ .Keywords | replace "." " " | replace "-" " " | replace "_" " " | urlencode }}&search_type=t_name{{ end }}'
+      response:
+        type: html
+  rows:
+    selector: 'table#sortabletable > tbody > tr:has(a[href*="details.php?id="]){{ if .Config.FreeleechOnly }}:has(img[title^="Free Torrent"], img[title^="Sitewide Free Torrent"]){{ end }}'
+  fields:
+    title:
+      selector: 'div > a[href*="details.php?id="]'
+    details:
+      selector: 'div > a[href*="details.php?id="]'
+      attribute: href
+    download:
+      selector: 'a[href*="download.php"]'
+      attribute: href
+    category:
+      selector: td:nth-of-type(1) a
+      attribute: href
+      filters:
+        - name: querystring
+          args: category
+    date:
+      selector: 'td:nth-of-type(2) > div:last-child'
+      filters:
+        - name: dateparse
+          args: "dd-MM-yyyy HH:mm"
+    size:
+      selector: td:nth-of-type(5)
+    grabs:
+      selector: td:nth-of-type(6)
+    seeders:
+      selector: td:nth-of-type(7)
+    leechers:
+      selector: td:nth-of-type(8)
+    downloadvolumefactor:
+      case:
+        'img[title^="Free Torrent"]': "0"
+        'img[title^="Sitewide Free Torrent"]': "0"
+        'img[title^="Silver Torrent"]': "0.5"
+        tr: "1"
+    uploadvolumefactor:
+      case:
+        'img[title^="x2 Torrent"]': "2"
+        tr: "1"
+`
+
 const MORE_THAN_TV = `
 id: morethantv
 name: MoreThanTV
@@ -3703,6 +4071,7 @@ const BUILT_IN_CARDIGANN_SOURCES = [
   HD_TORRENTS,
   FUNFILE,
   IMMORTAL_SEED,
+  X_SPEEDS,
   MORE_THAN_TV,
   HDACCESS,
   TORRENT_NETWORK,
