@@ -238,8 +238,12 @@ search:
           - '{{ .Keywords | trim | lowercase }}'
         X-Query-Slug: '{{ .Keywords | trim | lowercase | replace " " "-" }}'
         X-Link-Token: '{{ .Config.Link | querystring "token" }}'
+        X-Html-Decoded: '{{ .Config.EncodedTitle | htmldecode }}'
+        X-Html-Encoded: '{{ .Config.RawHtml | htmlencode }}'
       inputs:
         $raw: 'q={{ .Keywords | trim | urlencode }}&imdb={{ .Query.IMDBIDShort | prepend "tt" }}&cat={{ .Categories | join "," }}&source={{ .Config.Link | querystring "source" }}'
+        decoded: '{{ .Config.EncodedTitle | htmldecode }}'
+        encoded: '{{ .Config.RawHtml | htmlencode }}'
 `,
       baseUrl: "https://tracker.example/root",
       apiKey: "api-key",
@@ -247,6 +251,8 @@ search:
         username: "alice",
         cookie: "session=secret",
         link: "browse.php?source=web&token=abc%20123#row",
+        encodedTitle: "Anne Rice&#039;s &amp; Co",
+        rawHtml: `A & B <C> "D" 'E'`,
       },
       priority: 15,
       categories: [],
@@ -269,12 +275,16 @@ search:
     expect(url.searchParams.get("imdb")).toBe("tt1234567")
     expect(url.searchParams.get("cat")).toBe("movies")
     expect(url.searchParams.get("source")).toBe("web")
+    expect(url.searchParams.get("decoded")).toBe("Anne Rice's & Co")
+    expect(url.searchParams.get("encoded")).toBe("A &amp; B &lt;C&gt; &quot;D&quot; &#39;E&#39;")
 
     const headers = new Headers(requestInit?.headers)
     expect(headers.get("x-auth")).toBe("alice:session=secret:api-key")
     expect(headers.get("x-header-list")).toBe("example movie")
     expect(headers.get("x-query-slug")).toBe("example-movie")
     expect(headers.get("x-link-token")).toBe("abc 123")
+    expect(headers.get("x-html-decoded")).toBe("Anne Rice's & Co")
+    expect(headers.get("x-html-encoded")).toBe("A &amp; B &lt;C&gt; &quot;D&quot; &#39;E&#39;")
   })
 
   it("expands Cardigann range templates for repeated category params", async () => {
@@ -693,7 +703,7 @@ search:
     expect(url.searchParams.get("raw")).toBe("Keyword Filter Movie")
   })
 
-  it("applies Cardigann querystring keyword filters before rendering Keywords", async () => {
+  it("applies Cardigann querystring and HTML keyword filters before rendering Keywords", async () => {
     let requestUrl: string | undefined
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       requestUrl = String(input)
@@ -722,13 +732,15 @@ search:
   keywordsfilters:
     - name: querystring
       args: q
+    - name: htmldecode
+    - name: htmlencode
   paths:
     - path: /search
       response:
         type: torznab
       inputs:
         q: "{{ .Keywords }}"
-        raw: "{{ .Query.Keywords }}"
+        decoded: "{{ .Keywords | htmldecode }}"
 `,
       baseUrl: "https://tracker.example/root",
       apiKey: "",
@@ -739,7 +751,7 @@ search:
 
     await Effect.runPromise(
       adapter.search({
-        term: "browse.php?cat=movies&q=Encoded+Movie%202026#results",
+        term: "browse.php?cat=movies&q=Anne+Rice%26%23039%3Bs+Movie%202026#results",
         type: "movie",
         categories: [2000],
       }),
@@ -747,8 +759,8 @@ search:
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
     const url = new URL(requestUrl ?? "")
-    expect(url.searchParams.get("q")).toBe("Encoded Movie 2026")
-    expect(url.searchParams.get("raw")).toBe("browse.php?cat=movies&q=Encoded+Movie 2026#results")
+    expect(url.searchParams.get("q")).toBe("Anne Rice&#39;s Movie 2026")
+    expect(url.searchParams.get("decoded")).toBe("Anne Rice's Movie 2026")
   })
 
   it("executes single-object Cardigann paths with scalar request inputs", async () => {

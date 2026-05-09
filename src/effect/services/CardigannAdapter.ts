@@ -253,6 +253,43 @@ function queryStringValue(value: string, key: string): string {
   return new URLSearchParams(query).get(trimmedKey) ?? ""
 }
 
+const HTML_ENTITIES: Readonly<Record<string, string>> = {
+  amp: "&",
+  apos: "'",
+  gt: ">",
+  lt: "<",
+  nbsp: " ",
+  quot: `"`,
+}
+
+function htmlDecode(value: string): string {
+  return value.replace(/&(#x[\dA-Fa-f]+|#\d+|[A-Za-z]+);/g, (match, entity: string) => {
+    const normalized = entity.toLowerCase()
+    if (normalized.startsWith("#x")) {
+      const codePoint = Number.parseInt(normalized.slice(2), 16)
+      return Number.isFinite(codePoint) && codePoint <= 0x10ffff
+        ? String.fromCodePoint(codePoint)
+        : match
+    }
+    if (normalized.startsWith("#")) {
+      const codePoint = Number.parseInt(normalized.slice(1), 10)
+      return Number.isFinite(codePoint) && codePoint <= 0x10ffff
+        ? String.fromCodePoint(codePoint)
+        : match
+    }
+    return HTML_ENTITIES[normalized] ?? match
+  })
+}
+
+function htmlEncode(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll(`"`, "&quot;")
+    .replaceAll("'", "&#39;")
+}
+
 function applyTemplateFilter(
   value: TemplateValue | undefined,
   filter: string,
@@ -269,6 +306,10 @@ function applyTemplateFilter(
       return `${text}${args[0] ?? ""}`
     case "default":
       return text.length > 0 ? text : (args[0] ?? "")
+    case "htmldecode":
+      return htmlDecode(text)
+    case "htmlencode":
+      return htmlEncode(text)
     case "lower":
     case "lowercase":
     case "tolower":
@@ -454,6 +495,10 @@ function applyCardigannKeywordFilter(
   switch (filter.name) {
     case "append":
       return `${value}${renderTemplate(first, variables)}`
+    case "htmldecode":
+      return htmlDecode(value)
+    case "htmlencode":
+      return htmlEncode(value)
     case "prepend":
       return `${renderTemplate(first, variables)}${value}`
     case "querystring":
