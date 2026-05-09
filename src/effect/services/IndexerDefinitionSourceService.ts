@@ -36,7 +36,7 @@ interface IndexerDefinitionSourceUpdate {
 
 interface IndexerDefinitionSourceCatalogInput {
   readonly url: string
-  readonly pinnedSha256?: string | null
+  readonly pinnedSha256: string
 }
 
 export class IndexerDefinitionSourceService extends Context.Tag(
@@ -602,6 +602,24 @@ export const IndexerDefinitionSourceServiceLive = Layer.effect(
 
       importCatalog: (input) =>
         Effect.gen(function* () {
+          const pinnedSha256 = normalizeSha256(input.pinnedSha256)
+          if (!pinnedSha256) {
+            return yield* toManifestError(
+              input.url,
+              "checksum_mismatch",
+              "catalog manifest SHA-256 checksum is required",
+              false,
+            )
+          }
+          if (!SHA256_PATTERN.test(pinnedSha256)) {
+            return yield* toManifestError(
+              input.url,
+              "checksum_mismatch",
+              "catalog manifest SHA-256 checksum is invalid",
+              false,
+            )
+          }
+
           const manifestYaml = yield* Effect.tryPromise({
             try: () => fetchDefinitionYaml(input.url),
             catch: (error) => {
@@ -629,16 +647,7 @@ export const IndexerDefinitionSourceServiceLive = Layer.effect(
           })
 
           const manifestSha256 = sha256Hex(manifestYaml)
-          const pinnedSha256 = normalizeSha256(input.pinnedSha256)
-          if (pinnedSha256 && !SHA256_PATTERN.test(pinnedSha256)) {
-            return yield* toManifestError(
-              input.url,
-              "checksum_mismatch",
-              "catalog manifest SHA-256 checksum is invalid",
-              false,
-            )
-          }
-          if (pinnedSha256 && pinnedSha256 !== manifestSha256) {
+          if (pinnedSha256 !== manifestSha256) {
             return yield* toManifestError(
               input.url,
               "checksum_mismatch",

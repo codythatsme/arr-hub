@@ -571,9 +571,14 @@ function Indexers() {
   const onCatalogSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setDefinitionSourceMessage(null)
+    const pinnedSha256 = normalizeSha256(catalogForm.pinnedSha256)
+    if (!pinnedSha256) {
+      setDefinitionSourceMessage("Catalog manifest SHA-256 pin is required.")
+      return
+    }
     importDefinitionCatalog.mutate({
       url: catalogForm.url.trim(),
-      pinnedSha256: normalizeSha256(catalogForm.pinnedSha256),
+      pinnedSha256,
     })
   }
 
@@ -1548,7 +1553,7 @@ function Indexers() {
                   />
                 </Field>
 
-                <Field label="Pinned manifest SHA-256" hint="Optional 64-character checksum pin.">
+                <Field label="Pinned manifest SHA-256" hint="Required 64-character checksum pin.">
                   <input
                     className="mt-1 w-full rounded border bg-transparent px-3 py-2 font-mono text-xs"
                     value={catalogForm.pinnedSha256}
@@ -1556,6 +1561,7 @@ function Indexers() {
                       setCatalogForm({ ...catalogForm, pinnedSha256: event.target.value })
                     }
                     pattern="[\\da-fA-F]{64}"
+                    required
                   />
                 </Field>
 

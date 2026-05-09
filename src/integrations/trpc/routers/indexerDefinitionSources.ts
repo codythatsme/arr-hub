@@ -30,11 +30,7 @@ const sourceUpdateSchema = z.object({
 
 const catalogImportSchema = z.object({
   url: z.string().url(),
-  pinnedSha256: z
-    .string()
-    .regex(/^[\da-f]{64}$/i)
-    .nullable()
-    .optional(),
+  pinnedSha256: z.string().regex(/^[\da-f]{64}$/i),
 })
 
 export const indexerDefinitionSourcesRouter = {
