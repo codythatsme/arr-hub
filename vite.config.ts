@@ -6,12 +6,14 @@ import { nitro } from "nitro/vite"
 import { defineConfig } from "vite"
 import tsconfigPaths from "vite-tsconfig-paths"
 
+const enableDevtools = process.env.ARR_HUB_E2E_FIXTURES !== "1"
+
 const config = defineConfig({
   ssr: {
     external: ["better-sqlite3"],
   },
   plugins: [
-    devtools(),
+    ...(enableDevtools ? [devtools()] : []),
     nitro({ rollupConfig: { external: [/^@sentry\//] } }),
     tsconfigPaths({ projects: ["./tsconfig.json"] }),
     tailwindcss(),

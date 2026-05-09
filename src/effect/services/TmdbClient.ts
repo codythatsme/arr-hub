@@ -26,6 +26,33 @@ export class TmdbClient extends Context.Tag("@arr-hub/TmdbClient")<
 
 const BASE_URL = "https://api.themoviedb.org/3"
 const PROVIDER = "tmdb"
+const E2E_FIXTURES_ENABLED = process.env.ARR_HUB_E2E_FIXTURES === "1"
+const E2E_MOVIE: TmdbMovie = {
+  id: 990001,
+  title: "E2E Fixture Movie",
+  originalTitle: "E2E Fixture Movie",
+  overview: "A deterministic movie returned only for browser smoke tests.",
+  releaseDate: "2026-05-09",
+  year: 2026,
+  posterPath: null,
+  backdropPath: null,
+  popularity: 1,
+  voteAverage: 7,
+  voteCount: 1,
+  genreIds: [],
+  originalLanguage: "en",
+}
+const E2E_MOVIE_DETAILS: TmdbMovieDetails = {
+  ...E2E_MOVIE,
+  imdbId: "tt990001",
+  runtime: 90,
+  status: "Released",
+  tagline: null,
+  genres: [],
+  productionCompanies: [],
+  budget: 0,
+  revenue: 0,
+}
 
 // ── Helpers ──
 
@@ -207,6 +234,14 @@ function parseMovieDetails(raw: unknown): TmdbMovieDetails {
 export const TmdbClientLive = Layer.succeed(TmdbClient, {
   searchMovies: (query, page) =>
     Effect.gen(function* () {
+      if (E2E_FIXTURES_ENABLED) {
+        return {
+          page: page ?? 1,
+          totalPages: 1,
+          totalResults: 1,
+          results: [{ ...E2E_MOVIE, title: `${E2E_MOVIE.title}: ${query}` }],
+        }
+      }
       const apiKey = yield* requireApiKey()
       const url = buildUrl("/search/movie", apiKey, { query, page })
       const json = yield* fetchJson(url)
@@ -215,6 +250,9 @@ export const TmdbClientLive = Layer.succeed(TmdbClient, {
 
   getMovie: (tmdbId) =>
     Effect.gen(function* () {
+      if (E2E_FIXTURES_ENABLED && tmdbId === E2E_MOVIE.id) {
+        return E2E_MOVIE_DETAILS
+      }
       const apiKey = yield* requireApiKey()
       const url = buildUrl(`/movie/${tmdbId}`, apiKey, {})
       const json = yield* fetchJson(url)
@@ -223,6 +261,14 @@ export const TmdbClientLive = Layer.succeed(TmdbClient, {
 
   getPopular: (page) =>
     Effect.gen(function* () {
+      if (E2E_FIXTURES_ENABLED) {
+        return {
+          page: page ?? 1,
+          totalPages: 1,
+          totalResults: 1,
+          results: [E2E_MOVIE],
+        }
+      }
       const apiKey = yield* requireApiKey()
       const url = buildUrl("/movie/popular", apiKey, { page })
       const json = yield* fetchJson(url)
@@ -231,6 +277,9 @@ export const TmdbClientLive = Layer.succeed(TmdbClient, {
 
   getTrending: (timeWindow) =>
     Effect.gen(function* () {
+      if (E2E_FIXTURES_ENABLED) {
+        return { page: 1, totalPages: 1, totalResults: 1, results: [E2E_MOVIE] }
+      }
       const apiKey = yield* requireApiKey()
       const window = timeWindow ?? "week"
       const url = buildUrl(`/trending/movie/${window}`, apiKey, {})
