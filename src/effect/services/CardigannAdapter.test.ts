@@ -105,6 +105,49 @@ const JSON_SELECTOR_FILTER_RESULTS = JSON.stringify({
   },
 })
 
+const JSON_SELECTOR_POSITION_RESULTS = JSON.stringify({
+  data: {
+    results: [
+      {
+        title: "Wrong First Position Movie 2026 1080p WEB-DL",
+        links: {
+          download: ["/download/wrong-first"],
+        },
+        category: ["Movies"],
+        stats: {
+          size: "1 GB",
+          seeders: 10,
+        },
+        published: "2026-05-09T00:00:00.000Z",
+      },
+      {
+        title: "Position Movie 2026 1080p WEB-DL",
+        links: {
+          download: ["/download/position-mirror", "/download/position-final"],
+        },
+        category: ["Other", "Movies"],
+        stats: {
+          size: "2 GB",
+          seeders: 44,
+        },
+        published: "2026-05-09T00:00:00.000Z",
+      },
+      {
+        title: "Wrong Last Position Movie 2026 1080p WEB-DL",
+        links: {
+          download: ["/download/wrong-last"],
+        },
+        category: ["Movies"],
+        stats: {
+          size: "3 GB",
+          seeders: 30,
+        },
+        published: "2026-05-09T00:00:00.000Z",
+      },
+    ],
+  },
+})
+
 const HTML_RESULTS = `<!doctype html>
 <html>
   <body>
@@ -621,6 +664,75 @@ search:
       seeders: 51,
     })
     expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-09T00:00:00.000Z")
+  })
+
+  it("applies Cardigann JSON positional selector filters", async () => {
+    const fetchMock = vi.fn(
+      async () => new Response(JSON_SELECTOR_POSITION_RESULTS, { status: 200 }),
+    )
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 67,
+      name: "JSON Selector Position Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "json-selector-position-cardigann",
+      definitionYaml: `
+id: json-selector-position-cardigann
+name: JSON Selector Position Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+      newznab: 2000
+  modes:
+    search: [q]
+search:
+  paths:
+    - path: /api/search
+      response:
+        type: json
+  rows:
+    selector: $.data.results:eq(1)
+  fields:
+    title:
+      selector: title
+    download:
+      selector: links.download:last
+    category:
+      selector: category:last
+      case:
+        Movies: movies
+    size:
+      selector: stats.size
+    seeders:
+      selector: stats.seeders
+    date:
+      selector: published
+`,
+      baseUrl: "https://tracker.example",
+      apiKey: "",
+      priority: 35,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Position Movie", type: "general", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "Position Movie 2026 1080p WEB-DL",
+      downloadUrl: "https://tracker.example/download/position-final",
+      category: "2000",
+      size: 2_000_000_000,
+      seeders: 44,
+    })
   })
 
   it("normalizes Cardigann field-name modifiers in JSON selector results", async () => {

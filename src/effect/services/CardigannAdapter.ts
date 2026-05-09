@@ -1022,12 +1022,18 @@ function parseJsonSelectorFilters(suffix: string): ReadonlyArray<JsonSelectorFil
     index += 1
 
     const nameStart = index
-    while (/[A-Za-z]/.test(suffix[index] ?? "")) index += 1
+    while (/[A-Za-z-]/.test(suffix[index] ?? "")) index += 1
     const name = suffix.slice(nameStart, index).trim().toLowerCase()
     if (name.length === 0) return null
 
     while (/\s/.test(suffix[index] ?? "")) index += 1
-    if (suffix[index] !== "(") return null
+    if (suffix[index] !== "(") {
+      if (name === "first" || name === "last" || name === "even" || name === "odd") {
+        filters.push({ name, selector: "" })
+        continue
+      }
+      return null
+    }
     index += 1
 
     const selectorStart = index
@@ -1156,6 +1162,7 @@ function jsonSelectorText(value: unknown): string {
 
 function jsonSelectorMatches(value: unknown, filters: ReadonlyArray<JsonSelectorFilter>): boolean {
   return filters.every((filter) => {
+    if (isJsonPositionalSelectorFilter(filter)) return true
     switch (filter.name) {
       case "contains":
         return jsonSelectorText(value).includes(filter.selector)
@@ -1169,6 +1176,70 @@ function jsonSelectorMatches(value: unknown, filters: ReadonlyArray<JsonSelector
   })
 }
 
+function isJsonPositionalSelectorFilter(filter: JsonSelectorFilter): boolean {
+  return (
+    filter.name === "eq" ||
+    filter.name === "first" ||
+    filter.name === "last" ||
+    filter.name === "even" ||
+    filter.name === "odd" ||
+    filter.name === "gt" ||
+    filter.name === "lt"
+  )
+}
+
+function jsonSelectorPositionIndex(filter: JsonSelectorFilter, length: number): number | null {
+  if (filter.name === "first") return 0
+  if (filter.name === "last") return length - 1
+  if (filter.name !== "eq") return null
+
+  const index = Number.parseInt(filter.selector, 10)
+  if (!Number.isFinite(index)) return null
+  return index < 0 ? length + index : index
+}
+
+function applyJsonPositionalSelectorFilter(
+  values: ReadonlyArray<unknown>,
+  filter: JsonSelectorFilter,
+): ReadonlyArray<unknown> {
+  switch (filter.name) {
+    case "eq":
+    case "first":
+    case "last": {
+      const index = jsonSelectorPositionIndex(filter, values.length)
+      const value = index !== null ? values[index] : undefined
+      return value === undefined ? [] : [value]
+    }
+    case "even":
+      return values.filter((_, index) => index % 2 === 0)
+    case "odd":
+      return values.filter((_, index) => index % 2 === 1)
+    case "gt": {
+      const index = Number.parseInt(filter.selector, 10)
+      return Number.isFinite(index) ? values.filter((_, itemIndex) => itemIndex > index) : values
+    }
+    case "lt": {
+      const index = Number.parseInt(filter.selector, 10)
+      return Number.isFinite(index) ? values.filter((_, itemIndex) => itemIndex < index) : values
+    }
+    default:
+      return values
+  }
+}
+
+function applyJsonSelectorFilters(
+  values: ReadonlyArray<unknown>,
+  filters: ReadonlyArray<JsonSelectorFilter>,
+): ReadonlyArray<unknown> {
+  return filters.reduce(
+    (current, filter) =>
+      isJsonPositionalSelectorFilter(filter)
+        ? applyJsonPositionalSelectorFilter(current, filter)
+        : current.filter((item) => jsonSelectorMatches(item, [filter])),
+    values,
+  )
+}
+
 function selectJsonSelectorValues(
   value: unknown,
   selectorText: string,
@@ -1180,9 +1251,15 @@ function selectJsonSelectorValues(
   if (tokens === null) return null
 
   const selected = selectJsonPathValues(value, tokens)
-  return selector.filters.length === 0
-    ? selected
-    : selected.filter((item) => jsonSelectorMatches(item, selector.filters))
+  if (selector.filters.length === 0) return selected
+
+  const filterValues =
+    selector.filters.some((filter) => isJsonPositionalSelectorFilter(filter)) &&
+    selected.length === 1 &&
+    Array.isArray(selected[0])
+      ? (selected[0] as ReadonlyArray<unknown>)
+      : selected
+  return applyJsonSelectorFilters(filterValues, selector.filters)
 }
 
 function jsonSelectorExists(value: unknown, selectorText: string): boolean {
@@ -2299,7 +2376,7 @@ function parseJsonRows(
   const filteredRows =
     selector.filters.length === 0
       ? selectedRows
-      : selectedRows.filter((row) => jsonSelectorMatches(row, selector.filters))
+      : applyJsonSelectorFilters(selectedRows, selector.filters)
   const attributeRows: ReadonlyArray<JsonRowMatch> =
     rows.attribute === undefined
       ? filteredRows.map((row) => ({ value: row, parent: row }))
