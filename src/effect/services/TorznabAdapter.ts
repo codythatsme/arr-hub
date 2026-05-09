@@ -54,6 +54,12 @@ type IndexerFetchInit = RequestInit & {
   readonly proxy?: string
 }
 
+export interface IndexerTextResponse {
+  readonly status: number
+  readonly text: string
+  readonly headers: Headers
+}
+
 // ── Helpers ──
 
 function buildUrl(
@@ -101,7 +107,22 @@ function flaresolverrEndpoint(proxy: IndexerOutboundProxy): string {
   return base.endsWith("/v1") ? base : `${base}/v1`
 }
 
-function parseFlaresolverrResponse(payload: unknown): string {
+function headersFromUnknown(value: unknown): Headers {
+  const headers = new Headers()
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return headers
+
+  for (const [key, headerValue] of Object.entries(value)) {
+    if (headerValue === undefined) continue
+    if (Array.isArray(headerValue)) {
+      for (const item of headerValue) headers.append(key, String(item))
+    } else {
+      headers.set(key, String(headerValue))
+    }
+  }
+  return headers
+}
+
+function parseFlaresolverrResponse(payload: unknown): IndexerTextResponse {
   const root = payload as Record<string, unknown>
   if (root.status !== "ok") {
     throw new Error(String(root.message ?? "FlareSolverr request failed"))
@@ -114,8 +135,12 @@ function parseFlaresolverrResponse(payload: unknown): string {
   }
 
   const response = solution?.response
-  if (typeof response !== "string") throw new Error("FlareSolverr response did not include XML")
-  return response
+  if (typeof response !== "string") throw new Error("FlareSolverr response did not include text")
+  return {
+    status,
+    text: response,
+    headers: headersFromUnknown(solution?.headers),
+  }
 }
 
 async function fetchTextViaSocksProxy(
@@ -123,7 +148,7 @@ async function fetchTextViaSocksProxy(
   proxy: IndexerOutboundProxy,
   signal: AbortSignal,
   init: RequestInit = {},
-): Promise<{ readonly status: number; readonly text: string }> {
+): Promise<IndexerTextResponse> {
   const agent = new SocksProxyAgent(buildProxyUrl(proxy))
   const client = url.protocol === "https:" ? https : http
   const method = init.method ?? "GET"
@@ -152,6 +177,7 @@ async function fetchTextViaSocksProxy(
             resolve({
               status: res.statusCode ?? 0,
               text: Buffer.concat(chunks).toString("utf8"),
+              headers: headersFromUnknown(res.headers),
             })
           })
         },
@@ -184,11 +210,11 @@ function headerRecord(headers: HeadersInit | undefined): Record<string, string> 
   return Object.fromEntries(new Headers(headers).entries())
 }
 
-export function fetchIndexerText(
+export function fetchIndexerResponseText(
   url: URL,
   config: IndexerConfig,
   init: RequestInit = {},
-): Effect.Effect<string, IndexerError> {
+): Effect.Effect<IndexerTextResponse, IndexerError> {
   return Effect.tryPromise({
     try: async () => {
       const controller = new AbortController()
@@ -223,7 +249,7 @@ export function fetchIndexerText(
           if (res.status < 200 || res.status >= 300) {
             throw Object.assign(new Error(`HTTP ${res.status}`), { status: res.status })
           }
-          return res.text
+          return res
         }
 
         const built = buildFetchInit(controller.signal, proxy)
@@ -235,7 +261,11 @@ export function fetchIndexerText(
         if (!res.ok) {
           throw Object.assign(new Error(`HTTP ${res.status}`), { status: res.status })
         }
-        return await res.text()
+        return {
+          status: res.status,
+          text: await res.text(),
+          headers: res.headers,
+        }
       } finally {
         await dispatcher?.close().catch(() => undefined)
         clearTimeout(timeout)
@@ -270,6 +300,14 @@ export function fetchIndexerText(
       })
     },
   })
+}
+
+export function fetchIndexerText(
+  url: URL,
+  config: IndexerConfig,
+  init: RequestInit = {},
+): Effect.Effect<string, IndexerError> {
+  return fetchIndexerResponseText(url, config, init).pipe(Effect.map((response) => response.text))
 }
 
 export function fetchIndexerXml(

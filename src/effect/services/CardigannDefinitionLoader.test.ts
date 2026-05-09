@@ -510,6 +510,57 @@ search:
     expect(runtime.search.paths[0]?.headers).toEqual({ "X-Requested-With": "XMLHttpRequest" })
   })
 
+  it("parses Cardigann login request runtime metadata", () => {
+    const runtime = parseCardigannRuntimeDefinitionYaml(`
+id: login-cardigann
+name: Login Cardigann
+links:
+  - https://tracker.example
+settings:
+  - name: username
+    label: Username
+  - name: password
+    label: Password
+    type: password
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+login:
+  inputs:
+    username: "{{ .Config.Username }}"
+    password: "{{ .Config.Password }}"
+  headers:
+    X-Login: "1"
+  paths:
+    - path: /login
+      method: post
+      inputs:
+        remember: true
+      headers:
+        X-Requested-With: XMLHttpRequest
+search:
+  paths:
+    - path: /api
+`)
+
+    expect(runtime.login).toEqual({
+      inputs: {
+        username: "{{ .Config.Username }}",
+        password: "{{ .Config.Password }}",
+      },
+      headers: { "X-Login": "1" },
+      paths: [
+        {
+          path: "/login",
+          method: "post",
+          inputs: { remember: "true" },
+          headers: { "X-Requested-With": "XMLHttpRequest" },
+        },
+      ],
+    })
+  })
+
   it("exposes built-in runtime definitions by key", () => {
     const runtime = getBuiltInCardigannRuntimeDefinition("public-domain-movie-torrents")
     expect(runtime?.search.paths[0]).toMatchObject({

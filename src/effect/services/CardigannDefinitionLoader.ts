@@ -24,6 +24,13 @@ export interface CardigannSearchPath {
   readonly responseType: CardigannResponseType
 }
 
+export interface CardigannLoginPath {
+  readonly path: string
+  readonly method: "get" | "post"
+  readonly inputs: Readonly<Record<string, string>>
+  readonly headers: Readonly<Record<string, string>>
+}
+
 export interface CardigannFilter {
   readonly name: string
   readonly args: ReadonlyArray<string>
@@ -52,6 +59,12 @@ export interface CardigannSearchRuntime {
   readonly paths: ReadonlyArray<CardigannSearchPath>
 }
 
+export interface CardigannLoginRuntime {
+  readonly inputs: Readonly<Record<string, string>>
+  readonly headers: Readonly<Record<string, string>>
+  readonly paths: ReadonlyArray<CardigannLoginPath>
+}
+
 export interface CardigannRuntimeDefinition {
   readonly definitionKey: string
   readonly displayName: string
@@ -60,6 +73,7 @@ export interface CardigannRuntimeDefinition {
   readonly authFields: ReadonlyArray<IndexerAuthField>
   readonly categories: ReadonlyArray<IndexerCategoryMapping>
   readonly capabilities: IndexerCapabilities
+  readonly login: CardigannLoginRuntime | null
   readonly search: CardigannSearchRuntime
 }
 
@@ -425,6 +439,7 @@ export function parseCardigannRuntimeDefinitionYaml(source: string): CardigannRu
     authFields: seed.authFields,
     categories: seed.categories,
     capabilities: seed.capabilities,
+    login: parseLoginRuntime(root.login),
     search: parseSearchRuntime(root, seed.protocol),
   }
 }
@@ -456,6 +471,41 @@ function parseSearchRuntime(
     fields: parseFields(search.fields),
     paths,
   }
+}
+
+function parseLoginRuntime(value: unknown): CardigannLoginRuntime | null {
+  if (value === undefined) return null
+  const login = expectRecord(value, "login")
+  return {
+    inputs: parseInputMap(login.inputs),
+    headers: parseHeaderMap(login.headers),
+    paths: parseLoginPaths(login.paths ?? login.path, login),
+  }
+}
+
+function parseLoginPaths(
+  value: unknown,
+  login: Record<string, unknown>,
+): ReadonlyArray<CardigannLoginPath> {
+  const pathValues =
+    typeof value === "string"
+      ? [{ path: value }]
+      : Array.isArray(value)
+        ? value
+        : isRecord(value)
+          ? [value]
+          : []
+  const defaultMethod = optionalString(login, "method") ?? "get"
+
+  return pathValues.map((item) => {
+    const path = typeof item === "string" ? { path: item } : expectRecord(item, "login path")
+    return {
+      path: requiredString(path, "path"),
+      method: parseMethod(optionalString(path, "method") ?? defaultMethod),
+      inputs: parseInputMap(path.inputs),
+      headers: parseHeaderMap(path.headers),
+    }
+  })
 }
 
 function parseRows(value: unknown): CardigannRowsSelector | null {

@@ -320,6 +320,89 @@ search:
     expect(releases[0]?.title).toBe("Example Movie 2026 1080p WEB-DL")
   })
 
+  it("executes Cardigann login requests and reuses session cookies for search", async () => {
+    const requests: Array<{ url: string; init: RequestInit | undefined }> = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      requests.push({ url, init })
+      if (new URL(url).pathname === "/login") {
+        return new Response("ok", {
+          status: 200,
+          headers: { "set-cookie": "session=abc123; Path=/; HttpOnly" },
+        })
+      }
+      return new Response(RSS_XML, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 25,
+      name: "Login Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "login-cardigann",
+      definitionYaml: `
+id: login-cardigann
+name: Login Cardigann
+links:
+  - https://tracker.example
+settings:
+  - name: username
+    label: Username
+  - name: password
+    label: Password
+    type: password
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+  modes:
+    movie-search: [q]
+login:
+  path: /login
+  method: post
+  inputs:
+    username: "{{ .Config.Username }}"
+    password: "{{ .Config.Password }}"
+search:
+  paths:
+    - path: /api
+      response:
+        type: torznab
+      inputs:
+        q: "{{ .Keywords }}"
+`,
+      baseUrl: "https://tracker.example/root",
+      apiKey: "",
+      configValues: {
+        username: "alice",
+        password: "secret",
+      },
+      priority: 15,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Session Movie", type: "movie", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    const login = requests[0]
+    const search = requests[1]
+    expect(new URL(login?.url ?? "").pathname).toBe("/login")
+    expect(login?.init?.method).toBe("POST")
+    const loginBody = new URLSearchParams(String(login?.init?.body))
+    expect(loginBody.get("username")).toBe("alice")
+    expect(loginBody.get("password")).toBe("secret")
+
+    expect(new URL(search?.url ?? "").pathname).toBe("/api")
+    const searchHeaders = new Headers(search?.init?.headers)
+    expect(searchHeaders.get("cookie")).toBe("session=abc123")
+    expect(new URL(search?.url ?? "").searchParams.get("q")).toBe("Session Movie")
+    expect(releases[0]?.title).toBe("Example Movie 2026 1080p WEB-DL")
+  })
+
   it("applies Cardigann template filters to paths, raw params, and headers", async () => {
     let requestUrl: string | undefined
     let requestInit: RequestInit | undefined

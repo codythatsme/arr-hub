@@ -20,6 +20,7 @@ import {
 import type { IndexerAdapter } from "./IndexerAdapter"
 import {
   checkTorznabError,
+  fetchIndexerResponseText,
   fetchIndexerText,
   fetchIndexerXml,
   parseTorznabReleases,
@@ -44,6 +45,11 @@ interface CardigannSearchRequest {
   readonly init: RequestInit
   readonly responseType: CardigannResponseType
   readonly variables: Record<string, TemplateValue>
+}
+
+interface CardigannLoginRequest {
+  readonly url: URL
+  readonly init: RequestInit
 }
 
 interface HtmlElementMatch {
@@ -929,6 +935,112 @@ function parseHtmlReleases(
   })
 }
 
+function splitSetCookieHeader(value: string): ReadonlyArray<string> {
+  return value
+    .split(/,(?=\s*[^;,=\s]+=)/)
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0)
+}
+
+function setCookieHeaderValues(headers: Headers): ReadonlyArray<string> {
+  const withGetter = headers as Headers & { getSetCookie?: () => Array<string> }
+  if (typeof withGetter.getSetCookie === "function") return withGetter.getSetCookie()
+
+  const header = headers.get("set-cookie")
+  return header ? splitSetCookieHeader(header) : []
+}
+
+function cookiePairsFromHeaders(headers: Headers): ReadonlyArray<string> {
+  return setCookieHeaderValues(headers)
+    .map((cookie) => cookie.split(";", 1)[0]?.trim() ?? "")
+    .filter((cookie) => cookie.length > 0 && cookie.includes("="))
+}
+
+function addCookiePair(jar: Map<string, string>, cookie: string): void {
+  const separator = cookie.indexOf("=")
+  if (separator <= 0) return
+  const name = cookie.slice(0, separator).trim()
+  if (name.length > 0) jar.set(name, cookie)
+}
+
+function cookieJarValues(jar: ReadonlyMap<string, string>): ReadonlyArray<string> {
+  return Array.from(jar.values())
+}
+
+function withCookieHeader(init: RequestInit, cookies: ReadonlyArray<string>): RequestInit {
+  if (cookies.length === 0) return init
+
+  const headers = new Headers(init.headers)
+  const existingCookie = headers.get("cookie")
+  const cookieHeader =
+    existingCookie && existingCookie.trim().length > 0
+      ? `${existingCookie}; ${cookies.join("; ")}`
+      : cookies.join("; ")
+  headers.set("cookie", cookieHeader)
+  return { ...init, headers }
+}
+
+function resolveLoginRequests(
+  config: IndexerConfig,
+  definition: CardigannRuntimeDefinition,
+  baseUrl: string,
+): ReadonlyArray<CardigannLoginRequest> {
+  if (definition.login === null) return []
+
+  const variables = configTemplateVariables(config, baseUrl, definition.authFields)
+  const requests: Array<CardigannLoginRequest> = []
+  for (const path of definition.login.paths) {
+    const url = new URL(
+      renderTemplate(path.path, variables),
+      baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`,
+    )
+    const targetParams = path.method === "get" ? url.searchParams : new URLSearchParams()
+    const headers = new Headers()
+    appendInputs(targetParams, definition.login.inputs, variables, false)
+    appendInputs(targetParams, path.inputs, variables, false)
+    appendHeaders(headers, definition.login.headers, variables, false)
+    appendHeaders(headers, path.headers, variables, false)
+
+    const init: RequestInit = {}
+    if (path.method === "post") {
+      init.method = "POST"
+      init.body = targetParams
+      if (!headers.has("content-type")) {
+        headers.set("content-type", "application/x-www-form-urlencoded")
+      }
+    }
+    if (Array.from(headers).length > 0) init.headers = headers
+    requests.push({ url, init })
+  }
+
+  return requests
+}
+
+function executeLoginRequests(
+  config: IndexerConfig,
+  definition: CardigannRuntimeDefinition,
+  baseUrl: string,
+): Effect.Effect<ReadonlyArray<string>, IndexerError> {
+  const requests = resolveLoginRequests(config, definition, baseUrl)
+  if (requests.length === 0) return Effect.succeed([])
+
+  return Effect.gen(function* () {
+    const cookieJar = new Map<string, string>()
+    for (const request of requests) {
+      const response = yield* fetchIndexerResponseText(
+        request.url,
+        config,
+        withCookieHeader(request.init, cookieJarValues(cookieJar)),
+      )
+      for (const cookie of cookiePairsFromHeaders(response.headers)) {
+        addCookiePair(cookieJar, cookie)
+      }
+    }
+
+    return cookieJarValues(cookieJar)
+  })
+}
+
 function resolveSearchRequests(
   config: IndexerConfig,
   definition: CardigannRuntimeDefinition,
@@ -1019,11 +1131,22 @@ export function createCardigannYamlAdapter(config: IndexerConfig): IndexerAdapte
     search: (query) =>
       Effect.gen(function* () {
         const definition = yield* loadRuntimeDefinition(config)
+        const baseUrl = config.baseUrl || definition.baseUrl
+        if (!baseUrl) return []
+
         const requests = resolveSearchRequests(config, definition, query)
         if (requests.length === 0) return []
+        const loginCookies = yield* executeLoginRequests(config, definition, baseUrl)
+        const authenticatedRequests =
+          loginCookies.length > 0
+            ? requests.map((request) => ({
+                ...request,
+                init: withCookieHeader(request.init, loginCookies),
+              }))
+            : requests
 
         const results = yield* Effect.forEach(
-          requests,
+          authenticatedRequests,
           (request) =>
             Effect.gen(function* () {
               if (request.responseType === "html") {
