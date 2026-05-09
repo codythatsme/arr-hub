@@ -22,6 +22,7 @@ export interface CardigannSearchPath {
   readonly headers: Readonly<Record<string, string>>
   readonly categories: ReadonlyArray<string>
   readonly responseType: CardigannResponseType
+  readonly noResultsMessage?: string
 }
 
 export interface CardigannLoginPath {
@@ -700,7 +701,20 @@ function parseSearchPaths(
   return pathValues.map((item) => {
     const path = typeof item === "string" ? { path: item } : expectRecord(item, "search path")
     const response = isRecord(path.response) ? path.response : {}
-    return {
+    const noResultsMessage = optionalScalarStringFromAnyAllowEmpty(response, [
+      "noresultsmessage",
+      "noResultsMessage",
+    ])
+    const searchPath: {
+      path: string
+      method: "get" | "post"
+      inheritInputs: boolean
+      inputs: Readonly<Record<string, string>>
+      headers: Readonly<Record<string, string>>
+      categories: ReadonlyArray<string>
+      responseType: CardigannResponseType
+      noResultsMessage?: string
+    } = {
       path: requiredString(path, "path"),
       method: parseMethod(optionalString(path, "method") ?? "get"),
       inheritInputs:
@@ -710,6 +724,8 @@ function parseSearchPaths(
       categories: parseOptionalStringArray(path.categories),
       responseType: parseResponseType(optionalString(response, "type") ?? fallbackResponseType),
     }
+    if (noResultsMessage !== null) searchPath.noResultsMessage = noResultsMessage
+    return searchPath
   })
 }
 
@@ -1058,6 +1074,18 @@ function optionalScalarStringFromAny(
     if (value === undefined || value === null) continue
     const text = inputScalarToString(value, key).trim()
     if (text.length > 0) return text
+  }
+  return null
+}
+
+function optionalScalarStringFromAnyAllowEmpty(
+  record: Record<string, unknown>,
+  keys: ReadonlyArray<string>,
+): string | null {
+  for (const key of keys) {
+    const value = record[key]
+    if (value === undefined || value === null) continue
+    return inputScalarToString(value, key).trim()
   }
   return null
 }

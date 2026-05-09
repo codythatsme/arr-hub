@@ -46,6 +46,7 @@ interface CardigannSearchRequest {
   readonly url: URL
   readonly init: RequestInit
   readonly responseType: CardigannResponseType
+  readonly noResultsMessage?: string
   readonly variables: Record<string, TemplateValue>
 }
 
@@ -1185,6 +1186,11 @@ function applyCardigannPreprocessingFilters(
   variables: Record<string, TemplateValue>,
 ): string {
   return applyCardigannFieldFilters(text, definition.search.preprocessingFilters, variables)
+}
+
+function matchesNoResultsMessage(text: string, noResultsMessage: string | undefined): boolean {
+  if (noResultsMessage === undefined) return false
+  return noResultsMessage.length > 0 ? text.includes(noResultsMessage) : text.trim().length === 0
 }
 
 function simpleSelectorTokens(selector: string): ReadonlyArray<string> {
@@ -2454,6 +2460,7 @@ function resolveSearchRequests(
       url,
       init,
       responseType: path.responseType,
+      ...(path.noResultsMessage !== undefined ? { noResultsMessage: path.noResultsMessage } : {}),
       variables: pathVariables,
     })
   }
@@ -2497,6 +2504,7 @@ export function createCardigannYamlAdapter(config: IndexerConfig): IndexerAdapte
                   definition,
                   request.variables,
                 )
+                if (matchesNoResultsMessage(responseText, request.noResultsMessage)) return []
                 const loginTestMessage =
                   request.responseType === "html"
                     ? loginTestFailureMessage(responseText, definition.login)
@@ -2538,6 +2546,7 @@ export function createCardigannYamlAdapter(config: IndexerConfig): IndexerAdapte
                 definition,
                 request.variables,
               )
+              if (matchesNoResultsMessage(responseText, request.noResultsMessage)) return []
               const parsed = yield* parseIndexerXmlText(responseText, config)
               yield* checkTorznabError(parsed, config)
               return parseTorznabReleases(parsed, {

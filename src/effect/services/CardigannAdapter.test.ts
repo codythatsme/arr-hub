@@ -501,6 +501,53 @@ search:
     })
   })
 
+  it("returns no releases for Cardigann response no-results messages", async () => {
+    const fetchMock = vi.fn(async () => new Response("NO JSON RESULTS", { status: 200 }))
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 60,
+      name: "No Results JSON Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "no-results-json-cardigann",
+      definitionYaml: `
+id: no-results-json-cardigann
+name: No Results JSON Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings: []
+  modes:
+    search: [q]
+search:
+  paths:
+    - path: /api/no-results
+      response:
+        type: json
+        noResultsMessage: NO JSON RESULTS
+      inputs:
+        q: "{{ .Keywords }}"
+  rows:
+    selector: $.data.results
+  fields:
+    title:
+      selector: title
+`,
+      baseUrl: "https://tracker.example",
+      apiKey: "",
+      priority: 20,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Missing Movie", type: "general", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(releases).toEqual([])
+  })
+
   it("returns definition capabilities without a network request when testing connection", async () => {
     const fetchMock = vi.fn()
     vi.stubGlobal("fetch", fetchMock)

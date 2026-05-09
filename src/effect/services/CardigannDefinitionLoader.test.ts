@@ -441,6 +441,7 @@ search:
       inheritinputs: false
       response:
         type: torznab
+        noresultsmessage: No results found
       inputs:
         t: search
         q: "{{ .Keywords }}"
@@ -466,6 +467,7 @@ search:
           headers: {},
           categories: ["movies"],
           responseType: "torznab",
+          noResultsMessage: "No results found",
         },
       ],
     })
