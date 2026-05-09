@@ -378,6 +378,77 @@ search:
     expect(url.searchParams.get("falseFallback")).toBe("fallback")
   })
 
+  it("renders Cardigann conditional and function templates", async () => {
+    let requestUrl: string | undefined
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      requestUrl = String(input)
+      return new Response(RSS_XML, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 20,
+      name: "Logic Template Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "logic-template-cardigann",
+      definitionYaml: `
+id: logic-template-cardigann
+name: Logic Template Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+  modes:
+    movie-search: [q, imdbid]
+search:
+  paths:
+    - path: /search
+      response:
+        type: torznab
+      inputs:
+        q: '{{ if .Keywords }}{{ .Keywords }}{{ else }}empty{{ end }}'
+        short: '{{ if .Query.IMDBID }}{{ .Query.IMDBIDShort }}{{ end }}'
+        season: '{{ if .Query.Season }}{{ .Query.Season }}{{ end }}'
+        kind: '{{ if eq .Query.Type "movie" }}film{{ else }}other{{ end }}'
+        auth: '{{ if and .Config.APIKey .Query.IMDBID }}yes{{ else }}no{{ end }}'
+        fallback: '{{ if or .Config.Missing .Query.TMDBID }}has-id{{ else }}none{{ end }}'
+        notTv: '{{ if ne .Query.Type "tvsearch" }}yes{{ else }}no{{ end }}'
+        replace: '{{ re_replace .Keywords "\\s+" "+" }}'
+        cats: '{{ join .Categories "," }}'
+`,
+      baseUrl: "https://tracker.example/root",
+      apiKey: "api-key",
+      priority: 15,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    await Effect.runPromise(
+      adapter.search({
+        term: "Logic Movie",
+        type: "movie",
+        categories: [2000],
+        imdbId: "tt1234567",
+      }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const url = new URL(requestUrl ?? "")
+    expect(url.pathname).toBe("/search")
+    expect(url.searchParams.get("q")).toBe("Logic Movie")
+    expect(url.searchParams.get("short")).toBe("1234567")
+    expect(url.searchParams.has("season")).toBe(false)
+    expect(url.searchParams.get("kind")).toBe("film")
+    expect(url.searchParams.get("auth")).toBe("yes")
+    expect(url.searchParams.get("fallback")).toBe("none")
+    expect(url.searchParams.get("notTv")).toBe("yes")
+    expect(url.searchParams.get("replace")).toBe("Logic+Movie")
+    expect(url.searchParams.get("cats")).toBe("movies")
+  })
+
   it("narrows Cardigann Categories for each matching path", async () => {
     const requestUrls: Array<string> = []
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {

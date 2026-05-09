@@ -258,6 +258,119 @@ function applyTemplateFilter(
   }
 }
 
+function normalizeTemplateReference(value: string): string {
+  const trimmed = value.trim()
+  if (trimmed.startsWith("(") && trimmed.endsWith(")")) return trimmed.slice(1, -1).trim()
+  return trimmed
+}
+
+function templateValueTruthy(value: TemplateValue | undefined): boolean {
+  if (typeof value === "string") return value.trim().length > 0
+  return Array.isArray(value) && value.length > 0
+}
+
+function templateTokenValue(
+  token: string,
+  variables: Record<string, TemplateValue>,
+): TemplateValue {
+  const reference = normalizeTemplateReference(token)
+  if (reference.startsWith(".")) return variables[reference] ?? ""
+  return reference
+}
+
+function applyTemplateFunction(
+  name: string,
+  args: ReadonlyArray<string>,
+  variables: Record<string, TemplateValue>,
+): TemplateValue | null {
+  switch (name) {
+    case "and": {
+      let result: TemplateValue = ""
+      for (const arg of args) {
+        result = templateTokenValue(arg, variables)
+        if (!templateValueTruthy(result)) return result
+      }
+      return result
+    }
+    case "eq": {
+      const left = templateValueToString(templateTokenValue(args[0] ?? "", variables))
+      const right = templateValueToString(templateTokenValue(args[1] ?? "", variables))
+      return left === right ? (variables[".True"] ?? "True") : (variables[".False"] ?? "")
+    }
+    case "join": {
+      const value = templateTokenValue(args[0] ?? "", variables)
+      const separator = args[1] ?? ","
+      return Array.isArray(value) ? value.join(separator) : templateValueToString(value)
+    }
+    case "ne": {
+      const left = templateValueToString(templateTokenValue(args[0] ?? "", variables))
+      const right = templateValueToString(templateTokenValue(args[1] ?? "", variables))
+      return left !== right ? (variables[".True"] ?? "True") : (variables[".False"] ?? "")
+    }
+    case "or": {
+      let result: TemplateValue = ""
+      for (const arg of args) {
+        result = templateTokenValue(arg, variables)
+        if (templateValueTruthy(result)) return result
+      }
+      return result
+    }
+    case "re_replace": {
+      const value = templateValueToString(templateTokenValue(args[0] ?? "", variables))
+      const pattern = args[1]
+      if (!pattern) return value
+
+      try {
+        return value.replace(new RegExp(pattern, "g"), args[2] ?? "")
+      } catch {
+        return value
+      }
+    }
+    default:
+      return null
+  }
+}
+
+function templateExpressionValue(
+  expression: string,
+  variables: Record<string, TemplateValue>,
+): TemplateValue {
+  const [key = "", ...filters] = splitTemplatePipeline(expression)
+  const call = parseFilterCall(key)
+  let value =
+    applyTemplateFunction(call.name, call.args, variables) ?? templateTokenValue(key, variables)
+
+  for (const filterExpression of filters) {
+    const filter = parseFilterCall(filterExpression)
+    value = applyTemplateFilter(value, filter.name, filter.args)
+  }
+
+  return value
+}
+
+function renderConditionalTemplates(
+  template: string,
+  variables: Record<string, TemplateValue>,
+): string {
+  const ifElsePattern =
+    /\{\{\s*if\s+([^}]+?)\s*\}\}([\S\s]*?)\{\{\s*else\s*\}\}([\S\s]*?)\{\{\s*end\s*\}\}/g
+  const ifPattern = /\{\{\s*if\s+([^}]+?)\s*\}\}([\S\s]*?)\{\{\s*end\s*\}\}/g
+
+  let rendered = template
+  let previous = ""
+  while (rendered !== previous) {
+    previous = rendered
+    rendered = rendered
+      .replaceAll(ifElsePattern, (_match, condition: string, onTrue: string, onFalse: string) =>
+        templateValueTruthy(templateExpressionValue(condition, variables)) ? onTrue : onFalse,
+      )
+      .replaceAll(ifPattern, (_match, condition: string, onTrue: string) =>
+        templateValueTruthy(templateExpressionValue(condition, variables)) ? onTrue : "",
+      )
+  }
+  return rendered
+}
+
 function renderRangeTemplates(template: string, variables: Record<string, TemplateValue>): string {
   return template.replaceAll(
     /\{\{\s*range\s+(?:(\$\w+)\s*,\s*\$\w+\s*:=\s*)?(\.[^}\s]+)\s*\}\}([\S\s]*?)\{\{\s*end\s*\}\}/g,
@@ -282,16 +395,10 @@ function renderRangeTemplates(template: string, variables: Record<string, Templa
 }
 
 function renderTemplate(template: string, variables: Record<string, TemplateValue>): string {
-  return renderRangeTemplates(template, variables).replace(
+  return renderConditionalTemplates(renderRangeTemplates(template, variables), variables).replace(
     /\{\{\s*([^}]+?)\s*\}\}/g,
     (_match, expression: string) => {
-      const [key = "", ...filters] = splitTemplatePipeline(expression)
-      let value = variables[key.trim()]
-      for (const filterExpression of filters) {
-        const filter = parseFilterCall(filterExpression)
-        value = applyTemplateFilter(value, filter.name, filter.args)
-      }
-      return templateValueToString(value)
+      return templateValueToString(templateExpressionValue(expression, variables))
     },
   )
 }
