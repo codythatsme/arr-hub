@@ -168,6 +168,18 @@ describe("TitleParserService", () => {
     }).pipe(Effect.provide(TestLayer)),
   )
 
+  it.effect("parses anime absolute episode before quality tokens", () =>
+    Effect.gen(function* () {
+      const svc = yield* TitleParserService
+      const p = yield* svc.parse("Anime.Show.012.1080p.WEB-DL.x264-GRP")
+      expect(p.title).toBe("Anime Show")
+      expect(p.absoluteEpisode).toBe(12)
+      expect(p.season).toBeNull()
+      expect(p.episode).toBeNull()
+      expect(p.qualityName).toBe("WEBDL1080p")
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
   // ── Quality resolution combos ──
 
   it.effect("SDTV (no resolution + tv source)", () =>

@@ -186,6 +186,114 @@ describe("ReleasePolicyEngine", () => {
     }).pipe(Effect.provide(TestLayer)),
   )
 
+  it.effect("accepts absolute episode releases for anime-style numbering", () =>
+    Effect.gen(function* () {
+      const profileId = yield* setupProfile()
+      const db = yield* Db
+      const [show] = yield* db
+        .insert(series)
+        .values({ tvdbId: 2002, title: "Anime Show", qualityProfileId: profileId })
+        .returning({ id: series.id })
+      const [season] = yield* db
+        .insert(seasons)
+        .values({ seriesId: show.id, seasonNumber: 1 })
+        .returning({ id: seasons.id })
+      const [episode] = yield* db
+        .insert(episodes)
+        .values({
+          seasonId: season.id,
+          tvdbId: 2201,
+          title: "Absolute",
+          episodeNumber: 12,
+          absoluteEpisodeNumber: 12,
+        })
+        .returning({ id: episodes.id })
+
+      const engine = yield* ReleasePolicyEngine
+      const results = yield* engine.evaluate(
+        [makeCandidate({ title: "Anime.Show.012.1080p.WEB-DL.x264-GRP" })],
+        profileId,
+        { mediaId: episode.id, mediaType: "episode" },
+      )
+
+      expect(results).toHaveLength(1)
+      expect(results[0].decision).toBe("accepted")
+      expect(results[0].parsed?.absoluteEpisode).toBe(12)
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("rejects unaired episodes and multi-episode single searches", () =>
+    Effect.gen(function* () {
+      const profileId = yield* setupProfile()
+      const db = yield* Db
+      const [show] = yield* db
+        .insert(series)
+        .values({ tvdbId: 2003, title: "Test Show", qualityProfileId: profileId })
+        .returning({ id: series.id })
+      const [season] = yield* db
+        .insert(seasons)
+        .values({ seriesId: show.id, seasonNumber: 1 })
+        .returning({ id: seasons.id })
+      const [futureEpisode] = yield* db
+        .insert(episodes)
+        .values({
+          seasonId: season.id,
+          tvdbId: 2301,
+          title: "Future",
+          episodeNumber: 1,
+          airDate: new Date(Date.now() + 86_400_000),
+        })
+        .returning({ id: episodes.id })
+      const [episode] = yield* db
+        .insert(episodes)
+        .values({ seasonId: season.id, tvdbId: 2302, title: "Pilot", episodeNumber: 2 })
+        .returning({ id: episodes.id })
+
+      const engine = yield* ReleasePolicyEngine
+      const unaired = yield* engine.evaluate(
+        [makeCandidate({ title: "Test.Show.S01E01.1080p.WEB-DL.x264-GRP" })],
+        profileId,
+        { mediaId: futureEpisode.id, mediaType: "episode" },
+      )
+      const multi = yield* engine.evaluate(
+        [makeCandidate({ title: "Test.Show.S01E02E03.1080p.WEB-DL.x264-GRP" })],
+        profileId,
+        { mediaId: episode.id, mediaType: "episode" },
+      )
+
+      expect(unaired[0].decision).toBe("rejected")
+      expect(unaired[0].reasons[0].rule).toBe("episode_not_aired")
+      expect(multi[0].decision).toBe("rejected")
+      expect(multi[0].reasons[0].rule).toBe("multi_episode_release")
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("rejects multi-season packs for a single season search", () =>
+    Effect.gen(function* () {
+      const profileId = yield* setupProfile()
+      const db = yield* Db
+      const [show] = yield* db
+        .insert(series)
+        .values({ tvdbId: 2004, title: "Test Show", qualityProfileId: profileId })
+        .returning({ id: series.id })
+      const [season] = yield* db
+        .insert(seasons)
+        .values({ seriesId: show.id, seasonNumber: 1 })
+        .returning({ id: seasons.id })
+
+      const engine = yield* ReleasePolicyEngine
+      const results = yield* engine.evaluate(
+        [makeCandidate({ title: "Test.Show.S01-S02.1080p.WEB-DL.x264-GRP" })],
+        profileId,
+        { mediaId: season.id, mediaType: "season" },
+      )
+
+      expect(results).toHaveLength(1)
+      expect(results[0].decision).toBe("rejected")
+      expect(results[0].reasons[0].rule).toBe("multi_season_pack")
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
   it.effect("rejects torrent releases with no seeders", () =>
     Effect.gen(function* () {
       const profileId = yield* setupProfile()

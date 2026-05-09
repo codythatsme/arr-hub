@@ -164,6 +164,8 @@ function loadReleaseTarget(
             year: row.year,
             seasonNumber: null,
             episodeNumber: null,
+            absoluteEpisodeNumber: null,
+            airDate: null,
             seriesId: null,
             rootFolderPath: row.rootFolderPath,
           }
@@ -181,6 +183,8 @@ function loadReleaseTarget(
           rootFolderPath: series.rootFolderPath,
           seasonNumber: seasons.seasonNumber,
           episodeNumber: episodes.episodeNumber,
+          absoluteEpisodeNumber: episodes.absoluteEpisodeNumber,
+          airDate: episodes.airDate,
         })
         .from(episodes)
         .innerJoin(seasons, eq(episodes.seasonId, seasons.id))
@@ -205,7 +209,7 @@ function loadReleaseTarget(
       .where(eq(seasons.id, context.mediaId))
       .limit(1)
     const row = rows[0]
-    return row ? { ...row, episodeNumber: null } : null
+    return row ? { ...row, episodeNumber: null, absoluteEpisodeNumber: null, airDate: null } : null
   })
 }
 

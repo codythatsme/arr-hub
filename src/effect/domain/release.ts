@@ -8,6 +8,7 @@ export interface ParsedTitle {
   readonly year: number | null
   readonly season: number | null
   readonly episode: number | null
+  readonly absoluteEpisode: number | null
   readonly resolution: number | null
   readonly source: QualitySource | null
   readonly modifier: QualityModifier | null

@@ -12,6 +12,8 @@ export interface ReleaseTarget {
   readonly year: number | null
   readonly seasonNumber: number | null
   readonly episodeNumber: number | null
+  readonly absoluteEpisodeNumber: number | null
+  readonly airDate: Date | null
   readonly seriesId: number | null
   readonly rootFolderPath: string | null
 }
@@ -46,6 +48,10 @@ const HARDCODED_SUBTITLES_RE =
   /(?:^|[.\-_\s])(?:hc|hardcoded)[.\-_\s]*(?:subs?|subtitles?)(?:[.\-_\s]|$)/i
 const RAW_DISK_RE =
   /(?:^|[.\-_\s])(?:bdmv|video_ts|br[.\-_\s]?disk|bd[.\-_\s]?disk|dvd[.\-_\s]?r|rawhd)(?:[.\-_\s]|$)/i
+const MULTI_SEASON_RE =
+  /(?:^|[.\-_\s])S(\d{1,2})(?:[.\-_\s]*(?:-|to)[.\-_\s]*S?(\d{1,2}))(?:[.\-_\s]|$)/i
+const MULTI_EPISODE_RE = /S\d{1,2}E\d{1,3}(?:[.\-_\s]?E\d{1,3})+/i
+const SPLIT_EPISODE_RE = /(?:^|[.\-_\s])(?:part|pt)[.\-_\s]*\d+(?:[.\-_\s]|$)/i
 
 function normalizeTitle(value: string): string {
   return value
@@ -76,6 +82,10 @@ function releaseContainsTerm(title: string, term: string): boolean {
   return normalizedTitle.includes(term.toLowerCase())
 }
 
+function isFutureDate(value: Date): boolean {
+  return value.getTime() > Date.now()
+}
+
 function titleAndEpisodeSpecification(ctx: SpecificationContext): DecisionReason | null {
   if (ctx.target === null) return null
 
@@ -96,8 +106,28 @@ function titleAndEpisodeSpecification(ctx: SpecificationContext): DecisionReason
   }
 
   if (ctx.evaluation.mediaType === "episode") {
-    if (ctx.parsed.season === null || ctx.parsed.episode === null) {
-      return reject("episode_required", "episode search result did not include season and episode")
+    if (ctx.target.airDate !== null && isFutureDate(ctx.target.airDate)) {
+      return reject("episode_not_aired", "episode has not aired yet")
+    }
+
+    const hasSeasonEpisode = ctx.parsed.season !== null && ctx.parsed.episode !== null
+    const hasMatchingAbsolute =
+      ctx.target.absoluteEpisodeNumber !== null &&
+      ctx.parsed.absoluteEpisode !== null &&
+      ctx.parsed.absoluteEpisode === ctx.target.absoluteEpisodeNumber
+
+    if (!hasSeasonEpisode) {
+      if (hasMatchingAbsolute) return null
+      if (ctx.target.absoluteEpisodeNumber !== null && ctx.parsed.absoluteEpisode !== null) {
+        return reject(
+          "absolute_episode_mismatch",
+          `release absolute episode ${ctx.parsed.absoluteEpisode} != ${ctx.target.absoluteEpisodeNumber}`,
+        )
+      }
+      return reject(
+        "episode_required",
+        "episode search result did not include season/episode or matching absolute episode",
+      )
     }
     if (ctx.target.seasonNumber !== null && ctx.parsed.season !== ctx.target.seasonNumber) {
       return reject(
@@ -123,6 +153,29 @@ function titleAndEpisodeSpecification(ctx: SpecificationContext): DecisionReason
     if (!isSeasonPack(ctx.parsed)) {
       return reject("season_pack_required", "season search result was not a full season pack")
     }
+  }
+
+  return null
+}
+
+function tvEdgeSpecification(ctx: SpecificationContext): DecisionReason | null {
+  if (ctx.evaluation.mediaType === "episode") {
+    if (MULTI_EPISODE_RE.test(ctx.candidate.title)) {
+      return reject(
+        "multi_episode_release",
+        "single episode search result contains multiple episodes",
+      )
+    }
+    if (SPLIT_EPISODE_RE.test(ctx.candidate.title)) {
+      return reject(
+        "split_episode_release",
+        "single episode search result appears to be a split episode",
+      )
+    }
+  }
+
+  if (ctx.evaluation.mediaType === "season" && MULTI_SEASON_RE.test(ctx.candidate.title)) {
+    return reject("multi_season_pack", "season search result contains multiple seasons")
   }
 
   return null
@@ -268,6 +321,7 @@ function freeSpaceSpecification(ctx: SpecificationContext): DecisionReason | nul
 
 const RELEASE_SPECIFICATIONS = [
   titleAndEpisodeSpecification,
+  tvEdgeSpecification,
   sizeSpecification,
   protocolSpecification,
   ageAndRetentionSpecification,

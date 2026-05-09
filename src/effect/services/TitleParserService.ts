@@ -9,6 +9,8 @@ import { ParseFailed } from "#/effect/errors"
 const SEASON_EPISODE = /S(\d{1,2})E(\d{1,3})/i
 const SEASON_EPISODE_ALT = /(\d{1,2})x(\d{2,3})/i
 const SEASON_ONLY = /(?:^|[.\-_ ])(?:Season[.\-_ ]?(\d{1,2})|S(\d{1,2}))(?![.\-_ ]?[Ex]\d)/i
+const ABSOLUTE_EPISODE_RE =
+  /(?:^|[.\-_ ])(?:-?[.\-_ ]?)(\d{1,3})(?=[.\-_ ]+(?:\d{3,4}p|web[-.]?dl|web[-.]?rip|hdtv|blu[-.]?ray))/i
 
 const YEAR_RE = /(?:^|[.\-_ (])((?:19|20)\d{2})(?=[.\-_ )]|$)/
 
@@ -65,6 +67,7 @@ function findFirstQualityTokenIndex(raw: string): number {
     SEASON_EPISODE,
     SEASON_EPISODE_ALT,
     SEASON_ONLY,
+    ABSOLUTE_EPISODE_RE,
   ]
 
   let earliest = raw.length
@@ -196,6 +199,9 @@ export const TitleParserServiceLive = Layer.succeed(TitleParserService, {
         }
       }
 
+      const absoluteMatch = ABSOLUTE_EPISODE_RE.exec(trimmed)
+      const absoluteEpisode = absoluteMatch ? parseInt(absoluteMatch[1], 10) : null
+
       // Year (avoid matching resolutions)
       let year: number | null = null
       const yearMatch = YEAR_RE.exec(trimmed)
@@ -258,6 +264,7 @@ export const TitleParserServiceLive = Layer.succeed(TitleParserService, {
         year,
         season,
         episode,
+        absoluteEpisode,
         resolution,
         source,
         modifier,
