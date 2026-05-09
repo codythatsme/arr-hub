@@ -107,6 +107,7 @@ caps:
       "hdbits",
       "pixelhd",
       "secret-cinema",
+      "filelist",
       "revolutiontt",
       "pretome",
       "morethantv",
@@ -847,6 +848,35 @@ caps:
         categories: expect.arrayContaining([
           { id: 2000, name: "Movies" },
           { id: 3000, name: "Music" },
+        ]),
+      },
+    })
+    expect(
+      BUILT_IN_CARDIGANN_DEFINITIONS.find((definition) => definition.definitionKey === "filelist"),
+    ).toMatchObject({
+      displayName: "FileList.io",
+      baseUrl: "https://filelist.io/",
+      privacy: "private",
+      supportsRss: false,
+      supportsSearch: true,
+      tags: ["private", "general", "movies", "tv", "music", "books", "json", "api"],
+      authFields: expect.arrayContaining([
+        expect.objectContaining({ name: "username", type: "text", required: true }),
+        expect.objectContaining({ name: "passkey", type: "password", required: true }),
+        expect.objectContaining({
+          name: "freeleechOnly",
+          type: "checkbox",
+          defaultValue: "false",
+        }),
+      ]),
+      capabilities: {
+        searchTypes: ["search", "movie", "tvsearch"],
+        categories: expect.arrayContaining([
+          { id: 2040, name: "Filme HD" },
+          { id: 3040, name: "FLAC" },
+          { id: 5040, name: "Seriale HD" },
+          { id: 7000, name: "Docs" },
+          { id: 5020, name: "K-Drama" },
         ]),
       },
     })

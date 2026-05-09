@@ -5392,6 +5392,223 @@ search:
       text: "{{ if .Result.neutralflag }}0{{ else }}1{{ end }}"
 `
 
+const FILELIST = `
+id: filelist
+name: FileList.io
+description: Romanian private general tracker exposed through a first-pass HTTP Basic-auth JSON Cardigann definition.
+type: private
+links:
+  - https://filelist.io/
+version: builtin-cardigann-1
+rss: false
+tags:
+  - private
+  - general
+  - movies
+  - tv
+  - music
+  - books
+  - json
+  - api
+settings:
+  - name: username
+    label: Username
+    type: text
+    required: true
+  - name: passkey
+    label: Passkey
+    type: password
+    required: true
+  - name: freeleechOnly
+    label: Freeleech only
+    type: checkbox
+    default: false
+    required: false
+caps:
+  categorymappings:
+    - id: "1"
+      cat: Movies/SD
+      desc: Filme SD
+      newznab: 2030
+    - id: "2"
+      cat: Movies/DVD
+      desc: Filme DVD
+      newznab: 2070
+    - id: "3"
+      cat: Movies/Foreign
+      desc: Filme DVD-RO
+      newznab: 2010
+    - id: "4"
+      cat: Movies/HD
+      desc: Filme HD
+      newznab: 2040
+    - id: "5"
+      cat: Audio/Lossless
+      desc: FLAC
+      newznab: 3040
+    - id: "6"
+      cat: Movies/UHD
+      desc: Filme 4K
+      newznab: 2045
+    - id: "7"
+      cat: XXX
+      desc: XXX
+      newznab: 6000
+    - id: "8"
+      cat: PC
+      desc: Programe
+      newznab: 4000
+    - id: "9"
+      cat: PC/Games
+      desc: Jocuri PC
+      newznab: 4050
+    - id: "10"
+      cat: Console
+      desc: Jocuri Console
+      newznab: 1000
+    - id: "11"
+      cat: Audio
+      desc: Audio
+      newznab: 3000
+    - id: "12"
+      cat: Audio/Video
+      desc: Videoclip
+      newznab: 3020
+    - id: "13"
+      cat: TV/Sport
+      desc: Sport
+      newznab: 5060
+    - id: "15"
+      cat: TV
+      desc: Desene
+      newznab: 5000
+    - id: "16"
+      cat: Books
+      desc: Docs
+      newznab: 7000
+    - id: "17"
+      cat: PC
+      desc: Linux
+      newznab: 4000
+    - id: "18"
+      cat: Other
+      desc: Diverse
+      newznab: 8000
+    - id: "19"
+      cat: Movies/Foreign
+      desc: Filme HD-RO
+      newznab: 2010
+    - id: "20"
+      cat: Movies/BluRay
+      desc: Filme Blu-Ray
+      newznab: 2050
+    - id: "21"
+      cat: TV/HD
+      desc: Seriale HD
+      newznab: 5040
+    - id: "22"
+      cat: PC/Phone-Other
+      desc: Mobile
+      newznab: 4040
+    - id: "23"
+      cat: TV/SD
+      desc: Seriale SD
+      newznab: 5030
+    - id: "24"
+      cat: TV/Anime
+      desc: Anime
+      newznab: 5070
+    - id: "25"
+      cat: Movies/3D
+      desc: Filme 3D
+      newznab: 2060
+    - id: "26"
+      cat: Movies/BluRay
+      desc: Filme 4K Blu-Ray
+      newznab: 2050
+    - id: "27"
+      cat: TV/UHD
+      desc: Seriale 4K
+      newznab: 5045
+    - id: "28"
+      cat: Movies/Foreign
+      desc: RO Dubbed Movies
+      newznab: 2010
+    - id: "28"
+      cat: TV/Foreign
+      desc: RO Dubbed TV
+      newznab: 5020
+    - id: "31"
+      cat: TV/Foreign
+      desc: K-Drama
+      newznab: 5020
+  modes:
+    search: [q]
+    movie-search: [q, imdbid]
+    tv-search: [q, season, ep, imdbid]
+    music-search: [q]
+    book-search: [q]
+search:
+  headers:
+    authorization: "{{ basicauth .Config.Username .Config.Passkey }}"
+  paths:
+    - path: /api.php
+      response:
+        type: json
+      inputs:
+        action: "{{ if .Keywords }}search-torrents{{ else }}latest-torrents{{ end }}"
+        type: "{{ if .Query.IMDBID }}imdb{{ else }}name{{ end }}"
+        query: "{{ if .Query.IMDBID }}{{ .Query.IMDBID }}{{ else }}{{ .Keywords }}{{ end }}"
+        season: "{{ .Query.Season }}"
+        episode: "{{ .Query.Ep }}"
+        category: '{{ .Categories | join "," }}'
+        freeleech: "{{ if .Config.FreeleechOnly }}1{{ end }}"
+  rows:
+    selector: '\${{ if .Config.FreeleechOnly }}:has(freeleech:contains(true)){{ end }}'
+  fields:
+    id:
+      selector: id, Id
+    title:
+      selector: name, Name
+    details:
+      text: "/details.php?id={{ .Result.id }}"
+    download:
+      text: "/download.php?id={{ .Result.id }}&passkey={{ .Config.Passkey }}"
+    category:
+      selector: category, Category
+    date:
+      selector: upload_date, UploadDate
+      filters:
+        - name: append
+          args: " +0300"
+        - name: dateparse
+          args: "yyyy-MM-dd HH:mm:ss zzz"
+    size:
+      selector: size, Size
+    files:
+      selector: files, Files
+    grabs:
+      selector: times_completed, TimesCompleted
+    seeders:
+      selector: seeders, Seeders
+    leechers:
+      selector: leechers, Leechers
+    freeflag:
+      selector: freeleech, FreeLeech
+      filters:
+        - name: regexp
+          args: "true"
+    doubleflag:
+      selector: doubleup, DoubleUp
+      filters:
+        - name: regexp
+          args: "true"
+    downloadvolumefactor:
+      text: "{{ if .Result.freeflag }}0{{ else }}1{{ end }}"
+    uploadvolumefactor:
+      text: "{{ if .Result.doubleflag }}2{{ else }}1{{ end }}"
+`
+
 const REVOLUTION_TT = `
 id: revolutiontt
 name: RevolutionTT
@@ -6114,6 +6331,7 @@ const BUILT_IN_CARDIGANN_SOURCES = [
   HDBITS,
   PIXELHD,
   SECRET_CINEMA,
+  FILELIST,
   REVOLUTION_TT,
   PRETOME,
   MORE_THAN_TV,

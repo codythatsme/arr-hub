@@ -794,6 +794,11 @@ function applyTemplateFunction(
       }
       return result
     }
+    case "basicauth": {
+      const username = templateValueToString(templateTokenValue(args[0] ?? "", variables))
+      const password = templateValueToString(templateTokenValue(args[1] ?? "", variables))
+      return `Basic ${Buffer.from(`${username}:${password}`, "utf8").toString("base64")}`
+    }
     case "eq": {
       const left = templateValueToString(templateTokenValue(args[0] ?? "", variables))
       const right = templateValueToString(templateTokenValue(args[1] ?? "", variables))

@@ -119,19 +119,19 @@ describe("IndexerService", () => {
       const second = yield* svc.refreshDefinitions()
 
       expect(first).toMatchObject({
-        total: 39,
-        created: 39,
+        total: 40,
+        created: 40,
         updated: 0,
         unchanged: 0,
       })
       expect(first.definitions.map((definition) => definition.action)).toEqual(
-        Array(39).fill("created"),
+        Array(40).fill("created"),
       )
       expect(second).toMatchObject({
-        total: 39,
+        total: 40,
         created: 0,
         updated: 0,
-        unchanged: 39,
+        unchanged: 40,
       })
       expect(second.definitions.every((definition) => definition.previousVersion !== null)).toBe(
         true,
@@ -407,6 +407,7 @@ describe("IndexerService", () => {
         "bakabt",
         "beyond-hd",
         "bit-hdtv",
+        "filelist",
         "funfile",
         "generic-newznab",
         "generic-torznab",
@@ -760,6 +761,17 @@ describe("IndexerService", () => {
         privacy: "private",
         supportsRss: false,
         tags: ["private", "movies", "music", "json", "gazelle"],
+      })
+      expect(
+        definitions.find((definition) => definition.definitionKey === "filelist"),
+      ).toMatchObject({
+        displayName: "FileList.io",
+        protocol: "torrent",
+        implementation: "cardigann_yaml",
+        baseUrl: "https://filelist.io/",
+        privacy: "private",
+        supportsRss: false,
+        tags: ["private", "general", "movies", "tv", "music", "books", "json", "api"],
       })
       expect(
         definitions.find((definition) => definition.definitionKey === "revolutiontt"),

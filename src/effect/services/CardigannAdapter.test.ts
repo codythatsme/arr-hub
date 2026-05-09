@@ -765,6 +765,41 @@ const SECRET_CINEMA_JSON_RESULTS = JSON.stringify({
   },
 })
 
+const FILELIST_JSON_RESULTS = JSON.stringify([
+  {
+    id: 444,
+    name: "FileList Movie 2026 1080p BluRay",
+    size: 7_123_456_000,
+    leechers: 4,
+    seeders: 61,
+    times_completed: 20,
+    files: 9,
+    imdb: "tt7654321",
+    internal: true,
+    freeleech: true,
+    doubleup: true,
+    upload_date: "2026-05-10 17:30:00",
+    category: "Filme HD",
+    small_description: "Action, Thriller",
+  },
+  {
+    id: 445,
+    name: "FileList TV 2026 S01E01 720p",
+    size: 1_123_456_000,
+    leechers: 2,
+    seeders: 14,
+    times_completed: 5,
+    files: 1,
+    imdb: "tt7654322",
+    internal: false,
+    freeleech: false,
+    doubleup: false,
+    upload_date: "2026-05-09 11:15:00",
+    category: "Seriale HD",
+    small_description: "Drama",
+  },
+])
+
 const REVOLUTIONTT_HTML_RESULTS = `
 <html><body>
   <table id="torrents-table">
@@ -4457,6 +4492,71 @@ search:
       downloadFactor: 0,
       uploadFactor: 0,
     })
+  })
+
+  it("parses FileList JSON API results with HTTP Basic auth", async () => {
+    const requests: Array<{ url: string; init: RequestInit | undefined }> = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      requests.push({ url: String(input), init })
+      return new Response(FILELIST_JSON_RESULTS, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 109,
+      name: "FileList.io",
+      type: "cardigann_yaml",
+      definitionKey: "filelist",
+      baseUrl: "https://filelist.io/",
+      apiKey: "",
+      configValues: {
+        username: "alice",
+        passkey: "filelist-passkey",
+        freeleechOnly: "true",
+      },
+      priority: 45,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({
+        term: "FileList Movie",
+        type: "movie",
+        categories: [2040],
+        imdbId: "tt7654321",
+      }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const request = requests[0]
+    const url = new URL(request?.url ?? "")
+    expect(url.origin).toBe("https://filelist.io")
+    expect(url.pathname).toBe("/api.php")
+    expect(url.searchParams.get("action")).toBe("search-torrents")
+    expect(url.searchParams.get("type")).toBe("imdb")
+    expect(url.searchParams.get("query")).toBe("tt7654321")
+    expect(url.searchParams.get("category")).toBe("4")
+    expect(url.searchParams.get("freeleech")).toBe("1")
+    expect(new Headers(request?.init?.headers).get("authorization")).toBe(
+      "Basic YWxpY2U6ZmlsZWxpc3QtcGFzc2tleQ==",
+    )
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "FileList Movie 2026 1080p BluRay",
+      downloadUrl: "https://filelist.io/download.php?id=444&passkey=filelist-passkey",
+      infoUrl: "https://filelist.io/details.php?id=444",
+      category: "2040",
+      size: 7_123_456_000,
+      seeders: 61,
+      leechers: 4,
+      indexerId: 109,
+      indexerName: "FileList.io",
+      indexerPriority: 45,
+      downloadFactor: 0,
+      uploadFactor: 2,
+    })
+    expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-10T14:30:00.000Z")
   })
 
   it("parses RevolutionTT HTML results after POST login", async () => {
