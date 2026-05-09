@@ -23,7 +23,10 @@ interface IndexerFormState {
   readonly grabLimitCount: string
   readonly grabLimitWindowSeconds: string
   readonly categories: string
+  readonly tags: string
   readonly enabled: boolean
+  readonly searchEnabled: boolean
+  readonly rssEnabled: boolean
 }
 
 const emptyForm: IndexerFormState = {
@@ -41,7 +44,10 @@ const emptyForm: IndexerFormState = {
   grabLimitCount: "",
   grabLimitWindowSeconds: "",
   categories: "",
+  tags: "",
   enabled: true,
+  searchEnabled: true,
+  rssEnabled: true,
 }
 
 function Indexers() {
@@ -127,6 +133,7 @@ function Indexers() {
     const queryLimitWindowSeconds = parseOptionalNumber(form.queryLimitWindowSeconds)
     const grabLimitCount = parseOptionalNumber(form.grabLimitCount)
     const grabLimitWindowSeconds = parseOptionalNumber(form.grabLimitWindowSeconds)
+    const tags = parseTags(form.tags)
     const configValues = collectConfigValues(new FormData(event.currentTarget), configFields)
     const hasConfigValues = Object.keys(configValues).length > 0
     const definitionKey =
@@ -150,7 +157,10 @@ function Indexers() {
         grabLimitCount,
         grabLimitWindowSeconds,
         categories,
+        tags,
         enabled: form.enabled,
+        searchEnabled: form.searchEnabled,
+        rssEnabled: form.rssEnabled,
       })
       return
     }
@@ -170,7 +180,10 @@ function Indexers() {
         grabLimitCount,
         grabLimitWindowSeconds,
         categories,
+        tags,
         enabled: form.enabled,
+        searchEnabled: form.searchEnabled,
+        rssEnabled: form.rssEnabled,
         ...(form.apiKey.trim().length > 0 ? { apiKey: form.apiKey.trim() } : {}),
         ...(hasConfigValues ? { configValues } : {}),
       },
@@ -223,6 +236,9 @@ function Indexers() {
                     {indexer.grabLimitCount !== null && indexer.grabLimitWindowSeconds !== null
                       ? ` · max ${indexer.grabLimitCount} grabs/${indexer.grabLimitWindowSeconds}s`
                       : ""}
+                    {!indexer.searchEnabled ? " · search off" : ""}
+                    {!indexer.rssEnabled ? " · RSS off" : ""}
+                    {indexer.tags.length > 0 ? ` · tags ${indexer.tags.join(", ")}` : ""}
                   </p>
                   {indexer.health?.errorMessage && (
                     <p className="text-destructive mt-2 text-xs">{indexer.health.errorMessage}</p>
@@ -270,7 +286,10 @@ function Indexers() {
                             ? ""
                             : String(indexer.grabLimitWindowSeconds),
                         categories: indexer.categories.join(", "),
+                        tags: indexer.tags.join(", "),
                         enabled: indexer.enabled,
+                        searchEnabled: indexer.searchEnabled,
+                        rssEnabled: indexer.rssEnabled,
                       })
                     }
                   >
@@ -558,14 +577,32 @@ function Indexers() {
                   placeholder="Seconds"
                 />
               </Field>
-              <label className="mt-7 flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={form.enabled}
-                  onChange={(event) => setForm({ ...form, enabled: event.target.checked })}
-                />
-                Enabled
-              </label>
+              <div className="mt-7 flex flex-wrap gap-4">
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={form.enabled}
+                    onChange={(event) => setForm({ ...form, enabled: event.target.checked })}
+                  />
+                  Enabled
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={form.searchEnabled}
+                    onChange={(event) => setForm({ ...form, searchEnabled: event.target.checked })}
+                  />
+                  Search
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={form.rssEnabled}
+                    onChange={(event) => setForm({ ...form, rssEnabled: event.target.checked })}
+                  />
+                  RSS
+                </label>
+              </div>
             </div>
 
             <Field label="Categories" hint="Comma-separated Torznab/Newznab category IDs.">
@@ -574,6 +611,15 @@ function Indexers() {
                 value={form.categories}
                 onChange={(event) => setForm({ ...form, categories: event.target.value })}
                 placeholder="2000, 5000"
+              />
+            </Field>
+
+            <Field label="Tags" hint="Comma-separated tags.">
+              <input
+                className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                value={form.tags}
+                onChange={(event) => setForm({ ...form, tags: event.target.value })}
+                placeholder="anime, public"
               />
             </Field>
 
@@ -619,6 +665,17 @@ function parseCategories(value: string) {
     .split(",")
     .map((item) => Number(item.trim()))
     .filter((item) => Number.isInteger(item) && item > 0)
+}
+
+function parseTags(value: string): Array<string> {
+  return Array.from(
+    new Set(
+      value
+        .split(",")
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0),
+    ),
+  )
 }
 
 function parseOptionalNumber(value: string): number | null {
