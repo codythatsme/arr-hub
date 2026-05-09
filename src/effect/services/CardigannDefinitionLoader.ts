@@ -68,12 +68,14 @@ export interface CardigannSearchRuntime {
 }
 
 export interface CardigannLoginRuntime {
-  readonly method: "get" | "post" | "cookie" | "oneurl"
+  readonly method: "get" | "post" | "cookie" | "oneurl" | "form"
   readonly inputs: Readonly<Record<string, string>>
   readonly headers: Readonly<Record<string, string>>
   readonly cookies: ReadonlyArray<string>
   readonly errors: ReadonlyArray<CardigannLoginError>
   readonly paths: ReadonlyArray<CardigannLoginPath>
+  readonly form?: string
+  readonly submitPath?: string
 }
 
 export interface CardigannRuntimeDefinition {
@@ -488,6 +490,8 @@ function parseLoginRuntime(value: unknown): CardigannLoginRuntime | null {
   if (value === undefined) return null
   const login = expectRecord(value, "login")
   const method = parseLoginMethod(optionalString(login, "method") ?? "get")
+  const form = optionalString(login, "form")
+  const submitPath = optionalString(login, "submitpath") ?? optionalString(login, "submitPath")
   return {
     method,
     inputs: parseInputMap(login.inputs),
@@ -497,7 +501,13 @@ function parseLoginRuntime(value: unknown): CardigannLoginRuntime | null {
     paths:
       method === "cookie"
         ? []
-        : parseLoginPaths(login.paths ?? login.path, login, method === "oneurl" ? "get" : null),
+        : parseLoginPaths(
+            login.paths ?? login.path,
+            login,
+            method === "oneurl" || method === "form" ? "get" : null,
+          ),
+    ...(form !== null ? { form } : {}),
+    ...(submitPath !== null ? { submitPath } : {}),
   }
 }
 
@@ -855,9 +865,15 @@ function parseMethod(value: string): "get" | "post" {
   throw new Error(`unsupported Cardigann search method: ${value}`)
 }
 
-function parseLoginMethod(value: string): "get" | "post" | "cookie" | "oneurl" {
+function parseLoginMethod(value: string): "get" | "post" | "cookie" | "oneurl" | "form" {
   const method = value.toLowerCase()
-  if (method === "get" || method === "post" || method === "cookie" || method === "oneurl") {
+  if (
+    method === "get" ||
+    method === "post" ||
+    method === "cookie" ||
+    method === "oneurl" ||
+    method === "form"
+  ) {
     return method
   }
   throw new Error(`unsupported Cardigann login method: ${value}`)

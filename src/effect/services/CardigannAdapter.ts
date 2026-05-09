@@ -12,6 +12,7 @@ import {
   type CardigannFieldSelector,
   type CardigannFilter,
   type CardigannLoginError,
+  type CardigannLoginRuntime,
   type CardigannResponseType,
   type CardigannRuntimeDefinition,
   type CardigannSearchPath,
@@ -771,6 +772,15 @@ function parseHtmlAttributes(value: string): Readonly<Record<string, string>> {
   return attributes
 }
 
+function findHtmlInputElements(html: string): ReadonlyArray<HtmlElementMatch> {
+  return Array.from(html.matchAll(/<input\b([^>]*)>/gi)).map((match) => ({
+    tagName: "input",
+    attributes: parseHtmlAttributes(match[1] ?? ""),
+    innerHtml: "",
+    outerHtml: match[0],
+  }))
+}
+
 function htmlAttributeMatches(
   attributes: Readonly<Record<string, string>>,
   selector: SimpleHtmlSelector,
@@ -1207,6 +1217,140 @@ function resolveLoginRequests(
   return requests
 }
 
+function setInputs(
+  params: URLSearchParams,
+  inputs: Readonly<Record<string, string>>,
+  variables: Record<string, TemplateValue>,
+  allowEmptyInputs: boolean,
+): void {
+  for (const [key, template] of Object.entries(inputs)) {
+    const value = renderTemplate(template, variables)
+    if (value.length === 0 && !allowEmptyInputs) continue
+
+    if (key === "$raw") {
+      appendRawParams(params, value)
+    } else {
+      params.set(key, normalizeUrlSearchParamValue(value))
+    }
+  }
+}
+
+function loginHeaders(
+  login: CardigannLoginRuntime,
+  path: CardigannLoginRuntime["paths"][number],
+  variables: Record<string, TemplateValue>,
+): Headers {
+  const headers = new Headers()
+  appendHeaders(headers, login.headers, variables, false)
+  appendHeaders(headers, path.headers, variables, false)
+  return headers
+}
+
+function formParamsFromHtml(
+  form: HtmlElementMatch,
+  login: CardigannLoginRuntime,
+  variables: Record<string, TemplateValue>,
+): URLSearchParams {
+  const params = new URLSearchParams()
+  for (const input of findHtmlInputElements(form.innerHtml)) {
+    const name = input.attributes.name
+    if (name === undefined || name.length === 0 || input.attributes.disabled !== undefined) continue
+
+    const type = (input.attributes.type ?? "").toLowerCase()
+    if ((type === "checkbox" || type === "radio") && input.attributes.checked === undefined) {
+      continue
+    }
+
+    params.set(name, input.attributes.value ?? "")
+  }
+
+  setInputs(params, login.inputs, variables, false)
+  return params
+}
+
+function resolveFormSubmitUrl(
+  landingUrl: URL,
+  form: HtmlElementMatch,
+  login: CardigannLoginRuntime,
+  variables: Record<string, TemplateValue>,
+): URL {
+  const submitPath = login.submitPath ?? form.attributes.action ?? landingUrl.toString()
+  return new URL(renderTemplate(submitPath, variables), landingUrl)
+}
+
+function executeFormLoginRequests(
+  config: IndexerConfig,
+  login: CardigannLoginRuntime,
+  baseUrl: string,
+  variables: Record<string, TemplateValue>,
+  cookieJar: Map<string, string>,
+): Effect.Effect<void, IndexerError> {
+  return Effect.gen(function* () {
+    for (const path of login.paths) {
+      const landingUrl = new URL(
+        renderTemplate(path.path, variables),
+        baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`,
+      )
+      const landingHeaders = loginHeaders(login, path, variables)
+      const landingInit: RequestInit = {}
+      if (Array.from(landingHeaders).length > 0) landingInit.headers = landingHeaders
+
+      const landingResponse = yield* fetchIndexerResponseText(
+        landingUrl,
+        config,
+        withCookieHeader(landingInit, cookieJarValues(cookieJar)),
+      )
+      for (const cookie of cookiePairsFromHeaders(landingResponse.headers)) {
+        addCookiePair(cookieJar, cookie)
+      }
+
+      const form = findHtmlElements(landingResponse.text, login.form ?? "form")[0]
+      if (form === undefined) {
+        return yield* Effect.fail(
+          new IndexerError({
+            indexerId: config.id,
+            indexerName: config.name,
+            reason: "auth_failed",
+            message: "Cardigann login failed: form not found",
+            retryable: false,
+          }),
+        )
+      }
+
+      const submitUrl = resolveFormSubmitUrl(landingUrl, form, login, variables)
+      const body = formParamsFromHtml(form, login, variables)
+      const submitHeaders = loginHeaders(login, path, variables)
+      if (!submitHeaders.has("content-type")) {
+        submitHeaders.set("content-type", "application/x-www-form-urlencoded")
+      }
+      const submitInit: RequestInit = { method: "POST", body, headers: submitHeaders }
+
+      const submitResponse = yield* fetchIndexerResponseText(
+        submitUrl,
+        config,
+        withCookieHeader(submitInit, cookieJarValues(cookieJar)),
+      )
+      for (const error of login.errors) {
+        const message = loginErrorMessage(submitResponse.text, error, variables)
+        if (message === null) continue
+
+        return yield* Effect.fail(
+          new IndexerError({
+            indexerId: config.id,
+            indexerName: config.name,
+            reason: "auth_failed",
+            message,
+            retryable: false,
+          }),
+        )
+      }
+      for (const cookie of cookiePairsFromHeaders(submitResponse.headers)) {
+        addCookiePair(cookieJar, cookie)
+      }
+    }
+  })
+}
+
 function executeLoginRequests(
   config: IndexerConfig,
   definition: CardigannRuntimeDefinition,
@@ -1227,6 +1371,11 @@ function executeLoginRequests(
         cookieJar,
         renderTemplate(definition.login.inputs.cookie ?? "", variables),
       )
+      return cookieJarValues(cookieJar)
+    }
+
+    if (definition.login.method === "form") {
+      yield* executeFormLoginRequests(config, definition.login, baseUrl, variables, cookieJar)
       return cookieJarValues(cookieJar)
     }
 

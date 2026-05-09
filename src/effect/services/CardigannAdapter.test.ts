@@ -898,6 +898,115 @@ search:
     expect(releases[0]?.title).toBe("Example Movie 2026 1080p WEB-DL")
   })
 
+  it("executes Cardigann form login requests before search", async () => {
+    const requests: Array<{ url: string; init: RequestInit | undefined }> = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      requests.push({ url, init })
+      const pathname = new URL(url).pathname
+      if (pathname === "/login") {
+        return new Response(
+          `<html><body>
+            <form id="signin" action="/ignored">
+              <input type="hidden" name="csrf" value="token123">
+              <input type="text" name="username" value="landing-user">
+              <input type="checkbox" name="remember" value="1" checked>
+              <input type="checkbox" name="skip" value="1">
+              <input name="disabled" value="nope" disabled>
+            </form>
+          </body></html>`,
+          {
+            status: 200,
+            headers: { "set-cookie": "landing=abc; Path=/; HttpOnly" },
+          },
+        )
+      }
+      if (pathname === "/session") {
+        return new Response("ok", {
+          status: 200,
+          headers: { "set-cookie": "session=xyz; Path=/; HttpOnly" },
+        })
+      }
+      return new Response(RSS_XML, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 28,
+      name: "Form Login Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "form-login-cardigann",
+      definitionYaml: `
+id: form-login-cardigann
+name: Form Login Cardigann
+links:
+  - https://tracker.example
+settings:
+  - name: username
+    label: Username
+  - name: password
+    label: Password
+    type: password
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+  modes:
+    movie-search: [q]
+login:
+  path: /login
+  method: form
+  form: form#signin
+  submitpath: /session
+  inputs:
+    username: "{{ .Config.Username }}"
+    password: "{{ .Config.Password }}"
+search:
+  paths:
+    - path: /api
+      response:
+        type: torznab
+      inputs:
+        q: "{{ .Keywords }}"
+`,
+      baseUrl: "https://tracker.example/root",
+      apiKey: "",
+      configValues: {
+        username: "alice",
+        password: "secret",
+      },
+      priority: 15,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Form Movie", type: "movie", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    expect(new URL(requests[0]?.url ?? "").pathname).toBe("/login")
+
+    const submitBody = new URLSearchParams(String(requests[1]?.init?.body ?? ""))
+    expect(new URL(requests[1]?.url ?? "").pathname).toBe("/session")
+    expect(requests[1]?.init?.method).toBe("POST")
+    expect(submitBody.get("csrf")).toBe("token123")
+    expect(submitBody.get("username")).toBe("alice")
+    expect(submitBody.get("password")).toBe("secret")
+    expect(submitBody.get("remember")).toBe("1")
+    expect(submitBody.has("skip")).toBe(false)
+    expect(submitBody.has("disabled")).toBe(false)
+
+    const submitHeaders = new Headers(requests[1]?.init?.headers)
+    expect(submitHeaders.get("cookie")).toBe("landing=abc")
+
+    const searchHeaders = new Headers(requests[2]?.init?.headers)
+    expect(searchHeaders.get("cookie")).toBe("landing=abc; session=xyz")
+    expect(new URL(requests[2]?.url ?? "").searchParams.get("q")).toBe("Form Movie")
+    expect(releases[0]?.title).toBe("Example Movie 2026 1080p WEB-DL")
+  })
+
   it("fails Cardigann login when a configured error selector matches", async () => {
     const fetchMock = vi.fn(
       async () =>
@@ -908,7 +1017,7 @@ search:
     vi.stubGlobal("fetch", fetchMock)
 
     const adapter = createCardigannYamlAdapter({
-      id: 28,
+      id: 29,
       name: "Login Error Cardigann",
       type: "cardigann_yaml",
       definitionKey: "login-error-cardigann",

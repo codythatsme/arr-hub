@@ -677,6 +677,57 @@ search:
     })
   })
 
+  it("parses Cardigann form login runtime metadata", () => {
+    const runtime = parseCardigannRuntimeDefinitionYaml(`
+id: form-login-cardigann
+name: Form Login Cardigann
+links:
+  - https://tracker.example
+settings:
+  - name: username
+    label: Username
+  - name: password
+    label: Password
+    type: password
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+login:
+  method: form
+  path: /login
+  form: form#signin
+  submitpath: /session
+  inputs:
+    username: "{{ .Config.Username }}"
+    password: "{{ .Config.Password }}"
+search:
+  paths:
+    - path: /api
+`)
+
+    expect(runtime.login).toEqual({
+      method: "form",
+      inputs: {
+        username: "{{ .Config.Username }}",
+        password: "{{ .Config.Password }}",
+      },
+      headers: {},
+      cookies: [],
+      errors: [],
+      paths: [
+        {
+          path: "/login",
+          method: "get",
+          inputs: {},
+          headers: {},
+        },
+      ],
+      form: "form#signin",
+      submitPath: "/session",
+    })
+  })
+
   it("exposes built-in runtime definitions by key", () => {
     const runtime = getBuiltInCardigannRuntimeDefinition("public-domain-movie-torrents")
     expect(runtime?.search.paths[0]).toMatchObject({
