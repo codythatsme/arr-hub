@@ -607,6 +607,33 @@ const HTML_ROOT_PSEUDO_SELECTOR_RESULTS = `<!doctype html>
   </body>
 </html>`
 
+const HTML_LANG_PSEUDO_SELECTOR_RESULTS = `<!doctype html>
+<html lang="fr">
+  <body>
+    <section class="results" lang="en-US">
+      <article class="release">
+        <a class="title" href="/details/lang-inherited">Language Inherited Movie 2026 1080p WEB-DL</a>
+        <a class="download" href="/download/lang-inherited">Download</a>
+        <span class="size">2.8 GB</span>
+      </article>
+    </section>
+    <section class="results">
+      <article class="release" xml:lang="en-GB">
+        <a class="title" href="/details/lang-direct">Language Direct Movie 2026 1080p WEB-DL</a>
+        <a class="download" href="/download/lang-direct">Download</a>
+        <span class="size">1.4 GB</span>
+      </article>
+    </section>
+    <section class="results" lang="fr">
+      <article class="release">
+        <a class="title" href="/details/wrong-lang">Wrong Language Movie 2026 1080p WEB-DL</a>
+        <a class="download" href="/download/wrong-lang">Download</a>
+        <span class="size">500 MB</span>
+      </article>
+    </section>
+  </body>
+</html>`
+
 const HTML_CHILD_PSEUDO_SELECTOR_RESULTS = `<!doctype html>
 <html>
   <body>
@@ -3199,6 +3226,75 @@ search:
       size: 2_700_000_000,
       category: "2000",
     })
+  })
+
+  it("matches Cardigann HTML language pseudo classes", async () => {
+    const fetchMock = vi.fn(
+      async () => new Response(HTML_LANG_PSEUDO_SELECTOR_RESULTS, { status: 200 }),
+    )
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 89,
+      name: "HTML Lang Pseudo Selector Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "html-lang-pseudo-selector-cardigann",
+      definitionYaml: `
+id: html-lang-pseudo-selector-cardigann
+name: HTML Lang Pseudo Selector Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+      newznab: 2000
+  modes:
+    search: [q]
+search:
+  paths:
+    - path: /browse
+      response:
+        type: html
+  rows:
+    selector: article.release:lang(en)
+  fields:
+    title:
+      selector: a.title
+    details:
+      selector: a.title
+      attribute: href
+    download:
+      selector: a.download
+      attribute: href
+    size:
+      selector: span.size
+    category:
+      text: Movies
+`,
+      baseUrl: "https://tracker.example",
+      apiKey: "",
+      priority: 35,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Lang Pseudo", type: "general", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(releases).toHaveLength(2)
+    expect(releases.map((release) => release.title)).toEqual([
+      "Language Inherited Movie 2026 1080p WEB-DL",
+      "Language Direct Movie 2026 1080p WEB-DL",
+    ])
+    expect(releases.map((release) => release.downloadUrl)).toEqual([
+      "https://tracker.example/download/lang-inherited",
+      "https://tracker.example/download/lang-direct",
+    ])
+    expect(releases.map((release) => release.size)).toEqual([2_800_000_000, 1_400_000_000])
   })
 
   it("matches Cardigann HTML child-position pseudo classes", async () => {

@@ -1812,6 +1812,66 @@ function htmlElementIsHidden(element: HtmlElementMatch): boolean {
   )
 }
 
+function normalizeHtmlLanguage(value: string): string {
+  return value.trim().toLowerCase().replaceAll("_", "-")
+}
+
+function htmlElementLanguageAttribute(element: HtmlElementMatch): string | null {
+  const language = normalizeHtmlLanguage(
+    element.attributes.lang ?? element.attributes["xml:lang"] ?? "",
+  )
+  return language.length > 0 ? language : null
+}
+
+function htmlElementInheritedLanguage(element: HtmlElementMatch): string | null {
+  const ownLanguage = htmlElementLanguageAttribute(element)
+  if (ownLanguage !== null) return ownLanguage
+  if (element.scopeHtml === undefined || element.sourceIndex === undefined) return null
+
+  const stack: Array<{ tagName: string; language: string | null }> = []
+  for (const match of element.scopeHtml
+    .slice(0, element.sourceIndex)
+    .matchAll(/<\/?([A-Za-z][\w:-]*)([^>]*)>/g)) {
+    const raw = match[0]
+    const tagName = (match[1] ?? "").toLowerCase()
+    if (tagName.length === 0) continue
+
+    if (raw.startsWith("</")) {
+      const openIndex = stack.findLastIndex((frame) => frame.tagName === tagName)
+      if (openIndex >= 0) stack.splice(openIndex)
+      continue
+    }
+
+    const attributes = parseHtmlAttributes(match[2] ?? "")
+    const language = normalizeHtmlLanguage(attributes.lang ?? attributes["xml:lang"] ?? "")
+    if (
+      raw.endsWith("/>") ||
+      (match[2] ?? "").trimEnd().endsWith("/") ||
+      HTML_VOID_ELEMENTS.has(tagName)
+    ) {
+      continue
+    }
+
+    stack.push({ tagName, language: language.length > 0 ? language : null })
+  }
+
+  for (let index = stack.length - 1; index >= 0; index -= 1) {
+    const language = stack[index]?.language
+    if (language !== null && language !== undefined) return language
+  }
+  return null
+}
+
+function htmlLanguageMatches(element: HtmlElementMatch, expected: string): boolean {
+  const expectedLanguage = normalizeHtmlLanguage(unquotedHtmlSelectorFilterValue(expected))
+  if (expectedLanguage.length === 0) return false
+  const actualLanguage = htmlElementInheritedLanguage(element)
+  return (
+    actualLanguage === expectedLanguage ||
+    actualLanguage?.startsWith(`${expectedLanguage}-`) === true
+  )
+}
+
 function htmlSelectorFiltersMatch(
   element: HtmlElementMatch,
   filters: ReadonlyArray<JsonSelectorFilter>,
@@ -1854,6 +1914,8 @@ function htmlSelectorFiltersMatch(
         return element.tagName !== null && /^h[1-6]$/.test(element.tagName)
       case "root":
         return element.parentKey === 0
+      case "lang":
+        return htmlLanguageMatches(element, filter.selector)
       case "empty":
         return (
           htmlTextContent(element.innerHtml).length === 0 &&
