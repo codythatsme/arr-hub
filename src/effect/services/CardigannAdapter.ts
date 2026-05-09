@@ -1850,6 +1850,8 @@ function htmlSelectorFiltersMatch(
         return htmlElementIsHidden(element)
       case "visible":
         return !htmlElementIsHidden(element)
+      case "header":
+        return element.tagName !== null && /^h[1-6]$/.test(element.tagName)
       case "empty":
         return (
           htmlTextContent(element.innerHtml).length === 0 &&

@@ -566,6 +566,29 @@ const HTML_VISIBILITY_PSEUDO_SELECTOR_RESULTS = `<!doctype html>
   </body>
 </html>`
 
+const HTML_HEADER_PSEUDO_SELECTOR_RESULTS = `<!doctype html>
+<html>
+  <body>
+    <section class="results">
+      <article class="release">
+        <h2 class="release-title"><a href="/details/header-pseudo">Header Pseudo Movie 2026 1080p WEB-DL</a></h2>
+        <a class="download" href="/download/header-pseudo">Download</a>
+        <span class="size">2.6 GB</span>
+      </article>
+      <article class="release">
+        <p class="release-title"><a href="/details/wrong-paragraph">Wrong Paragraph Title Movie 2026 1080p WEB-DL</a></p>
+        <a class="download" href="/download/wrong-paragraph">Download</a>
+        <span class="size">500 MB</span>
+      </article>
+      <article class="release">
+        <header class="release-title"><a href="/details/wrong-semantic-header">Wrong Semantic Header Movie 2026 1080p WEB-DL</a></header>
+        <a class="download" href="/download/wrong-semantic-header">Download</a>
+        <span class="size">600 MB</span>
+      </article>
+    </section>
+  </body>
+</html>`
+
 const HTML_CHILD_PSEUDO_SELECTOR_RESULTS = `<!doctype html>
 <html>
   <body>
@@ -2982,6 +3005,73 @@ search:
       infoUrl: "https://tracker.example/details/visibility",
       downloadUrl: "https://tracker.example/download/visibility",
       size: 2_500_000_000,
+      category: "2000",
+    })
+  })
+
+  it("matches Cardigann HTML header pseudo classes", async () => {
+    const fetchMock = vi.fn(
+      async () => new Response(HTML_HEADER_PSEUDO_SELECTOR_RESULTS, { status: 200 }),
+    )
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 84,
+      name: "HTML Header Pseudo Selector Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "html-header-pseudo-selector-cardigann",
+      definitionYaml: `
+id: html-header-pseudo-selector-cardigann
+name: HTML Header Pseudo Selector Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+      newznab: 2000
+  modes:
+    search: [q]
+search:
+  paths:
+    - path: /browse
+      response:
+        type: html
+  rows:
+    selector: article.release:has(.release-title:header):has(a.download)
+  fields:
+    title:
+      selector: .release-title:header
+    details:
+      selector: .release-title:header a
+      attribute: href
+    download:
+      selector: a.download
+      attribute: href
+    size:
+      selector: span.size
+    category:
+      text: Movies
+`,
+      baseUrl: "https://tracker.example",
+      apiKey: "",
+      priority: 35,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Header Pseudo", type: "general", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "Header Pseudo Movie 2026 1080p WEB-DL",
+      infoUrl: "https://tracker.example/details/header-pseudo",
+      downloadUrl: "https://tracker.example/download/header-pseudo",
+      size: 2_600_000_000,
       category: "2000",
     })
   })
