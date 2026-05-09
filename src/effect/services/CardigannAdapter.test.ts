@@ -91,6 +91,72 @@ describe("CardigannAdapter", () => {
     expect(caps.categories.map((category) => category.id)).toEqual([5000, 5040])
   })
 
+  it("builds Cardigann-style POST search requests from definition paths", async () => {
+    let requestUrl: string | undefined
+    let requestInit: RequestInit | undefined
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      requestUrl = String(input)
+      requestInit = init
+      return new Response(RSS_XML, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 10,
+      name: "Cardigann POST",
+      type: "cardigann_yaml",
+      definitionKey: "post-cardigann",
+      definitionYaml: `
+id: post-cardigann
+name: Post Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+  modes:
+    movie-search: [q, imdbid]
+search:
+  paths:
+    - path: /search
+      method: post
+      response:
+        type: torznab
+      inputs:
+        apikey: "{{ .Config.APIKey }}"
+        t: "{{ .Query.Type }}"
+        q: "{{ .Keywords }}"
+        cat: "{{ .Categories }}"
+`,
+      baseUrl: "https://tracker.example/root",
+      apiKey: "api-key",
+      priority: 15,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Post Movie", type: "movie", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const url = new URL(requestUrl ?? "")
+    expect(url.pathname).toBe("/search")
+    expect(url.search).toBe("")
+    expect(requestInit?.method).toBe("POST")
+
+    const headers = new Headers(requestInit?.headers)
+    expect(headers.get("content-type")).toBe("application/x-www-form-urlencoded")
+    const body = new URLSearchParams(String(requestInit?.body))
+    expect(body.get("apikey")).toBe("api-key")
+    expect(body.get("t")).toBe("movie")
+    expect(body.get("q")).toBe("Post Movie")
+    expect(body.get("cat")).toBe("movies")
+    expect(releases[0]?.title).toBe("Example Movie 2026 1080p WEB-DL")
+  })
+
   it("fails when the configured definition key is unknown", async () => {
     const adapter = createCardigannYamlAdapter({
       id: 9,

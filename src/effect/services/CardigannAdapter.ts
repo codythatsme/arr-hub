@@ -30,6 +30,11 @@ const SEARCH_TYPE_MAP = {
 
 type TemplateValue = string | ReadonlyArray<string>
 
+interface CardigannSearchRequest {
+  readonly url: URL
+  readonly init: RequestInit
+}
+
 function loadRuntimeDefinition(
   config: IndexerConfig,
 ): Effect.Effect<CardigannRuntimeDefinition, IndexerError> {
@@ -132,16 +137,16 @@ function renderTemplate(template: string, variables: Record<string, TemplateValu
   })
 }
 
-function appendRawQuery(url: URL, raw: string): void {
+function appendRawParams(params: URLSearchParams, raw: string): void {
   for (const part of raw.split("&")) {
     if (part.length === 0) continue
     const [key, value = ""] = part.split("=", 2)
-    if (key.length > 0) url.searchParams.append(key, value)
+    if (key.length > 0) params.append(key, value)
   }
 }
 
 function appendInputs(
-  url: URL,
+  params: URLSearchParams,
   inputs: Readonly<Record<string, string>>,
   variables: Record<string, TemplateValue>,
   allowEmptyInputs: boolean,
@@ -151,18 +156,18 @@ function appendInputs(
     if (value.length === 0 && !allowEmptyInputs) continue
 
     if (key === "$raw") {
-      appendRawQuery(url, value)
+      appendRawParams(params, value)
     } else {
-      url.searchParams.append(key, value)
+      params.append(key, value)
     }
   }
 }
 
-function resolveSearchUrls(
+function resolveSearchRequests(
   config: IndexerConfig,
   definition: CardigannRuntimeDefinition,
   query: SearchQuery,
-): ReadonlyArray<URL> {
+): ReadonlyArray<CardigannSearchRequest> {
   const queryType = requestedSearchType(definition, query)
   if (queryType === null) return []
 
@@ -171,20 +176,35 @@ function resolveSearchUrls(
   const baseUrl = config.baseUrl || definition.baseUrl
   if (!baseUrl) return []
 
-  const urls = new Map<string, URL>()
+  const requests = new Map<string, CardigannSearchRequest>()
   for (const path of definition.search.paths) {
-    if (path.method !== "get" || !pathMatchesCategories(path, trackerCategories)) continue
+    if (!pathMatchesCategories(path, trackerCategories)) continue
 
     const url = new URL(
       renderTemplate(path.path, variables),
       baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`,
     )
-    appendInputs(url, definition.search.inputs, variables, definition.search.allowEmptyInputs)
-    appendInputs(url, path.inputs, variables, definition.search.allowEmptyInputs)
-    urls.set(url.toString(), url)
+    const targetParams = path.method === "get" ? url.searchParams : new URLSearchParams()
+    appendInputs(
+      targetParams,
+      definition.search.inputs,
+      variables,
+      definition.search.allowEmptyInputs,
+    )
+    appendInputs(targetParams, path.inputs, variables, definition.search.allowEmptyInputs)
+
+    const init =
+      path.method === "post"
+        ? {
+            method: "POST",
+            headers: { "content-type": "application/x-www-form-urlencoded" },
+            body: targetParams,
+          }
+        : {}
+    requests.set(`${path.method} ${url.toString()} ${targetParams.toString()}`, { url, init })
   }
 
-  return Array.from(urls.values())
+  return Array.from(requests.values())
 }
 
 export function createCardigannYamlAdapter(config: IndexerConfig): IndexerAdapter {
@@ -198,14 +218,14 @@ export function createCardigannYamlAdapter(config: IndexerConfig): IndexerAdapte
     search: (query) =>
       Effect.gen(function* () {
         const definition = yield* loadRuntimeDefinition(config)
-        const urls = resolveSearchUrls(config, definition, query)
-        if (urls.length === 0) return []
+        const requests = resolveSearchRequests(config, definition, query)
+        if (requests.length === 0) return []
 
         const results = yield* Effect.forEach(
-          urls,
-          (url) =>
+          requests,
+          (request) =>
             Effect.gen(function* () {
-              const parsed = yield* fetchIndexerXml(url, config)
+              const parsed = yield* fetchIndexerXml(request.url, config, request.init)
               yield* checkTorznabError(parsed, config)
               return parseTorznabReleases(parsed, {
                 ...config,

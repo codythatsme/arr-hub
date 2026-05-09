@@ -122,18 +122,26 @@ async function fetchTextViaSocksProxy(
   url: URL,
   proxy: IndexerOutboundProxy,
   signal: AbortSignal,
+  init: RequestInit = {},
 ): Promise<{ readonly status: number; readonly text: string }> {
   const agent = new SocksProxyAgent(buildProxyUrl(proxy))
   const client = url.protocol === "https:" ? https : http
+  const method = init.method ?? "GET"
+  const body = bodyText(init.body)
+  const headers = new Headers(init.headers)
+  if (!headers.has("accept")) headers.set("accept", "application/xml,text/xml,*/*")
+  if (body !== null && !headers.has("content-length")) {
+    headers.set("content-length", String(Buffer.byteLength(body)))
+  }
 
   try {
     return await new Promise((resolve, reject) => {
       const req = client.request(
         url,
         {
-          method: "GET",
+          method,
           agent,
-          headers: { accept: "application/xml,text/xml,*/*" },
+          headers: Object.fromEntries(headers.entries()),
         },
         (res) => {
           const chunks: Array<Buffer> = []
@@ -157,6 +165,7 @@ async function fetchTextViaSocksProxy(
       signal.addEventListener("abort", abort, { once: true })
       req.on("error", reject)
       req.on("close", () => signal.removeEventListener("abort", abort))
+      if (body !== null) req.write(body)
       req.end()
     })
   } finally {
@@ -164,9 +173,17 @@ async function fetchTextViaSocksProxy(
   }
 }
 
+function bodyText(body: BodyInit | null | undefined): string | null {
+  if (body === undefined || body === null) return null
+  if (typeof body === "string") return body
+  if (body instanceof URLSearchParams) return body.toString()
+  return null
+}
+
 export function fetchIndexerXml(
   url: URL,
   config: IndexerConfig,
+  init: RequestInit = {},
 ): Effect.Effect<unknown, IndexerError> {
   return Effect.tryPromise({
     try: async () => {
@@ -176,12 +193,15 @@ export function fetchIndexerXml(
       let dispatcher: Dispatcher | null = null
       try {
         if (proxy?.type === "flaresolverr") {
+          const method = (init.method ?? "GET").toUpperCase()
+          const postData = bodyText(init.body)
           const res = await fetch(flaresolverrEndpoint(proxy), {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({
-              cmd: "request.get",
+              cmd: method === "POST" ? "request.post" : "request.get",
               url: url.toString(),
+              ...(method === "POST" && postData !== null ? { postData } : {}),
               maxTimeout: proxy.settings.flaresolverrTimeoutMs ?? 60_000,
             }),
             signal: controller.signal,
@@ -194,7 +214,7 @@ export function fetchIndexerXml(
         }
 
         if (proxy?.type === "socks4" || proxy?.type === "socks5") {
-          const res = await fetchTextViaSocksProxy(url, proxy, controller.signal)
+          const res = await fetchTextViaSocksProxy(url, proxy, controller.signal, init)
           if (res.status < 200 || res.status >= 300) {
             throw Object.assign(new Error(`HTTP ${res.status}`), { status: res.status })
           }
@@ -203,8 +223,10 @@ export function fetchIndexerXml(
 
         const built = buildFetchInit(controller.signal, proxy)
         dispatcher = built.dispatcher
-        const { init } = built
-        const res = await fetch(url.toString(), init)
+        const res = await fetch(url.toString(), {
+          ...init,
+          ...built.init,
+        })
         if (!res.ok) {
           throw Object.assign(new Error(`HTTP ${res.status}`), { status: res.status })
         }
