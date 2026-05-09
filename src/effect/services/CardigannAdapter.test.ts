@@ -74,6 +74,23 @@ const SUBSPLEASE_JSON_RESULTS = JSON.stringify({
   },
 })
 
+const KNABEN_JSON_RESULTS = JSON.stringify({
+  hits: [
+    {
+      title: 'Ubuntu "ISO" 24.04 1080p',
+      categoryId: [3001000],
+      hash: "1234512345123451234512345123451234512345",
+      details: "https://knaben.org/details/ubuntu-iso",
+      link: "",
+      magnetUrl: "magnet:?xt=urn:btih:1234512345123451234512345123451234512345",
+      bytes: 4_200_000_000,
+      seeders: 7,
+      peers: 2,
+      date: "2026-05-09T10:00:00+00:00",
+    },
+  ],
+})
+
 const JSON_SELECTOR_FILTER_RESULTS = JSON.stringify({
   data: {
     results: [
@@ -2184,6 +2201,66 @@ search:
       uploadFactor: 1,
     })
     expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-08T12:34:56.000Z")
+  })
+
+  it("renders Cardigann raw JSON POST bodies for Knaben searches", async () => {
+    let requestUrl: string | undefined
+    let requestInit: RequestInit | undefined
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      requestUrl = String(input)
+      requestInit = init
+      return new Response(KNABEN_JSON_RESULTS, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 90,
+      name: "Knaben",
+      type: "cardigann_yaml",
+      definitionKey: "knaben",
+      baseUrl: "https://knaben.org",
+      apiKey: "",
+      priority: 26,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: 'Ubuntu "ISO"', type: "movie", categories: [2040] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(requestUrl).toBe("https://api.knaben.org/v1")
+    expect(requestInit?.method).toBe("POST")
+    expect(new Headers(requestInit?.headers).get("content-type")).toBe("application/json")
+    expect(JSON.parse(String(requestInit?.body))).toMatchObject({
+      order_by: "date",
+      order_direction: "desc",
+      from: 0,
+      size: 100,
+      hide_unsafe: true,
+      search_type: "100%",
+      search_field: "title",
+      query: 'Ubuntu "ISO"',
+      categories: [3001000],
+    })
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: 'Ubuntu "ISO" 24.04 1080p',
+      downloadUrl: "magnet:?xt=urn:btih:1234512345123451234512345123451234512345",
+      infoUrl: "https://knaben.org/details/ubuntu-iso",
+      category: "2040",
+      size: 4_200_000_000,
+      seeders: 7,
+      leechers: 2,
+      infohash: "1234512345123451234512345123451234512345",
+      indexerId: 90,
+      indexerName: "Knaben",
+      indexerPriority: 26,
+      downloadFactor: 0,
+      uploadFactor: 1,
+    })
+    expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-09T10:00:00.000Z")
   })
 
   it("parses first-pass Cardigann HTML selector results", async () => {

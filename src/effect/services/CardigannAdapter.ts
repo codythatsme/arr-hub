@@ -692,6 +692,10 @@ function htmlEncode(value: string): string {
     .replaceAll("'", "&#39;")
 }
 
+function jsonStringEscape(value: string): string {
+  return JSON.stringify(value).slice(1, -1)
+}
+
 function applyTemplateFilter(
   value: TemplateValue | undefined,
   filter: string,
@@ -712,6 +716,8 @@ function applyTemplateFilter(
       return htmlDecode(text)
     case "htmlencode":
       return htmlEncode(text)
+    case "jsonescape":
+      return jsonStringEscape(text)
     case "lower":
     case "lowercase":
     case "tolower":
@@ -3855,15 +3861,21 @@ function resolveSearchRequests(
     appendHeaders(headers, path.headers, pathVariables, definition.search.allowEmptyInputs)
 
     const init: RequestInit = {}
+    let requestBody = targetParams.toString()
     if (path.method === "post") {
       init.method = "POST"
-      init.body = targetParams
-      if (!headers.has("content-type")) {
+      if (path.body !== undefined) {
+        requestBody = renderTemplate(path.body, pathVariables)
+        init.body = requestBody
+      } else {
+        init.body = targetParams
+      }
+      if (path.body === undefined && !headers.has("content-type")) {
         headers.set("content-type", "application/x-www-form-urlencoded")
       }
     }
     if (Array.from(headers).length > 0) init.headers = headers
-    requests.set(`${path.method} ${url.toString()} ${targetParams.toString()}`, {
+    requests.set(`${path.method} ${url.toString()} ${requestBody}`, {
       url,
       init,
       responseType: path.responseType,

@@ -20,6 +20,7 @@ export interface CardigannSearchPath {
   readonly inheritInputs: boolean
   readonly inputs: Readonly<Record<string, string>>
   readonly headers: Readonly<Record<string, string>>
+  readonly body?: string
   readonly categories: ReadonlyArray<string>
   readonly responseType: CardigannResponseType
   readonly noResultsMessage?: string
@@ -562,6 +563,299 @@ search:
       selector: completed
 `
 
+const KNABEN = `
+id: knaben
+name: Knaben
+description: Public torrent meta-search engine exposed through a JSON POST Cardigann definition.
+type: public
+links:
+  - https://knaben.org/
+version: builtin-cardigann-1
+rss: false
+tags:
+  - public
+  - general
+  - json
+caps:
+  categorymappings:
+    - id: "1000000"
+      cat: Audio
+      desc: Audio
+      newznab: 3000
+    - id: "1001000"
+      cat: Audio/MP3
+      desc: MP3
+      newznab: 3010
+    - id: "1002000"
+      cat: Audio/Lossless
+      desc: Lossless
+      newznab: 3040
+    - id: "1003000"
+      cat: Audio/Audiobook
+      desc: Audiobook
+      newznab: 3030
+    - id: "1004000"
+      cat: Audio/Video
+      desc: Audio Video
+      newznab: 3020
+    - id: "1006000"
+      cat: Audio/Other
+      desc: Audio Other
+      newznab: 3050
+    - id: "2000000"
+      cat: TV
+      desc: TV
+      newznab: 5000
+    - id: "2001000"
+      cat: TV/HD
+      desc: TV HD
+      newznab: 5040
+    - id: "2002000"
+      cat: TV/SD
+      desc: TV SD
+      newznab: 5030
+    - id: "2003000"
+      cat: TV/UHD
+      desc: TV UHD
+      newznab: 5045
+    - id: "2004000"
+      cat: TV/Documentary
+      desc: Documentary
+      newznab: 5080
+    - id: "2005000"
+      cat: TV/Foreign
+      desc: TV Foreign
+      newznab: 5020
+    - id: "2006000"
+      cat: TV/Sport
+      desc: Sport
+      newznab: 5060
+    - id: "2008000"
+      cat: TV/Other
+      desc: TV Other
+      newznab: 5050
+    - id: "3000000"
+      cat: Movies
+      desc: Movies
+      newznab: 2000
+    - id: "3001000"
+      cat: Movies/HD
+      desc: Movies HD
+      newznab: 2040
+    - id: "3002000"
+      cat: Movies/SD
+      desc: Movies SD
+      newznab: 2030
+    - id: "3003000"
+      cat: Movies/UHD
+      desc: Movies UHD
+      newznab: 2045
+    - id: "3004000"
+      cat: Movies/DVD
+      desc: Movies DVD
+      newznab: 2070
+    - id: "3005000"
+      cat: Movies/Foreign
+      desc: Movies Foreign
+      newznab: 2010
+    - id: "3007000"
+      cat: Movies/3D
+      desc: Movies 3D
+      newznab: 2060
+    - id: "3008000"
+      cat: Movies/Other
+      desc: Movies Other
+      newznab: 2020
+    - id: "4000000"
+      cat: PC
+      desc: PC
+      newznab: 4000
+    - id: "4001000"
+      cat: PC/Games
+      desc: Games
+      newznab: 4050
+    - id: "4002000"
+      cat: PC/0day
+      desc: Software
+      newznab: 4010
+    - id: "4003000"
+      cat: PC/Mac
+      desc: Mac
+      newznab: 4030
+    - id: "4004000"
+      cat: PC/ISO
+      desc: Unix
+      newznab: 4020
+    - id: "5000000"
+      cat: XXX
+      desc: XXX
+      newznab: 6000
+    - id: "5001000"
+      cat: XXX/x264
+      desc: XXX Video
+      newznab: 6040
+    - id: "5002000"
+      cat: XXX/ImageSet
+      desc: XXX ImageSet
+      newznab: 6060
+    - id: "5005000"
+      cat: XXX/Other
+      desc: XXX Other
+      newznab: 6070
+    - id: "6000000"
+      cat: TV/Anime
+      desc: Anime
+      newznab: 5070
+    - id: "6001000"
+      cat: TV/Anime
+      desc: Anime Subbed
+      newznab: 5070
+    - id: "6002000"
+      cat: TV/Anime
+      desc: Anime Dubbed
+      newznab: 5070
+    - id: "6004000"
+      cat: TV/Anime
+      desc: Anime Raw
+      newznab: 5070
+    - id: "7000000"
+      cat: Console
+      desc: Console
+      newznab: 1000
+    - id: "7001000"
+      cat: Console/PS4
+      desc: PS4
+      newznab: 1180
+    - id: "7002000"
+      cat: Console/PS3
+      desc: PS3
+      newznab: 1080
+    - id: "7005000"
+      cat: Console/PS Vita
+      desc: PS Vita
+      newznab: 1120
+    - id: "7006000"
+      cat: Console/PSP
+      desc: PSP
+      newznab: 1020
+    - id: "7007000"
+      cat: Console/Xbox 360
+      desc: Xbox 360
+      newznab: 1050
+    - id: "7008000"
+      cat: Console/Xbox
+      desc: Xbox
+      newznab: 1040
+    - id: "7010000"
+      cat: Console/NDS
+      desc: NDS
+      newznab: 1010
+    - id: "7011000"
+      cat: Console/Wii
+      desc: Wii
+      newznab: 1030
+    - id: "7012000"
+      cat: Console/WiiU
+      desc: WiiU
+      newznab: 1130
+    - id: "7013000"
+      cat: Console/3DS
+      desc: 3DS
+      newznab: 1110
+    - id: "7015000"
+      cat: Console/Other
+      desc: Console Other
+      newznab: 1090
+    - id: "8000000"
+      cat: PC/Phone-Other
+      desc: Mobile
+      newznab: 4040
+    - id: "8001000"
+      cat: PC/Phone-Android
+      desc: Android
+      newznab: 4070
+    - id: "8002000"
+      cat: PC/Phone-IOS
+      desc: IOS
+      newznab: 4060
+    - id: "9000000"
+      cat: Books
+      desc: Books
+      newznab: 7000
+    - id: "9001000"
+      cat: Books/EBook
+      desc: EBooks
+      newznab: 7020
+    - id: "9002000"
+      cat: Books/Comics
+      desc: Comics
+      newznab: 7030
+    - id: "9003000"
+      cat: Books/Mags
+      desc: Magazines
+      newznab: 7010
+    - id: "9004000"
+      cat: Books/Technical
+      desc: Technical
+      newznab: 7040
+    - id: "9005000"
+      cat: Books/Other
+      desc: Books Other
+      newznab: 7050
+    - id: "10000000"
+      cat: Other
+      desc: Other
+      newznab: 8000
+    - id: "10001000"
+      cat: Other/Misc
+      desc: Other Misc
+      newznab: 8010
+  modes:
+    search: [q]
+    movie-search: [q]
+    tv-search: [q, season, ep]
+search:
+  paths:
+    - path: https://api.knaben.org/v1
+      method: post
+      response:
+        type: json
+      headers:
+        content-type: application/json
+      body: |
+        {"order_by":"date","order_direction":"desc","from":0,"size":100,"hide_unsafe":true{{ if .Keywords }},"search_type":"100%","search_field":"title","query":"{{ .Keywords | jsonescape }}"{{ end }}{{ if .Categories }},"categories":[{{ .Categories | join "," }}]{{ end }}}
+  rows:
+    selector: $.hits
+    missingAttributeEqualsNoResults: true
+  fields:
+    title:
+      selector: title
+    details:
+      selector: details
+    download:
+      selector: link
+      optional: true
+    magnet:
+      selector: magnetUrl
+      optional: true
+    infohash:
+      selector: hash
+    category:
+      selector: categoryId[0]
+    size:
+      selector: bytes
+    seeders:
+      selector: seeders
+    leechers:
+      selector: peers
+    date:
+      selector: date
+    downloadvolumefactor:
+      text: "0"
+    uploadvolumefactor:
+      text: "1"
+`
+
 const MORE_THAN_TV = `
 id: morethantv
 name: MoreThanTV
@@ -763,6 +1057,7 @@ const BUILT_IN_CARDIGANN_SOURCES = [
   ANIDEX,
   SUBSPLEASE,
   TORRENTS_CSV,
+  KNABEN,
   MORE_THAN_TV,
   HDACCESS,
   TORRENT_NETWORK,
@@ -1090,6 +1385,7 @@ function parseSearchPaths(
       inheritInputs: boolean
       inputs: Readonly<Record<string, string>>
       headers: Readonly<Record<string, string>>
+      body?: string
       categories: ReadonlyArray<string>
       responseType: CardigannResponseType
       noResultsMessage?: string
@@ -1103,6 +1399,14 @@ function parseSearchPaths(
       categories: parseOptionalStringArray(path.categories),
       responseType: parseResponseType(optionalString(response, "type") ?? fallbackResponseType),
     }
+    const body = optionalScalarStringFromAnyAllowEmpty(path, [
+      "body",
+      "requestbody",
+      "requestBody",
+      "rawbody",
+      "rawBody",
+    ])
+    if (body !== null) searchPath.body = body
     if (noResultsMessage !== null) searchPath.noResultsMessage = noResultsMessage
     return searchPath
   })

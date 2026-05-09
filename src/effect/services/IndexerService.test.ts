@@ -119,8 +119,8 @@ describe("IndexerService", () => {
       const second = yield* svc.refreshDefinitions()
 
       expect(first).toMatchObject({
-        total: 12,
-        created: 12,
+        total: 13,
+        created: 13,
         updated: 0,
         unchanged: 0,
       })
@@ -137,12 +137,13 @@ describe("IndexerService", () => {
         "created",
         "created",
         "created",
+        "created",
       ])
       expect(second).toMatchObject({
-        total: 12,
+        total: 13,
         created: 0,
         updated: 0,
-        unchanged: 12,
+        unchanged: 13,
       })
       expect(second.definitions.every((definition) => definition.previousVersion !== null)).toBe(
         true,
@@ -417,6 +418,7 @@ describe("IndexerService", () => {
         "generic-newznab",
         "generic-torznab",
         "hdaccess",
+        "knaben",
         "morethantv",
         "nyaa",
         "open-tv-torrents",
@@ -473,6 +475,17 @@ describe("IndexerService", () => {
         privacy: "public",
         tags: ["public", "anime", "json"],
       })
+      expect(definitions.find((definition) => definition.definitionKey === "knaben")).toMatchObject(
+        {
+          displayName: "Knaben",
+          protocol: "torrent",
+          implementation: "cardigann_yaml",
+          baseUrl: "https://knaben.org/",
+          privacy: "public",
+          supportsRss: false,
+          tags: ["public", "general", "json"],
+        },
+      )
       expect(
         definitions.find((definition) => definition.definitionKey === "open-tv-torrents"),
       ).toMatchObject({

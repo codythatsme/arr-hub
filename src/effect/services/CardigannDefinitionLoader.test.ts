@@ -82,6 +82,7 @@ caps:
       "anidex",
       "subsplease",
       "torrents-csv",
+      "knaben",
       "morethantv",
       "hdaccess",
       "torrent-network",
@@ -156,6 +157,26 @@ caps:
       capabilities: {
         searchTypes: ["search", "movie", "tvsearch"],
         categories: [{ id: 8000, name: "Other" }],
+      },
+    })
+    expect(
+      BUILT_IN_CARDIGANN_DEFINITIONS.find((definition) => definition.definitionKey === "knaben"),
+    ).toMatchObject({
+      displayName: "Knaben",
+      baseUrl: "https://knaben.org/",
+      privacy: "public",
+      supportsRss: false,
+      supportsSearch: true,
+      tags: ["public", "general", "json"],
+      capabilities: {
+        searchTypes: ["search", "movie", "tvsearch"],
+        categories: expect.arrayContaining([
+          { id: 2040, name: "Movies HD" },
+          { id: 5040, name: "TV HD" },
+          { id: 5070, name: "Anime" },
+          { id: 7020, name: "EBooks" },
+          { id: 8000, name: "Other" },
+        ]),
       },
     })
     expect(
