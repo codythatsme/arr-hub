@@ -433,6 +433,7 @@ export function parseCardigannDefinitionYaml(source: string): IndexerDefinitionS
   const caps = expectRecord(root.caps ?? {}, "caps")
   const categories = parseCategories(root.categories ?? caps.categorymappings ?? caps.categories)
   const searchTypes = parseSearchTypes(caps)
+  const authFields = appendCaptchaAuthField(parseAuthFields(root.auth ?? root.settings), root.login)
 
   return {
     definitionKey,
@@ -443,7 +444,7 @@ export function parseCardigannDefinitionYaml(source: string): IndexerDefinitionS
     privacy,
     supportsRss: optionalBoolean(root, "rss") ?? true,
     supportsSearch: searchTypes.length > 0,
-    authFields: parseAuthFields(root.auth ?? root.settings),
+    authFields,
     categories,
     capabilities: {
       searchTypes,
@@ -781,6 +782,30 @@ function parseAuthFields(value: unknown): ReadonlyArray<IndexerAuthField> {
   return fields
 }
 
+function appendCaptchaAuthField(
+  fields: ReadonlyArray<IndexerAuthField>,
+  loginValue: unknown,
+): ReadonlyArray<IndexerAuthField> {
+  if (loginValue === undefined) return fields
+
+  const login = expectRecord(loginValue, "login")
+  const captcha = parseLoginCaptcha(login.captcha)
+  if (captcha === undefined) return fields
+
+  if (fields.some((field) => field.name.toLowerCase() === "cardiganncaptcha")) return fields
+
+  return [
+    ...fields,
+    {
+      name: "cardigannCaptcha",
+      label: "CAPTCHA",
+      type: "text",
+      required: false,
+      helpText: "Manual response for Cardigann login CAPTCHA prompts.",
+    },
+  ]
+}
+
 function parseAuthFieldOptions(value: unknown): ReadonlyArray<IndexerAuthFieldOption> {
   if (value === undefined) return []
 
@@ -964,6 +989,7 @@ function parsePrivacy(value: string): IndexerPrivacy {
 function parseAuthFieldType(value: string): IndexerAuthFieldType | null {
   const type = value.toLowerCase()
   if (type === "input" || type === "textbox") return "text"
+  if (type === "cardiganncaptcha") return "text"
   if (
     type === "text" ||
     type === "password" ||
@@ -974,7 +1000,7 @@ function parseAuthFieldType(value: string): IndexerAuthFieldType | null {
   ) {
     return type
   }
-  if (type === "info" || type.startsWith("info_") || type === "cardiganncaptcha") return null
+  if (type === "info" || type.startsWith("info_")) return null
   throw new Error(`unsupported auth field type: ${value}`)
 }
 

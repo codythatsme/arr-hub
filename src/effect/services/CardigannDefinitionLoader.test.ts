@@ -215,6 +215,82 @@ caps:
     ])
   })
 
+  it("adds a Cardigann captcha auth field when login captcha is declared", () => {
+    const definition = parseCardigannDefinitionYaml(`
+id: captcha-auth-cardigann
+name: Captcha Auth Cardigann
+links:
+  - https://tracker.example
+settings:
+  - name: username
+    label: Username
+login:
+  method: form
+  path: /login
+  captcha:
+    type: image
+    selector: img.captcha
+    input: captcha
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+`)
+
+    expect(definition.authFields).toEqual([
+      {
+        name: "username",
+        label: "Username",
+        type: "text",
+        required: false,
+      },
+      {
+        name: "cardigannCaptcha",
+        label: "CAPTCHA",
+        type: "text",
+        required: false,
+        helpText: "Manual response for Cardigann login CAPTCHA prompts.",
+      },
+    ])
+  })
+
+  it("preserves explicit Cardigann captcha auth fields without adding duplicates", () => {
+    const definition = parseCardigannDefinitionYaml(`
+id: explicit-captcha-auth-cardigann
+name: Explicit Captcha Auth Cardigann
+links:
+  - https://tracker.example
+settings:
+  - name: cardigannCaptcha
+    label: CAPTCHA answer
+    type: cardigannCaptcha
+    help: Enter the current answer.
+login:
+  method: form
+  path: /login
+  captcha:
+    type: image
+    selector: img.captcha
+    input: captcha
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+`)
+
+    expect(definition.authFields).toEqual([
+      {
+        name: "cardigannCaptcha",
+        label: "CAPTCHA answer",
+        type: "text",
+        required: false,
+        helpText: "Enter the current answer.",
+      },
+    ])
+  })
+
   it("parses Cardigann caps category dictionaries with standard category names", () => {
     const definition = parseCardigannDefinitionYaml(`
 id: caps-category-dictionary
