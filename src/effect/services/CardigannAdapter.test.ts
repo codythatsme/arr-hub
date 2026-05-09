@@ -424,6 +424,26 @@ const HTML_ESCAPED_SELECTOR_RESULTS = `<!doctype html>
   </body>
 </html>`
 
+const HTML_ESCAPED_DELIMITER_SELECTOR_RESULTS = `<!doctype html>
+<html>
+  <body>
+    <table>
+      <tbody>
+        <tr class="torrent release" data-token="release-main">
+          <td><a class="title title-main" href="/details/wrong-escaped-delimiter">Wrong Escaped Delimiter Movie 2026 1080p WEB-DL</a></td>
+          <td><a class="download download-main" data-token="download-main" href="/download/wrong-escaped-delimiter">Download</a></td>
+          <td><span class="category" data-value="Movies">Movies</span></td>
+        </tr>
+        <tr class="torrent release,item" data-token="release,main">
+          <td><a class="title title~main" href="/details/escaped-delimiter">Escaped Delimiter Movie 2026 1080p WEB-DL</a></td>
+          <td><a class="download download+main" data-token="download,main" href="/download/escaped-delimiter">Download</a></td>
+          <td><span class="category" data-value="Movies,HD">Movies</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </body>
+</html>`
+
 const HTML_MATCHING_PSEUDO_SELECTOR_RESULTS = `<!doctype html>
 <html>
   <body>
@@ -2820,6 +2840,71 @@ search:
       title: "Escaped Selector Movie 2026 1080p WEB-DL",
       infoUrl: "https://tracker.example/details/escaped-selector",
       downloadUrl: "https://tracker.example/download/escaped-selector",
+      category: "2000",
+    })
+  })
+
+  it("matches Cardigann HTML selectors with escaped delimiter characters", async () => {
+    const fetchMock = vi.fn(
+      async () => new Response(HTML_ESCAPED_DELIMITER_SELECTOR_RESULTS, { status: 200 }),
+    )
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 90,
+      name: "HTML Escaped Delimiter Selector Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "html-escaped-delimiter-selector-cardigann",
+      definitionYaml: `
+id: html-escaped-delimiter-selector-cardigann
+name: HTML Escaped Delimiter Selector Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies-hd
+      cat: Movies
+      desc: "Movies,HD"
+      newznab: 2000
+  modes:
+    search: [q]
+search:
+  paths:
+    - path: /browse
+      response:
+        type: html
+  rows:
+    selector: 'tr.torrent.release\\,item[data-token="release\\,main"]:is(.release\\,item, .fallback)'
+  fields:
+    title:
+      selector: 'a.title.title\\~main'
+    details:
+      selector: 'a.title.title\\~main'
+      attribute: href
+    download:
+      selector: 'a.download.download\\+main[data-token="download\\,main"]'
+      attribute: href
+    category:
+      selector: 'span.category[data-value="Movies\\,HD"]'
+      attribute: data-value
+`,
+      baseUrl: "https://tracker.example",
+      apiKey: "",
+      priority: 36,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Escaped Delimiter Movie", type: "general", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "Escaped Delimiter Movie 2026 1080p WEB-DL",
+      infoUrl: "https://tracker.example/details/escaped-delimiter",
+      downloadUrl: "https://tracker.example/download/escaped-delimiter",
       category: "2000",
     })
   })

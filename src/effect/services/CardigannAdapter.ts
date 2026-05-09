@@ -1141,6 +1141,10 @@ function parseHtmlSelectorFilters(suffix: string): ReadonlyArray<JsonSelectorFil
     let quote: string | null = null
     while (index < suffix.length && depth > 0) {
       const char = suffix[index] ?? ""
+      if (char === "\\") {
+        index += 2
+        continue
+      }
       if (quote !== null) {
         if (char === quote) quote = null
       } else if (char === `"` || char === "'") {
@@ -1537,7 +1541,16 @@ function htmlSelectorSteps(selector: string): ReadonlyArray<HtmlSelectorStep> {
     return true
   }
 
-  for (const char of selector.trim()) {
+  const text = selector.trim()
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index] ?? ""
+    if (char === "\\") {
+      current += char
+      index += 1
+      if (index < text.length) current += text[index] ?? ""
+      continue
+    }
+
     if ((char === `"` || char === `'`) && (bracketDepth > 0 || parenDepth > 0)) {
       quote = quote === char ? null : (quote ?? char)
     } else if (quote === null && char === "[") {
@@ -1577,7 +1590,16 @@ function splitHtmlSelectorList(selector: string): ReadonlyArray<string> {
   let parenDepth = 0
   let quote: string | null = null
 
-  for (const char of selector.trim()) {
+  const text = selector.trim()
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index] ?? ""
+    if (char === "\\") {
+      current += char
+      index += 1
+      if (index < text.length) current += text[index] ?? ""
+      continue
+    }
+
     if ((char === `"` || char === `'`) && (bracketDepth > 0 || parenDepth > 0)) {
       quote = quote === char ? null : (quote ?? char)
     } else if (quote === null && char === "[") {
@@ -1682,7 +1704,15 @@ function htmlSelectorIdentifierToken(text: string): string {
   let bracketDepth = 0
   let quote: string | null = null
 
-  for (const char of text) {
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index] ?? ""
+    if (char === "\\") {
+      if (bracketDepth === 0) token += char
+      index += 1
+      if (index < text.length && bracketDepth === 0) token += text[index] ?? ""
+      continue
+    }
+
     if ((char === `"` || char === "'") && bracketDepth > 0) {
       quote = quote === char ? null : (quote ?? char)
     } else if (quote === null && char === "[") {
