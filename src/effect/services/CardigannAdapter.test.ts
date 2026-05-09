@@ -424,6 +424,26 @@ const HTML_ESCAPED_SELECTOR_RESULTS = `<!doctype html>
   </body>
 </html>`
 
+const HTML_ESCAPED_ATTRIBUTE_NAME_SELECTOR_RESULTS = `<!doctype html>
+<html>
+  <body>
+    <table>
+      <tbody>
+        <tr class="torrent" data:token="release-wrong">
+          <td><a class="title" data:slug="details-wrong" href="/details/wrong-escaped-attribute">Wrong Escaped Attribute Movie 2026 1080p WEB-DL</a></td>
+          <td><a class="download" data:token="download-wrong" href="/download/wrong-escaped-attribute">Download</a></td>
+          <td><span class="category" data:category="Movies">Movies</span></td>
+        </tr>
+        <tr class="torrent" data:token="release:main">
+          <td><a class="title" data:slug="details:main" href="/details/escaped-attribute">Escaped Attribute Movie 2026 1080p WEB-DL</a></td>
+          <td><a class="download" data:token="download:main" href="/download/escaped-attribute">Download</a></td>
+          <td><span class="category" data:category="Movies:HD">Movies</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </body>
+</html>`
+
 const HTML_ESCAPED_DELIMITER_SELECTOR_RESULTS = `<!doctype html>
 <html>
   <body>
@@ -2860,6 +2880,71 @@ search:
       title: "Escaped Selector Movie 2026 1080p WEB-DL",
       infoUrl: "https://tracker.example/details/escaped-selector",
       downloadUrl: "https://tracker.example/download/escaped-selector",
+      category: "2000",
+    })
+  })
+
+  it("matches Cardigann HTML selectors with escaped attribute names", async () => {
+    const fetchMock = vi.fn(
+      async () => new Response(HTML_ESCAPED_ATTRIBUTE_NAME_SELECTOR_RESULTS, { status: 200 }),
+    )
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 93,
+      name: "HTML Escaped Attribute Name Selector Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "html-escaped-attribute-name-selector-cardigann",
+      definitionYaml: `
+id: html-escaped-attribute-name-selector-cardigann
+name: HTML Escaped Attribute Name Selector Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies-hd
+      cat: Movies
+      desc: "Movies:HD"
+      newznab: 2000
+  modes:
+    search: [q]
+search:
+  paths:
+    - path: /browse
+      response:
+        type: html
+  rows:
+    selector: 'tr.torrent[data\\:token="release:main"]'
+  fields:
+    title:
+      selector: 'a.title[data\\:slug="details:main"]'
+    details:
+      selector: 'a.title[data\\:slug="details:main"]'
+      attribute: href
+    download:
+      selector: 'a.download[data\\:token="download:main"]'
+      attribute: href
+    category:
+      selector: 'span.category[data\\:category="Movies:HD"]'
+      attribute: data:category
+`,
+      baseUrl: "https://tracker.example",
+      apiKey: "",
+      priority: 35,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Escaped Attribute Movie", type: "general", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "Escaped Attribute Movie 2026 1080p WEB-DL",
+      infoUrl: "https://tracker.example/details/escaped-attribute",
+      downloadUrl: "https://tracker.example/download/escaped-attribute",
       category: "2000",
     })
   })

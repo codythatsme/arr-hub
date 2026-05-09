@@ -1762,7 +1762,7 @@ function parseSimpleHtmlSelectorToken(token: string): SimpleHtmlSelector | null 
   )
   const attributes = Array.from(
     baseToken.matchAll(
-      /\[([\w:-]+)(?:\s*([!~|*^$]?=)\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=\]]+))(?:\s+([is]))?)?\]/gi,
+      /\[((?:\\.|[\w:-])+)(?:\s*([!~|*^$]?=)\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=\]]+))(?:\s+([is]))?)?\]/gi,
     ),
   ).map((match) => ({
     name: unescapeCssSelectorValue(match[1] ?? ""),
