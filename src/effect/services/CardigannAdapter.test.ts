@@ -788,6 +788,7 @@ search:
         X-Html-Decoded: '{{ .Config.EncodedTitle | htmldecode }}'
         X-Html-Encoded: '{{ .Config.RawHtml | htmlencode }}'
         X-Url-Decoded: '{{ .Config.EncodedPath | urldecode }}'
+        X-Url-Tail: '{{ .Config.EncodedPath | urldecode | split " " -1 }}'
       inputs:
         $raw: 'q={{ .Keywords | trim | urlencode }}&imdb={{ .Query.IMDBIDShort | prepend "tt" }}&cat={{ .Categories | join "," }}&source={{ .Config.Link | querystring "source" }}'
         decoded: '{{ .Config.EncodedTitle | htmldecode }}'
@@ -837,6 +838,7 @@ search:
     expect(headers.get("x-html-decoded")).toBe("Anne Rice's & Co")
     expect(headers.get("x-html-encoded")).toBe("A &amp; B &lt;C&gt; &quot;D&quot; &#39;E&#39;")
     expect(headers.get("x-url-decoded")).toBe("Encoded Name+Plus")
+    expect(headers.get("x-url-tail")).toBe("Name+Plus")
   })
 
   it("expands Cardigann range templates for repeated category params", async () => {
@@ -1417,6 +1419,8 @@ search:
     - name: urldecodecomponent
     - name: re_replace
       args: ["\\\\s+", "+"]
+    - name: split
+      args: ["+", "-1"]
     - name: append
       args: "-{{ .Config.Region }}"
     - name: urlencodecomponent
@@ -1442,8 +1446,8 @@ search:
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
     const url = new URL(requestUrl ?? "")
-    expect(url.pathname).toBe("/search/Keyword%2BFilter%2BMovie-AU")
-    expect(url.searchParams.get("q")).toBe("Keyword+Filter+Movie-AU")
+    expect(url.pathname).toBe("/search/Movie-AU")
+    expect(url.searchParams.get("q")).toBe("Movie-AU")
     expect(url.searchParams.get("raw")).toBe("Keyword Filter Movie")
   })
 

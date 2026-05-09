@@ -321,6 +321,18 @@ function queryStringValue(value: string, key: string): string {
   return new URLSearchParams(query).get(trimmedKey) ?? ""
 }
 
+function splitFilterValue(value: string, separator: string, position: string): string {
+  const splitOn = separator[0]
+  if (!splitOn) return value
+
+  const index = Number.parseInt(position, 10)
+  if (!Number.isFinite(index)) return value
+
+  const parts = value.split(splitOn)
+  const normalizedIndex = index < 0 ? parts.length + index : index
+  return parts[normalizedIndex] ?? ""
+}
+
 function urlDecode(value: string): string {
   try {
     return decodeURIComponent(value)
@@ -396,6 +408,8 @@ function applyTemplateFilter(
       return queryStringValue(text, args[0] ?? "")
     case "replace":
       return args.length >= 2 ? text.split(args[0]).join(args[1]) : text
+    case "split":
+      return splitFilterValue(text, args[0] ?? "", args[1] ?? "0")
     case "trim":
       return text.trim()
     case "upper":
@@ -593,6 +607,12 @@ function applyCardigannKeywordFilter(
     }
     case "replace":
       return first ? value.split(first).join(renderTemplate(second, variables)) : value
+    case "split":
+      return splitFilterValue(
+        value,
+        renderTemplate(first, variables),
+        renderTemplate(second, variables),
+      )
     case "tolower":
     case "lower":
     case "lowercase":
