@@ -56,6 +56,7 @@ export interface CardigannFilter {
 export interface CardigannRowsSelector {
   readonly selector: string
   readonly attribute?: string
+  readonly before?: number
   readonly after?: number
   readonly count?: CardigannFieldSelector
   readonly multiple?: boolean
@@ -583,6 +584,7 @@ function parseRows(value: unknown): CardigannRowsSelector | null {
   if (value === undefined) return null
   const rows = expectRecord(value, "rows")
   const attribute = optionalScalarStringFromAny(rows, ["attribute"])
+  const before = optionalNonNegativeInt(rows, "before")
   const after = optionalNonNegativeInt(rows, "after")
   const count = rows.count
   const multiple = optionalBoolean(rows, "multiple") === true
@@ -594,6 +596,7 @@ function parseRows(value: unknown): CardigannRowsSelector | null {
     selector: requiredString(rows, "selector"),
     filters: parseFilters(rows.filters),
     ...(attribute !== null ? { attribute } : {}),
+    ...(before !== null ? { before } : {}),
     ...(after !== null ? { after } : {}),
     ...(count !== undefined
       ? { count: parseFieldSelector(expectRecord(count, "rows count")) }

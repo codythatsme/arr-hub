@@ -455,6 +455,26 @@ const HTML_AFTER_RESULTS = `<!doctype html>
   </body>
 </html>`
 
+const HTML_BEFORE_RESULTS = `<!doctype html>
+<html>
+  <body>
+    <table class="results">
+      <tbody>
+        <tr>
+          <td colspan="2">
+            <span class="size">4.5 GiB</span>
+            <time datetime="2026-05-04T00:00:00.000Z">May 4 2026</time>
+          </td>
+        </tr>
+        <tr>
+          <td class="name"><a href="/details/before">Before Row Movie 2026 1080p BluRay</a></td>
+          <td class="actions"><a class="download" href="/download/before">Download</a></td>
+        </tr>
+      </tbody>
+    </table>
+  </body>
+</html>`
+
 const HTML_REMOVE_RESULTS = `<!doctype html>
 <html>
   <body>
@@ -2426,6 +2446,76 @@ search:
       category: "2000",
     })
     expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-03T00:00:00.000Z")
+  })
+
+  it("merges Cardigann HTML rows using rows.before before extracting fields", async () => {
+    const fetchMock = vi.fn(async () => new Response(HTML_BEFORE_RESULTS, { status: 200 }))
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 73,
+      name: "Before Rows HTML Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "before-rows-html-cardigann",
+      definitionYaml: `
+id: before-rows-html-cardigann
+name: Before Rows HTML Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+      newznab: 2000
+  modes:
+    search: [q]
+search:
+  paths:
+    - path: /browse
+      response:
+        type: html
+  rows:
+    selector: table.results tr
+    before: 1
+  fields:
+    title:
+      selector: td.name a
+    details:
+      selector: td.name a
+      attribute: href
+    download:
+      selector: td.actions a.download
+      attribute: href
+    size:
+      selector: span.size
+    date:
+      selector: time
+      attribute: datetime
+    category:
+      text: Movies
+`,
+      baseUrl: "https://tracker.example",
+      apiKey: "",
+      priority: 35,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Before Row Movie", type: "general", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "Before Row Movie 2026 1080p BluRay",
+      downloadUrl: "https://tracker.example/download/before",
+      infoUrl: "https://tracker.example/details/before",
+      size: 4_831_838_208,
+      category: "2000",
+    })
+    expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-04T00:00:00.000Z")
   })
 
   it("removes Cardigann HTML field descendants before extracting text", async () => {

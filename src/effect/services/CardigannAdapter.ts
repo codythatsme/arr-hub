@@ -1819,23 +1819,32 @@ function findHtmlElements(html: string, selectorText: string): ReadonlyArray<Htm
 
 function mergeHtmlRows(
   rows: ReadonlyArray<HtmlElementMatch>,
+  before: number | undefined,
   after: number | undefined,
 ): ReadonlyArray<HtmlElementMatch> {
-  if (after === undefined || after <= 0) return rows
+  const beforeCount = before ?? 0
+  const afterCount = after ?? 0
+  if (beforeCount <= 0 && afterCount <= 0) return rows
 
   const merged: Array<HtmlElementMatch> = []
-  for (let index = 0; index < rows.length; index += after + 1) {
-    const row = rows[index]
+  const groupSize = beforeCount + afterCount + 1
+  for (let index = 0; index < rows.length; index += groupSize) {
+    const rowIndex = index + beforeCount
+    const row = rows[rowIndex]
     if (row === undefined) continue
 
-    const followingRows = rows.slice(index + 1, index + after + 1)
+    const precedingRows = rows.slice(index, rowIndex)
+    const followingRows = rows.slice(rowIndex + 1, rowIndex + afterCount + 1)
+    const mergedRows = [...precedingRows, row, ...followingRows]
     merged.push({
       tagName: row.tagName,
       attributes: row.attributes,
-      innerHtml: [row.innerHtml, ...followingRows.map((followingRow) => followingRow.innerHtml)]
+      innerHtml: mergedRows
+        .map((mergedRow) => mergedRow.innerHtml)
         .filter((value) => value.length > 0)
         .join("\n"),
-      outerHtml: [row.outerHtml, ...followingRows.map((followingRow) => followingRow.outerHtml)]
+      outerHtml: mergedRows
+        .map((mergedRow) => mergedRow.outerHtml)
         .filter((value) => value.length > 0)
         .join("\n"),
       sourceIndex: row.sourceIndex,
@@ -2321,7 +2330,11 @@ function parseHtmlReleases(
   if (rowSelector === null) return []
 
   const rowSelectorText = renderTemplate(rowSelector.selector, request.variables)
-  const rows = mergeHtmlRows(findHtmlElements(html, rowSelectorText), rowSelector.after)
+  const rows = mergeHtmlRows(
+    findHtmlElements(html, rowSelectorText),
+    rowSelector.before,
+    rowSelector.after,
+  )
   const filteredRows = filterHtmlRows(rows, rowSelector.filters, request.variables)
   const now = Date.now()
 
