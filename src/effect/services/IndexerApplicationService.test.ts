@@ -424,6 +424,57 @@ describe("IndexerApplicationService", () => {
     )
   })
 
+  it("keeps stale remote aggregate mappings during add-only sync", async () => {
+    const requests = stubRemoteApplication()
+
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const indexers = yield* IndexerService
+        const apps = yield* IndexerApplicationService
+
+        const indexer = yield* indexers.add({
+          name: "Torrent Movies",
+          type: "torznab",
+          baseUrl: "http://tracker.test",
+          apiKey: "tracker-secret",
+          categories: [2000],
+        })
+
+        const app = yield* apps.add({
+          name: "Radarr",
+          type: "radarr",
+          baseUrl: "http://radarr.test",
+          apiKey: "remote-key",
+          syncBaseUrl: "http://arr-hub.test",
+          syncApiKey: "arr-hub-key",
+          settings: { syncLevel: "add_only" },
+        })
+
+        yield* apps.sync(app.id)
+        yield* indexers.remove(indexer.id)
+
+        const result = yield* apps.sync(app.id)
+        expect(result.created).toBe(0)
+        expect(result.updated).toBe(0)
+        expect(result.removed).toBe(0)
+        expect(result.skipped).toBe(2)
+        expect(result.items).toContainEqual({
+          protocol: "torrent",
+          action: "skipped",
+          remoteIndexerId: 321,
+          remoteIndexerName: "ARR Hub Torznab (Aggregate)",
+          categories: [],
+          reason: "no enabled indexers for protocol",
+        })
+
+        expect(requests.some((request) => request.method === "DELETE")).toBe(false)
+
+        const synced = yield* apps.getById(app.id)
+        expect(synced.mappings).toHaveLength(1)
+      }).pipe(Effect.provide(TestLayer)),
+    )
+  })
+
   it("records remote application sync failures", async () => {
     vi.stubGlobal("fetch", async () => new Response("bad key", { status: 401 }))
 

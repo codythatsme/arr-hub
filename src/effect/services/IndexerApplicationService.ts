@@ -692,7 +692,7 @@ export const IndexerApplicationServiceLive = Layer.effect(
           const mapping = existingMappings.find((remote) => remote.protocol === item.protocol)
 
           if (item.indexerCount === 0) {
-            if (mapping) {
+            if (mapping && settings.syncLevel === "full") {
               yield* Effect.tryPromise({
                 try: () =>
                   deleteRemoteIndexer(application.baseUrl, apiKey, mapping.remoteIndexerId),
@@ -713,8 +713,8 @@ export const IndexerApplicationServiceLive = Layer.effect(
             items.push({
               protocol: item.protocol,
               action: "skipped",
-              remoteIndexerId: null,
-              remoteIndexerName: null,
+              remoteIndexerId: mapping?.remoteIndexerId ?? null,
+              remoteIndexerName: mapping?.remoteIndexerName ?? null,
               categories: [],
               reason: "no enabled indexers for protocol",
             })
