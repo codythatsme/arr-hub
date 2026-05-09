@@ -13,6 +13,11 @@ const indexerApplicationSettingsSchema = z.object({
   enableAutomaticSearch: z.boolean().optional(),
   enableInteractiveSearch: z.boolean().optional(),
   priority: z.number().int().min(1).max(100).optional(),
+  minimumSeeders: z.number().int().min(0).optional(),
+  seedRatio: z.number().min(0).nullable().optional(),
+  seedTimeMinutes: z.number().int().min(0).nullable().optional(),
+  seasonPackSeedTimeMinutes: z.number().int().min(0).nullable().optional(),
+  rejectBlocklistedTorrentHashesWhileGrabbing: z.boolean().optional(),
 })
 
 const indexerApplicationInputSchema = z.object({

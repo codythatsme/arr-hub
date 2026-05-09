@@ -10,6 +10,11 @@ export interface IndexerApplicationSettings {
   readonly enableAutomaticSearch?: boolean
   readonly enableInteractiveSearch?: boolean
   readonly priority?: number
+  readonly minimumSeeders?: number
+  readonly seedRatio?: number | null
+  readonly seedTimeMinutes?: number | null
+  readonly seasonPackSeedTimeMinutes?: number | null
+  readonly rejectBlocklistedTorrentHashesWhileGrabbing?: boolean
 }
 
 export interface IndexerApplicationMapping {

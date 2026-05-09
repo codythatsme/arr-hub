@@ -188,6 +188,62 @@ describe("IndexerApplicationService", () => {
     )
   })
 
+  it("syncs torrent seed criteria into aggregate app indexers", async () => {
+    const requests = stubRemoteApplication()
+
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const indexers = yield* IndexerService
+        const apps = yield* IndexerApplicationService
+
+        yield* indexers.add({
+          name: "Torrent Movies",
+          type: "torznab",
+          baseUrl: "http://tracker.test",
+          apiKey: "tracker-secret",
+          categories: [2000],
+        })
+
+        const app = yield* apps.add({
+          name: "Radarr",
+          type: "radarr",
+          baseUrl: "http://radarr.test",
+          apiKey: "remote-key",
+          syncBaseUrl: "http://arr-hub.test",
+          syncApiKey: "arr-hub-key",
+          settings: {
+            minimumSeeders: 8,
+            seedRatio: 1.5,
+            seedTimeMinutes: 1440,
+            seasonPackSeedTimeMinutes: 10_080,
+            rejectBlocklistedTorrentHashesWhileGrabbing: true,
+          },
+        })
+
+        const result = yield* apps.sync(app.id)
+        expect(result.created).toBe(1)
+
+        const post = requests.find((request) => request.method === "POST")
+        expect(remoteField(post?.body ?? {}, "minimumSeeders")).toBe(8)
+        expect(remoteField(post?.body ?? {}, "seedCriteria.seedRatio")).toBe(1.5)
+        expect(remoteField(post?.body ?? {}, "seedCriteria.seedTime")).toBe(1440)
+        expect(remoteField(post?.body ?? {}, "seedCriteria.seasonPackSeedTime")).toBe(10_080)
+        expect(remoteField(post?.body ?? {}, "rejectBlocklistedTorrentHashesWhileGrabbing")).toBe(
+          true,
+        )
+
+        const synced = yield* apps.getById(app.id)
+        expect(synced.settings).toMatchObject({
+          minimumSeeders: 8,
+          seedRatio: 1.5,
+          seedTimeMinutes: 1440,
+          seasonPackSeedTimeMinutes: 10_080,
+          rejectBlocklistedTorrentHashesWhileGrabbing: true,
+        })
+      }).pipe(Effect.provide(TestLayer)),
+    )
+  })
+
   it("removes stale remote aggregate indexers during full sync", async () => {
     const requests = stubRemoteApplication()
 

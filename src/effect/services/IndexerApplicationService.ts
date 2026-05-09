@@ -308,6 +308,12 @@ function normalizeSettings(
     enableAutomaticSearch: settings.enableAutomaticSearch ?? true,
     enableInteractiveSearch: settings.enableInteractiveSearch ?? true,
     priority: settings.priority ?? 25,
+    minimumSeeders: settings.minimumSeeders ?? 0,
+    seedRatio: settings.seedRatio ?? null,
+    seedTimeMinutes: settings.seedTimeMinutes ?? null,
+    seasonPackSeedTimeMinutes: settings.seasonPackSeedTimeMinutes ?? null,
+    rejectBlocklistedTorrentHashesWhileGrabbing:
+      settings.rejectBlocklistedTorrentHashesWhileGrabbing ?? false,
   }
 }
 
@@ -434,11 +440,15 @@ function buildRemoteIndexerPayload(input: {
   }
 
   if (input.protocol === "torrent") {
-    setField(fields, "minimumSeeders", 0)
-    setField(fields, "seedCriteria.seedRatio", null)
-    setField(fields, "seedCriteria.seedTime", null)
-    setField(fields, "seedCriteria.seasonPackSeedTime", null)
-    setField(fields, "rejectBlocklistedTorrentHashesWhileGrabbing", false)
+    setField(fields, "minimumSeeders", input.settings.minimumSeeders)
+    setField(fields, "seedCriteria.seedRatio", input.settings.seedRatio)
+    setField(fields, "seedCriteria.seedTime", input.settings.seedTimeMinutes)
+    setField(fields, "seedCriteria.seasonPackSeedTime", input.settings.seasonPackSeedTimeMinutes)
+    setField(
+      fields,
+      "rejectBlocklistedTorrentHashesWhileGrabbing",
+      input.settings.rejectBlocklistedTorrentHashesWhileGrabbing,
+    )
   }
 
   return {
