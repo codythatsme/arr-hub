@@ -822,6 +822,82 @@ search:
     expect(releases[0]?.title).toBe("Example Movie 2026 1080p WEB-DL")
   })
 
+  it("executes Cardigann oneurl login requests before search", async () => {
+    const requests: Array<{ url: string; init: RequestInit | undefined }> = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      requests.push({ url, init })
+      if (new URL(url).pathname === "/login") {
+        return new Response("ok", {
+          status: 200,
+          headers: { "set-cookie": "oneurl=abc123; Path=/; HttpOnly" },
+        })
+      }
+      return new Response(RSS_XML, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 27,
+      name: "OneUrl Login Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "oneurl-login-cardigann",
+      definitionYaml: `
+id: oneurl-login-cardigann
+name: OneUrl Login Cardigann
+links:
+  - https://tracker.example
+settings:
+  - name: token
+    label: Token
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+  modes:
+    movie-search: [q]
+login:
+  path: /login
+  method: oneurl
+  inputs:
+    oneurl: "?token={{ .Config.Token }}"
+    ignored: "{{ .Config.Token }}"
+search:
+  paths:
+    - path: /api
+      response:
+        type: torznab
+      inputs:
+        q: "{{ .Keywords }}"
+`,
+      baseUrl: "https://tracker.example/root",
+      apiKey: "",
+      configValues: {
+        token: "abc123",
+      },
+      priority: 15,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "OneUrl Movie", type: "movie", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    const loginUrl = new URL(requests[0]?.url ?? "")
+    expect(loginUrl.pathname).toBe("/login")
+    expect(loginUrl.searchParams.get("token")).toBe("abc123")
+    expect(loginUrl.searchParams.has("ignored")).toBe(false)
+    expect(requests[0]?.init?.method).toBeUndefined()
+
+    const searchHeaders = new Headers(requests[1]?.init?.headers)
+    expect(searchHeaders.get("cookie")).toBe("oneurl=abc123")
+    expect(new URL(requests[1]?.url ?? "").searchParams.get("q")).toBe("OneUrl Movie")
+    expect(releases[0]?.title).toBe("Example Movie 2026 1080p WEB-DL")
+  })
+
   it("fails Cardigann login when a configured error selector matches", async () => {
     const fetchMock = vi.fn(
       async () =>
@@ -832,7 +908,7 @@ search:
     vi.stubGlobal("fetch", fetchMock)
 
     const adapter = createCardigannYamlAdapter({
-      id: 27,
+      id: 28,
       name: "Login Error Cardigann",
       type: "cardigann_yaml",
       definitionKey: "login-error-cardigann",

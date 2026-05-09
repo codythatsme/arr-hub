@@ -1175,14 +1175,20 @@ function resolveLoginRequests(
   const variables = configTemplateVariables(config, baseUrl, definition.authFields)
   const requests: Array<CardigannLoginRequest> = []
   for (const path of definition.login.paths) {
-    const url = new URL(
-      renderTemplate(path.path, variables),
-      baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`,
-    )
+    const renderedPath =
+      definition.login.method === "oneurl"
+        ? `${renderTemplate(path.path, variables)}${renderTemplate(
+            path.inputs.oneurl ?? definition.login.inputs.oneurl ?? "",
+            variables,
+          )}`
+        : renderTemplate(path.path, variables)
+    const url = new URL(renderedPath, baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`)
     const targetParams = path.method === "get" ? url.searchParams : new URLSearchParams()
     const headers = new Headers()
-    appendInputs(targetParams, definition.login.inputs, variables, false)
-    appendInputs(targetParams, path.inputs, variables, false)
+    if (definition.login.method !== "oneurl") {
+      appendInputs(targetParams, definition.login.inputs, variables, false)
+      appendInputs(targetParams, path.inputs, variables, false)
+    }
     appendHeaders(headers, definition.login.headers, variables, false)
     appendHeaders(headers, path.headers, variables, false)
 

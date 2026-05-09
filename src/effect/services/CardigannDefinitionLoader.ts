@@ -68,7 +68,7 @@ export interface CardigannSearchRuntime {
 }
 
 export interface CardigannLoginRuntime {
-  readonly method: "get" | "post" | "cookie"
+  readonly method: "get" | "post" | "cookie" | "oneurl"
   readonly inputs: Readonly<Record<string, string>>
   readonly headers: Readonly<Record<string, string>>
   readonly cookies: ReadonlyArray<string>
@@ -494,13 +494,17 @@ function parseLoginRuntime(value: unknown): CardigannLoginRuntime | null {
     headers: parseHeaderMap(login.headers),
     cookies: parseScalarStringArray(login.cookies, "login cookies"),
     errors: parseLoginErrors(login.error),
-    paths: method === "cookie" ? [] : parseLoginPaths(login.paths ?? login.path, login),
+    paths:
+      method === "cookie"
+        ? []
+        : parseLoginPaths(login.paths ?? login.path, login, method === "oneurl" ? "get" : null),
   }
 }
 
 function parseLoginPaths(
   value: unknown,
   login: Record<string, unknown>,
+  defaultMethodOverride: "get" | "post" | null = null,
 ): ReadonlyArray<CardigannLoginPath> {
   const pathValues =
     typeof value === "string"
@@ -510,13 +514,13 @@ function parseLoginPaths(
         : isRecord(value)
           ? [value]
           : []
-  const defaultMethod = optionalString(login, "method") ?? "get"
+  const defaultMethod = defaultMethodOverride ?? optionalString(login, "method") ?? "get"
 
   return pathValues.map((item) => {
     const path = typeof item === "string" ? { path: item } : expectRecord(item, "login path")
     return {
       path: requiredString(path, "path"),
-      method: parseMethod(optionalString(path, "method") ?? defaultMethod),
+      method: defaultMethodOverride ?? parseMethod(optionalString(path, "method") ?? defaultMethod),
       inputs: parseInputMap(path.inputs),
       headers: parseHeaderMap(path.headers),
     }
@@ -851,9 +855,11 @@ function parseMethod(value: string): "get" | "post" {
   throw new Error(`unsupported Cardigann search method: ${value}`)
 }
 
-function parseLoginMethod(value: string): "get" | "post" | "cookie" {
+function parseLoginMethod(value: string): "get" | "post" | "cookie" | "oneurl" {
   const method = value.toLowerCase()
-  if (method === "get" || method === "post" || method === "cookie") return method
+  if (method === "get" || method === "post" || method === "cookie" || method === "oneurl") {
+    return method
+  }
   throw new Error(`unsupported Cardigann login method: ${value}`)
 }
 

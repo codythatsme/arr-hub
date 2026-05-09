@@ -631,6 +631,52 @@ search:
     })
   })
 
+  it("parses Cardigann oneurl login runtime metadata", () => {
+    const runtime = parseCardigannRuntimeDefinitionYaml(`
+id: oneurl-login-cardigann
+name: OneUrl Login Cardigann
+links:
+  - https://tracker.example
+settings:
+  - name: token
+    label: Token
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+login:
+  method: oneurl
+  paths:
+    - path: /login
+      method: post
+  inputs:
+    oneurl: "?token={{ .Config.Token }}"
+    ignored: "{{ .Config.Token }}"
+search:
+  paths:
+    - path: /api
+`)
+
+    expect(runtime.login).toEqual({
+      method: "oneurl",
+      inputs: {
+        oneurl: "?token={{ .Config.Token }}",
+        ignored: "{{ .Config.Token }}",
+      },
+      headers: {},
+      cookies: [],
+      errors: [],
+      paths: [
+        {
+          path: "/login",
+          method: "get",
+          inputs: {},
+          headers: {},
+        },
+      ],
+    })
+  })
+
   it("exposes built-in runtime definitions by key", () => {
     const runtime = getBuiltInCardigannRuntimeDefinition("public-domain-movie-torrents")
     expect(runtime?.search.paths[0]).toMatchObject({
