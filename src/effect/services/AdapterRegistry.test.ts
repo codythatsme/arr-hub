@@ -22,7 +22,7 @@ describe("AdapterRegistry", () => {
         .toSorted()
 
       expect(downloadTypes).toEqual(["qbittorrent", "sabnzbd"])
-      expect(indexerTypes).toEqual(["newznab", "torznab"])
+      expect(indexerTypes).toEqual(["cardigann_yaml", "newznab", "torznab"])
       expect(mediaServerTypes).toEqual(["jellyfin", "plex"])
     }).pipe(Effect.provide(AdapterRegistryLive)),
   )
