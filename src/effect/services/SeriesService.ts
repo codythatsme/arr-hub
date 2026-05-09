@@ -27,10 +27,13 @@ export interface SeriesWithDetails {
 
 export interface EpisodeInput {
   readonly tvdbId: number
+  readonly tmdbId?: number | null
   readonly title: string
   readonly episodeNumber: number
+  readonly absoluteEpisodeNumber?: number | null
   readonly airDate?: Date | null
   readonly overview?: string | null
+  readonly runtimeMinutes?: number | null
   readonly hasFile?: boolean
   readonly filePath?: string | null
   readonly monitored?: boolean
@@ -38,36 +41,53 @@ export interface EpisodeInput {
 
 export interface SeasonInput {
   readonly seasonNumber: number
+  readonly tmdbId?: number | null
   readonly monitored?: boolean
   readonly episodes?: ReadonlyArray<EpisodeInput>
 }
 
 export interface SeriesInput {
   readonly tvdbId: number
+  readonly tmdbId?: number | null
+  readonly imdbId?: string | null
   readonly title: string
+  readonly originalTitle?: string | null
   readonly year?: number | null
   readonly overview?: string | null
   readonly posterPath?: string | null
   readonly status?: "continuing" | "ended" | "wanted" | "available"
   readonly network?: string | null
+  readonly genres?: ReadonlyArray<string>
+  readonly runtimeMinutes?: number | null
+  readonly seriesType?: string | null
+  readonly certification?: string | null
   readonly rootFolderPath?: string | null
   readonly monitored?: boolean
   readonly qualityProfileId?: number | null
   readonly seasonFolder?: boolean
+  readonly metadataRefreshedAt?: Date | null
   readonly seasons?: ReadonlyArray<SeasonInput>
 }
 
 export interface SeriesUpdate {
   readonly title?: string
+  readonly tmdbId?: number | null
+  readonly imdbId?: string | null
+  readonly originalTitle?: string | null
   readonly year?: number | null
   readonly overview?: string | null
   readonly posterPath?: string | null
   readonly status?: "continuing" | "ended" | "wanted" | "available"
   readonly network?: string | null
+  readonly genres?: ReadonlyArray<string>
+  readonly runtimeMinutes?: number | null
+  readonly seriesType?: string | null
+  readonly certification?: string | null
   readonly rootFolderPath?: string | null
   readonly monitored?: boolean
   readonly qualityProfileId?: number | null
   readonly seasonFolder?: boolean
+  readonly metadataRefreshedAt?: Date | null
 }
 
 export interface SeriesFilters {
@@ -171,16 +191,24 @@ export const SeriesServiceLive = Layer.effect(
             .insert(series)
             .values({
               tvdbId: input.tvdbId,
+              tmdbId: input.tmdbId ?? null,
+              imdbId: input.imdbId ?? null,
               title: input.title,
+              originalTitle: input.originalTitle ?? null,
               year: input.year ?? null,
               overview: input.overview ?? null,
               posterPath: input.posterPath ?? null,
               status: input.status ?? "wanted",
               network: input.network ?? null,
+              genres: input.genres ?? [],
+              runtimeMinutes: input.runtimeMinutes ?? null,
+              seriesType: input.seriesType ?? null,
+              certification: input.certification ?? null,
               rootFolderPath: input.rootFolderPath ?? null,
               monitored: seriesMonitored,
               qualityProfileId: input.qualityProfileId ?? null,
               seasonFolder: input.seasonFolder ?? true,
+              metadataRefreshedAt: input.metadataRefreshedAt ?? null,
             })
             .returning()
           const s = rows[0]
@@ -194,6 +222,7 @@ export const SeriesServiceLive = Layer.effect(
                 .insert(seasons)
                 .values({
                   seriesId: s.id,
+                  tmdbId: seasonInput.tmdbId ?? null,
                   seasonNumber: seasonInput.seasonNumber,
                   monitored: seasonMonitored,
                 })
@@ -206,10 +235,13 @@ export const SeriesServiceLive = Layer.effect(
                   yield* db.insert(episodes).values({
                     seasonId: seasonRow.id,
                     tvdbId: epInput.tvdbId,
+                    tmdbId: epInput.tmdbId ?? null,
                     title: epInput.title,
                     episodeNumber: epInput.episodeNumber,
+                    absoluteEpisodeNumber: epInput.absoluteEpisodeNumber ?? null,
                     airDate: epInput.airDate ?? null,
                     overview: epInput.overview ?? null,
+                    runtimeMinutes: epInput.runtimeMinutes ?? null,
                     hasFile: epInput.hasFile ?? false,
                     filePath: epInput.filePath ?? null,
                     monitored: epMonitored,

@@ -17,6 +17,11 @@ function TvShows() {
   const queryClient = useQueryClient()
   const [status, setStatus] = useState<StatusFilter>("all")
   const [monitored, setMonitored] = useState<MonitoredFilter>("all")
+  const [metadataQuery, setMetadataQuery] = useState("")
+  const [metadataQualityProfileId, setMetadataQualityProfileId] = useState("")
+  const [metadataRootFolderPath, setMetadataRootFolderPath] = useState("")
+  const [metadataMonitored, setMetadataMonitored] = useState(true)
+  const [metadataSeasonFolder, setMetadataSeasonFolder] = useState(true)
   const [tvdbId, setTvdbId] = useState("")
   const [title, setTitle] = useState("")
   const [year, setYear] = useState("")
@@ -41,6 +46,12 @@ function TvShows() {
   const query = useQuery(trpc.series.list.queryOptions(filters))
   const profiles = useQuery(trpc.profiles.list.queryOptions())
   const rootFolders = useQuery(trpc.rootFolders.list.queryOptions())
+  const metadataResults = useQuery(
+    trpc.tmdb.searchTvSeries.queryOptions(
+      { query: metadataQuery },
+      { enabled: metadataQuery.trim().length >= 2 },
+    ),
+  )
   const invalidateSeries = () => queryClient.invalidateQueries({ queryKey: listKey })
   const addSeries = useMutation(
     trpc.series.add.mutationOptions({
@@ -49,6 +60,14 @@ function TvShows() {
         setMessage(`Added ${result.series.title}.`)
         setTitle("")
         setOverview("")
+      },
+    }),
+  )
+  const addFromMetadata = useMutation(
+    trpc.series.addFromTmdb.mutationOptions({
+      onSuccess: async (result) => {
+        await invalidateSeries()
+        setMessage(`Added ${result.series.title}.`)
       },
     }),
   )
@@ -69,12 +88,18 @@ function TvShows() {
     }),
   )
 
-  const pending = addSeries.isPending || updateSeries.isPending || removeSeries.isPending
+  const pending =
+    addSeries.isPending ||
+    addFromMetadata.isPending ||
+    updateSeries.isPending ||
+    removeSeries.isPending
   const error =
     formError ??
     addSeries.error?.message ??
+    addFromMetadata.error?.message ??
     updateSeries.error?.message ??
     removeSeries.error?.message ??
+    metadataResults.error?.message ??
     query.error?.message ??
     profiles.error?.message ??
     rootFolders.error?.message
@@ -263,160 +288,266 @@ function TvShows() {
           )}
         </div>
 
-        <form className="rounded-md border p-4" onSubmit={submitSeries}>
-          <h2 className="text-lg font-semibold">Add TV Show</h2>
-          <div className="mt-4 space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
+        <div className="space-y-6">
+          <section className="rounded-md border p-4">
+            <h2 className="text-lg font-semibold">Add From Metadata</h2>
+            <div className="mt-4 space-y-4">
               <label className="block text-sm">
-                <span className="font-medium">TVDB ID</span>
+                <span className="font-medium">TMDB series search</span>
                 <input
                   className="mt-1 w-full rounded border bg-transparent px-3 py-2"
-                  value={tvdbId}
-                  onChange={(event) => setTvdbId(event.target.value)}
-                  type="number"
-                  required
+                  value={metadataQuery}
+                  onChange={(event) => setMetadataQuery(event.target.value)}
+                  placeholder="Breaking Bad"
                 />
               </label>
-              <label className="block text-sm">
-                <span className="font-medium">Title</span>
-                <input
-                  className="mt-1 w-full rounded border bg-transparent px-3 py-2"
-                  value={title}
-                  onChange={(event) => setTitle(event.target.value)}
-                  required
-                />
-              </label>
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
+                <label className="block text-sm">
+                  <span className="font-medium">Metadata profile</span>
+                  <select
+                    className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                    value={metadataQualityProfileId}
+                    onChange={(event) => setMetadataQualityProfileId(event.target.value)}
+                  >
+                    <option value="">None</option>
+                    {(profiles.data ?? []).map((item) => (
+                      <option key={item.profile.id} value={item.profile.id}>
+                        {item.profile.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block text-sm">
+                  <span className="font-medium">Metadata root</span>
+                  <select
+                    className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                    value={metadataRootFolderPath}
+                    onChange={(event) => setMetadataRootFolderPath(event.target.value)}
+                  >
+                    <option value="">Unset</option>
+                    {(rootFolders.data ?? []).map((folder) => (
+                      <option key={folder.id} value={folder.path}>
+                        {folder.path}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <div className="flex flex-wrap gap-4">
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={metadataMonitored}
+                    onChange={(event) => setMetadataMonitored(event.target.checked)}
+                  />
+                  Monitor when added
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={metadataSeasonFolder}
+                    onChange={(event) => setMetadataSeasonFolder(event.target.checked)}
+                  />
+                  Use season folders
+                </label>
+              </div>
+              {metadataResults.isLoading && (
+                <p className="text-muted-foreground text-sm">Searching metadata...</p>
+              )}
+              {metadataResults.data?.results.map((show) => (
+                <article key={show.id} className="rounded-md border p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="font-medium">
+                        {show.name}
+                        {show.year ? ` (${show.year})` : ""}
+                      </h3>
+                      <p className="text-muted-foreground mt-1 line-clamp-3 text-xs">
+                        {show.overview || "No overview available."}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      className="bg-primary text-primary-foreground inline-flex shrink-0 items-center gap-2 rounded px-3 py-2 text-sm disabled:opacity-50"
+                      disabled={pending}
+                      onClick={() =>
+                        addFromMetadata.mutate({
+                          tmdbId: show.id,
+                          rootFolderPath:
+                            metadataRootFolderPath.length > 0 ? metadataRootFolderPath : null,
+                          qualityProfileId:
+                            metadataQualityProfileId.length > 0
+                              ? Number(metadataQualityProfileId)
+                              : null,
+                          monitored: metadataMonitored,
+                          seasonFolder: metadataSeasonFolder,
+                        })
+                      }
+                    >
+                      <Plus className="size-4" />
+                      Add
+                    </button>
+                  </div>
+                </article>
+              ))}
             </div>
-            <div className="grid gap-4 sm:grid-cols-2">
+          </section>
+
+          <form className="rounded-md border p-4" onSubmit={submitSeries}>
+            <h2 className="text-lg font-semibold">Add TV Show</h2>
+            <div className="mt-4 space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
+                <label className="block text-sm">
+                  <span className="font-medium">TVDB ID</span>
+                  <input
+                    className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                    value={tvdbId}
+                    onChange={(event) => setTvdbId(event.target.value)}
+                    type="number"
+                    required
+                  />
+                </label>
+                <label className="block text-sm">
+                  <span className="font-medium">Title</span>
+                  <input
+                    className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                    value={title}
+                    onChange={(event) => setTitle(event.target.value)}
+                    required
+                  />
+                </label>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="block text-sm">
+                  <span className="font-medium">Year</span>
+                  <input
+                    className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                    value={year}
+                    onChange={(event) => setYear(event.target.value)}
+                    type="number"
+                  />
+                </label>
+                <label className="block text-sm">
+                  <span className="font-medium">Status</span>
+                  <select
+                    className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                    value={addStatus}
+                    onChange={(event) => setAddStatus(event.target.value as SeriesStatus)}
+                  >
+                    <option value="wanted">Wanted</option>
+                    <option value="continuing">Continuing</option>
+                    <option value="ended">Ended</option>
+                    <option value="available">Available</option>
+                  </select>
+                </label>
+              </div>
               <label className="block text-sm">
-                <span className="font-medium">Year</span>
+                <span className="font-medium">Network</span>
                 <input
                   className="mt-1 w-full rounded border bg-transparent px-3 py-2"
-                  value={year}
-                  onChange={(event) => setYear(event.target.value)}
-                  type="number"
+                  value={network}
+                  onChange={(event) => setNetwork(event.target.value)}
                 />
               </label>
               <label className="block text-sm">
-                <span className="font-medium">Status</span>
-                <select
-                  className="mt-1 w-full rounded border bg-transparent px-3 py-2"
-                  value={addStatus}
-                  onChange={(event) => setAddStatus(event.target.value as SeriesStatus)}
-                >
-                  <option value="wanted">Wanted</option>
-                  <option value="continuing">Continuing</option>
-                  <option value="ended">Ended</option>
-                  <option value="available">Available</option>
-                </select>
+                <span className="font-medium">Overview</span>
+                <textarea
+                  className="mt-1 min-h-24 w-full rounded border bg-transparent px-3 py-2"
+                  value={overview}
+                  onChange={(event) => setOverview(event.target.value)}
+                />
               </label>
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
+                <label className="block text-sm">
+                  <span className="font-medium">Quality profile</span>
+                  <select
+                    className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                    value={qualityProfileId}
+                    onChange={(event) => setQualityProfileId(event.target.value)}
+                  >
+                    <option value="">None</option>
+                    {(profiles.data ?? []).map((item) => (
+                      <option key={item.profile.id} value={item.profile.id}>
+                        {item.profile.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block text-sm">
+                  <span className="font-medium">Root folder</span>
+                  <select
+                    className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                    value={rootFolderPath}
+                    onChange={(event) => setRootFolderPath(event.target.value)}
+                  >
+                    <option value="">Unset</option>
+                    {(rootFolders.data ?? []).map((folder) => (
+                      <option key={folder.id} value={folder.path}>
+                        {folder.path}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <label className="block text-sm">
+                  <span className="font-medium">Season</span>
+                  <input
+                    className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                    value={seasonNumber}
+                    onChange={(event) => setSeasonNumber(event.target.value)}
+                    type="number"
+                  />
+                </label>
+                <label className="block text-sm">
+                  <span className="font-medium">Episodes</span>
+                  <input
+                    className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                    value={episodeCount}
+                    onChange={(event) => setEpisodeCount(event.target.value)}
+                    type="number"
+                    min={0}
+                  />
+                </label>
+                <label className="block text-sm">
+                  <span className="font-medium">First ep TVDB</span>
+                  <input
+                    className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                    value={firstEpisodeTvdbId}
+                    onChange={(event) => setFirstEpisodeTvdbId(event.target.value)}
+                    type="number"
+                  />
+                </label>
+              </div>
+              <div className="flex flex-wrap gap-4">
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={monitoredOnAdd}
+                    onChange={(event) => setMonitoredOnAdd(event.target.checked)}
+                  />
+                  Monitor when added
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={seasonFolder}
+                    onChange={(event) => setSeasonFolder(event.target.checked)}
+                  />
+                  Use season folders
+                </label>
+              </div>
+              <button
+                type="submit"
+                className="bg-primary text-primary-foreground inline-flex items-center gap-2 rounded px-3 py-2 text-sm disabled:opacity-50"
+                disabled={pending}
+              >
+                <Plus className="size-4" />
+                Add show
+              </button>
             </div>
-            <label className="block text-sm">
-              <span className="font-medium">Network</span>
-              <input
-                className="mt-1 w-full rounded border bg-transparent px-3 py-2"
-                value={network}
-                onChange={(event) => setNetwork(event.target.value)}
-              />
-            </label>
-            <label className="block text-sm">
-              <span className="font-medium">Overview</span>
-              <textarea
-                className="mt-1 min-h-24 w-full rounded border bg-transparent px-3 py-2"
-                value={overview}
-                onChange={(event) => setOverview(event.target.value)}
-              />
-            </label>
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
-              <label className="block text-sm">
-                <span className="font-medium">Quality profile</span>
-                <select
-                  className="mt-1 w-full rounded border bg-transparent px-3 py-2"
-                  value={qualityProfileId}
-                  onChange={(event) => setQualityProfileId(event.target.value)}
-                >
-                  <option value="">None</option>
-                  {(profiles.data ?? []).map((item) => (
-                    <option key={item.profile.id} value={item.profile.id}>
-                      {item.profile.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="block text-sm">
-                <span className="font-medium">Root folder</span>
-                <select
-                  className="mt-1 w-full rounded border bg-transparent px-3 py-2"
-                  value={rootFolderPath}
-                  onChange={(event) => setRootFolderPath(event.target.value)}
-                >
-                  <option value="">Unset</option>
-                  {(rootFolders.data ?? []).map((folder) => (
-                    <option key={folder.id} value={folder.path}>
-                      {folder.path}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-3">
-              <label className="block text-sm">
-                <span className="font-medium">Season</span>
-                <input
-                  className="mt-1 w-full rounded border bg-transparent px-3 py-2"
-                  value={seasonNumber}
-                  onChange={(event) => setSeasonNumber(event.target.value)}
-                  type="number"
-                />
-              </label>
-              <label className="block text-sm">
-                <span className="font-medium">Episodes</span>
-                <input
-                  className="mt-1 w-full rounded border bg-transparent px-3 py-2"
-                  value={episodeCount}
-                  onChange={(event) => setEpisodeCount(event.target.value)}
-                  type="number"
-                  min={0}
-                />
-              </label>
-              <label className="block text-sm">
-                <span className="font-medium">First ep TVDB</span>
-                <input
-                  className="mt-1 w-full rounded border bg-transparent px-3 py-2"
-                  value={firstEpisodeTvdbId}
-                  onChange={(event) => setFirstEpisodeTvdbId(event.target.value)}
-                  type="number"
-                />
-              </label>
-            </div>
-            <div className="flex flex-wrap gap-4">
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={monitoredOnAdd}
-                  onChange={(event) => setMonitoredOnAdd(event.target.checked)}
-                />
-                Monitor when added
-              </label>
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={seasonFolder}
-                  onChange={(event) => setSeasonFolder(event.target.checked)}
-                />
-                Use season folders
-              </label>
-            </div>
-            <button
-              type="submit"
-              className="bg-primary text-primary-foreground inline-flex items-center gap-2 rounded px-3 py-2 text-sm disabled:opacity-50"
-              disabled={pending}
-            >
-              <Plus className="size-4" />
-              Add show
-            </button>
-          </div>
-        </form>
+          </form>
+        </div>
       </section>
     </div>
   )

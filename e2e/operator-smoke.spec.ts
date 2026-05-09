@@ -52,14 +52,14 @@ test("operator UI smoke covers onboarding, settings, movies, TV, manual search, 
   await page.goto("/tv")
   await expect(page.getByRole("heading", { name: "TV Shows" })).toBeVisible()
   await page.waitForLoadState("networkidle")
-  await page.getByLabel("TVDB ID").fill("990002")
-  await page.getByLabel("Title").fill("E2E Fixture Series")
-  await page.getByLabel("Year").fill("2026")
-  await page.getByLabel("Network").fill("E2E Network")
-  await page.getByLabel("Quality profile").selectOption({ index: 1 })
-  await page.getByLabel("Root folder").selectOption({ index: 2 })
-  await page.getByLabel("Episodes").fill("2")
-  await page.getByRole("button", { name: "Add show" }).click()
+  const metadataSection = page.locator("section").filter({
+    has: page.getByRole("heading", { name: "Add From Metadata" }),
+  })
+  await metadataSection.getByLabel("TMDB series search").fill("fixture")
+  await expect(metadataSection.getByRole("button", { name: "Add", exact: true })).toBeVisible()
+  await metadataSection.getByLabel("Metadata profile").selectOption({ index: 1 })
+  await metadataSection.getByLabel("Metadata root").selectOption({ index: 2 })
+  await metadataSection.getByRole("button", { name: "Add", exact: true }).click()
   await expect(page.getByText("Added E2E Fixture Series.")).toBeVisible()
   const seriesHref = await page
     .getByRole("link", { name: /E2E Fixture Series/ })

@@ -50,6 +50,13 @@
       "when": 1777896250254,
       "tag": "0006_yummy_mentor",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1778301546482,
+      "tag": "0007_dazzling_captain_universe",
+      "breakpoints": true
     }
   ]
 }

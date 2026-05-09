@@ -134,7 +134,10 @@ export const movies = sqliteTable("movies", {
 export const series = sqliteTable("series", {
   id: integer().primaryKey({ autoIncrement: true }),
   tvdbId: integer("tvdb_id").notNull().unique(),
+  tmdbId: integer("tmdb_id").unique(),
+  imdbId: text("imdb_id"),
   title: text().notNull(),
+  originalTitle: text("original_title"),
   year: integer(),
   overview: text(),
   posterPath: text("poster_path"),
@@ -142,10 +145,18 @@ export const series = sqliteTable("series", {
     .notNull()
     .default("wanted"),
   network: text(),
+  genres: text({ mode: "json" })
+    .$type<ReadonlyArray<string>>()
+    .notNull()
+    .default(sql`'[]'`),
+  runtimeMinutes: integer("runtime_minutes"),
+  seriesType: text("series_type"),
+  certification: text(),
   rootFolderPath: text("root_folder_path"),
   monitored: integer({ mode: "boolean" }).notNull().default(true),
   qualityProfileId: integer("quality_profile_id").references(() => qualityProfiles.id),
   seasonFolder: integer("season_folder", { mode: "boolean" }).notNull().default(true),
+  metadataRefreshedAt: integer("metadata_refreshed_at", { mode: "timestamp" }),
   addedAt: integer("added_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),
@@ -158,6 +169,7 @@ export const seasons = sqliteTable(
     seriesId: integer("series_id")
       .notNull()
       .references(() => series.id, { onDelete: "cascade" }),
+    tmdbId: integer("tmdb_id").unique(),
     seasonNumber: integer("season_number").notNull(),
     monitored: integer({ mode: "boolean" }).notNull().default(true),
   },
@@ -172,10 +184,13 @@ export const episodes = sqliteTable(
       .notNull()
       .references(() => seasons.id, { onDelete: "cascade" }),
     tvdbId: integer("tvdb_id").notNull().unique(),
+    tmdbId: integer("tmdb_id").unique(),
     title: text().notNull(),
     episodeNumber: integer("episode_number").notNull(),
+    absoluteEpisodeNumber: integer("absolute_episode_number"),
     airDate: integer("air_date", { mode: "timestamp" }),
     overview: text(),
+    runtimeMinutes: integer("runtime_minutes"),
     hasFile: integer("has_file", { mode: "boolean" }).notNull().default(false),
     filePath: text("file_path"),
     monitored: integer({ mode: "boolean" }).notNull().default(true),
