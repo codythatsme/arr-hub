@@ -7,7 +7,7 @@ ARR Hub is a unified, self-hosted media automation app inspired by the arr ecosy
 - Adapter-driven integrations (download clients, indexers, media servers)
 - Shared release policy engine + scheduler pipelines
 - Operator UI for onboarding, settings, profiles, movies, TV, manual search, scheduler, and queue actions
-- Prowlarr replacement foundation; current indexer support consumes Torznab/Newznab upstreams, seeds generic/Cardigann-style definitions, refreshes URL-backed Cardigann sources, exposes first-pass aggregate feeds, and can sync aggregate indexers into Radarr/Sonarr from scheduler and indexer mutations
+- Prowlarr replacement foundation; current indexer support consumes Torznab/Newznab upstreams, seeds generic/Cardigann-style definitions, refreshes URL-backed Cardigann sources, exposes first-pass aggregate feeds, and can sync aggregate indexers into Radarr/Sonarr from scheduler and indexer mutations with stale remote cleanup
 
 See [development-plan.md](./development-plan.md) for detailed replacement-readiness status.
 
@@ -96,14 +96,15 @@ Current foundation:
 - External clients can query aggregate XML feeds with an ARR Hub API key:
   - `/api/indexers/aggregate/torznab?t=caps&apikey=...`
   - `/api/indexers/aggregate/newznab?t=search&q=example&apikey=...`
-- Radarr/Sonarr application records can persist encrypted remote credentials and sync aggregate Torznab/Newznab indexers into `/api/v3/indexer`; enabled apps can be refreshed from the scheduler and after indexer add/update/remove mutations, and the synced app payload uses a reachable ARR Hub URL plus ARR Hub API key.
+- Radarr/Sonarr application records can persist encrypted remote credentials and sync aggregate Torznab/Newznab indexers into `/api/v3/indexer`; enabled apps can be refreshed from the scheduler and after indexer add/update/remove mutations, stale remote aggregate indexers are removed when protocols no longer have eligible local indexers, and the synced app payload uses a reachable ARR Hub URL plus ARR Hub API key.
 
 This is not yet a Prowlarr-scale catalogue. The Cardigann/YAML loader currently
 supports curated fixtures plus manually configured URL-backed YAML sources; broad
 tracker coverage, full Cardigann selector/login parity, broader per-indexer policy
 parity, trusted remote definition catalogues, and full Prowlarr app-sync parity
-such as remote cleanup remain planned work. Search failures now mark indexers unhealthy,
-short-backoff retryable failures, and disable indexers on authentication failures.
+for richer per-indexer and app-specific sync semantics remain planned work. Search
+failures now mark indexers unhealthy, short-backoff retryable failures, and
+disable indexers on authentication failures.
 
 ## Current Limitations
 
