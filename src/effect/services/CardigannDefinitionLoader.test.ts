@@ -84,6 +84,7 @@ caps:
       "torrents-csv",
       "knaben",
       "torrentday",
+      "iptorrents",
       "morethantv",
       "hdaccess",
       "torrent-network",
@@ -202,6 +203,33 @@ caps:
           { id: 5040, name: "TV/x264" },
           { id: 5070, name: "Anime" },
           { id: 3030, name: "Audio Books" },
+          { id: 6050, name: "XXX/Packs" },
+        ]),
+      },
+    })
+    expect(
+      BUILT_IN_CARDIGANN_DEFINITIONS.find(
+        (definition) => definition.definitionKey === "iptorrents",
+      ),
+    ).toMatchObject({
+      displayName: "IPTorrents",
+      baseUrl: "https://iptorrents.com/",
+      privacy: "private",
+      supportsRss: false,
+      supportsSearch: true,
+      tags: ["private", "general", "movies", "tv", "html"],
+      authFields: expect.arrayContaining([
+        expect.objectContaining({ name: "cookie", type: "cookie", required: true }),
+        expect.objectContaining({ name: "userAgent", type: "text", required: true }),
+        expect.objectContaining({ name: "freeleechOnly", type: "checkbox", defaultValue: "false" }),
+      ]),
+      capabilities: {
+        searchTypes: ["search", "movie", "tvsearch"],
+        categories: expect.arrayContaining([
+          { id: 2050, name: "Movie/HD/Bluray" },
+          { id: 5040, name: "TV/x264" },
+          { id: 5070, name: "Anime" },
+          { id: 3030, name: "AudioBook" },
           { id: 6050, name: "XXX/Packs" },
         ]),
       },

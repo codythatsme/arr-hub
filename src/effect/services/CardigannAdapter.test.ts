@@ -107,6 +107,28 @@ const TORRENT_DAY_JSON_RESULTS = JSON.stringify([
   },
 ])
 
+const IPTORRENTS_HTML_RESULTS = `
+<html><body>
+  <table id="torrents">
+    <thead><tr>
+      <th>Category</th><th>Name</th><th>Comments</th><th>Uploader</th><th>Age</th>
+      <th>Sort by size</th><th>Sort by files</th><th>Sort by snatches</th><th>Sort by seeders</th><th>Sort by leechers</th>
+    </tr></thead>
+    <tbody>
+      <tr>
+        <td><a href="?48">Movie/HD/Bluray</a></td>
+        <td>
+          <a class="hv" href="/details.php?id=765">IPT Movie 2026 1080p BluRay</a>
+          <a href="/download.php/765/IPT.Movie.2026.torrent">Download</a>
+          <div class="sub">Internal | 2 hours ago by uploader</div>
+          <span class="free">Free</span>
+        </td>
+        <td>0</td><td>uploader</td><td>2 hours ago</td><td>1.5 GB</td><td>3</td><td>10</td><td>44</td><td>5</td>
+      </tr>
+    </tbody>
+  </table>
+</body></html>`
+
 const JSON_SELECTOR_FILTER_RESULTS = JSON.stringify({
   data: {
     results: [
@@ -2332,6 +2354,65 @@ search:
       uploadFactor: 1,
     })
     expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-09T10:00:00.000Z")
+  })
+
+  it("parses IPTorrents HTML results with cookie auth and user-agent headers", async () => {
+    const requests: Array<{ url: string; init: RequestInit | undefined }> = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      requests.push({ url: String(input), init })
+      return new Response(IPTORRENTS_HTML_RESULTS, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 92,
+      name: "IPTorrents",
+      type: "cardigann_yaml",
+      definitionKey: "iptorrents",
+      baseUrl: "https://iptorrents.com/",
+      apiKey: "",
+      configValues: {
+        cookie: "uid=alice; pass=secret",
+        userAgent: "Mozilla/5.0 IPT",
+        freeleechOnly: "true",
+      },
+      priority: 28,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({
+        term: "IPT Movie",
+        type: "movie",
+        categories: [2050],
+        imdbId: "tt7654321",
+      }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const request = requests[0]
+    expect(request?.url).toBe(
+      "https://iptorrents.com/t?48=&free=on&q=%2B%28tt7654321%29&qf=all&q=%2B%28IPT%20Movie%29",
+    )
+    const headers = new Headers(request?.init?.headers)
+    expect(headers.get("cookie")).toBe("uid=alice; pass=secret")
+    expect(headers.get("user-agent")).toBe("Mozilla/5.0 IPT")
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "IPT Movie 2026 1080p BluRay",
+      downloadUrl: "https://iptorrents.com/download.php/765/IPT.Movie.2026.torrent",
+      infoUrl: "https://iptorrents.com/details.php?id=765",
+      category: "2050",
+      size: 1_500_000_000,
+      seeders: 44,
+      leechers: 5,
+      indexerId: 92,
+      indexerName: "IPTorrents",
+      indexerPriority: 28,
+      downloadFactor: 0,
+      uploadFactor: 1,
+    })
   })
 
   it("parses first-pass Cardigann HTML selector results", async () => {

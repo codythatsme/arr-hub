@@ -1169,6 +1169,357 @@ search:
       text: "1"
 `
 
+const IP_TORRENTS = `
+id: iptorrents
+name: IPTorrents
+description: Private general tracker exposed through a first-pass cookie-auth HTML Cardigann definition.
+type: private
+links:
+  - https://iptorrents.com/
+version: builtin-cardigann-1
+rss: false
+tags:
+  - private
+  - general
+  - movies
+  - tv
+  - html
+settings:
+  - name: cookie
+    label: Cookie
+    type: cookie
+    required: true
+    helpText: IPTorrents browser session cookie.
+  - name: userAgent
+    label: User-Agent
+    type: text
+    required: true
+    helpText: Browser user-agent used with the captured cookie.
+  - name: freeleechOnly
+    label: FreeLeech Only
+    type: checkbox
+    required: false
+    default: false
+    helpText: Search freeleech torrents only.
+caps:
+  categorymappings:
+    - id: "72"
+      cat: Movies
+      desc: Movies
+      newznab: 2000
+    - id: "87"
+      cat: Movies/3D
+      desc: Movie/3D
+      newznab: 2060
+    - id: "77"
+      cat: Movies/SD
+      desc: Movie/480p
+      newznab: 2030
+    - id: "101"
+      cat: Movies/UHD
+      desc: Movie/4K
+      newznab: 2045
+    - id: "89"
+      cat: Movies/HD
+      desc: Movie/BD-R
+      newznab: 2040
+    - id: "90"
+      cat: Movies/SD
+      desc: Movie/BD-Rip
+      newznab: 2030
+    - id: "96"
+      cat: Movies/SD
+      desc: Movie/Cam
+      newznab: 2030
+    - id: "6"
+      cat: Movies/DVD
+      desc: Movie/DVD-R
+      newznab: 2070
+    - id: "48"
+      cat: Movies/BluRay
+      desc: Movie/HD/Bluray
+      newznab: 2050
+    - id: "54"
+      cat: Movies
+      desc: Movie/Kids
+      newznab: 2000
+    - id: "62"
+      cat: Movies/SD
+      desc: Movie/MP4
+      newznab: 2030
+    - id: "38"
+      cat: Movies/Foreign
+      desc: Movie/Non-English
+      newznab: 2010
+    - id: "68"
+      cat: Movies
+      desc: Movie/Packs
+      newznab: 2000
+    - id: "20"
+      cat: Movies/WEB-DL
+      desc: Movie/Web-DL
+      newznab: 2080
+    - id: "7"
+      cat: Movies/SD
+      desc: Movie/Xvid
+      newznab: 2030
+    - id: "100"
+      cat: Movies
+      desc: Movie/x265
+      newznab: 2000
+    - id: "73"
+      cat: TV
+      desc: TV
+      newznab: 5000
+    - id: "26"
+      cat: TV/Documentary
+      desc: TV/Documentaries
+      newznab: 5080
+    - id: "55"
+      cat: TV/Sport
+      desc: Sports
+      newznab: 5060
+    - id: "78"
+      cat: TV/SD
+      desc: TV/480p
+      newznab: 5030
+    - id: "23"
+      cat: TV/HD
+      desc: TV/BD
+      newznab: 5040
+    - id: "24"
+      cat: TV/SD
+      desc: TV/DVD-R
+      newznab: 5030
+    - id: "25"
+      cat: TV/SD
+      desc: TV/DVD-Rip
+      newznab: 5030
+    - id: "66"
+      cat: TV/SD
+      desc: TV/Mobile
+      newznab: 5030
+    - id: "82"
+      cat: TV/Foreign
+      desc: TV/Non-English
+      newznab: 5020
+    - id: "65"
+      cat: TV
+      desc: TV/Packs
+      newznab: 5000
+    - id: "83"
+      cat: TV/Foreign
+      desc: TV/Packs/Non-English
+      newznab: 5020
+    - id: "79"
+      cat: TV/SD
+      desc: TV/SD/x264
+      newznab: 5030
+    - id: "22"
+      cat: TV/HD
+      desc: TV/Web-DL
+      newznab: 5040
+    - id: "5"
+      cat: TV/HD
+      desc: TV/x264
+      newznab: 5040
+    - id: "99"
+      cat: TV/HD
+      desc: TV/x265
+      newznab: 5040
+    - id: "4"
+      cat: TV/SD
+      desc: TV/Xvid
+      newznab: 5030
+    - id: "74"
+      cat: Console
+      desc: Games
+      newznab: 1000
+    - id: "2"
+      cat: Console/Other
+      desc: Games/Mixed
+      newznab: 1090
+    - id: "47"
+      cat: Console/NDS
+      desc: Games/Nintendo DS
+      newznab: 1010
+    - id: "43"
+      cat: PC/ISO
+      desc: Games/PC-ISO
+      newznab: 4020
+    - id: "45"
+      cat: PC/Games
+      desc: Games/PC-Rip
+      newznab: 4050
+    - id: "71"
+      cat: Console/PS3
+      desc: Games/PS3
+      newznab: 1080
+    - id: "50"
+      cat: Console/Wii
+      desc: Games/Wii
+      newznab: 1030
+    - id: "44"
+      cat: Console/Xbox 360
+      desc: Games/Xbox-360
+      newznab: 1050
+    - id: "75"
+      cat: Audio
+      desc: Music
+      newznab: 3000
+    - id: "3"
+      cat: Audio/MP3
+      desc: Music/Audio
+      newznab: 3010
+    - id: "80"
+      cat: Audio/Lossless
+      desc: Music/Flac
+      newznab: 3040
+    - id: "93"
+      cat: Audio
+      desc: Music/Packs
+      newznab: 3000
+    - id: "37"
+      cat: Audio/Video
+      desc: Music/Video
+      newznab: 3020
+    - id: "21"
+      cat: Audio/Video
+      desc: Podcast
+      newznab: 3020
+    - id: "76"
+      cat: Other
+      desc: Other/Miscellaneous
+      newznab: 8000
+    - id: "60"
+      cat: TV/Anime
+      desc: Anime
+      newznab: 5070
+    - id: "1"
+      cat: PC/0day
+      desc: Appz
+      newznab: 4010
+    - id: "86"
+      cat: PC/0day
+      desc: Appz/Non-English
+      newznab: 4010
+    - id: "64"
+      cat: Audio/Audiobook
+      desc: AudioBook
+      newznab: 3030
+    - id: "35"
+      cat: Books
+      desc: Books
+      newznab: 7000
+    - id: "102"
+      cat: Books
+      desc: Books/Non-English
+      newznab: 7000
+    - id: "94"
+      cat: Books/Comics
+      desc: Books/Comics
+      newznab: 7030
+    - id: "95"
+      cat: Books/Other
+      desc: Books/Educational
+      newznab: 7050
+    - id: "98"
+      cat: Other
+      desc: Other/Fonts
+      newznab: 8000
+    - id: "69"
+      cat: PC/Mac
+      desc: Appz/Mac
+      newznab: 4030
+    - id: "92"
+      cat: Books/Mags
+      desc: Books/Magazines & Newspapers
+      newznab: 7010
+    - id: "58"
+      cat: PC/Phone-Other
+      desc: Appz/Mobile
+      newznab: 4040
+    - id: "36"
+      cat: Other
+      desc: Other/Pics/Wallpapers
+      newznab: 8000
+    - id: "88"
+      cat: XXX
+      desc: XXX
+      newznab: 6000
+    - id: "85"
+      cat: XXX/Other
+      desc: XXX/Magazines
+      newznab: 6070
+    - id: "8"
+      cat: XXX
+      desc: XXX/Movie
+      newznab: 6000
+    - id: "81"
+      cat: XXX
+      desc: XXX/Movie/0Day
+      newznab: 6000
+    - id: "91"
+      cat: XXX/Pack
+      desc: XXX/Packs
+      newznab: 6050
+    - id: "84"
+      cat: XXX/ImageSet
+      desc: XXX/Pics/Wallpapers
+      newznab: 6060
+  modes:
+    search: [q]
+    movie-search: [q, imdbid]
+    tv-search: [q, season, ep, imdbid]
+login:
+  method: cookie
+  inputs:
+    cookie: "{{ .Config.Cookie }}"
+search:
+  paths:
+    - path: 't?{{ if .Categories }}{{ .Categories | join "=&" }}=&{{ end }}{{ if .Config.FreeleechOnly }}free=on&{{ end }}{{ if .Query.IMDBID }}q=%2B%28{{ .Query.IMDBID | urlencode }}%29&qf=all&{{ end }}{{ if .Keywords }}q=%2B%28{{ .Keywords | urlencode }}%29{{ end }}'
+      response:
+        type: html
+      headers:
+        User-Agent: "{{ .Config.UserAgent }}"
+  rows:
+    selector: table#torrents > tbody > tr
+  fields:
+    title:
+      selector: a.hv
+    details:
+      selector: a.hv
+      attribute: href
+    download:
+      selector: a[href^="/download.php/"]
+      attribute: href
+    category:
+      selector: td:nth-of-type(1) a[href^="?"]
+      attribute: href
+      filters:
+        - name: replace
+          args: ["?", ""]
+    size:
+      selector: td:nth-of-type(6)
+    seeders:
+      selector: td:nth-of-type(9)
+    leechers:
+      selector: td:nth-of-type(10)
+    date:
+      selector: div.sub
+      filters:
+        - name: regexp
+          args: '(?:^|\\|)\\s*([^|]*?(?:ago|yesterday|today|now))\\s+by'
+        - name: reltime
+    downloadvolumefactor:
+      selector: span.free
+      default: "1"
+      case:
+        span.free: "0"
+    uploadvolumefactor:
+      text: "1"
+`
+
 const MORE_THAN_TV = `
 id: morethantv
 name: MoreThanTV
@@ -1372,6 +1723,7 @@ const BUILT_IN_CARDIGANN_SOURCES = [
   TORRENTS_CSV,
   KNABEN,
   TORRENT_DAY,
+  IP_TORRENTS,
   MORE_THAN_TV,
   HDACCESS,
   TORRENT_NETWORK,
