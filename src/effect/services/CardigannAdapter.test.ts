@@ -234,6 +234,8 @@ search:
         type: torznab
       headers:
         X-Auth: '{{ .Config.Username }}:{{ .Config.Cookie }}:{{ .Config.APIKey }}'
+        X-Header-List:
+          - '{{ .Keywords | trim | lowercase }}'
         X-Query-Slug: '{{ .Keywords | trim | lowercase | replace " " "-" }}'
       inputs:
         $raw: 'q={{ .Keywords | trim | urlencode }}&imdb={{ .Query.IMDBIDShort | prepend "tt" }}&cat={{ .Categories | join "," }}'
@@ -267,6 +269,7 @@ search:
 
     const headers = new Headers(requestInit?.headers)
     expect(headers.get("x-auth")).toBe("alice:session=secret:api-key")
+    expect(headers.get("x-header-list")).toBe("example movie")
     expect(headers.get("x-query-slug")).toBe("example-movie")
   })
 

@@ -434,7 +434,7 @@ function parseSearchRuntime(
     allowEmptyInputs: optionalBoolean(search, "allowEmptyInputs") ?? false,
     keywordFilters: parseFilters(search.keywordsfilters ?? search.keywordsFilters),
     inputs: parseInputMap(search.inputs),
-    headers: parseInputMap(search.headers),
+    headers: parseHeaderMap(search.headers),
     paths,
   }
 }
@@ -462,7 +462,7 @@ function parseSearchPaths(
       inheritInputs:
         optionalBoolean(path, "inheritinputs") ?? optionalBoolean(path, "inheritInputs") ?? true,
       inputs: parseInputMap(path.inputs),
-      headers: parseInputMap(path.headers),
+      headers: parseHeaderMap(path.headers),
       categories: parseOptionalStringArray(path.categories),
       responseType: parseResponseType(optionalString(response, "type") ?? fallbackResponseType),
     }
@@ -477,6 +477,22 @@ function parseInputMap(value: unknown): Readonly<Record<string, string>> {
     inputs[key] = inputScalarToString(val, `input ${key}`)
   }
   return inputs
+}
+
+function parseHeaderMap(value: unknown): Readonly<Record<string, string>> {
+  if (value === undefined) return {}
+  const record = expectRecord(value, "headers")
+  const headers: Record<string, string> = {}
+  for (const [key, val] of Object.entries(record)) {
+    headers[key] = headerValueToString(val, `header ${key}`)
+  }
+  return headers
+}
+
+function headerValueToString(value: unknown, label: string): string {
+  if (!Array.isArray(value)) return inputScalarToString(value, label)
+  if (value.length === 0) throw new Error(`${label} must contain at least one value`)
+  return inputScalarToString(value[0], `${label} value 0`)
 }
 
 function parseFilters(value: unknown): ReadonlyArray<CardigannFilter> {

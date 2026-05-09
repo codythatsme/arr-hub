@@ -336,11 +336,14 @@ caps:
       cat: Movies
 search:
   headers:
-    Cookie: "{{ .Config.APIKey }}"
+    Cookie:
+      - "{{ .Config.APIKey }}"
   paths:
     - path: /api
       headers:
-        X-Requested-With: XMLHttpRequest
+        X-Requested-With:
+          - XMLHttpRequest
+          - Ignored
 `)
 
     expect(runtime.search.headers).toEqual({ Cookie: "{{ .Config.APIKey }}" })
