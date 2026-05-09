@@ -64,6 +64,23 @@ const HTML_RESULTS = `<!doctype html>
   </body>
 </html>`
 
+const HTML_FIELD_MODIFIER_RESULTS = `<!doctype html>
+<html>
+  <body>
+    <table>
+      <tbody>
+        <tr class="torrent">
+          <td class="title-main">Modifier.Movie</td>
+          <td class="title-extra">.2026.1080p.WEB-DL</td>
+          <td><a class="download" href="/download/modifier">Download</a></td>
+          <td class="category">Movies</td>
+          <td class="seeders">17</td>
+        </tr>
+      </tbody>
+    </table>
+  </body>
+</html>`
+
 const HTML_RELATIVE_TIME_RESULTS = `<!doctype html>
 <html>
   <body>
@@ -385,6 +402,71 @@ search:
       infohash: "0123456789abcdef0123456789abcdef01234567",
     })
     expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-08T00:00:00.000Z")
+  })
+
+  it("normalizes Cardigann field-name modifiers in JSON selector results", async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON_RESULTS, { status: 200 }))
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 65,
+      name: "JSON Field Modifier Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "json-field-modifier-cardigann",
+      definitionYaml: `
+id: json-field-modifier-cardigann
+name: JSON Field Modifier Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+      newznab: 2000
+  modes:
+    search: [q]
+search:
+  paths:
+    - path: /api/search
+      response:
+        type: json
+  rows:
+    selector: $.data.results
+  fields:
+    title:
+      selector: title
+    title|append:
+      text: .Extended
+    download|optional:
+      selector: links.download
+    category:
+      selector: category.name
+      case:
+        Movies: movies
+    seeders:
+      selector: stats.seeders
+`,
+      baseUrl: "https://tracker.example",
+      apiKey: "",
+      priority: 35,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "JSON Movie", type: "general", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "JSON Movie 2026 1080p WEB-DL.Extended",
+      downloadUrl: "https://tracker.example/download/json",
+      category: "2000",
+      seeders: 88,
+      protocol: "torrent",
+    })
   })
 
   it("returns no releases when Cardigann JSON rows count is empty", async () => {
@@ -951,6 +1033,70 @@ search:
       protocol: "torrent",
     })
     expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-01T00:00:00.000Z")
+  })
+
+  it("normalizes Cardigann field-name modifiers in HTML selector results", async () => {
+    const fetchMock = vi.fn(async () => new Response(HTML_FIELD_MODIFIER_RESULTS, { status: 200 }))
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 64,
+      name: "Field Modifier HTML Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "field-modifier-html-cardigann",
+      definitionYaml: `
+id: field-modifier-html-cardigann
+name: Field Modifier HTML Cardigann
+links:
+  - https://tracker.example
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+      newznab: 2000
+  modes:
+    search: [q]
+search:
+  paths:
+    - path: /browse
+      response:
+        type: html
+  rows:
+    selector: tr.torrent
+  fields:
+    title:
+      selector: td.title-main
+    title|append:
+      selector: td.title-extra
+    download|optional:
+      selector: a.download
+      attribute: href
+    category:
+      selector: td.category
+    seeders:
+      selector: td.seeders
+`,
+      baseUrl: "https://tracker.example",
+      apiKey: "",
+      priority: 35,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({ term: "Modifier Movie", type: "general", categories: [2000] }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "Modifier.Movie.2026.1080p.WEB-DL",
+      downloadUrl: "https://tracker.example/download/modifier",
+      category: "2000",
+      seeders: 17,
+      protocol: "torrent",
+    })
   })
 
   it("applies Cardigann relative-time field filters to HTML dates", async () => {

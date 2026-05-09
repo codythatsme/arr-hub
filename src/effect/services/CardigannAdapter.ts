@@ -1681,6 +1681,31 @@ function fieldByName(
   return ""
 }
 
+function cardigannFieldNameParts(rawName: string): {
+  readonly name: string
+  readonly modifiers: ReadonlySet<string>
+} {
+  const [name, ...modifiers] = rawName.split("|").map((part) => part.trim())
+  return {
+    name: name && name.length > 0 ? name : rawName,
+    modifiers: new Set(modifiers.map((modifier) => modifier.toLowerCase())),
+  }
+}
+
+function assignCardigannResultField(
+  fields: Record<string, string>,
+  name: string,
+  value: string,
+  modifiers: ReadonlySet<string>,
+): string {
+  if (modifiers.has("append")) {
+    fields[name] = `${fields[name] ?? ""}${value}`
+  } else {
+    fields[name] = value
+  }
+  return fields[name] ?? ""
+}
+
 function firstNumber(value: string): number {
   const match = value.replaceAll(",", "").match(/-?\d+(?:\.\d+)?/)
   return match ? Number(match[0]) : 0
@@ -1803,10 +1828,15 @@ function parseHtmlReleases(
   return filteredRows.map((row): ReleaseCandidate => {
     const resultFields: Record<string, string> = {}
     const variables = { ...request.variables }
-    for (const [name, field] of Object.entries(definition.search.fields)) {
+    for (const [rawName, field] of Object.entries(definition.search.fields)) {
+      const { name, modifiers } = cardigannFieldNameParts(rawName)
       const value = htmlFieldValue(row, field, variables)
-      resultFields[name] = value
-      variables[`.Result.${name}`] = value
+      variables[`.Result.${name}`] = assignCardigannResultField(
+        resultFields,
+        name,
+        value,
+        modifiers,
+      )
     }
 
     let dateValue = fieldByName(resultFields, ["date", "pubdate", "publishdate"])
@@ -1908,10 +1938,15 @@ function parseJsonReleases(
   return rows.map((row): ReleaseCandidate => {
     const resultFields: Record<string, string> = {}
     const variables = { ...request.variables }
-    for (const [name, field] of Object.entries(definition.search.fields)) {
+    for (const [rawName, field] of Object.entries(definition.search.fields)) {
+      const { name, modifiers } = cardigannFieldNameParts(rawName)
       const value = jsonFieldValue(row, field, variables)
-      resultFields[name] = value
-      variables[`.Result.${name}`] = value
+      variables[`.Result.${name}`] = assignCardigannResultField(
+        resultFields,
+        name,
+        value,
+        modifiers,
+      )
     }
 
     const dateValue = fieldByName(resultFields, ["date", "pubdate", "publishdate"])
