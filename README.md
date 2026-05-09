@@ -90,7 +90,7 @@ users to keep Prowlarr installed upstream.
 Current foundation:
 
 - Generic first-party Torznab/Newznab and small curated Cardigann-style YAML definition records are seeded at startup.
-- Indexer records can carry definition keys, tags, search/RSS enable flags, and optional proxy links; Cardigann-style definitions now have first-pass GET/XML search execution.
+- Indexer records can carry definition keys, tags, search/RSS enable flags, minimum-seeder filters, query cooldowns, and optional proxy links; Cardigann-style definitions now have first-pass GET/XML search execution.
 - HTTP/SOCKS/FlareSolverr proxy configuration is persisted and applied to outbound Torznab/Newznab requests; indexer search statistics, first-pass search health/backoff state, and version-aware built-in definition refresh are persisted.
 - URL-backed Cardigann definition source records can fetch remote YAML, persist the raw source, record SHA-256 provenance with optional checksum pinning, make refreshed definitions available to definition-keyed indexers, and refresh enabled sources from the scheduler.
 - External clients can query aggregate XML feeds with an ARR Hub API key:
@@ -100,8 +100,8 @@ Current foundation:
 
 This is not yet a Prowlarr-scale catalogue. The Cardigann/YAML loader currently
 supports curated fixtures plus manually configured URL-backed YAML sources; broad
-tracker coverage, full Cardigann selector/login parity, mature per-indexer policy
-controls, trusted remote definition catalogues, and full Prowlarr app-sync parity
+tracker coverage, full Cardigann selector/login parity, broader per-indexer policy
+parity, trusted remote definition catalogues, and full Prowlarr app-sync parity
 remain planned work. Search failures now mark indexers unhealthy,
 short-backoff retryable failures, and disable indexers on authentication failures.
 
