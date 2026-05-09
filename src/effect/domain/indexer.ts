@@ -7,7 +7,13 @@ export type IndexerHealthStatus = "healthy" | "unhealthy" | "unknown"
 export type IndexerDefinitionImplementation = "torznab" | "newznab" | "cardigann_yaml"
 export type IndexerPrivacy = "public" | "private" | "semi_private"
 export type IndexerProxyType = "http" | "socks4" | "socks5" | "flaresolverr"
-export type IndexerAuthFieldType = "text" | "password" | "cookie" | "textarea" | "select"
+export type IndexerAuthFieldType =
+  | "text"
+  | "password"
+  | "cookie"
+  | "textarea"
+  | "select"
+  | "checkbox"
 
 /** Adapter metadata for registry display + protocol selection. */
 export interface IndexerAdapterMetadata {

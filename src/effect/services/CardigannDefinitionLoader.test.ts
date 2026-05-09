@@ -170,6 +170,51 @@ caps:
     })
   })
 
+  it("parses Cardigann checkbox auth fields and skips informational settings", () => {
+    const definition = parseCardigannDefinitionYaml(`
+id: checkbox-auth-cardigann
+name: Checkbox Auth Cardigann
+links:
+  - https://tracker.example
+settings:
+  - name: freeleechOnly
+    label: Freeleech only
+    type: checkbox
+    default: true
+    help: Limit searches to freeleech releases.
+  - name: cookie
+    label: Cookie
+    type: cookie
+    helptext: Paste the session cookie.
+  - name: cookieInfo
+    label: Cookie help
+    type: info_cookie
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+`)
+
+    expect(definition.authFields).toEqual([
+      {
+        name: "freeleechOnly",
+        label: "Freeleech only",
+        type: "checkbox",
+        required: false,
+        helpText: "Limit searches to freeleech releases.",
+        defaultValue: "true",
+      },
+      {
+        name: "cookie",
+        label: "Cookie",
+        type: "cookie",
+        required: false,
+        helpText: "Paste the session cookie.",
+      },
+    ])
+  })
+
   it("parses Cardigann caps category dictionaries with standard category names", () => {
     const definition = parseCardigannDefinitionYaml(`
 id: caps-category-dictionary

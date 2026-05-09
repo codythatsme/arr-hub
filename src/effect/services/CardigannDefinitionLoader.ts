@@ -42,6 +42,7 @@ export interface CardigannRuntimeDefinition {
   readonly displayName: string
   readonly protocol: IndexerProtocol
   readonly baseUrl: string | null
+  readonly authFields: ReadonlyArray<IndexerAuthField>
   readonly categories: ReadonlyArray<IndexerCategoryMapping>
   readonly capabilities: IndexerCapabilities
   readonly search: CardigannSearchRuntime
@@ -406,6 +407,7 @@ export function parseCardigannRuntimeDefinitionYaml(source: string): CardigannRu
     displayName: seed.displayName,
     protocol: seed.protocol,
     baseUrl: seed.baseUrl,
+    authFields: seed.authFields,
     categories: seed.categories,
     capabilities: seed.capabilities,
     search: parseSearchRuntime(root, seed.protocol),
@@ -525,21 +527,26 @@ function inputScalarToString(value: unknown, label: string): string {
 function parseAuthFields(value: unknown): ReadonlyArray<IndexerAuthField> {
   if (value === undefined) return []
   if (!Array.isArray(value)) throw new Error("auth must be a list")
-  return value.map((item) => {
+  const fields: Array<IndexerAuthField> = []
+  for (const item of value) {
     const field = expectRecord(item, "auth field")
     const defaultValue = optionalScalarStringFromAny(field, ["default", "defaultValue"])
-    const helpText = optionalString(field, "helpText")
+    const helpText = optionalScalarStringFromAny(field, ["helpText", "helptext", "help"])
     const options = parseAuthFieldOptions(field.options)
-    return {
+    const type = parseAuthFieldType(optionalString(field, "type") ?? "text")
+    if (type === null) continue
+
+    fields.push({
       name: requiredString(field, "name"),
       label: optionalString(field, "label") ?? requiredString(field, "name"),
-      type: parseAuthFieldType(optionalString(field, "type") ?? "text"),
+      type,
       required: optionalBoolean(field, "required") ?? false,
       ...(helpText !== null ? { helpText } : {}),
       ...(defaultValue !== null ? { defaultValue } : {}),
       ...(options.length > 0 ? { options } : {}),
-    }
-  })
+    })
+  }
+  return fields
 }
 
 function parseAuthFieldOptions(value: unknown): ReadonlyArray<IndexerAuthFieldOption> {
@@ -689,18 +696,20 @@ function parsePrivacy(value: string): IndexerPrivacy {
   throw new Error(`unsupported indexer privacy: ${value}`)
 }
 
-function parseAuthFieldType(value: string): IndexerAuthFieldType {
+function parseAuthFieldType(value: string): IndexerAuthFieldType | null {
   const type = value.toLowerCase()
-  if (type === "input") return "text"
+  if (type === "input" || type === "textbox") return "text"
   if (
     type === "text" ||
     type === "password" ||
     type === "cookie" ||
     type === "textarea" ||
-    type === "select"
+    type === "select" ||
+    type === "checkbox"
   ) {
     return type
   }
+  if (type === "info" || type.startsWith("info_") || type === "cardiganncaptcha") return null
   throw new Error(`unsupported auth field type: ${value}`)
 }
 

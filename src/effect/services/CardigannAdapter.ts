@@ -2,6 +2,7 @@ import { Effect } from "effect"
 
 import type {
   IndexerAdapterMetadata,
+  IndexerAuthField,
   IndexerConfig,
   ReleaseCandidate,
   SearchQuery,
@@ -126,7 +127,22 @@ function configKeyVariants(key: string): ReadonlyArray<string> {
   return Array.from(variants)
 }
 
-function configTemplateVariables(config: IndexerConfig, siteLink: string): Record<string, string> {
+function checkboxTemplateValue(value: string): string {
+  const normalized = value.trim().toLowerCase()
+  return normalized === "true" ||
+    normalized === "1" ||
+    normalized === "on" ||
+    normalized === "yes" ||
+    normalized === ".true"
+    ? "True"
+    : ""
+}
+
+function configTemplateVariables(
+  config: IndexerConfig,
+  siteLink: string,
+  authFields: ReadonlyArray<IndexerAuthField>,
+): Record<string, string> {
   const variables: Record<string, string> = {
     ".Config.APIKey": config.apiKey,
     ".Config.ApiKey": config.apiKey,
@@ -136,10 +152,15 @@ function configTemplateVariables(config: IndexerConfig, siteLink: string): Recor
     ".Today.Year": String(new Date().getFullYear()),
     ".True": "True",
   }
+  const fieldTypesByName = new Map(
+    authFields.map((field) => [field.name.toLowerCase(), field.type]),
+  )
 
   for (const [key, value] of Object.entries(config.configValues ?? {})) {
+    const configValue =
+      fieldTypesByName.get(key.toLowerCase()) === "checkbox" ? checkboxTemplateValue(value) : value
     for (const variant of configKeyVariants(key)) {
-      variables[`.Config.${variant}`] = value
+      variables[`.Config.${variant}`] = configValue
     }
   }
 
@@ -153,11 +174,12 @@ function templateVariables(
   trackerCategories: ReadonlyArray<string>,
   keywords: string,
   siteLink: string,
+  authFields: ReadonlyArray<IndexerAuthField>,
 ): Record<string, TemplateValue> {
   const categoryStrings = (query.categories ?? []).map(String)
   const term = query.term.trim()
   return {
-    ...configTemplateVariables(config, siteLink),
+    ...configTemplateVariables(config, siteLink, authFields),
     ".Query.Type": queryType,
     ".Query.Q": term,
     ".Query.Keywords": term,
@@ -535,6 +557,7 @@ function resolveSearchRequests(
     trackerCategories,
     rawKeywords,
     baseUrl,
+    definition.authFields,
   )
   const variables = {
     ...initialVariables,

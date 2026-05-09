@@ -932,7 +932,30 @@ function Indexers() {
                 </div>
                 {configFields.map((field) => (
                   <Field key={field.name} label={field.label} hint={field.helpText}>
-                    {field.type === "textarea" ? (
+                    {field.type === "checkbox" ? (
+                      form.id !== null ? (
+                        <select
+                          className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                          name={configFieldName(field)}
+                          defaultValue=""
+                        >
+                          <option value="">Keep saved value</option>
+                          <option value="true">Enabled</option>
+                          <option value="false">Disabled</option>
+                        </select>
+                      ) : (
+                        <div className="mt-2 flex items-center gap-2">
+                          <input type="hidden" name={configFieldName(field)} value="false" />
+                          <input
+                            className="h-4 w-4"
+                            name={configFieldName(field)}
+                            type="checkbox"
+                            value="true"
+                            defaultChecked={configFieldDefaultChecked(field)}
+                          />
+                        </div>
+                      )
+                    ) : field.type === "textarea" ? (
                       <textarea
                         className="mt-1 min-h-24 w-full rounded border bg-transparent px-3 py-2"
                         autoComplete="off"
@@ -2274,10 +2297,20 @@ function collectConfigValues(
 ): Record<string, string> {
   const collected: Record<string, string> = {}
   for (const field of fields) {
-    const value = values.get(configFieldName(field))
+    const name = configFieldName(field)
+    const value = field.type === "checkbox" ? lastStringFormValue(values, name) : values.get(name)
     if (typeof value === "string" && value.trim().length > 0) collected[field.name] = value
   }
   return collected
+}
+
+function lastStringFormValue(values: FormData, name: string): string | null {
+  const items = values.getAll(name)
+  for (let index = items.length - 1; index >= 0; index -= 1) {
+    const item = items[index]
+    if (typeof item === "string") return item
+  }
+  return null
 }
 
 function configFieldName(field: IndexerAuthField): string {
@@ -2286,6 +2319,11 @@ function configFieldName(field: IndexerAuthField): string {
 
 function configFieldDefaultValue(field: IndexerAuthField, editing: boolean): string {
   return editing ? "" : (field.defaultValue ?? "")
+}
+
+function configFieldDefaultChecked(field: IndexerAuthField): boolean {
+  const normalized = field.defaultValue?.trim().toLowerCase()
+  return normalized === "true" || normalized === "1" || normalized === "on" || normalized === "yes"
 }
 
 function configFieldEmptyOptionLabel(field: IndexerAuthField, editing: boolean): string {

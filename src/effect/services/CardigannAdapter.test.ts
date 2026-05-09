@@ -449,6 +449,69 @@ search:
     expect(url.searchParams.get("cats")).toBe("movies")
   })
 
+  it("renders Cardigann checkbox config values as template booleans", async () => {
+    let requestUrl: string | undefined
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      requestUrl = String(input)
+      return new Response(RSS_XML, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 21,
+      name: "Checkbox Config Cardigann",
+      type: "cardigann_yaml",
+      definitionKey: "checkbox-config-cardigann",
+      definitionYaml: `
+id: checkbox-config-cardigann
+name: Checkbox Config Cardigann
+links:
+  - https://tracker.example
+settings:
+  - name: freeleechOnly
+    label: Freeleech only
+    type: checkbox
+  - name: includeDead
+    label: Include dead
+    type: checkbox
+  - name: cookieInfo
+    label: Cookie help
+    type: info_cookie
+caps:
+  categorymappings:
+    - id: movies
+      cat: Movies
+      desc: Movies
+  modes:
+    movie-search: [q]
+search:
+  paths:
+    - path: /search
+      response:
+        type: torznab
+      inputs:
+        freeleech: '{{ if .Config.freeleechOnly }}1{{ else }}0{{ end }}'
+        dead: '{{ if .Config.includeDead }}1{{ else }}0{{ end }}'
+`,
+      baseUrl: "https://tracker.example/root",
+      apiKey: "",
+      configValues: {
+        freeleechOnly: "true",
+        includeDead: "false",
+      },
+      priority: 15,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    await Effect.runPromise(adapter.search({ term: "Checkbox Movie", type: "movie" }))
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const url = new URL(requestUrl ?? "")
+    expect(url.searchParams.get("freeleech")).toBe("1")
+    expect(url.searchParams.get("dead")).toBe("0")
+  })
+
   it("narrows Cardigann Categories for each matching path", async () => {
     const requestUrls: Array<string> = []
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
