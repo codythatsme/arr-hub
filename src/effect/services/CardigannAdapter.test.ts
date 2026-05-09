@@ -653,6 +653,48 @@ const XTHOR_JSON_RESULTS = JSON.stringify({
   ],
 })
 
+const HDBITS_JSON_RESULTS = JSON.stringify({
+  status: 0,
+  data: [
+    {
+      id: "1001",
+      hash: "abcdefabcdefabcdefabcdefabcdefabcdefabcd",
+      leechers: 6,
+      seeders: 52,
+      name: "HDBits Movie 2026 1080p WEB-DL",
+      times_completed: 42,
+      size: 9_123_456_000,
+      utadded: 1_778_330_096,
+      numfiles: 8,
+      freeleech: "yes",
+      type_category: 1,
+      type_medium: 3,
+      type_origin: 1,
+      type_exclusive: 0,
+      imdb: {
+        id: 1234567,
+        year: 2026,
+      },
+    },
+    {
+      id: "1002",
+      hash: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      leechers: 3,
+      seeders: 12,
+      name: "HDBits Movie 2026 720p Encode",
+      times_completed: 7,
+      size: 4_123_456_000,
+      utadded: 1_778_333_600,
+      numfiles: 5,
+      freeleech: "no",
+      type_category: 1,
+      type_medium: 3,
+      type_origin: 0,
+      type_exclusive: 0,
+    },
+  ],
+})
+
 const REVOLUTIONTT_HTML_RESULTS = `
 <html><body>
   <table id="torrents-table">
@@ -4130,6 +4172,73 @@ search:
       indexerId: 105,
       indexerName: "Xthor",
       indexerPriority: 41,
+      downloadFactor: 0,
+      uploadFactor: 1,
+    })
+    expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-09T12:34:56.000Z")
+  })
+
+  it("parses HDBits JSON POST API results from the built-in definition", async () => {
+    const requests: Array<{ url: string; init: RequestInit | undefined }> = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      requests.push({ url: String(input), init })
+      return new Response(HDBITS_JSON_RESULTS, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 106,
+      name: "HDBits",
+      type: "cardigann_yaml",
+      definitionKey: "hdbits",
+      baseUrl: "https://hdbits.org/",
+      apiKey: "hdbits-passkey",
+      configValues: {
+        username: "alice",
+        freeleechOnly: "true",
+      },
+      priority: 42,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({
+        term: "HDBits Movie",
+        type: "movie",
+        categories: [2000],
+        imdbId: "tt1234567",
+      }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const request = requests[0]
+    expect(request?.url).toBe("https://hdbits.org/api/torrents")
+    expect(request?.init?.method).toBe("POST")
+    expect(new Headers(request?.init?.headers).get("content-type")).toBe("application/json")
+    expect(new Headers(request?.init?.headers).get("accept")).toBe("application/json")
+    expect(JSON.parse(String(request?.init?.body))).toEqual({
+      username: "alice",
+      passkey: "hdbits-passkey",
+      limit: 100,
+      category: [1],
+      imdb: {
+        id: 1234567,
+      },
+    })
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).toMatchObject({
+      title: "HDBits Movie 2026 1080p WEB-DL",
+      downloadUrl: "https://hdbits.org/download.php?id=1001&passkey=hdbits-passkey",
+      infoUrl: "https://hdbits.org/details.php?id=1001",
+      category: "2000",
+      size: 9_123_456_000,
+      seeders: 52,
+      leechers: 6,
+      infohash: "abcdefabcdefabcdefabcdefabcdefabcdefabcd",
+      indexerId: 106,
+      indexerName: "HDBits",
+      indexerPriority: 42,
       downloadFactor: 0,
       uploadFactor: 1,
     })

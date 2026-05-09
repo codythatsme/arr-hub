@@ -104,6 +104,7 @@ caps:
       "immortalseed",
       "xspeeds",
       "xthor",
+      "hdbits",
       "revolutiontt",
       "pretome",
       "morethantv",
@@ -764,6 +765,35 @@ caps:
           { id: 5040, name: "Series HD VF" },
           { id: 7020, name: "Livres Romans" },
           { id: 4050, name: "Logiciels Jeux PC" },
+        ]),
+      },
+    })
+    expect(
+      BUILT_IN_CARDIGANN_DEFINITIONS.find((definition) => definition.definitionKey === "hdbits"),
+    ).toMatchObject({
+      displayName: "HDBits",
+      baseUrl: "https://hdbits.org/",
+      privacy: "private",
+      supportsRss: false,
+      supportsSearch: true,
+      tags: ["private", "movies", "tv", "music", "json", "api"],
+      authFields: expect.arrayContaining([
+        expect.objectContaining({ name: "username", type: "text", required: true }),
+        expect.objectContaining({ name: "apiKey", type: "password", required: true }),
+        expect.objectContaining({
+          name: "freeleechOnly",
+          type: "checkbox",
+          defaultValue: "false",
+        }),
+      ]),
+      capabilities: {
+        searchTypes: ["search", "movie", "tvsearch"],
+        categories: expect.arrayContaining([
+          { id: 2000, name: "Movie" },
+          { id: 5000, name: "TV" },
+          { id: 5080, name: "Documentary" },
+          { id: 3000, name: "Music" },
+          { id: 5060, name: "Sport" },
         ]),
       },
     })

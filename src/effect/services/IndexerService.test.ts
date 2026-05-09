@@ -119,19 +119,19 @@ describe("IndexerService", () => {
       const second = yield* svc.refreshDefinitions()
 
       expect(first).toMatchObject({
-        total: 36,
-        created: 36,
+        total: 37,
+        created: 37,
         updated: 0,
         unchanged: 0,
       })
       expect(first.definitions.map((definition) => definition.action)).toEqual(
-        Array(36).fill("created"),
+        Array(37).fill("created"),
       )
       expect(second).toMatchObject({
-        total: 36,
+        total: 37,
         created: 0,
         updated: 0,
-        unchanged: 36,
+        unchanged: 37,
       })
       expect(second.definitions.every((definition) => definition.previousVersion !== null)).toBe(
         true,
@@ -413,6 +413,7 @@ describe("IndexerService", () => {
         "hd-space",
         "hd-torrents",
         "hdaccess",
+        "hdbits",
         "immortalseed",
         "iptorrents",
         "knaben",
@@ -725,6 +726,17 @@ describe("IndexerService", () => {
         supportsRss: false,
         tags: ["private", "general", "movies", "tv", "books", "json", "api"],
       })
+      expect(definitions.find((definition) => definition.definitionKey === "hdbits")).toMatchObject(
+        {
+          displayName: "HDBits",
+          protocol: "torrent",
+          implementation: "cardigann_yaml",
+          baseUrl: "https://hdbits.org/",
+          privacy: "private",
+          supportsRss: false,
+          tags: ["private", "movies", "tv", "music", "json", "api"],
+        },
+      )
       expect(
         definitions.find((definition) => definition.definitionKey === "revolutiontt"),
       ).toMatchObject({

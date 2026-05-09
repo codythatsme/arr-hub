@@ -5049,6 +5049,128 @@ search:
       text: "1"
 `
 
+const HDBITS = `
+id: hdbits
+name: HDBits
+description: Private HD tracker exposed through a first-pass username/passkey JSON POST Cardigann definition.
+type: private
+links:
+  - https://hdbits.org/
+version: builtin-cardigann-1
+rss: false
+tags:
+  - private
+  - movies
+  - tv
+  - music
+  - json
+  - api
+settings:
+  - name: username
+    label: Username
+    type: text
+    required: true
+    helpText: HDBits username.
+  - name: apiKey
+    label: Passkey
+    type: password
+    required: true
+    helpText: HDBits account passkey.
+  - name: freeleechOnly
+    label: Freeleech only
+    type: checkbox
+    default: false
+    helpText: Search freeleech torrents only.
+caps:
+  categorymappings:
+    - id: "1"
+      cat: Movies
+      desc: Movie
+      newznab: 2000
+    - id: "2"
+      cat: TV
+      desc: TV
+      newznab: 5000
+    - id: "3"
+      cat: TV/Documentary
+      desc: Documentary
+      newznab: 5080
+    - id: "4"
+      cat: Audio
+      desc: Music
+      newznab: 3000
+    - id: "5"
+      cat: TV/Sport
+      desc: Sport
+      newznab: 5060
+    - id: "6"
+      cat: Audio
+      desc: Audio Track
+      newznab: 3000
+    - id: "7"
+      cat: XXX
+      desc: XXX
+      newznab: 6000
+    - id: "8"
+      cat: Other
+      desc: Misc/Demo
+      newznab: 8000
+  modes:
+    search: [q]
+    movie-search: [q, imdbid]
+    tv-search: [q, season, ep, tvdbid]
+search:
+  paths:
+    - path: /api/torrents
+      method: post
+      response:
+        type: json
+      headers:
+        accept: application/json
+        content-type: application/json
+      body: >-
+        {"username":"{{ .Config.Username | jsonescape }}","passkey":"{{ .Config.ApiKey | jsonescape }}","limit":100,"category":[{{ .Categories | join "," }}]{{ if or .Query.IMDBIDShort .Query.TVDBID }}{{ else }},"search":"{{ .Keywords | jsonescape }}"{{ end }}{{ if .Query.IMDBIDShort }},"imdb":{"id":{{ .Query.IMDBIDShort }}}{{ end }}{{ if .Query.TVDBID }},"tvdb":{"id":{{ .Query.TVDBID }}{{ end }}{{ if and .Query.TVDBID .Query.Season }},"season":{{ .Query.Season }}{{ end }}{{ if and .Query.TVDBID .Query.Episode }},"episode":"{{ .Query.Episode | jsonescape }}"{{ end }}{{ if .Query.TVDBID }}}{{ end }}}
+  rows:
+    selector: '$.data{{ if .Config.FreeleechOnly }}:contains("yes"){{ end }}'
+  fields:
+    id:
+      selector: id
+    title:
+      selector: name
+    details:
+      text: "/details.php?id={{ .Result.id }}"
+    download:
+      text: "/download.php?id={{ .Result.id }}&passkey={{ .Config.ApiKey }}"
+    category:
+      selector: type_category
+    date:
+      selector: utadded
+      filters:
+        - name: unixtime
+    size:
+      selector: size
+    files:
+      selector: numfiles
+    grabs:
+      selector: times_completed
+    seeders:
+      selector: seeders
+    leechers:
+      selector: leechers
+    infohash:
+      selector: hash
+    downloadvolumefactor:
+      selector: freeleech
+      case:
+        "yes": "0"
+        "no": "1"
+    uploadvolumefactor:
+      selector: type_category
+      case:
+        "7": "0"
+        "*": "1"
+`
+
 const REVOLUTION_TT = `
 id: revolutiontt
 name: RevolutionTT
@@ -5768,6 +5890,7 @@ const BUILT_IN_CARDIGANN_SOURCES = [
   IMMORTAL_SEED,
   X_SPEEDS,
   XTHOR,
+  HDBITS,
   REVOLUTION_TT,
   PRETOME,
   MORE_THAN_TV,
