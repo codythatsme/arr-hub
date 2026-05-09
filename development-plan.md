@@ -19,7 +19,7 @@ What exists today:
 
 Primary blockers:
 
-- The operator UI is incomplete. Several settings pages are placeholders, and Movies/TV do not expose the normal add/search/edit/manual-search workflows expected from Arr apps.
+- The operator UI now exposes the existing backend workflows, but persisted browser smoke tests are still missing and deeper workflows still depend on backend work listed below.
 - Metadata is thin. Movies have a TMDB client, but TV has no real metadata provider, Sonarr import does not import episodes, and there is no metadata refresh lifecycle.
 - Completed download handling is not a real media import pipeline. It mostly marks rows as available; it does not inspect, move, hardlink, rename, validate, or import files.
 - The release decision engine is far smaller than Sonarr/Radarr. It lacks many required rejection rules, blocklist enforcement, size/age/retention/free-space checks, language/release profiles, proper title matching, and TV/anime edge cases.
@@ -32,11 +32,28 @@ Primary blockers:
 Commands run from `/Users/codythatsme/Developer/arr-hub`:
 
 - `bun run typecheck`: passed.
-- `bun run test`: passed, 29 test files plus 1 skipped live suite, 284 passed and 4 skipped tests.
-- `bun run lint`: passed with 114 warnings and 0 errors.
+- `bun run test`: passed, 29 test files plus 1 skipped live suite, 285 passed and 4 skipped tests.
+- `bun run lint`: passed with warnings and 0 errors.
 - `bun run build`: passed with chunk-size and external dependency warnings.
 
 Mechanical health is acceptable. Product completeness is the issue.
+
+## Implementation Progress On 2026-05-09
+
+Completed in atomic commits after this plan was written:
+
+- `0246b446ef` added indexer settings CRUD/test UI.
+- `d206f4bbd0` added download client settings CRUD/test UI.
+- `540ea82ddd` added media server settings CRUD/test/library UI.
+- `11749d1d36` added scheduler config/status/job controls.
+- `0217f93ff0` added general settings UI.
+- `4e2f66d121` added media-management/root-folder UI.
+- `7ed65c3088` added movie add/edit/delete/monitor/profile/root/manual-search UI.
+- `0b5d2a1553` added TV manual add/edit/delete/monitor/season/episode search UI.
+- `688ac6f283` added profile create/edit/delete/apply-bundle UI.
+- `ab7f7dbffa` added queue delete-files and clear-error actions.
+
+Milestone 1 is functionally implemented for the current backend, except persisted browser smoke tests. Later milestones remain open and are still required before ARR Hub can honestly claim Sonarr/Radarr/Prowlarr replacement-grade behavior.
 
 ## Current Functionality Inventory
 
@@ -61,9 +78,10 @@ Backend/service surfaces:
 UI surfaces:
 
 - Dashboard, Movies list/detail, TV list/detail.
-- Activity queue/history/users/stats.
-- Settings: notifications, profiles, security, plugins have some real UI.
-- Settings: general, media management, indexers, download clients, media servers, scheduler are placeholders or near-placeholders.
+- Movies: TMDB search/add, edit/delete, monitor toggle, profile/root assignment, manual release evaluate/grab.
+- TV: manual series add with season/episode scaffolding, edit/delete, show/season/episode monitor toggles, series/season search, episode evaluate/grab.
+- Activity queue/history/users/stats. Queue supports retry, remove with delete-files option, clear error, and blocklist.
+- Settings: indexers, download clients, media servers, scheduler, general, media management/root folders, notifications, profiles, security, and plugins now have operational UI.
 - Onboarding quickstart and advanced wizard.
 - System diagnostics view.
 
@@ -578,11 +596,11 @@ Goal: expose existing capabilities through UI before deep backend rewrites.
 
 Tasks:
 
-1. Finish Settings UI for indexers/download clients/media servers/scheduler/general/media-management/root folders.
-2. Add Movies UI: TMDB search, add, edit, delete, monitor toggle, profile/root folder assignment, manual search/evaluate/grab.
-3. Add TV UI using existing local series model: add manual series with seasons/episodes, edit, delete, monitor toggles, manual episode/season/series search.
-4. Add profile CRUD/apply-bundle UI.
-5. Add e2e browser smoke tests for onboarding, integration settings, add movie, add TV, manual search display, queue page.
+1. Done: finish Settings UI for indexers/download clients/media servers/scheduler/general/media-management/root folders.
+2. Done: add Movies UI with TMDB search, add, edit, delete, monitor toggle, profile/root folder assignment, manual search/evaluate/grab.
+3. Done: add TV UI using existing local series model with manual series/season/episode scaffolding, edit, delete, monitor toggles, and manual episode/season/series search.
+4. Done: add profile CRUD/apply-bundle UI.
+5. Remaining: add persisted e2e browser smoke tests for onboarding, integration settings, add movie, add TV, manual search display, queue page.
 
 Acceptance:
 
@@ -690,15 +708,10 @@ Update `README.md` after each milestone:
 
 ## Immediate Next Step For The Next Agent
 
-Start with Milestone 1 unless instructed otherwise.
+Finish the remaining Milestone 1 test gap, then start Milestone 2.
 
-The highest-leverage first task is to replace placeholder settings pages with working CRUD/test UIs for existing backend services:
+Recommended order:
 
-- `src/routes/settings/indexers.tsx`
-- `src/routes/settings/download-clients.tsx`
-- `src/routes/settings/media-servers.tsx`
-- `src/routes/settings/scheduler.tsx`
-- `src/routes/settings/general.tsx`
-- `src/routes/settings/media-management.tsx`
-
-Do not begin Prowlarr-scale indexer work before the existing app can be configured and operated through the UI.
+1. Add persisted browser smoke tests for onboarding, integration settings, add movie, add TV, manual search display, and queue page. The repo does not currently include a browser e2e runner, so choose one explicitly before adding tests.
+2. Start Milestone 2 TV metadata provider work and complete Sonarr episode import.
+3. Do not begin Prowlarr-scale indexer work before metadata and import behavior are much closer to replacement-grade.
