@@ -6,6 +6,7 @@ import type {
   IndexerAuthField,
   IndexerCategoryMapping,
   IndexerCapabilities,
+  IndexerConfigValues,
   IndexerDefinitionImplementation,
   IndexerPrivacy,
   IndexerProtocol,
@@ -269,6 +270,10 @@ export const indexers = sqliteTable("indexers", {
   definitionKey: text("definition_key"),
   baseUrl: text("base_url").notNull(),
   apiKeyEncrypted: text("api_key_encrypted").notNull(),
+  configValuesEncrypted: text("config_values_encrypted", { mode: "json" })
+    .$type<IndexerConfigValues>()
+    .notNull()
+    .default(sql`'{}'`),
   proxyId: integer("proxy_id").references(() => indexerProxies.id, { onDelete: "set null" }),
   enabled: integer({ mode: "boolean" }).notNull().default(true),
   searchEnabled: integer("search_enabled", { mode: "boolean" }).notNull().default(true),

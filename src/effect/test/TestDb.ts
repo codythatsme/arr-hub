@@ -228,6 +228,7 @@ const runDdl = Effect.gen(function* () {
     definition_key TEXT,
     base_url TEXT NOT NULL,
     api_key_encrypted TEXT NOT NULL,
+    config_values_encrypted TEXT NOT NULL DEFAULT '{}',
     proxy_id INTEGER REFERENCES indexer_proxies(id) ON DELETE SET NULL,
     enabled INTEGER NOT NULL DEFAULT 1,
     search_enabled INTEGER NOT NULL DEFAULT 1,

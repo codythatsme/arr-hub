@@ -13,6 +13,7 @@ import {
 import type {
   IndexerAdapterMetadata,
   IndexerCapabilities,
+  IndexerConfigValues,
   IndexerConfig,
   IndexerDefinition,
   IndexerDefinitionSeed,
@@ -45,6 +46,7 @@ interface IndexerInput {
   readonly definitionKey?: string | null
   readonly baseUrl: string
   readonly apiKey: string
+  readonly configValues?: IndexerConfigValues
   readonly proxyId?: number | null
   readonly enabled?: boolean
   readonly searchEnabled?: boolean
@@ -66,6 +68,7 @@ interface IndexerUpdate {
   readonly definitionKey?: string | null
   readonly baseUrl?: string
   readonly apiKey?: string
+  readonly configValues?: IndexerConfigValues
   readonly proxyId?: number | null
   readonly enabled?: boolean
   readonly searchEnabled?: boolean
@@ -240,6 +243,19 @@ function defaultDefinitionKey(type: string): string | null {
 
 function requiresDefinitionKey(type: string): boolean {
   return type === "cardigann_yaml"
+}
+
+function normalizeConfigValues(values: IndexerConfigValues | undefined): Record<string, string> {
+  if (!values) return {}
+
+  const normalized: Record<string, string> = {}
+  for (const [key, value] of Object.entries(values)) {
+    const normalizedKey = key.trim()
+    if (normalizedKey.length > 0) {
+      normalized[normalizedKey] = value
+    }
+  }
+  return normalized
 }
 
 function toWithHealth(
@@ -505,6 +521,24 @@ export const IndexerServiceLive = Layer.effect(
       const entry = registry.listIndexerTypes().find((e) => e.type === type)
       return entry?.metadata.protocolAffinity ?? ("torrent" as const)
     }
+
+    const encryptConfigValues = (values: IndexerConfigValues | undefined) =>
+      Effect.gen(function* () {
+        const encrypted: Record<string, string> = {}
+        for (const [key, value] of Object.entries(normalizeConfigValues(values))) {
+          encrypted[key] = yield* crypto.encrypt(value)
+        }
+        return encrypted
+      })
+
+    const decryptConfigValues = (values: IndexerConfigValues) =>
+      Effect.gen(function* () {
+        const decrypted: Record<string, string> = {}
+        for (const [key, value] of Object.entries(values)) {
+          decrypted[key] = yield* crypto.decrypt(value)
+        }
+        return decrypted
+      })
 
     const loadWithHealth = (id: number) =>
       Effect.gen(function* () {
@@ -838,6 +872,7 @@ export const IndexerServiceLive = Layer.effect(
           yield* validateDefinitionSelection(input.type, definitionKey)
           yield* validateProxyId(input.proxyId)
           const encrypted = yield* crypto.encrypt(input.apiKey)
+          const configValuesEncrypted = yield* encryptConfigValues(input.configValues)
           const inserted = yield* db
             .insert(indexers)
             .values({
@@ -846,6 +881,7 @@ export const IndexerServiceLive = Layer.effect(
               definitionKey,
               baseUrl: input.baseUrl,
               apiKeyEncrypted: encrypted,
+              configValuesEncrypted,
               proxyId: input.proxyId ?? null,
               enabled: input.enabled ?? true,
               searchEnabled: input.searchEnabled ?? true,
@@ -923,6 +959,9 @@ export const IndexerServiceLive = Layer.effect(
           if (data.apiKey !== undefined) {
             updateData.apiKeyEncrypted = yield* crypto.encrypt(data.apiKey)
           }
+          if (data.configValues !== undefined) {
+            updateData.configValuesEncrypted = yield* encryptConfigValues(data.configValues)
+          }
           updateData.updatedAt = new Date()
 
           const rows = yield* db
@@ -952,6 +991,7 @@ export const IndexerServiceLive = Layer.effect(
           if (!indexer) return yield* new NotFoundError({ entity: "indexer", id })
 
           const apiKey = yield* crypto.decrypt(indexer.apiKeyEncrypted)
+          const configValues = yield* decryptConfigValues(indexer.configValuesEncrypted)
           const proxy = yield* resolveOutboundProxy(indexer.proxyId)
           const definitionYaml = yield* loadDefinitionYaml(indexer.definitionKey)
           const factory = yield* registry.getIndexerFactory(indexer.type)
@@ -963,6 +1003,7 @@ export const IndexerServiceLive = Layer.effect(
             definitionYaml,
             baseUrl: indexer.baseUrl,
             apiKey,
+            configValues,
             priority: indexer.priority,
             categories: indexer.categories,
             protocol: lookupProtocol(indexer.type),
@@ -1047,6 +1088,7 @@ export const IndexerServiceLive = Layer.effect(
                 const start = Date.now()
                 return yield* Effect.gen(function* () {
                   const apiKey = yield* crypto.decrypt(indexer.apiKeyEncrypted)
+                  const configValues = yield* decryptConfigValues(indexer.configValuesEncrypted)
                   const proxy = yield* resolveOutboundProxy(indexer.proxyId)
                   const definitionYaml = yield* loadDefinitionYaml(indexer.definitionKey)
                   const factory = yield* registry.getIndexerFactory(indexer.type)
@@ -1058,6 +1100,7 @@ export const IndexerServiceLive = Layer.effect(
                     definitionYaml,
                     baseUrl: indexer.baseUrl,
                     apiKey,
+                    configValues,
                     priority: indexer.priority,
                     categories: indexer.categories,
                     protocol: lookupProtocol(indexer.type),

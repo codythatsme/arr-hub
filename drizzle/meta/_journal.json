@@ -134,6 +134,13 @@
       "when": 1778317566083,
       "tag": "0018_exotic_cyclops",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1778318944629,
+      "tag": "0019_tidy_sabra",
+      "breakpoints": true
     }
   ]
 }

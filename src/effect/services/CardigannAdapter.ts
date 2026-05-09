@@ -100,6 +100,35 @@ function pathMatchesCategories(
   return negated ? !intersects : intersects
 }
 
+function configKeyVariants(key: string): ReadonlyArray<string> {
+  const trimmed = key.trim()
+  if (trimmed.length === 0) return []
+
+  const variants = new Set([trimmed, trimmed.toLowerCase(), trimmed.toUpperCase()])
+  variants.add(`${trimmed.charAt(0).toUpperCase()}${trimmed.slice(1)}`)
+  if (/^api_?key$/i.test(trimmed)) {
+    variants.add("APIKey")
+    variants.add("ApiKey")
+  }
+  return Array.from(variants)
+}
+
+function configTemplateVariables(config: IndexerConfig): Record<string, string> {
+  const variables: Record<string, string> = {
+    ".Config.APIKey": config.apiKey,
+    ".Config.ApiKey": config.apiKey,
+    ".Config.apiKey": config.apiKey,
+  }
+
+  for (const [key, value] of Object.entries(config.configValues ?? {})) {
+    for (const variant of configKeyVariants(key)) {
+      variables[`.Config.${variant}`] = value
+    }
+  }
+
+  return variables
+}
+
 function templateVariables(
   config: IndexerConfig,
   query: SearchQuery,
@@ -109,8 +138,7 @@ function templateVariables(
   const categoryStrings = (query.categories ?? []).map(String)
   const term = query.term.trim()
   return {
-    ".Config.APIKey": config.apiKey,
-    ".Config.ApiKey": config.apiKey,
+    ...configTemplateVariables(config),
     ".Query.Type": queryType,
     ".Query.Q": term,
     ".Query.Keywords": term,

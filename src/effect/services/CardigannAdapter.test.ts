@@ -233,12 +233,17 @@ search:
       response:
         type: torznab
       headers:
+        X-Auth: '{{ .Config.Username }}:{{ .Config.Cookie }}:{{ .Config.APIKey }}'
         X-Query-Slug: '{{ .Keywords | trim | lowercase | replace " " "-" }}'
       inputs:
         $raw: 'q={{ .Keywords | trim | urlencode }}&imdb={{ .Query.IMDBIDShort | prepend "tt" }}&cat={{ .Categories | join "," }}'
 `,
       baseUrl: "https://tracker.example/root",
       apiKey: "api-key",
+      configValues: {
+        username: "alice",
+        cookie: "session=secret",
+      },
       priority: 15,
       categories: [],
       protocol: "torrent",
@@ -261,6 +266,7 @@ search:
     expect(url.searchParams.get("cat")).toBe("movies")
 
     const headers = new Headers(requestInit?.headers)
+    expect(headers.get("x-auth")).toBe("alice:session=secret:api-key")
     expect(headers.get("x-query-slug")).toBe("example-movie")
   })
 

@@ -1,0 +1,1 @@
+ALTER TABLE `indexers` ADD `config_values_encrypted` text DEFAULT '{}' NOT NULL;

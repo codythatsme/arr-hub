@@ -210,6 +210,56 @@ describe("IndexerService", () => {
     }).pipe(Effect.provide(TestLayer)),
   )
 
+  it.effect("passes encrypted definition config values into indexer adapters", () =>
+    Effect.gen(function* () {
+      const registry = yield* AdapterRegistry
+      let capturedValues: IndexerConfig["configValues"] = undefined
+      registry.registerIndexer(
+        "mock-config-values",
+        { displayName: "Mock Config Values", protocolAffinity: "torrent", authModel: "fields" },
+        (config) => {
+          capturedValues = config.configValues
+          return {
+            testConnection: () =>
+              Effect.succeed({
+                searchTypes: ["search"],
+                categories: [{ id: 2000, name: "Movies" }],
+              }),
+            search: () => Effect.succeed([]),
+          }
+        },
+      )
+
+      const svc = yield* IndexerService
+      const added = yield* svc.add({
+        ...VALID_INPUT,
+        type: "mock-config-values",
+        apiKey: "legacy-api-key",
+        configValues: {
+          username: "alice",
+          cookie: "session=secret",
+        },
+      })
+      expect(JSON.stringify(added)).not.toContain("session=secret")
+
+      yield* svc.testConnection(added.id)
+      expect(capturedValues).toEqual({
+        username: "alice",
+        cookie: "session=secret",
+      })
+
+      yield* svc.update(added.id, {
+        configValues: {
+          username: "bob",
+        },
+      })
+      yield* svc.testConnection(added.id)
+      expect(capturedValues).toEqual({
+        username: "bob",
+      })
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
   it.effect("update with missing id fails with NotFoundError", () =>
     Effect.gen(function* () {
       const svc = yield* IndexerService

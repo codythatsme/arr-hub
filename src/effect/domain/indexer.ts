@@ -40,6 +40,8 @@ export interface IndexerCapabilities {
   readonly categories: ReadonlyArray<{ readonly id: number; readonly name: string }>
 }
 
+export type IndexerConfigValues = Readonly<Record<string, string>>
+
 export interface IndexerAuthField {
   readonly name: string
   readonly label: string
@@ -172,6 +174,7 @@ export interface IndexerConfig {
   readonly definitionYaml?: string | null
   readonly baseUrl: string
   readonly apiKey: string
+  readonly configValues?: IndexerConfigValues
   readonly priority: number
   readonly categories: ReadonlyArray<number>
   readonly protocol: IndexerProtocol
