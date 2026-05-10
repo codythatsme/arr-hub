@@ -40,9 +40,9 @@ Commands run from `/Users/codythatsme/Developer/arr-hub`:
 
 Mechanical health is acceptable. Product completeness is the issue.
 
-## Implementation Progress On 2026-05-09
+## Implementation Progress Through 2026-05-10
 
-Completed in atomic commits after this plan was written:
+Completed in atomic commits after this plan was written. Milestone 5 is summarized at the feature level because the broad tracker-catalogue spike was reset out of `main` and preserved only on `backup/milestone5-expanded-catalog`.
 
 - `0246b446ef` added indexer settings CRUD/test UI.
 - `d206f4bbd0` added download client settings CRUD/test UI.
@@ -96,7 +96,6 @@ Completed in atomic commits after this plan was written:
 - `6c8a940348` added encrypted definition-specific indexer config/auth values for adapters.
 - `c7407922a5` added first-pass indexer definition config/auth UI and preserves omitted stored config secrets on edit.
 - `5ac8d517f4` added core Newznab presets for NZBGeek, DrunkenSlug, NZBFinder, NinjaCentral, NZBPlanet, and altHUB without expanding the long-tail Cardigann catalogue.
-- Expanded tracker-specific Cardigann definitions from the catalogue spike are deferred to remote definition sources or separate catalogue PRs, and are not part of the Milestone 5 built-in set.
 - `a515123cad` exposed first-pass indexer tags and search/RSS flags in Settings.
 - `3915c4f987` exposed first-pass indexer proxy management and assignment controls in Settings.
 - `1528454d10` exposed first-pass indexer statistics in Settings.
@@ -107,98 +106,10 @@ Completed in atomic commits after this plan was written:
 - `beab879376` preserved app-side remote settings during aggregate Radarr/Sonarr app sync updates.
 - `904f5f2301` separated Sonarr standard and anime category filters for aggregate app sync.
 - `461f775f84` required catalog manifest SHA-256 pins before importing remote definition sources.
-- `d25a75377d` accepted scalar Cardigann search request metadata and single-object search paths.
-- `531749860e` rendered Cardigann select auth fields with options/defaults in Settings.
-- `6a2427c3e1` preserved stale remote aggregate mappings during add-only Radarr/Sonarr app sync.
-- `452d4fa31e` parsed Cardigann `caps.categories` dictionaries against the standard Newznab category tree.
-- `3f649cd693` honored Cardigann path-level inherited input controls during search request construction.
-- `7b2ffefb2c` applied first-pass Cardigann search keyword filters before request template rendering.
-- `5f7dd7545c` narrowed rendered Cardigann category variables for path-scoped category matches.
-- `d90c66e977` added first-pass Cardigann range template expansion for repeated request inputs.
-- `842b2a7d50` honored Cardigann default category mappings when searches have no usable category match.
-- `a795fd0cfa` parsed first-value Cardigann header lists for templated request headers.
-- `6ed19d6ca8` rendered first-pass Cardigann base template variables (`.Config.sitelink`, `.True`, `.False`, and `.Today.Year`).
-- `48056c4ecb` rendered first-pass Cardigann conditional/function templates (`if`, `and`, `or`, `eq`, `ne`, `join`, and `re_replace`).
-- `c81aa8b04f` parsed Cardigann checkbox auth fields, skipped informational settings, rendered checkbox values as template booleans, and exposed checkbox controls in Settings.
-- `b0e1ddd45e` added Cardigann `querystring` extraction for request template filters and search keyword filters.
-- `5663be16be` added Cardigann `htmldecode` and `htmlencode` support for request template filters and search keyword filters.
-- `0619ba169c` added Cardigann URL decode aliases for request template filters and URL alias/escape support for search keyword filters.
-- `4722ffea22` rendered Cardigann auth field defaults into request templates when saved config values are omitted.
-- `8413f1c228` honored per-indexer category restrictions during search request fan-out and defaulted uncategorized searches to each indexer's configured categories.
-- `507b3f54ff` expanded Cardigann category mappings that reference multiple Newznab categories and deduped rendered tracker category values.
-- `792edb9f9f` forwarded aggregate Torznab/Newznab offset and extended parameters into upstream adapters and Cardigann request templates.
-- `c7f28739a2` parsed first-pass Cardigann HTML row and field selector results into release candidates.
-- `c823a075c5` executed first-pass Cardigann login requests and reused returned session cookies for search requests.
-- `ce1fbc321d` resolved simple nested Cardigann HTML descendant selectors inside their parent matches.
-- `2a85bac051` merged selected Cardigann HTML rows with `rows.after` before field extraction.
-- `ee3e2ca494` merged selected Cardigann HTML rows with `rows.before` before field extraction.
-- `e06c4100ac` removed Cardigann HTML field descendants before text extraction.
-- `d9d8b303da` resolved Cardigann HTML selector case mappings before text or attribute extraction.
-- `db3595e479` matched Cardigann HTML field selectors against the current row before descendant lookup.
-- `f5d7f029f1` added Cardigann `split` filter support for template pipelines and filter blocks.
-- `d7e20f9054` added Cardigann direct cookie-login rendering and pre-seeded login cookies.
-- `088bc912e3` added Cardigann login error selector handling.
-- `d87983b4aa` added Cardigann one-url login request support.
-- `ad7f728dbd` added first-pass Cardigann form login request support.
-- `ae57eb9ba7` added Cardigann GET method form login submission support.
-- `142c112518` added Cardigann form-login landing request method/input support.
-- `819a628527` added first-pass Cardigann form login control serialization.
-- `1f0e68c99b` added first-pass Cardigann form login selector-control resolution.
-- `c42da0474d` added Cardigann form selector input support.
-- `e5ef2b8b86` added Cardigann multipart form login support.
-- `959d652111` added Cardigann login test selector support.
-- `312aace651` added Cardigann form login CAPTCHA response submission support.
-- `3f4f3ea996` added Cardigann automatic simpleCaptcha form login support.
-- `419a2628d1` added first-pass Cardigann CAPTCHA auth field exposure for definitions that declare login CAPTCHA prompts.
-- `8f75141e4b` added first-pass Cardigann informational auth field exposure for cookie/2FA guidance in Settings.
-- `ce71926914` added first-pass Cardigann relative-time field filter support.
-- `45569da917` added first-pass Cardigann `dateparse`/`timeparse` field filter support.
-- `b42741f6b6` added first-pass Cardigann HTML row `andmatch` filter support.
-- `bdd11e9ea5` added first-pass Cardigann HTML date header support.
-- `a38543762d` added first-pass Cardigann `diacritics`, `fuzzytime`, `validate`, and `validfilename` field filter support.
-- `57456f0b2a` added first-pass Cardigann `jsonjoinarray` filter support.
-- `a0271d2abd` added first-pass Cardigann JSON response selector parsing.
-- `81750712ec` added first-pass Cardigann search preprocessing filter support.
-- `2153bf90d5` added first-pass Cardigann response no-results message handling.
-- `a1568e3181` added first-pass Cardigann JSON row count/attribute metadata support.
-- `1934d57305` added first-pass Cardigann JSON parent selector support.
-- `da5601ab46` added first-pass Cardigann JSON positional selector support.
-- `17cb414e4a` added first-pass Cardigann JSON selector-list support.
-- `78f985cff8` added first-pass Cardigann HTML attribute operator support.
-- `d9374db3ed` added first-pass Cardigann HTML attribute selector flag support.
-- `2dc53ee17c` added first-pass Cardigann HTML selector escaping support.
-- `16425ac40f` added first-pass Cardigann HTML escaped attribute-name selector support.
-- `01c5a34af4` added first-pass Cardigann HTML matching pseudo selector support.
-- `f71e25961d` added first-pass Cardigann HTML escaped selector delimiter support.
-- `12dd243a53` added first-pass Cardigann HTML quoted attribute delimiter support.
-- `9920bfa344` added first-pass Cardigann HTML pseudo selector tail support.
-- `ebeaef302f` covered first-pass Cardigann HTML content-state pseudo selector support.
-- `188ccd5820` added first-pass Cardigann JSON selector pseudo-filter support.
-- `bb2cba02f7` added first-pass Cardigann XML response selector parsing.
-- `32605787fb` added first-pass Cardigann `magnet` result-field aliasing.
-- `2fa6d71887` added first-pass Cardigann `categorydesc` result-field mapping.
-- `4b9f7a0b49` added first-pass Cardigann HTML selector pseudo-filter support.
-- `9babda5f74` added first-pass Cardigann HTML positional selector filter support.
-- `0fd6d81ea3` added first-pass Cardigann HTML selector-list support.
-- `d1b03430a2` added first-pass Cardigann HTML direct-child selector support.
-- `b7c6c0ce5f` added first-pass Cardigann HTML void element and state pseudo-class selector support.
-- `5e28e69337` added first-pass Cardigann HTML child-position pseudo-class selector support.
-- `ab3ab70cbc` added first-pass Cardigann HTML nth-child pseudo-class selector support.
-- `58aef2d4e5` added first-pass Cardigann HTML nth-last-child pseudo-class selector support.
-- `c3dfb78453` added first-pass Cardigann HTML of-type pseudo-class selector support.
-- `e06360237f` added first-pass Cardigann HTML only-child pseudo-class selector support.
-- `0aaf9248fd` added first-pass Cardigann HTML sibling combinator selector support.
-- `bf9153875a` added first-pass Cardigann HTML form pseudo-class selector support.
-- `ccd3b03238` added first-pass Cardigann HTML visibility pseudo-class selector support.
-- `b39e211dc6` added first-pass Cardigann HTML header pseudo-class selector support.
-- `753f905231` added first-pass Cardigann HTML root pseudo-class selector support.
-- `45e594bd6a` added first-pass Cardigann HTML language pseudo-class selector support.
-- `e041547e70` added first-pass Cardigann HTML selector template rendering.
-- `da6e4c3605` preserved Cardigann zero volume factors for freeleech-style result fields.
-- `5b1e926ded` added first-pass Cardigann field-name modifier handling.
-- `20f0343d60` preserved existing Cardigann field values when optional selectors are empty.
+- Subsequent Milestone 5 commits hardened the generic Cardigann runtime, request templating, category mapping, auth controls, and aggregate app-sync behavior enough for representative built-ins and checksum-pinned remote definitions. These commits are runtime support, not a decision to ship the expanded tracker catalogue.
+- `5cbb9c9e90` removed the deferred expanded built-in tracker catalogue from `main`. The safety branch `backup/milestone5-expanded-catalog` preserves the catalogue spike at `ab9e42393b`; those tracker definitions, including long-tail and adult/XXX sources, are not current built-in support.
 
-Milestones 1, 2, 3, and 4 are complete for deterministic local coverage against the current backend surface. Milestone 5 is now scoped as a curated Prowlarr replacement foundation, not a broad tracker-porting effort. It includes persisted generic indexer definitions, core Newznab presets for NZBGeek, DrunkenSlug, NZBFinder, NinjaCentral, NZBPlanet, and altHUB, representative Cardigann/YAML torrent definitions, aggregate Torznab/Newznab feeds with offset/extended metadata forwarding, URL-backed checksum-pinned definition sources, proxy/health/stats basics, per-indexer category and policy controls, and first-pass Radarr/Sonarr aggregate app sync. Long-tail tracker breadth is deferred to remote definition sources or a future catalogue-maintenance milestone. Milestone 3 still needs live qBittorrent/SABnzbd fixture validation in an environment with those services running.
+Milestones 1, 2, 3, and 4 are complete for deterministic local coverage against the current backend surface. Milestone 5 is now scoped as a curated Prowlarr replacement foundation, not a broad tracker-porting effort. It includes persisted generic indexer definitions, core Newznab presets for NZBGeek, DrunkenSlug, NZBFinder, NinjaCentral, NZBPlanet, and altHUB, representative Cardigann/YAML torrent definitions, aggregate Torznab/Newznab feeds with offset/extended metadata forwarding, URL-backed checksum-pinned definition sources, proxy/health/stats basics, per-indexer category and policy controls, and first-pass Radarr/Sonarr aggregate app sync. Long-tail and adult/XXX tracker breadth is deferred to remote definition sources or a future catalogue-maintenance milestone. Milestone 3 still needs live qBittorrent/SABnzbd fixture validation in an environment with those services running.
 
 ## Current Functionality Inventory
 
@@ -428,14 +339,14 @@ Current state:
 Gap:
 
 - Before ARR Hub can replace Prowlarr for a typical 3 NZB + 1 torrent setup, the common path must be validated with live NZBGeek, DrunkenSlug, NZBFinder or another Newznab preset, plus one Torznab or representative torrent source.
-- Kickass/PirateBay-style public torrent coverage should be handled through generic Torznab or checksum-pinned remote definitions unless a specific source is explicitly promoted into the curated built-in set.
+- Kickass/PirateBay-style public torrent coverage should stay out of current Milestone 5 built-ins and be handled through generic Torznab or checksum-pinned remote definitions unless a future catalogue-maintenance milestone explicitly promotes a source.
 - Full Cardigann selector/login parity, richer cookie/2FA auth UX, full policy parity, trusted remote catalogue distribution, and richer per-indexer/app-specific sync semantics remain future work.
 
 Decision context:
 
 - Option A remains selected: ARR Hub should replace Prowlarr directly, so users do not need to run Prowlarr alongside it for common setups.
 - Scope was adjusted on 2026-05-10: Milestone 5 keeps the replacement foundation and curated common indexers, but freezes broad tracker-by-tracker Cardigann porting.
-- Long-tail tracker breadth belongs in checksum-pinned remote definition sources or a later catalogue-maintenance milestone, not in the current milestone.
+- Long-tail and adult/XXX tracker breadth belongs in checksum-pinned remote definition sources or a later catalogue-maintenance milestone, not in the current milestone or current built-in support.
 - Current Torznab/Newznab support remains a compatibility and migration path.
 
 Tasks:
@@ -452,13 +363,13 @@ Tasks:
 - [x] Freeze broad built-in Cardigann tracker expansion for the current milestone.
 - [ ] Validate the target common setup path: NZBGeek, DrunkenSlug, NZBFinder, one optional Newznab preset, and one practical torrent path.
 - [ ] Harden generic Torznab/Newznab configuration, aggregate feed behavior, and app sync around that target path.
-- [ ] Defer long-tail tracker breadth to checksum-pinned remote definition sources or a later catalogue-maintenance milestone.
+- [x] Defer long-tail and adult/XXX tracker breadth to checksum-pinned remote definition sources or a later catalogue-maintenance milestone.
 
 Acceptance criteria:
 
 - ARR Hub can be configured without Prowlarr for common Newznab NZB indexers and at least one practical torrent path.
 - Product claims make clear that ARR Hub targets direct Prowlarr replacement for common setups while distinguishing the curated built-in catalogue from Prowlarr-scale tracker breadth.
-- No more long-tail Cardigann definition commits are added in Milestone 5 unless they directly fix the generic runtime or serve the curated common-indexer subset.
+- No long-tail or adult/XXX tracker definitions are current built-in support, and no more tracker-definition commits are added in Milestone 5 unless they directly fix the generic runtime or serve the curated common-indexer subset.
 - Searches still return normalized releases with reliable categories, protocol, seeders, age, infohash, and download URLs from configured upstreams.
 
 ### 6. Expand Download Client Coverage And Completed Download Control
@@ -876,7 +787,7 @@ Update `README.md` after each milestone:
 - Parser risk: title parsing and release matching have many edge cases. Build a large fixture corpus early.
 - File operation risk: import/move/hardlink behavior can destroy user data if wrong. Implement dry-run/manual import and extensive tests before auto-importing.
 - Docker/NAS risk: permission and path mapping issues will dominate real deployments. Test with containerized download clients and mounted volumes.
-- Prowlarr risk: maintaining indexer definitions is ongoing work, not a one-time feature; keep the bundled set curated and push long-tail breadth into remote/checksum-pinned catalogues.
+- Prowlarr risk: maintaining indexer definitions is ongoing work, not a one-time feature; keep the bundled set curated and push long-tail and adult/XXX breadth into remote/checksum-pinned catalogues.
 
 ## Immediate Next Step For The Next Agent
 
@@ -886,5 +797,5 @@ Recommended order:
 
 1. Validate the common setup path: NZBGeek, DrunkenSlug, NZBFinder, one optional Newznab preset, and at least one Torznab or representative torrent source.
 2. Harden generic Newznab/Torznab configuration, aggregate feed behavior, and Radarr/Sonarr app sync for that setup.
-3. Use URL-backed checksum-pinned definition sources for long-tail trackers instead of adding more built-ins.
+3. Use URL-backed checksum-pinned definition sources for long-tail and adult/XXX trackers instead of adding more built-ins.
 4. Move to Milestone 6 once the common indexer path is verified.
