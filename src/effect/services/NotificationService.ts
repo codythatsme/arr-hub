@@ -4,6 +4,7 @@ import { Context, Effect, Layer } from "effect"
 
 import {
   notificationChannels,
+  notificationChannelTypes,
   notificationDeliveries,
   notificationEvents,
   type NotificationChannelSettings,
@@ -18,12 +19,78 @@ import { MonitoringTriggerBus } from "./MonitoringTriggerBus"
 import { recordDomainHistory } from "./OperationalHistoryService"
 
 const ALL_EVENTS: ReadonlyArray<NotificationEvent> = notificationEvents
+const ALL_CHANNEL_TYPES: ReadonlyArray<NotificationChannelType> = notificationChannelTypes
+const URL_CHANNEL_TYPES = new Set<NotificationChannelType>(["webhook", "discord", "slack"])
 
 interface FormattedNotification {
   readonly event: NotificationEvent
   readonly title: string
   readonly message: string
   readonly payload: Record<string, unknown>
+}
+
+function isUrlChannelType(type: NotificationChannelType): boolean {
+  return URL_CHANNEL_TYPES.has(type)
+}
+
+function channelTypeLabel(type: NotificationChannelType): string {
+  switch (type) {
+    case "in_app":
+      return "in-app"
+    case "webhook":
+      return "webhook"
+    case "discord":
+      return "Discord webhook"
+    case "slack":
+      return "Slack webhook"
+  }
+}
+
+function escapeSlackText(value: string): string {
+  return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
+}
+
+function formatOutboundPayload(
+  channel: NotificationChannel,
+  event: NotificationEvent,
+  title: string,
+  message: string,
+  payload: Record<string, unknown>,
+): Record<string, unknown> {
+  switch (channel.type) {
+    case "discord":
+      return {
+        username: "ARR Hub",
+        embeds: [
+          {
+            title,
+            description: message,
+            color: event.includes("failed") || event.includes("down") ? 13_626_624 : 3_443_003,
+            fields: [{ name: "Event", value: event.replaceAll("_", " "), inline: true }],
+          },
+        ],
+      }
+    case "slack":
+      return {
+        text: `${title}\n${message}`,
+        blocks: [
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text: `*${escapeSlackText(title)}*\n${escapeSlackText(message)}`,
+            },
+          },
+          {
+            type: "context",
+            elements: [{ type: "mrkdwn", text: `Event: \`${event}\`` }],
+          },
+        ],
+      }
+    case "webhook":
+    case "in_app":
+      return { event, title, message, payload }
+  }
 }
 
 function formatTrigger(trigger: MonitoringTrigger): FormattedNotification {
@@ -188,7 +255,7 @@ export const NotificationServiceLive = Layer.effect(
           return yield* Effect.fail(new ValidationError({ message: "channel name is required" }))
         }
 
-        if (!["in_app", "webhook"].includes(input.type)) {
+        if (!ALL_CHANNEL_TYPES.includes(input.type)) {
           return yield* Effect.fail(new ValidationError({ message: "unsupported channel type" }))
         }
 
@@ -201,8 +268,10 @@ export const NotificationServiceLive = Layer.effect(
         }
 
         const settings = input.settings ?? {}
-        if (input.type === "webhook" && !settings.url?.trim()) {
-          return yield* Effect.fail(new ValidationError({ message: "webhook url is required" }))
+        if (isUrlChannelType(input.type) && !settings.url?.trim()) {
+          return yield* Effect.fail(
+            new ValidationError({ message: `${channelTypeLabel(input.type)} url is required` }),
+          )
         }
 
         return {
@@ -210,12 +279,13 @@ export const NotificationServiceLive = Layer.effect(
           type: input.type,
           enabled: input.enabled ?? true,
           events,
-          settings:
-            input.type === "webhook" ? { ...settings, url: settings.url?.trim() } : settings,
+          settings: isUrlChannelType(input.type)
+            ? { ...settings, url: settings.url?.trim() }
+            : settings,
         }
       })
 
-    const sendWebhook = (
+    const sendOutbound = (
       channel: NotificationChannel,
       event: NotificationEvent,
       title: string,
@@ -230,10 +300,10 @@ export const NotificationServiceLive = Layer.effect(
               "content-type": "application/json",
               ...channel.settings.headers,
             },
-            body: JSON.stringify({ event, title, message, payload }),
+            body: JSON.stringify(formatOutboundPayload(channel, event, title, message, payload)),
           })
           if (!response.ok) {
-            throw new Error(`webhook returned ${response.status}`)
+            throw new Error(`${channelTypeLabel(channel.type)} returned ${response.status}`)
           }
         },
         catch: (error) => error,
@@ -283,9 +353,9 @@ export const NotificationServiceLive = Layer.effect(
       formatted: FormattedNotification,
     ) =>
       Effect.gen(function* () {
-        if (channel.type === "webhook") {
+        if (isUrlChannelType(channel.type)) {
           const result = yield* Effect.either(
-            sendWebhook(
+            sendOutbound(
               channel,
               formatted.event,
               formatted.title,

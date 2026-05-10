@@ -30,10 +30,62 @@ const EVENTS = [
 ] as const
 
 type NotificationEvent = (typeof EVENTS)[number]["value"]
-type ChannelType = "in_app" | "webhook"
+const CHANNEL_TYPES = [
+  {
+    value: "in_app",
+    label: "In-app",
+    defaultName: "In-app alerts",
+    destination: "Stored in ARR Hub",
+    urlLabel: "",
+    placeholder: "",
+  },
+  {
+    value: "webhook",
+    label: "Webhook",
+    defaultName: "Webhook alerts",
+    destination: "",
+    urlLabel: "Webhook URL",
+    placeholder: "https://example.com/arr-hub",
+  },
+  {
+    value: "discord",
+    label: "Discord",
+    defaultName: "Discord alerts",
+    destination: "",
+    urlLabel: "Discord webhook URL",
+    placeholder: "https://discord.com/api/webhooks/...",
+  },
+  {
+    value: "slack",
+    label: "Slack",
+    defaultName: "Slack alerts",
+    destination: "",
+    urlLabel: "Slack webhook URL",
+    placeholder: "https://hooks.slack.com/services/...",
+  },
+] as const
+
+type ChannelType = (typeof CHANNEL_TYPES)[number]["value"]
 
 function eventLabel(value: string): string {
   return EVENTS.find((event) => event.value === value)?.label ?? value
+}
+
+function channelTypeConfig(type: ChannelType) {
+  return CHANNEL_TYPES.find((channelType) => channelType.value === type) ?? CHANNEL_TYPES[0]
+}
+
+function requiresUrl(type: ChannelType): boolean {
+  return type !== "in_app"
+}
+
+function channelDestination(channel: {
+  readonly type: ChannelType
+  readonly settings: { readonly url?: string }
+}): string {
+  const config = channelTypeConfig(channel.type)
+  if (!requiresUrl(channel.type)) return config.destination
+  return channel.settings.url ?? `${config.label} URL not configured`
 }
 
 function Notifications() {
@@ -54,7 +106,7 @@ function Notifications() {
     trpc.notifications.createChannel.mutationOptions({
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: channelsKey })
-        setName(type === "webhook" ? "Webhook alerts" : "In-app alerts")
+        setName(channelTypeConfig(type).defaultName)
         setUrl("")
       },
     }),
@@ -109,8 +161,7 @@ function Notifications() {
                     <h3 className="font-medium">{channel.name}</h3>
                   </div>
                   <p className="text-muted-foreground mt-1 text-sm">
-                    {channel.type === "webhook" ? channel.settings.url : "Stored in ARR Hub"} ·{" "}
-                    {channel.events.length} events
+                    {channelDestination(channel)} · {channel.events.length} events
                   </p>
                 </div>
                 <div className="flex gap-2">
@@ -195,7 +246,7 @@ function Notifications() {
               type,
               enabled: true,
               events: [...events],
-              settings: type === "webhook" ? { url } : {},
+              settings: requiresUrl(type) ? { url } : {},
             })
           }}
         >
@@ -217,19 +268,22 @@ function Notifications() {
                 value={type}
                 onChange={(event) => setType(event.target.value as ChannelType)}
               >
-                <option value="in_app">In-app</option>
-                <option value="webhook">Webhook</option>
+                {CHANNEL_TYPES.map((channelType) => (
+                  <option key={channelType.value} value={channelType.value}>
+                    {channelType.label}
+                  </option>
+                ))}
               </select>
             </label>
 
-            {type === "webhook" && (
+            {requiresUrl(type) && (
               <label className="block text-sm">
-                <span className="font-medium">Webhook URL</span>
+                <span className="font-medium">{channelTypeConfig(type).urlLabel}</span>
                 <input
                   className="mt-1 w-full rounded border bg-transparent px-3 py-2"
                   value={url}
                   onChange={(event) => setUrl(event.target.value)}
-                  placeholder="https://example.com/arr-hub"
+                  placeholder={channelTypeConfig(type).placeholder}
                 />
               </label>
             )}
@@ -260,7 +314,7 @@ function Notifications() {
             <button
               type="submit"
               className="bg-primary text-primary-foreground rounded px-3 py-2 text-sm disabled:opacity-50"
-              disabled={pending || events.length === 0 || (type === "webhook" && url.length === 0)}
+              disabled={pending || events.length === 0 || (requiresUrl(type) && url.length === 0)}
             >
               Add channel
             </button>

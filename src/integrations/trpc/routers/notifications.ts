@@ -2,7 +2,7 @@ import type { TRPCRouterRecord } from "@trpc/server"
 import { Effect } from "effect"
 import { z } from "zod"
 
-import { notificationEvents } from "#/db/schema"
+import { notificationChannelTypes, notificationEvents } from "#/db/schema"
 import { NotificationService } from "#/effect/services/NotificationService"
 
 import { authedProcedure, runEffect } from "../init"
@@ -11,7 +11,7 @@ const notificationEventSchema = z.enum(notificationEvents)
 
 const channelInputSchema = z.object({
   name: z.string().min(1),
-  type: z.enum(["in_app", "webhook"]),
+  type: z.enum(notificationChannelTypes),
   enabled: z.boolean().default(true),
   events: z.array(notificationEventSchema).min(1),
   settings: z

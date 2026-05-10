@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Layer } from "effect"
+import { afterEach, vi } from "vitest"
 
 import type { MediaServerSession } from "#/effect/domain/mediaServer"
 import { MonitoringTriggerBusLive } from "#/effect/services/MonitoringTriggerBus"
@@ -11,6 +12,29 @@ const TestLayer = NotificationServiceLive.pipe(
   Layer.provideMerge(MonitoringTriggerBusLive),
   Layer.provideMerge(TestDbLive),
 )
+
+function stubSuccessfulFetch() {
+  const fetchSpy = vi.fn(
+    async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(null, { status: 204 }),
+  )
+  vi.stubGlobal("fetch", fetchSpy)
+  return fetchSpy
+}
+
+function getFetchInit(fetchSpy: ReturnType<typeof stubSuccessfulFetch>): RequestInit {
+  const init = fetchSpy.mock.calls[0]?.[1]
+  expect(init).toBeDefined()
+  return init as RequestInit
+}
+
+function getFetchBody(fetchSpy: ReturnType<typeof stubSuccessfulFetch>): Record<string, unknown> {
+  const init = getFetchInit(fetchSpy)
+  return JSON.parse(String(init.body)) as Record<string, unknown>
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
 
 const session: MediaServerSession = {
   mediaServerId: 1,
@@ -163,6 +187,129 @@ describe("NotificationService", () => {
       expect(delivery.event).toBe("server_down")
       expect(delivery.status).toBe("sent")
       expect(delivery.payload.test).toBe(true)
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("keeps custom webhook deliveries in the generic payload shape", () => {
+    const fetchSpy = stubSuccessfulFetch()
+
+    return Effect.gen(function* () {
+      const service = yield* NotificationService
+      const channel = yield* service.createChannel({
+        name: "Webhook",
+        type: "webhook",
+        enabled: true,
+        events: ["server_down"],
+        settings: { url: "https://webhook.example/arr-hub" },
+      })
+
+      const delivery = yield* service.testChannel(channel.id, "server_down")
+
+      expect(delivery.status).toBe("sent")
+      expect(fetchSpy).toHaveBeenCalledWith(
+        "https://webhook.example/arr-hub",
+        expect.objectContaining({ method: "POST" }),
+      )
+      expect(getFetchBody(fetchSpy)).toMatchObject({
+        event: "server_down",
+        title: "Test media server offline",
+        message: "Example Server is not responding",
+        payload: { test: true },
+      })
+    }).pipe(Effect.provide(TestLayer))
+  })
+
+  it.effect("formats Discord webhook deliveries", () => {
+    const fetchSpy = stubSuccessfulFetch()
+
+    return Effect.gen(function* () {
+      const service = yield* NotificationService
+      const channel = yield* service.createChannel({
+        name: "Discord",
+        type: "discord",
+        enabled: true,
+        events: ["server_down"],
+        settings: { url: "https://discord.example/webhook" },
+      })
+
+      const delivery = yield* service.testChannel(channel.id, "server_down")
+      const body = getFetchBody(fetchSpy)
+
+      expect(delivery.status).toBe("sent")
+      expect(fetchSpy).toHaveBeenCalledWith(
+        "https://discord.example/webhook",
+        expect.objectContaining({ method: "POST" }),
+      )
+      expect(body).toMatchObject({
+        username: "ARR Hub",
+        embeds: [
+          {
+            title: "Test media server offline",
+            description: "Example Server is not responding",
+            fields: [{ name: "Event", value: "server down", inline: true }],
+          },
+        ],
+      })
+    }).pipe(Effect.provide(TestLayer))
+  })
+
+  it.effect("formats Slack webhook deliveries", () => {
+    const fetchSpy = stubSuccessfulFetch()
+
+    return Effect.gen(function* () {
+      const service = yield* NotificationService
+      const channel = yield* service.createChannel({
+        name: "Slack",
+        type: "slack",
+        enabled: true,
+        events: ["server_down"],
+        settings: { url: "https://slack.example/webhook" },
+      })
+
+      const delivery = yield* service.testChannel(channel.id, "server_down")
+      const body = getFetchBody(fetchSpy)
+
+      expect(delivery.status).toBe("sent")
+      expect(fetchSpy).toHaveBeenCalledWith(
+        "https://slack.example/webhook",
+        expect.objectContaining({ method: "POST" }),
+      )
+      expect(body).toMatchObject({
+        text: "Test media server offline\nExample Server is not responding",
+        blocks: [
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text: "*Test media server offline*\nExample Server is not responding",
+            },
+          },
+          {
+            type: "context",
+            elements: [{ type: "mrkdwn", text: "Event: `server_down`" }],
+          },
+        ],
+      })
+    }).pipe(Effect.provide(TestLayer))
+  })
+
+  it.effect("requires URLs for provider-backed webhook channels", () =>
+    Effect.gen(function* () {
+      const service = yield* NotificationService
+      const result = yield* Effect.either(
+        service.createChannel({
+          name: "Slack",
+          type: "slack",
+          enabled: true,
+          events: ["server_down"],
+          settings: {},
+        }),
+      )
+
+      expect(result._tag).toBe("Left")
+      if (result._tag === "Left") {
+        expect(result.left.message).toBe("Slack webhook url is required")
+      }
     }).pipe(Effect.provide(TestLayer)),
   )
 })
