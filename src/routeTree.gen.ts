@@ -34,6 +34,7 @@ import { Route as OnboardingWizardRouteImport } from './routes/onboarding/wizard
 import { Route as OnboardingQuickstartRouteImport } from './routes/onboarding/quickstart'
 import { Route as MoviesIdRouteImport } from './routes/movies/$id'
 import { Route as ApiQueueRouteImport } from './routes/api.queue'
+import { Route as ApiOpenapiRouteImport } from './routes/api.openapi'
 import { Route as ActivityUsersRouteImport } from './routes/activity/users'
 import { Route as ActivityStatsRouteImport } from './routes/activity/stats'
 import { Route as ActivityQueueRouteImport } from './routes/activity/queue'
@@ -48,6 +49,7 @@ import { Route as ApiVersionSeriesRouteImport } from './routes/api.$version.seri
 import { Route as ApiVersionRootfolderRouteImport } from './routes/api.$version.rootfolder'
 import { Route as ApiVersionQueueRouteImport } from './routes/api.$version.queue'
 import { Route as ApiVersionQualityprofileRouteImport } from './routes/api.$version.qualityprofile'
+import { Route as ApiVersionOpenapiRouteImport } from './routes/api.$version.openapi'
 import { Route as ApiVersionMovieRouteImport } from './routes/api.$version.movie'
 import { Route as ApiVersionIndexerRouteImport } from './routes/api.$version.indexer'
 import { Route as ApiVersionHistoryRouteImport } from './routes/api.$version.history'
@@ -211,6 +213,11 @@ const ApiQueueRoute = ApiQueueRouteImport.update({
   path: '/api/queue',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiOpenapiRoute = ApiOpenapiRouteImport.update({
+  id: '/api/openapi',
+  path: '/api/openapi',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ActivityUsersRoute = ActivityUsersRouteImport.update({
   id: '/activity/users',
   path: '/activity/users',
@@ -282,6 +289,11 @@ const ApiVersionQualityprofileRoute =
     path: '/api/$version/qualityprofile',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiVersionOpenapiRoute = ApiVersionOpenapiRouteImport.update({
+  id: '/api/$version/openapi',
+  path: '/api/$version/openapi',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiVersionMovieRoute = ApiVersionMovieRouteImport.update({
   id: '/api/$version/movie',
   path: '/api/$version/movie',
@@ -484,6 +496,7 @@ export interface FileRoutesByFullPath {
   '/activity/queue': typeof ActivityQueueRoute
   '/activity/stats': typeof ActivityStatsRoute
   '/activity/users': typeof ActivityUsersRoute
+  '/api/openapi': typeof ApiOpenapiRoute
   '/api/queue': typeof ApiQueueRouteWithChildren
   '/movies/$id': typeof MoviesIdRoute
   '/onboarding/quickstart': typeof OnboardingQuickstartRoute
@@ -514,6 +527,7 @@ export interface FileRoutesByFullPath {
   '/api/$version/history': typeof ApiVersionHistoryRouteWithChildren
   '/api/$version/indexer': typeof ApiVersionIndexerRouteWithChildren
   '/api/$version/movie': typeof ApiVersionMovieRouteWithChildren
+  '/api/$version/openapi': typeof ApiVersionOpenapiRoute
   '/api/$version/qualityprofile': typeof ApiVersionQualityprofileRouteWithChildren
   '/api/$version/queue': typeof ApiVersionQueueRouteWithChildren
   '/api/$version/rootfolder': typeof ApiVersionRootfolderRouteWithChildren
@@ -562,6 +576,7 @@ export interface FileRoutesByTo {
   '/activity/queue': typeof ActivityQueueRoute
   '/activity/stats': typeof ActivityStatsRoute
   '/activity/users': typeof ActivityUsersRoute
+  '/api/openapi': typeof ApiOpenapiRoute
   '/api/queue': typeof ApiQueueRouteWithChildren
   '/movies/$id': typeof MoviesIdRoute
   '/onboarding/quickstart': typeof OnboardingQuickstartRoute
@@ -592,6 +607,7 @@ export interface FileRoutesByTo {
   '/api/$version/history': typeof ApiVersionHistoryRouteWithChildren
   '/api/$version/indexer': typeof ApiVersionIndexerRouteWithChildren
   '/api/$version/movie': typeof ApiVersionMovieRouteWithChildren
+  '/api/$version/openapi': typeof ApiVersionOpenapiRoute
   '/api/$version/qualityprofile': typeof ApiVersionQualityprofileRouteWithChildren
   '/api/$version/queue': typeof ApiVersionQueueRouteWithChildren
   '/api/$version/rootfolder': typeof ApiVersionRootfolderRouteWithChildren
@@ -641,6 +657,7 @@ export interface FileRoutesById {
   '/activity/queue': typeof ActivityQueueRoute
   '/activity/stats': typeof ActivityStatsRoute
   '/activity/users': typeof ActivityUsersRoute
+  '/api/openapi': typeof ApiOpenapiRoute
   '/api/queue': typeof ApiQueueRouteWithChildren
   '/movies/$id': typeof MoviesIdRoute
   '/onboarding/quickstart': typeof OnboardingQuickstartRoute
@@ -671,6 +688,7 @@ export interface FileRoutesById {
   '/api/$version/history': typeof ApiVersionHistoryRouteWithChildren
   '/api/$version/indexer': typeof ApiVersionIndexerRouteWithChildren
   '/api/$version/movie': typeof ApiVersionMovieRouteWithChildren
+  '/api/$version/openapi': typeof ApiVersionOpenapiRoute
   '/api/$version/qualityprofile': typeof ApiVersionQualityprofileRouteWithChildren
   '/api/$version/queue': typeof ApiVersionQueueRouteWithChildren
   '/api/$version/rootfolder': typeof ApiVersionRootfolderRouteWithChildren
@@ -721,6 +739,7 @@ export interface FileRouteTypes {
     | '/activity/queue'
     | '/activity/stats'
     | '/activity/users'
+    | '/api/openapi'
     | '/api/queue'
     | '/movies/$id'
     | '/onboarding/quickstart'
@@ -751,6 +770,7 @@ export interface FileRouteTypes {
     | '/api/$version/history'
     | '/api/$version/indexer'
     | '/api/$version/movie'
+    | '/api/$version/openapi'
     | '/api/$version/qualityprofile'
     | '/api/$version/queue'
     | '/api/$version/rootfolder'
@@ -799,6 +819,7 @@ export interface FileRouteTypes {
     | '/activity/queue'
     | '/activity/stats'
     | '/activity/users'
+    | '/api/openapi'
     | '/api/queue'
     | '/movies/$id'
     | '/onboarding/quickstart'
@@ -829,6 +850,7 @@ export interface FileRouteTypes {
     | '/api/$version/history'
     | '/api/$version/indexer'
     | '/api/$version/movie'
+    | '/api/$version/openapi'
     | '/api/$version/qualityprofile'
     | '/api/$version/queue'
     | '/api/$version/rootfolder'
@@ -877,6 +899,7 @@ export interface FileRouteTypes {
     | '/activity/queue'
     | '/activity/stats'
     | '/activity/users'
+    | '/api/openapi'
     | '/api/queue'
     | '/movies/$id'
     | '/onboarding/quickstart'
@@ -907,6 +930,7 @@ export interface FileRouteTypes {
     | '/api/$version/history'
     | '/api/$version/indexer'
     | '/api/$version/movie'
+    | '/api/$version/openapi'
     | '/api/$version/qualityprofile'
     | '/api/$version/queue'
     | '/api/$version/rootfolder'
@@ -956,6 +980,7 @@ export interface RootRouteChildren {
   ActivityQueueRoute: typeof ActivityQueueRoute
   ActivityStatsRoute: typeof ActivityStatsRoute
   ActivityUsersRoute: typeof ActivityUsersRoute
+  ApiOpenapiRoute: typeof ApiOpenapiRoute
   ApiQueueRoute: typeof ApiQueueRouteWithChildren
   MoviesIdRoute: typeof MoviesIdRoute
   OnboardingQuickstartRoute: typeof OnboardingQuickstartRoute
@@ -986,6 +1011,7 @@ export interface RootRouteChildren {
   ApiVersionHistoryRoute: typeof ApiVersionHistoryRouteWithChildren
   ApiVersionIndexerRoute: typeof ApiVersionIndexerRouteWithChildren
   ApiVersionMovieRoute: typeof ApiVersionMovieRouteWithChildren
+  ApiVersionOpenapiRoute: typeof ApiVersionOpenapiRoute
   ApiVersionQualityprofileRoute: typeof ApiVersionQualityprofileRouteWithChildren
   ApiVersionQueueRoute: typeof ApiVersionQueueRouteWithChildren
   ApiVersionRootfolderRoute: typeof ApiVersionRootfolderRouteWithChildren
@@ -1180,6 +1206,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiQueueRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/openapi': {
+      id: '/api/openapi'
+      path: '/api/openapi'
+      fullPath: '/api/openapi'
+      preLoaderRoute: typeof ApiOpenapiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/activity/users': {
       id: '/activity/users'
       path: '/activity/users'
@@ -1276,6 +1309,13 @@ declare module '@tanstack/react-router' {
       path: '/api/$version/qualityprofile'
       fullPath: '/api/$version/qualityprofile'
       preLoaderRoute: typeof ApiVersionQualityprofileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/$version/openapi': {
+      id: '/api/$version/openapi'
+      path: '/api/$version/openapi'
+      fullPath: '/api/$version/openapi'
+      preLoaderRoute: typeof ApiVersionOpenapiRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/$version/movie': {
@@ -1755,6 +1795,7 @@ const rootRouteChildren: RootRouteChildren = {
   ActivityQueueRoute: ActivityQueueRoute,
   ActivityStatsRoute: ActivityStatsRoute,
   ActivityUsersRoute: ActivityUsersRoute,
+  ApiOpenapiRoute: ApiOpenapiRoute,
   ApiQueueRoute: ApiQueueRouteWithChildren,
   MoviesIdRoute: MoviesIdRoute,
   OnboardingQuickstartRoute: OnboardingQuickstartRoute,
@@ -1785,6 +1826,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiVersionHistoryRoute: ApiVersionHistoryRouteWithChildren,
   ApiVersionIndexerRoute: ApiVersionIndexerRouteWithChildren,
   ApiVersionMovieRoute: ApiVersionMovieRouteWithChildren,
+  ApiVersionOpenapiRoute: ApiVersionOpenapiRoute,
   ApiVersionQualityprofileRoute: ApiVersionQualityprofileRouteWithChildren,
   ApiVersionQueueRoute: ApiVersionQueueRouteWithChildren,
   ApiVersionRootfolderRoute: ApiVersionRootfolderRouteWithChildren,
