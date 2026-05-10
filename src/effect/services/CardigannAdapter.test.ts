@@ -1028,6 +1028,64 @@ const DICMUSIC_JSON_RESULTS = JSON.stringify({
   },
 })
 
+const GREAT_POSTER_WALL_JSON_RESULTS = JSON.stringify({
+  status: "success",
+  response: {
+    results: [
+      {
+        groupId: "961",
+        groupName: "GreatPosterWall Movie",
+        groupYear: "2026",
+        cover: "https://greatposterwall.com/posters/961.jpg",
+        imdbId: "tt1234567",
+        torrents: [
+          {
+            torrentId: 9611,
+            fileName: "GreatPosterWall Movie 2026 1080p BluRay FLAC x264-GPW",
+            time: "2026-05-10T20:30:00",
+            size: 9_123_456_000,
+            fileCount: 4,
+            snatches: 32,
+            seeders: 55,
+            leechers: 6,
+            resolution: "1080p",
+            isFreeleech: false,
+            isNeutralLeech: false,
+            isPersonalFreeleech: false,
+            freeType: "12",
+            canUseToken: true,
+          },
+        ],
+      },
+      {
+        groupId: "962",
+        groupName: "GreatPosterWall UHD Movie",
+        groupYear: "2026",
+        cover: "https://greatposterwall.com/posters/962.jpg",
+        imdbId: "tt7654321",
+        torrents: [
+          {
+            torrentId: 9612,
+            fileName: "GreatPosterWall UHD Movie 2026 2160p WEB-DL HEVC-GPW",
+            time: "2026-05-09T18:15:00",
+            size: 18_123_456_000,
+            fileCount: 8,
+            snatches: 12,
+            seeders: 24,
+            leechers: 2,
+            resolution: "2160p",
+            isFreeleech: true,
+            isNeutralLeech: true,
+            isPersonalFreeleech: false,
+            freeType: "2",
+            canUseToken: false,
+          },
+        ],
+      },
+    ],
+  },
+})
+
 const REVOLUTIONTT_HTML_RESULTS = `
 <html><body>
   <table id="torrents-table">
@@ -5120,6 +5178,92 @@ search:
     expect(releases[1]).toMatchObject({
       title: "DICMusic Audio App (2026) [DMG Universal] [WEB]",
       category: "4000",
+      downloadFactor: 0,
+      uploadFactor: 0,
+    })
+  })
+
+  it("parses GreatPosterWall Gazelle JSON results after POST login", async () => {
+    const requests: Array<{ url: string; init: RequestInit | undefined }> = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(String(input))
+      requests.push({ url: String(input), init })
+      if (url.pathname === "/login.php") {
+        return new Response(JSON.stringify({ status: "success" }), {
+          status: 200,
+          headers: { "set-cookie": "gpw_session=abc; Path=/" },
+        })
+      }
+      return new Response(GREAT_POSTER_WALL_JSON_RESULTS, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 114,
+      name: "GreatPosterWall",
+      type: "cardigann_yaml",
+      definitionKey: "greatposterwall",
+      baseUrl: "https://greatposterwall.com/",
+      apiKey: "",
+      configValues: {
+        username: "alice",
+        password: "secret",
+        useFreeleechToken: "1",
+        freeleechOnly: "true",
+      },
+      priority: 50,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({
+        term: "GreatPosterWall Movie",
+        type: "movie",
+        categories: [2000],
+        imdbId: "tt1234567",
+      }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    const loginRequest = requests[0]
+    expect(loginRequest?.url).toBe("https://greatposterwall.com/login.php")
+    expect(loginRequest?.init?.method).toBe("POST")
+    const loginBody = new URLSearchParams(String(loginRequest?.init?.body ?? ""))
+    expect(loginBody.get("username")).toBe("alice")
+    expect(loginBody.get("password")).toBe("secret")
+    expect(loginBody.get("keeplogged")).toBe("1")
+
+    const searchRequest = requests[1]
+    const searchUrl = new URL(searchRequest?.url ?? "")
+    expect(searchUrl.origin).toBe("https://greatposterwall.com")
+    expect(searchUrl.pathname).toBe("/ajax.php")
+    expect(searchUrl.searchParams.get("action")).toBe("browse")
+    expect(searchUrl.searchParams.get("order_by")).toBe("time")
+    expect(searchUrl.searchParams.get("order_way")).toBe("desc")
+    expect(searchUrl.searchParams.get("searchstr")).toBe("tt1234567")
+    expect(searchUrl.searchParams.get("filter_cat[1]")).toBe("1")
+    expect(searchUrl.searchParams.get("freetorrent")).toBe("1")
+    expect(new Headers(searchRequest?.init?.headers).get("cookie")).toBe("gpw_session=abc")
+    expect(releases).toHaveLength(2)
+    expect(releases[0]).toMatchObject({
+      title: "GreatPosterWall Movie 2026 1080p BluRay FLAC x264-GPW",
+      downloadUrl: "https://greatposterwall.com/torrents.php?action=download&id=9611&usetoken=1",
+      infoUrl: "https://greatposterwall.com/torrents.php?id=961&torrentid=9611",
+      category: "2000",
+      size: 9_123_456_000,
+      seeders: 55,
+      leechers: 6,
+      indexerId: 114,
+      indexerName: "GreatPosterWall",
+      indexerPriority: 50,
+      downloadFactor: 0.5,
+      uploadFactor: 1,
+    })
+    expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-10T12:30:00.000Z")
+    expect(releases[1]).toMatchObject({
+      title: "GreatPosterWall UHD Movie 2026 2160p WEB-DL HEVC-GPW",
+      category: "2000",
       downloadFactor: 0,
       uploadFactor: 0,
     })

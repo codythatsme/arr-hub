@@ -119,19 +119,19 @@ describe("IndexerService", () => {
       const second = yield* svc.refreshDefinitions()
 
       expect(first).toMatchObject({
-        total: 44,
-        created: 44,
+        total: 45,
+        created: 45,
         updated: 0,
         unchanged: 0,
       })
       expect(first.definitions.map((definition) => definition.action)).toEqual(
-        Array(44).fill("created"),
+        Array(45).fill("created"),
       )
       expect(second).toMatchObject({
-        total: 44,
+        total: 45,
         created: 0,
         updated: 0,
-        unchanged: 44,
+        unchanged: 45,
       })
       expect(second.definitions.every((definition) => definition.previousVersion !== null)).toBe(
         true,
@@ -415,6 +415,7 @@ describe("IndexerService", () => {
         "funfile",
         "generic-newznab",
         "generic-torznab",
+        "greatposterwall",
         "hd-space",
         "hd-torrents",
         "hdaccess",
@@ -831,6 +832,17 @@ describe("IndexerService", () => {
         privacy: "private",
         supportsRss: false,
         tags: ["private", "music", "apps", "json", "gazelle"],
+      })
+      expect(
+        definitions.find((definition) => definition.definitionKey === "greatposterwall"),
+      ).toMatchObject({
+        displayName: "GreatPosterWall",
+        protocol: "torrent",
+        implementation: "cardigann_yaml",
+        baseUrl: "https://greatposterwall.com/",
+        privacy: "private",
+        supportsRss: false,
+        tags: ["private", "movies", "json", "gazelle"],
       })
       expect(
         definitions.find((definition) => definition.definitionKey === "revolutiontt"),

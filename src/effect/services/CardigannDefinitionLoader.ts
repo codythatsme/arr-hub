@@ -6376,6 +6376,134 @@ search:
       text: "{{ if .Result.neutralflag }}0{{ else }}1{{ end }}"
 `
 
+const GREAT_POSTER_WALL = `
+id: greatposterwall
+name: GreatPosterWall
+description: Chinese private movie tracker exposed through a first-pass Gazelle JSON Cardigann definition.
+type: private
+links:
+  - https://greatposterwall.com/
+version: builtin-cardigann-1
+rss: false
+tags:
+  - private
+  - movies
+  - json
+  - gazelle
+settings:
+  - name: username
+    label: Username
+    type: text
+    required: true
+  - name: password
+    label: Password
+    type: password
+    required: true
+  - name: useFreeleechToken
+    label: Use Freeleech Tokens
+    type: select
+    default: "0"
+    required: false
+    options:
+      - value: "0"
+        label: Never
+      - value: "1"
+        label: Preferred
+      - value: "2"
+        label: Required
+  - name: freeleechOnly
+    label: Freeleech only
+    type: checkbox
+    default: false
+    required: false
+caps:
+  categorymappings:
+    - id: "1"
+      cat: Movies
+      desc: Movies 电影
+      newznab: 2000
+  modes:
+    search: [q]
+    movie-search: [q, imdbid]
+login:
+  method: post
+  path: login.php
+  inputs:
+    username: "{{ .Config.Username }}"
+    password: "{{ .Config.Password }}"
+    keeplogged: "1"
+search:
+  paths:
+    - path: /ajax.php
+      response:
+        type: json
+      inputs:
+        action: browse
+        order_by: time
+        order_way: desc
+        searchstr: "{{ if .Query.IMDBID }}{{ .Query.IMDBID }}{{ else }}{{ .Keywords }}{{ end }}"
+        freetorrent: "{{ if .Config.FreeleechOnly }}1{{ end }}"
+        $raw: '{{ range .Categories }}filter_cat[{{ . }}]=1&{{ end }}'
+  rows:
+    selector: $.response.results, $.Response.Results
+    attribute: torrents, Torrents
+    multiple: true
+    missingAttributeEqualsNoResults: true
+  fields:
+    id:
+      selector: torrentId, TorrentId
+    groupid:
+      selector: ..groupId
+    filename:
+      selector: fileName, FileName
+      filters:
+        - name: htmldecode
+    title:
+      text: "{{ .Result.filename }}"
+    details:
+      text: "/torrents.php?id={{ .Result.groupid }}&torrentid={{ .Result.id }}"
+    download:
+      text: '/torrents.php?action=download&id={{ .Result.id }}{{ if ne .Config.UseFreeleechToken "0" }}&usetoken=1{{ end }}'
+    category:
+      text: "1"
+    date:
+      selector: time, Time
+      filters:
+        - name: append
+          args: " +08:00"
+        - name: dateparse
+          args: "yyyy-MM-dd'T'HH:mm:ss zzz"
+    size:
+      selector: size, Size
+    files:
+      selector: fileCount, FileCount
+    grabs:
+      selector: snatches, Snatches
+    seeders:
+      selector: seeders, Seeders
+    leechers:
+      selector: leechers, Leechers
+    freetype:
+      selector: freeType, FreeType
+      optional: true
+    downloadvolumefactor:
+      selector: freeType, FreeType
+      case:
+        "11": "0.75"
+        "12": "0.5"
+        "13": "0.25"
+        "1": "0"
+        "2": "0"
+        "*": "1"
+    neutralflag:
+      selector: isNeutralLeech, IsNeutralLeech
+      filters:
+        - name: regexp
+          args: "true"
+    uploadvolumefactor:
+      text: "{{ if .Result.neutralflag }}0{{ else }}1{{ end }}"
+`
+
 const REVOLUTION_TT = `
 id: revolutiontt
 name: RevolutionTT
@@ -7103,6 +7231,7 @@ const BUILT_IN_CARDIGANN_SOURCES = [
   BROKENSTONES,
   CGPEERS,
   DICMUSIC,
+  GREAT_POSTER_WALL,
   REVOLUTION_TT,
   PRETOME,
   MORE_THAN_TV,

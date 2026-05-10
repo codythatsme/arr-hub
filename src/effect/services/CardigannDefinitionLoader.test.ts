@@ -112,6 +112,7 @@ caps:
       "brokenstones",
       "cgpeers",
       "dicmusic",
+      "greatposterwall",
       "revolutiontt",
       "pretome",
       "morethantv",
@@ -1011,6 +1012,32 @@ caps:
           { id: 3000, name: "Music" },
           { id: 4000, name: "Applications" },
         ]),
+      },
+    })
+    expect(
+      BUILT_IN_CARDIGANN_DEFINITIONS.find(
+        (definition) => definition.definitionKey === "greatposterwall",
+      ),
+    ).toMatchObject({
+      displayName: "GreatPosterWall",
+      baseUrl: "https://greatposterwall.com/",
+      privacy: "private",
+      supportsRss: false,
+      supportsSearch: true,
+      tags: ["private", "movies", "json", "gazelle"],
+      authFields: expect.arrayContaining([
+        expect.objectContaining({ name: "username", type: "text", required: true }),
+        expect.objectContaining({ name: "password", type: "password", required: true }),
+        expect.objectContaining({
+          name: "useFreeleechToken",
+          type: "select",
+          defaultValue: "0",
+        }),
+        expect.objectContaining({ name: "freeleechOnly", type: "checkbox", defaultValue: "false" }),
+      ]),
+      capabilities: {
+        searchTypes: ["search", "movie"],
+        categories: expect.arrayContaining([{ id: 2000, name: "Movies 电影" }]),
       },
     })
     expect(
