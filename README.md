@@ -226,6 +226,7 @@ bun run fmt:check
 bun run test:e2e
 bun run test:live-adapters
 bun run test:live-common-indexers
+bun run test:live-common-indexers:required
 bun run test:live-adapters:docker
 ```
 
@@ -257,7 +258,11 @@ before claiming interoperability with a specific service version or deployment.
 NZBGeek, DrunkenSlug, NZBFinder, one optional Newznab preset, and one practical
 torrent Torznab path. It loads `.env.local` and `.env`, skips unless all
 required common credentials are present, and never requires committing secrets.
-Required variables are `ARR_HUB_LIVE_NZBGEEK_API_KEY`,
+The default command requires the three named Newznab credentials and one torrent
+Torznab path, then includes the optional Newznab provider when its variables are
+present. `test:live-common-indexers:required` fails fast when the full plan gate
+is incomplete, including the optional Newznab URL/API key.
+Core variables are `ARR_HUB_LIVE_NZBGEEK_API_KEY`,
 `ARR_HUB_LIVE_DRUNKENSLUG_API_KEY`, `ARR_HUB_LIVE_NZBFINDER_API_KEY`,
 `ARR_HUB_LIVE_TORRENT_URL`, and `ARR_HUB_LIVE_TORRENT_API_KEY`. Provider URLs
 default to the built-in presets for the three named Newznab indexers; the

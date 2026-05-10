@@ -22,6 +22,11 @@ function env(name: string): string | undefined {
   return value ? value : undefined
 }
 
+function envBool(name: string): boolean {
+  const value = env(name)?.toLowerCase()
+  return value === "1" || value === "true" || value === "yes"
+}
+
 function target(
   name: string,
   baseUrl: string | undefined,
@@ -72,7 +77,26 @@ const optionalNewznab = target(
   "usenet",
 )
 
-const requiredEnabled = requiredTargets.every((item) => item !== null && item.baseUrl.length > 0)
+const requireLiveValidation = envBool("ARR_HUB_REQUIRE_LIVE_COMMON_INDEXERS")
+const missingCoreVariables = [
+  ["ARR_HUB_LIVE_NZBGEEK_API_KEY", env("ARR_HUB_LIVE_NZBGEEK_API_KEY")],
+  ["ARR_HUB_LIVE_DRUNKENSLUG_API_KEY", env("ARR_HUB_LIVE_DRUNKENSLUG_API_KEY")],
+  ["ARR_HUB_LIVE_NZBFINDER_API_KEY", env("ARR_HUB_LIVE_NZBFINDER_API_KEY")],
+  ["ARR_HUB_LIVE_TORRENT_URL", env("ARR_HUB_LIVE_TORRENT_URL")],
+  ["ARR_HUB_LIVE_TORRENT_API_KEY", env("ARR_HUB_LIVE_TORRENT_API_KEY")],
+]
+  .filter(([, value]) => !value)
+  .map(([name]) => name)
+const missingPlanVariables = [
+  ...missingCoreVariables,
+  ...[
+    ["ARR_HUB_LIVE_OPTIONAL_NEWZNAB_URL", env("ARR_HUB_LIVE_OPTIONAL_NEWZNAB_URL")],
+    ["ARR_HUB_LIVE_OPTIONAL_NEWZNAB_API_KEY", env("ARR_HUB_LIVE_OPTIONAL_NEWZNAB_API_KEY")],
+  ]
+    .filter(([, value]) => !value)
+    .map(([name]) => name),
+]
+const requiredEnabled = missingCoreVariables.length === 0
 const targets = [
   ...requiredTargets.flatMap((item) => (item ? [item] : [])),
   ...(optionalNewznab?.baseUrl ? [optionalNewznab] : []),
@@ -126,9 +150,22 @@ async function validateTarget(item: LiveIndexerTarget, index: number) {
   }
 }
 
-describe.skipIf(!requiredEnabled)("common live indexer validation", () => {
-  it("validates NZBGeek, DrunkenSlug, NZBFinder, any optional Newznab, and one Torznab path", async () => {
-    expect(targets.length).toBeGreaterThanOrEqual(4)
-    await Promise.all(targets.map((item, index) => validateTarget(item, index)))
-  }, 120_000)
-})
+describe.skipIf(!requireLiveValidation && !requiredEnabled)(
+  "common live indexer validation",
+  () => {
+    it("validates NZBGeek, DrunkenSlug, NZBFinder, selected Newznab, and one Torznab path", async () => {
+      if (requireLiveValidation) {
+        expect(
+          missingPlanVariables,
+          `missing required live common indexer variables: ${missingPlanVariables.join(", ")}`,
+        ).toEqual([])
+        expect(targets.length).toBeGreaterThanOrEqual(5)
+      } else {
+        expect(missingCoreVariables).toEqual([])
+        expect(targets.length).toBeGreaterThanOrEqual(4)
+      }
+
+      await Promise.all(targets.map((item, index) => validateTarget(item, index)))
+    }, 120_000)
+  },
+)
