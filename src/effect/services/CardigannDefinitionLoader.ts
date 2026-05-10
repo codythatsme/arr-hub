@@ -922,6 +922,158 @@ search:
       text: "1"
 `
 
+const NORBITS = `
+id: norbits
+name: NorBits
+description: Norwegian private movies, TV, and general tracker exposed through a first-pass multi-step login HTML Cardigann definition.
+type: private
+links:
+  - https://norbits.net/
+version: builtin-cardigann-1
+tags:
+  - private
+  - movies
+  - tv
+  - general
+  - html
+  - multi-step-login
+settings:
+  - name: username
+    label: Username
+    type: text
+    required: true
+  - name: password
+    label: Password
+    type: password
+    required: true
+  - name: twoFactorAuthCode
+    label: 2FA code
+    type: text
+    required: false
+    helpText: Only fill this when 2FA is enabled on NorBits.
+  - name: useFullSearch
+    label: Use full search
+    type: checkbox
+    default: false
+    required: false
+  - name: freeLeechOnly
+    label: Freeleech only
+    type: checkbox
+    default: false
+    required: false
+caps:
+  categorymappings:
+    - id: "1"
+      cat: Movies
+      desc: Filmer
+      newznab: 2000
+    - id: "2"
+      cat: TV
+      desc: TV
+      newznab: 5000
+    - id: "3"
+      cat: PC
+      desc: Programmer
+      newznab: 4000
+    - id: "4"
+      cat: Console
+      desc: Spill
+      newznab: 1000
+    - id: "5"
+      cat: Audio
+      desc: Musikk
+      newznab: 3000
+    - id: "6"
+      cat: Books
+      desc: Tidsskrift
+      newznab: 7000
+    - id: "7"
+      cat: Audio/Audiobook
+      desc: Lydbøker
+      newznab: 3030
+    - id: "8"
+      cat: Audio/Video
+      desc: Musikkvideoer
+      newznab: 3020
+    - id: "40"
+      cat: Audio/Other
+      desc: Podcasts
+      newznab: 3990
+  modes:
+    search: [q]
+    movie-search: [q, imdbid]
+    tv-search: [q, season, ep]
+    music-search: [q]
+    book-search: [q]
+login:
+  method: get
+  paths:
+    - path: /
+    - path: login.php
+    - path: takelogin.php
+      method: post
+      inputs:
+        username: "{{ .Config.Username }}"
+        password: "{{ .Config.Password }}"
+        code: "{{ .Config.TwoFactorAuthCode }}"
+        logout: "no"
+        returnto: "/"
+      headers:
+        referer: "{{ .Config.sitelink }}login.php"
+search:
+  allowEmptyInputs: true
+  paths:
+    - path: 'browse.php?{{ if .Query.IMDBID }}imdbsearch={{ .Query.IMDBID | urlencode }}{{ else }}search={{ .Keywords | urlencode }}{{ end }}&incldead=1&fullsearch={{ if .Config.UseFullSearch }}1{{ else }}0{{ end }}&scenerelease=0{{ if .Config.FreeLeechOnly }}&FL=1{{ end }}{{ if .Categories }}&main_cat[]={{ .Categories | join "&main_cat[]=" }}{{ end }}'
+      response:
+        type: html
+  rows:
+    selector: 'table[id="torrentTable"] tr:gt(0)'
+    missingAttributeEqualsNoResults: true
+  fields:
+    title:
+      selector: 'td:nth-of-type(2) > a[href*="details.php?id="]'
+      attribute: title
+    details:
+      selector: 'td:nth-of-type(2) > a[href*="details.php?id="]'
+      attribute: href
+    download:
+      selector: 'td:nth-of-type(2) > a[href*="download.php?id="]'
+      attribute: href
+    category:
+      selector: 'td:nth-of-type(1) a[href*="main_cat"]'
+      attribute: href
+      filters:
+        - name: querystring
+          args: "main_cat[]"
+    files:
+      selector: td:nth-of-type(3) > a
+      optional: true
+    date:
+      selector: td:nth-of-type(5)
+      filters:
+        - name: dateparse
+          args: "yyyy-MM-ddHH:mm:ss"
+    size:
+      selector: td:nth-of-type(7)
+    grabs:
+      selector: td:nth-of-type(8)
+      filters:
+        - name: regexp
+          args: "(\\\\d+)"
+    seeders:
+      selector: td:nth-of-type(9)
+    leechers:
+      selector: td:nth-of-type(10)
+    downloadvolumefactor:
+      case:
+        'tr:has(img[title="100% freeleech"])': "0"
+        'tr:has(img[title="Halfleech"])': "0.5"
+        'tr:has(img[title="90% Freeleech"])': "0.1"
+        tr: "1"
+    uploadvolumefactor:
+      text: "1"
+`
+
 const ANIDEX = `
 id: anidex
 name: Anidex
@@ -7942,6 +8094,7 @@ const BUILT_IN_CARDIGANN_SOURCES = [
   NEBULANCE,
   BROADCASTHE_NET,
   SHAZBAT,
+  NORBITS,
   ANIDEX,
   SHIZA_PROJECT,
   SUBSPLEASE,

@@ -119,19 +119,19 @@ describe("IndexerService", () => {
       const second = yield* svc.refreshDefinitions()
 
       expect(first).toMatchObject({
-        total: 50,
-        created: 50,
+        total: 51,
+        created: 51,
         updated: 0,
         unchanged: 0,
       })
       expect(first.definitions.map((definition) => definition.action)).toEqual(
-        Array(50).fill("created"),
+        Array(51).fill("created"),
       )
       expect(second).toMatchObject({
-        total: 50,
+        total: 51,
         created: 0,
         updated: 0,
-        unchanged: 50,
+        unchanged: 51,
       })
       expect(second.definitions.every((definition) => definition.previousVersion !== null)).toBe(
         true,
@@ -426,6 +426,7 @@ describe("IndexerService", () => {
         "knaben",
         "morethantv",
         "nebulance",
+        "norbits",
         "nyaa",
         "open-tv-torrents",
         "orpheus",
@@ -523,6 +524,17 @@ describe("IndexerService", () => {
         privacy: "private",
         supportsRss: true,
         tags: ["private", "tv", "scene", "html", "form-login"],
+      })
+      expect(
+        definitions.find((definition) => definition.definitionKey === "norbits"),
+      ).toMatchObject({
+        displayName: "NorBits",
+        protocol: "torrent",
+        implementation: "cardigann_yaml",
+        baseUrl: "https://norbits.net/",
+        privacy: "private",
+        supportsRss: true,
+        tags: ["private", "movies", "tv", "general", "html", "multi-step-login"],
       })
       expect(definitions.find((definition) => definition.definitionKey === "anidex")).toMatchObject(
         {

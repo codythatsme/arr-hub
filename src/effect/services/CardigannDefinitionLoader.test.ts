@@ -84,6 +84,7 @@ caps:
       "nebulance",
       "broadcasthe-net",
       "shazbat",
+      "norbits",
       "anidex",
       "shizaproject",
       "subsplease",
@@ -280,6 +281,41 @@ caps:
           { id: 5030, name: "TV SD" },
           { id: 5040, name: "TV HD" },
           { id: 5045, name: "TV UHD" },
+        ]),
+      },
+    })
+    expect(
+      BUILT_IN_CARDIGANN_DEFINITIONS.find((definition) => definition.definitionKey === "norbits"),
+    ).toMatchObject({
+      displayName: "NorBits",
+      baseUrl: "https://norbits.net/",
+      privacy: "private",
+      supportsRss: true,
+      supportsSearch: true,
+      tags: ["private", "movies", "tv", "general", "html", "multi-step-login"],
+      authFields: expect.arrayContaining([
+        expect.objectContaining({ name: "username", type: "text", required: true }),
+        expect.objectContaining({ name: "password", type: "password", required: true }),
+        expect.objectContaining({ name: "twoFactorAuthCode", type: "text", required: false }),
+        expect.objectContaining({
+          name: "useFullSearch",
+          type: "checkbox",
+          defaultValue: "false",
+        }),
+        expect.objectContaining({
+          name: "freeLeechOnly",
+          type: "checkbox",
+          defaultValue: "false",
+        }),
+      ]),
+      capabilities: {
+        searchTypes: ["search", "movie", "tvsearch"],
+        categories: expect.arrayContaining([
+          { id: 2000, name: "Filmer" },
+          { id: 5000, name: "TV" },
+          { id: 4000, name: "Programmer" },
+          { id: 3000, name: "Musikk" },
+          { id: 3030, name: "Lydbøker" },
         ]),
       },
     })

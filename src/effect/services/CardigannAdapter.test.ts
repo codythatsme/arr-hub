@@ -368,6 +368,50 @@ const SHAZBAT_HTML_RESULTS = `
   </table>
 </body></html>`
 
+const NORBITS_HTML_RESULTS = `
+<html><body>
+  <table id="torrentTable">
+    <tbody>
+      <tr>
+        <th>Cat</th><th>Name</th><th>Files</th><th>Comments</th><th>Added</th>
+        <th>Uploader</th><th>Size</th><th>Snatched</th><th>Seeders</th><th>Leechers</th>
+      </tr>
+      <tr>
+        <td><a href="browse.php?main_cat[]=1">Filmer</a></td>
+        <td>
+          <a href="details.php?id=901" title="NorBits Movie 2026 1080p BluRay">Details</a>
+          <a href="download.php?id=901">Download</a>
+          <img title="100% freeleech" src="/free.png">
+        </td>
+        <td><a href="files.php?id=901">12</a></td>
+        <td>0</td>
+        <td>2026-05-1012:34:56</td>
+        <td>Uploader</td>
+        <td>4.5 GB</td>
+        <td>21 times</td>
+        <td>33</td>
+        <td>4</td>
+      </tr>
+      <tr>
+        <td><a href="browse.php?main_cat[]=2">TV</a></td>
+        <td>
+          <a href="details.php?id=902" title="NorBits Show S01E02 720p HDTV">Details</a>
+          <a href="download.php?id=902">Download</a>
+          <img title="Halfleech" src="/half.png">
+        </td>
+        <td><a href="files.php?id=902">5</a></td>
+        <td>0</td>
+        <td>2026-05-0911:22:33</td>
+        <td>Uploader</td>
+        <td>1.2 GB</td>
+        <td>8</td>
+        <td>14</td>
+        <td>2</td>
+      </tr>
+    </tbody>
+  </table>
+</body></html>`
+
 const IPTORRENTS_HTML_RESULTS = `
 <html><body>
   <table id="torrents">
@@ -4271,6 +4315,125 @@ search:
       size: 3_456_789_012,
       seeders: 12,
       leechers: 1,
+    })
+  })
+
+  it("parses NorBits HTML results after multi-step login", async () => {
+    const requests: Array<{ url: string; init: RequestInit | undefined }> = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(String(input))
+      requests.push({ url: String(input), init })
+
+      if (url.pathname === "/") {
+        return new Response('<html><body><a href="/login.php">Login</a></body></html>', {
+          status: 200,
+          headers: { "set-cookie": "nb_index=abc; Path=/" },
+        })
+      }
+
+      if (url.pathname === "/login.php") {
+        return new Response('<html><body><form action="takelogin.php"></form></body></html>', {
+          status: 200,
+          headers: { "set-cookie": "nb_login=def; Path=/" },
+        })
+      }
+
+      if (url.pathname === "/takelogin.php") {
+        return new Response('<html><body><a href="/logout.php">Logout</a></body></html>', {
+          status: 200,
+          headers: { "set-cookie": "uid=alice; Path=/" },
+        })
+      }
+
+      return new Response(NORBITS_HTML_RESULTS, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 121,
+      name: "NorBits",
+      type: "cardigann_yaml",
+      definitionKey: "norbits",
+      baseUrl: "https://norbits.net/",
+      apiKey: "",
+      configValues: {
+        username: "alice",
+        password: "secret",
+        twoFactorAuthCode: "123456",
+        useFullSearch: "true",
+        freeLeechOnly: "true",
+      },
+      priority: 57,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({
+        term: "NorBits Movie",
+        type: "movie",
+        categories: [2000],
+        imdbId: "tt1234567",
+      }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(4)
+    expect(requests[0]?.url).toBe("https://norbits.net/")
+
+    const loginPageRequest = requests[1]
+    expect(loginPageRequest?.url).toBe("https://norbits.net/login.php")
+    expect(new Headers(loginPageRequest?.init?.headers).get("cookie")).toBe("nb_index=abc")
+
+    const loginSubmitRequest = requests[2]
+    expect(loginSubmitRequest?.url).toBe("https://norbits.net/takelogin.php")
+    expect(loginSubmitRequest?.init?.method).toBe("POST")
+    const loginSubmitHeaders = new Headers(loginSubmitRequest?.init?.headers)
+    expect(loginSubmitHeaders.get("referer")).toBe("https://norbits.net/login.php")
+    expect(loginSubmitHeaders.get("cookie")).toBe("nb_index=abc; nb_login=def")
+    const loginSubmitBody = new URLSearchParams(String(loginSubmitRequest?.init?.body ?? ""))
+    expect(loginSubmitBody.get("username")).toBe("alice")
+    expect(loginSubmitBody.get("password")).toBe("secret")
+    expect(loginSubmitBody.get("code")).toBe("123456")
+    expect(loginSubmitBody.get("logout")).toBe("no")
+    expect(loginSubmitBody.get("returnto")).toBe("/")
+
+    const searchRequest = requests[3]
+    const searchUrl = new URL(searchRequest?.url ?? "")
+    expect(searchUrl.origin + searchUrl.pathname).toBe("https://norbits.net/browse.php")
+    expect(searchUrl.searchParams.get("imdbsearch")).toBe("tt1234567")
+    expect(searchUrl.searchParams.get("incldead")).toBe("1")
+    expect(searchUrl.searchParams.get("fullsearch")).toBe("1")
+    expect(searchUrl.searchParams.get("scenerelease")).toBe("0")
+    expect(searchUrl.searchParams.get("FL")).toBe("1")
+    expect(searchUrl.searchParams.get("main_cat[]")).toBe("1")
+    expect(new Headers(searchRequest?.init?.headers).get("cookie")).toBe(
+      "nb_index=abc; nb_login=def; uid=alice",
+    )
+
+    expect(releases).toHaveLength(2)
+    expect(releases[0]).toMatchObject({
+      title: "NorBits Movie 2026 1080p BluRay",
+      downloadUrl: "https://norbits.net/download.php?id=901",
+      infoUrl: "https://norbits.net/details.php?id=901",
+      category: "2000",
+      size: 4_500_000_000,
+      seeders: 33,
+      leechers: 4,
+      indexerId: 121,
+      indexerName: "NorBits",
+      indexerPriority: 57,
+      downloadFactor: 0,
+      uploadFactor: 1,
+    })
+    expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-10T12:34:56.000Z")
+    expect(releases[1]).toMatchObject({
+      title: "NorBits Show S01E02 720p HDTV",
+      category: "5000",
+      size: 1_200_000_000,
+      seeders: 14,
+      leechers: 2,
+      downloadFactor: 0.5,
+      uploadFactor: 1,
     })
   })
 
