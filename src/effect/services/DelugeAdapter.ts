@@ -119,9 +119,12 @@ function filenameFromUrl(downloadUrl: string): string {
   return "download.torrent"
 }
 
-function addOptions(savePath: string | undefined): Record<string, unknown> {
+function addOptions(
+  savePath: string | undefined,
+  paused: boolean | undefined,
+): Record<string, unknown> {
   const options: Record<string, unknown> = {
-    add_paused: false,
+    add_paused: paused ?? false,
     remove_at_ratio: false,
   }
 
@@ -381,14 +384,14 @@ export function createDelugeAdapter(config: DownloadClientConfig): DownloadClien
         const hash = downloadUrl.startsWith("magnet:")
           ? yield* rpcRequest<string>("core.add_torrent_magnet", [
               downloadUrl,
-              addOptions(options?.savePath),
+              addOptions(options?.savePath, options?.paused),
             ])
           : yield* Effect.gen(function* () {
               const torrent = yield* fetchTorrent(downloadUrl)
               return yield* rpcRequest<string>("core.add_torrent_file", [
                 filenameFromUrl(downloadUrl),
                 torrent.toString("base64"),
-                addOptions(options?.savePath),
+                addOptions(options?.savePath, options?.paused),
               ])
             })
 

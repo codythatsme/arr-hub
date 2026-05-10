@@ -370,7 +370,7 @@ export function createNZBGetAdapter(config: DownloadClientConfig): DownloadClien
           category,
           0,
           false,
-          false,
+          options?.paused ?? false,
           "",
           0,
           "all",

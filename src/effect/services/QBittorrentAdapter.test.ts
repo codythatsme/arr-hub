@@ -45,7 +45,8 @@ function torrent(hash: string, name = "Example.Movie.2026.1080p") {
 describe("QBittorrentAdapter", () => {
   it("recovers the hash for torrent URL adds by diffing the torrent list", async () => {
     let infoCalls = 0
-    vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
+    let addPaused: string | null = null
+    vi.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
       const url = new URL(String(input))
       if (url.pathname === "/api/v2/auth/login") {
         return Promise.resolve(
@@ -62,16 +63,22 @@ describe("QBittorrentAdapter", () => {
           ),
         )
       }
-      if (url.pathname === "/api/v2/torrents/add") return Promise.resolve(textResponse("Ok."))
+      if (url.pathname === "/api/v2/torrents/add") {
+        addPaused = new URLSearchParams(String(init?.body)).get("paused")
+        return Promise.resolve(textResponse("Ok."))
+      }
       return Promise.resolve(textResponse("missing", { status: 404 }))
     })
 
     const adapter = createQBittorrentAdapter(config())
     const hash = await Effect.runPromise(
-      adapter.addDownload("https://indexer.local/files/Example.Movie.2026.torrent"),
+      adapter.addDownload("https://indexer.local/files/Example.Movie.2026.torrent", {
+        paused: true,
+      }),
     )
 
     expect(hash).toBe("NEW")
+    expect(addPaused).toBe("true")
   })
 
   it("fails URL adds when qBittorrent accepts the download but no hash can be identified", async () => {

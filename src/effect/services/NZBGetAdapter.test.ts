@@ -149,7 +149,7 @@ describe("NZBGetAdapter", () => {
     })
 
     const externalId = await Effect.runPromise(
-      adapter.addDownload("https://indexer.local/files/Example.Show.S01E01.nzb"),
+      adapter.addDownload("https://indexer.local/files/Example.Show.S01E01.nzb", { paused: true }),
     )
     const queue = await Effect.runPromise(adapter.getQueue())
     await Effect.runPromise(adapter.removeDownload(externalId, true))
@@ -170,7 +170,7 @@ describe("NZBGetAdapter", () => {
       "tv",
       0,
       false,
-      false,
+      true,
       "",
       0,
       "all",

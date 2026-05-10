@@ -151,7 +151,10 @@ describe("DelugeAdapter", () => {
     })
 
     const magnetHash = await Effect.runPromise(
-      adapter.addDownload("magnet:?xt=urn:btih:abc123", { savePath: "/downloads/incoming" }),
+      adapter.addDownload("magnet:?xt=urn:btih:abc123", {
+        savePath: "/downloads/incoming",
+        paused: true,
+      }),
     )
     const fileHash = await Effect.runPromise(
       adapter.addDownload("https://indexer.local/files/Example.Movie.2026.torrent"),
@@ -178,7 +181,7 @@ describe("DelugeAdapter", () => {
     expect(bodies[4].params).toEqual([
       "magnet:?xt=urn:btih:abc123",
       {
-        add_paused: false,
+        add_paused: true,
         remove_at_ratio: false,
         download_location: "/downloads/incoming",
       },

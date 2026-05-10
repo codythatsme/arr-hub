@@ -343,6 +343,7 @@ export function createQBittorrentAdapter(config: DownloadClientConfig): Download
         const body = new URLSearchParams({ urls: url })
         if (category) body.set("category", category)
         if (options?.savePath) body.set("savepath", options.savePath)
+        if (options?.paused) body.set("paused", "true")
 
         const res = yield* qbitFetch("/api/v2/torrents/add", {
           method: "POST",

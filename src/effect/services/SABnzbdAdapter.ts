@@ -240,6 +240,7 @@ export function createSABnzbdAdapter(config: DownloadClientConfig): DownloadClie
         const category = options?.category ?? config.category
         const params: Record<string, string> = { mode: "addurl", name: url }
         if (category) params.cat = category
+        if (options?.paused) params.paused = "1"
 
         const result = yield* sabFetch<SabAddUrlResponse>(params)
 

@@ -376,8 +376,12 @@ export const DownloadClientServiceLive = Layer.effect(
           const password = yield* crypto.decrypt(client.passwordEncrypted)
           const config = buildConfig(client, password)
           const adapter = yield* makeAdapter(config)
+          const addOptions: AddDownloadOptions = {
+            ...options,
+            paused: options?.paused ?? client.settings.addPaused ?? false,
+          }
 
-          const hash = yield* adapter.addDownload(url, options)
+          const hash = yield* adapter.addDownload(url, addOptions)
 
           // Eagerly insert queue row
           yield* db.insert(downloadQueue).values({
@@ -387,7 +391,7 @@ export const DownloadClientServiceLive = Layer.effect(
             title: url,
             sizeBytes: 0,
             progress: 0,
-            outputPath: options?.savePath ?? null,
+            outputPath: addOptions.savePath ?? null,
           })
 
           return hash

@@ -125,12 +125,14 @@ function addArgs(
   url: string,
   config: DownloadClientConfig,
   savePath: string | undefined,
+  paused: boolean | undefined,
 ): Record<string, unknown> {
   const args: Record<string, unknown> = { filename: url }
   const downloadDir = savePath?.trim()
   if (downloadDir) args["download-dir"] = downloadDir
   const category = config.category?.trim()
   if (category) args.labels = [category]
+  if (paused) args.paused = true
   return args
 }
 
@@ -253,7 +255,7 @@ export function createTransmissionAdapter(config: DownloadClientConfig): Downloa
       Effect.gen(function* () {
         const result = yield* rpcRequest<TransmissionTorrentAddArgs>(
           "torrent-add",
-          addArgs(downloadUrl, config, options?.savePath),
+          addArgs(downloadUrl, config, options?.savePath, options?.paused),
         )
         const torrent = result["torrent-added"] ?? result["torrent-duplicate"]
         const hash = torrent?.hashString

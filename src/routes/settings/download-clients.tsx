@@ -21,6 +21,7 @@ interface DownloadClientFormState {
   readonly category: string
   readonly priority: string
   readonly pollIntervalMs: string
+  readonly addPaused: boolean
   readonly blackholeFolder: string
   readonly watchFolder: string
   readonly saveMagnetFiles: boolean
@@ -41,6 +42,7 @@ const emptyForm: DownloadClientFormState = {
   category: "",
   priority: "50",
   pollIntervalMs: "5000",
+  addPaused: false,
   blackholeFolder: "/downloads/blackhole",
   watchFolder: "/downloads",
   saveMagnetFiles: false,
@@ -126,6 +128,7 @@ function DownloadClients() {
     setMessage(null)
     const settings = {
       pollIntervalMs: Number(form.pollIntervalMs),
+      addPaused: form.addPaused,
       ...(isBlackhole
         ? {
             blackholeFolder: form.blackholeFolder.trim(),
@@ -221,6 +224,7 @@ function DownloadClients() {
                         category: client.category ?? "",
                         priority: String(client.priority),
                         pollIntervalMs: String(client.settings.pollIntervalMs),
+                        addPaused: client.settings.addPaused ?? false,
                         blackholeFolder:
                           client.settings.blackholeFolder ??
                           blackholeDefaults(client.type).blackholeFolder,
@@ -488,6 +492,16 @@ function DownloadClients() {
                 />
                 Enabled
               </label>
+              {!isBlackhole && (
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={form.addPaused}
+                    onChange={(event) => setForm({ ...form, addPaused: event.target.checked })}
+                  />
+                  Add paused
+                </label>
+              )}
             </div>
 
             {message && <p className="text-sm text-emerald-600">{message}</p>}

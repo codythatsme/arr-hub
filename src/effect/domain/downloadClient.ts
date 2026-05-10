@@ -16,6 +16,7 @@ export type DownloadClientHealthStatus = "healthy" | "unhealthy" | "unknown"
 
 export interface DownloadClientSettings {
   readonly pollIntervalMs: number
+  readonly addPaused?: boolean
   readonly blackholeFolder?: string
   readonly watchFolder?: string
   readonly saveMagnetFiles?: boolean
@@ -59,6 +60,7 @@ export interface DownloadClientHealth {
 export interface AddDownloadOptions {
   readonly category?: string
   readonly savePath?: string
+  readonly paused?: boolean
 }
 
 /** Adapter metadata for registry display + protocol selection. */

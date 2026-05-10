@@ -140,7 +140,10 @@ describe("TransmissionAdapter", () => {
     })
 
     const hash = await Effect.runPromise(
-      adapter.addDownload("magnet:?xt=urn:btih:abc", { savePath: "/downloads/incoming" }),
+      adapter.addDownload("magnet:?xt=urn:btih:abc", {
+        savePath: "/downloads/incoming",
+        paused: true,
+      }),
     )
     const queue = await Effect.runPromise(adapter.getQueue())
     await Effect.runPromise(adapter.removeDownload(hash, true))
@@ -151,6 +154,7 @@ describe("TransmissionAdapter", () => {
       filename: "magnet:?xt=urn:btih:abc",
       "download-dir": "/downloads/incoming",
       labels: ["arr"],
+      paused: true,
     })
     expect(queue).toEqual([
       {
