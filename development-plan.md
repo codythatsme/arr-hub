@@ -12,7 +12,7 @@ What exists today:
 
 - TanStack Start + tRPC + Effect service architecture.
 - SQLite/Drizzle schema for users, API keys, movies, series/seasons/episodes, quality profiles, custom formats, indexers, download clients, media servers, queue, notifications, plugins, release decisions, scheduler, onboarding, and Plex playback history.
-- Built-in adapters for qBittorrent, SABnzbd, first-pass Transmission, first-pass NZBGet, first-pass torrent/usenet blackholes, Torznab/Newznab, Plex, and experimental Jellyfin.
+- Built-in adapters for qBittorrent, SABnzbd, first-pass Transmission, first-pass Deluge, first-pass NZBGet, first-pass torrent/usenet blackholes, Torznab/Newznab, Plex, and experimental Jellyfin.
 - Basic release parsing, quality/profile scoring, search/grab pipeline, queue polling, and scheduler loop.
 - TMDB-backed movie/TV metadata lookup, metadata-backed add flows, series episode hydration, Sonarr episode import, metadata refresh jobs, and a TV episode calendar.
 - First-run onboarding, local admin login, API key creation, Dockerfile/compose with documented media/download mounts, `.env.example`, and a system health endpoint with root-folder accessibility checks.
@@ -25,7 +25,7 @@ Primary blockers:
 - Completed download handling now has a real import path that resolves completed output paths and remote path mappings, selects media files, filters samples, renames, copy/move/hardlinks into library folders, persists media file records, supports manual import, scans existing libraries, and exposes rename preview/action. It still lacks unpack/repair waiting beyond downloader status normalization, free-space checks, recycle-bin support, and deeper Sonarr/Radarr import rejection rules.
 - The release decision engine now has persistent blocklist enforcement, focused specification modules, target title/year/episode/season checks, size/free-space/queue/protocol/client availability checks, minimum age/retention/seeder gates, required/ignored/preferred release terms, sample/hardcoded subtitle/raw-disk rejection, and first-pass TV/anime edge checks. It still lacks full Sonarr/Radarr parity for language profiles, tagged release profiles, deep media inspection, proper/repack version upgrade semantics, scene/XEM mapping, and exhaustive parser coverage.
 - Prowlarr replacement now has a first-pass foundation for common setups: generic Newznab and Torznab support, curated Newznab presets for NZBGeek, DrunkenSlug, NZBFinder, NinjaCentral, NZBPlanet, and altHUB, aggregate Torznab/Newznab feeds, persisted definitions, representative Cardigann/YAML torrent coverage, URL-backed checksum-pinned definition sources, proxy/health/stats basics, per-indexer category and policy controls, and first-pass Radarr/Sonarr app sync. The bundled catalogue is now intentionally curated; broad Prowlarr/Jackett-scale tracker breadth is deferred to remote definition sources or a later catalogue-maintenance milestone.
-- Download client coverage is still narrow: qBittorrent, SABnzbd, first-pass Transmission, first-pass NZBGet, and first-pass torrent/usenet blackholes only.
+- Download client coverage is still narrow: qBittorrent, SABnzbd, first-pass Transmission, first-pass Deluge, first-pass NZBGet, and first-pass torrent/usenet blackholes only.
 - There is no Radarr/Sonarr/Prowlarr REST API compatibility layer, which matters if existing tools are expected to treat ARR Hub as a drop-in replacement.
 
 ## Verification Snapshot
@@ -112,10 +112,11 @@ Completed in atomic commits after this plan was written. Milestone 5 is summariz
 - `7b9c771b1c` added Docker Compose media/download volume examples, `.env.example`, current runtime-user permission docs, and backup/restore docs.
 - `cbe6a792d5` added first-pass torrent and usenet blackhole adapters with folder validation, submission-file writing, watch-folder scanning, delete-only removal, Settings fields, and deterministic adapter tests.
 - `5b598b24c8` added a first-pass NZBGet download client adapter with JSON-RPC connectivity checks, NZB append support, queue/history normalization, remove support, onboarding type wiring, and deterministic adapter tests.
+- `38d5392995` added a first-pass Deluge download client adapter with web JSON-RPC authentication, daemon connection, label validation, magnet/torrent-file add support, queue normalization, remove support, onboarding type wiring, and deterministic adapter tests.
 - Subsequent Milestone 5 commits hardened the generic Cardigann runtime, request templating, category mapping, auth controls, and aggregate app-sync behavior enough for representative built-ins and checksum-pinned remote definitions. These commits are runtime support, not a decision to ship the expanded tracker catalogue.
 - `5cbb9c9e90` removed the deferred expanded built-in tracker catalogue from `main`. The safety branch `backup/milestone5-expanded-catalog` preserves the catalogue spike at `ab9e42393b`; those tracker definitions, including long-tail and adult/XXX sources, are not current built-in support.
 
-Milestones 1, 2, 3, and 4 are complete for deterministic local coverage against the current backend surface. Milestone 5 is now scoped as a curated Prowlarr replacement foundation, not a broad tracker-porting effort. It includes persisted generic indexer definitions, core Newznab presets for NZBGeek, DrunkenSlug, NZBFinder, NinjaCentral, NZBPlanet, and altHUB, representative Cardigann/YAML torrent definitions, aggregate Torznab/Newznab feeds with offset/extended metadata forwarding, response/enclosure feed metadata, caps search-type normalization, nested category parsing, URL-backed checksum-pinned definition sources, proxy/health/stats basics, per-indexer category and policy controls, deterministic common Newznab-plus-torrent app-sync coverage, and first-pass Radarr/Sonarr aggregate app sync. Long-tail and adult/XXX tracker breadth is deferred to remote definition sources or a future catalogue-maintenance milestone. Milestone 6 now has first-pass Transmission, NZBGet, and blackhole coverage plus Docker/NAS volume docs, backup/restore docs, and root-folder permission diagnostics; Deluge and live multi-container validation remain. Milestone 3 still needs live qBittorrent/SABnzbd fixture validation in an environment with those services running, and Milestone 5 still needs live common-indexer validation with real credentials before claiming interoperability with specific upstream providers.
+Milestones 1, 2, 3, and 4 are complete for deterministic local coverage against the current backend surface. Milestone 5 is now scoped as a curated Prowlarr replacement foundation, not a broad tracker-porting effort. It includes persisted generic indexer definitions, core Newznab presets for NZBGeek, DrunkenSlug, NZBFinder, NinjaCentral, NZBPlanet, and altHUB, representative Cardigann/YAML torrent definitions, aggregate Torznab/Newznab feeds with offset/extended metadata forwarding, response/enclosure feed metadata, caps search-type normalization, nested category parsing, URL-backed checksum-pinned definition sources, proxy/health/stats basics, per-indexer category and policy controls, deterministic common Newznab-plus-torrent app-sync coverage, and first-pass Radarr/Sonarr aggregate app sync. Long-tail and adult/XXX tracker breadth is deferred to remote definition sources or a future catalogue-maintenance milestone. Milestone 6 now has first-pass Transmission, Deluge, NZBGet, and blackhole coverage plus Docker/NAS volume docs, backup/restore docs, and root-folder permission diagnostics; live multi-container validation remains. Milestone 3 still needs live qBittorrent/SABnzbd fixture validation in an environment with those services running, and Milestone 5 still needs live common-indexer validation with real credentials before claiming interoperability with specific upstream providers.
 
 ## Current Functionality Inventory
 
@@ -126,7 +127,7 @@ Backend/service surfaces:
 - `src/effect/services/SeriesService.ts`: CRUD/list/local lookup, season/episode monitor toggles, and monitored episode calendar queries.
 - `src/effect/services/TmdbClient.ts`: movie TMDB search/details/popular/trending plus TV search/details/season hydration.
 - `src/effect/services/IndexerService.ts`, `src/effect/services/CardigannDefinitionLoader.ts`, `src/effect/services/CardigannAdapter.ts`, `src/effect/services/TorznabAdapter.ts`, `src/effect/services/IndexerDefinitionSourceService.ts`, and `src/effect/services/IndexerApplicationService.ts`: Torznab/Newznab connection testing and search, generic definitions, core Newznab presets, representative Cardigann/YAML definitions, encrypted definition-specific config/auth values, definition source refresh with checksum pinning and catalog manifest import, aggregate Torznab/Newznab feeds, proxy application, search stats, health/backoff state, per-indexer category and policy controls, and first-pass Radarr/Sonarr aggregate app sync. Broad built-in tracker breadth is intentionally deferred.
-- `src/effect/services/DownloadClientService.ts`, `QBittorrentAdapter.ts`, `SABnzbdAdapter.ts`, `TransmissionAdapter.ts`, `NZBGetAdapter.ts`, and `BlackholeAdapter.ts`: add/list/test/grab/queue/remove downloads for qBittorrent, SABnzbd, first-pass Transmission, first-pass NZBGet, and first-pass torrent/usenet blackholes, including persisted completed output paths where the client reports them.
+- `src/effect/services/DownloadClientService.ts`, `QBittorrentAdapter.ts`, `SABnzbdAdapter.ts`, `TransmissionAdapter.ts`, `DelugeAdapter.ts`, `NZBGetAdapter.ts`, and `BlackholeAdapter.ts`: add/list/test/grab/queue/remove downloads for qBittorrent, SABnzbd, first-pass Transmission, first-pass Deluge, first-pass NZBGet, and first-pass torrent/usenet blackholes, including persisted completed output paths where the client reports them.
 - `src/effect/services/DiagnosticsService.ts`: aggregates integration health and root-folder accessibility/write-permission checks for the System view and container health endpoint.
 - `src/effect/services/ReleasePolicyEngine.ts`: parses titles, checks allowed quality, custom format score, and basic upgrade scoring.
 - `src/effect/services/AcquisitionPipeline.ts`: movie search/evaluate/grab, episode search/evaluate/grab, season pack first search, series search.
@@ -162,7 +163,7 @@ Important scale differences visible in vendor:
 
 - Radarr has 31 decision-engine specification files; Sonarr has 41. ARR Hub now has a compact release specification module covering high-impact local guardrails, but not the full vendor rule surface.
 - Prowlarr has 143 files under `Indexers/Definitions` and 16 first-level definition families. ARR Hub has generic Torznab/Newznab consumption, core Newznab presets, a representative Cardigann/YAML built-in set, URL-backed checksum-pinned definition source refresh, aggregate feeds, proxy/health/stats basics, and first-pass Radarr/Sonarr app sync. Broad bundled tracker coverage is intentionally deferred to remote definition sources or a later catalogue-maintenance milestone.
-- Sonarr/Radarr support many download client families: qBittorrent, SABnzbd, NZBGet, Transmission, Deluge, rTorrent, uTorrent, Download Station, blackhole, and others. ARR Hub has qBittorrent, SABnzbd, first-pass Transmission, first-pass NZBGet, and first-pass torrent/usenet blackholes.
+- Sonarr/Radarr support many download client families: qBittorrent, SABnzbd, NZBGet, Transmission, Deluge, rTorrent, uTorrent, Download Station, blackhole, and others. ARR Hub has qBittorrent, SABnzbd, first-pass Transmission, first-pass Deluge, first-pass NZBGet, and first-pass torrent/usenet blackholes.
 - Sonarr/Radarr have full media import pipelines with manual import, sample detection, free-space checks, upgrade checks, folder matching, grabbed-release matching, and naming services. ARR Hub now has a deterministic first-pass import pipeline with manual import, remote path mappings, library scan, rename preview/action, and media file records, but still lacks full vendor import rejection depth.
 
 ## Replacement-Grade Definition
@@ -383,8 +384,9 @@ Acceptance criteria:
 
 Current state:
 
-- Built-in download clients are qBittorrent, SABnzbd, first-pass Transmission, first-pass NZBGet, and first-pass torrent/usenet blackholes.
+- Built-in download clients are qBittorrent, SABnzbd, first-pass Transmission, first-pass Deluge, first-pass NZBGet, and first-pass torrent/usenet blackholes.
 - Transmission support covers RPC session negotiation, test connection, torrent-add with label/save path, queue listing with label filtering and output paths, and remove with optional data deletion.
+- Deluge support covers web JSON-RPC session authentication, daemon connection, label validation/creation, magnet and torrent-file add flows, queue listing with label filtering and output paths, and remove with optional data deletion.
 - NZBGet support covers JSON-RPC version/status/config checks, v16-style NZB append with `drone` parameters, queue/history normalization, category filtering, and queue/history removal.
 - Blackhole support covers torrent/NZB submission folder writes, optional magnet-file saving for torrent blackholes, watch-folder scanning for completed media files/folders, stable title-derived external IDs, delete-only removal, and Settings fields for submission/watch folders and watch grace period.
 - Client settings are minimal.
@@ -393,13 +395,13 @@ Current state:
 
 Gap:
 
-- Sonarr/Radarr users commonly rely on Transmission, Deluge, rTorrent, uTorrent, Download Station, blackhole folders, and remote path mappings.
+- Sonarr/Radarr users commonly rely on rTorrent, uTorrent, Download Station, blackhole folders, and remote path mappings.
 
 Tasks:
 
 - Add first-party adapters for at least:
   - [x] Transmission,
-  - [ ] Deluge,
+  - [x] Deluge,
   - [x] NZBGet,
   - [x] torrent blackhole,
   - [x] usenet blackhole.
@@ -775,7 +777,7 @@ Goal: support common home-server deployments.
 
 Tasks:
 
-1. Add Transmission, Deluge, NZBGet, and blackhole adapters. Transmission, NZBGet, and blackholes are now first-pass complete with deterministic adapter coverage; Deluge remains.
+1. [x] Add Transmission, Deluge, NZBGet, and blackhole adapters. Transmission, Deluge, NZBGet, and blackholes are now first-pass complete with deterministic adapter coverage.
 2. [x] Add Docker volume examples for `/downloads`, `/movies`, `/tv`.
 3. [x] Add UID/GID or permission docs. Current runtime behavior is documented; `PUID`/`PGID` is not implemented.
 4. [x] Add root folder permission health checks.
@@ -783,7 +785,7 @@ Tasks:
 
 Acceptance:
 
-- A typical Docker Compose stack can run ARR Hub plus qBittorrent/SAB/Transmission/NZBGet or blackhole folders and import files into mounted media paths.
+- A typical Docker Compose stack can run ARR Hub plus qBittorrent/SAB/Transmission/Deluge/NZBGet or blackhole folders and import files into mounted media paths.
 
 ## Documentation Updates Required
 
