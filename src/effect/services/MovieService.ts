@@ -5,6 +5,7 @@ import { Context, Effect, Layer } from "effect"
 import { movies } from "#/db/schema"
 
 import { NotFoundError, ConflictError } from "../errors"
+import { applyAutoTagsToMovie } from "./AutoTaggingEngine"
 import { Db } from "./Db"
 import { ensureTagRows } from "./TagService"
 
@@ -111,7 +112,7 @@ export const MovieServiceLive = Layer.effect(
             })
             .returning()
 
-          return rows[0]
+          return yield* applyAutoTagsToMovie(db, rows[0])
         }),
 
       list: (filters) =>
@@ -156,7 +157,7 @@ export const MovieServiceLive = Layer.effect(
           if (!movie) {
             return yield* new NotFoundError({ entity: "movie", id })
           }
-          return movie
+          return yield* applyAutoTagsToMovie(db, movie)
         }),
 
       remove: (id) =>

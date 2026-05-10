@@ -5,6 +5,7 @@ import { Context, Effect, Layer } from "effect"
 import { series, seasons, episodes } from "#/db/schema"
 
 import { NotFoundError, ConflictError } from "../errors"
+import { applyAutoTagsToSeries } from "./AutoTaggingEngine"
 import { Db } from "./Db"
 import { ensureTagRows } from "./TagService"
 
@@ -256,7 +257,8 @@ export const SeriesServiceLive = Layer.effect(
             }
           }
 
-          return yield* loadDetails(s.id)
+          const tagged = yield* applyAutoTagsToSeries(db, s)
+          return yield* loadDetails(tagged.id)
         }),
 
       list: (filters) =>
@@ -307,6 +309,7 @@ export const SeriesServiceLive = Layer.effect(
             }
           }
 
+          yield* applyAutoTagsToSeries(db, rows[0])
           return yield* loadDetails(id)
         }),
 

@@ -3,6 +3,7 @@ import { Layer } from "effect"
 import { AcquisitionPipelineLive } from "./services/AcquisitionPipeline"
 import { AdapterRegistryLive } from "./services/AdapterRegistry"
 import { AuthServiceLive } from "./services/AuthService"
+import { AutoTaggingServiceLive } from "./services/AutoTaggingService"
 import { BackupServiceLive } from "./services/BackupService"
 import { ConfigServiceLive } from "./services/ConfigService"
 import { CryptoServiceLive } from "./services/CryptoService"
@@ -79,6 +80,7 @@ export function makeAppLayer(tmdbClientLayer: Layer.Layer<TmdbClient> = TmdbClie
         PlexUserServiceLive,
         StatsServiceLive,
         TagServiceLive,
+        AutoTaggingServiceLive,
       ),
     ),
     Layer.provideMerge(TitleParserServiceLive),

@@ -2,7 +2,17 @@ import { SqlError } from "@effect/sql/SqlError"
 import { asc, eq } from "drizzle-orm"
 import { Context, Effect, Layer } from "effect"
 
-import { downloadClients, indexers, movies, notificationChannels, series, tags } from "#/db/schema"
+import {
+  autoTaggingRules,
+  customFilters,
+  downloadClients,
+  indexers,
+  movies,
+  notificationChannels,
+  series,
+  tags,
+  type CustomFilterDefinition,
+} from "#/db/schema"
 
 import { ConflictError, NotFoundError, ValidationError } from "../errors"
 import { Db } from "./Db"
@@ -44,6 +54,7 @@ interface TagReferenceRows {
   readonly indexerRows: ReadonlyArray<TaggedRow>
   readonly downloadClientRows: ReadonlyArray<TaggedRow>
   readonly notificationChannelRows: ReadonlyArray<TaggedRow>
+  readonly autoTagRows: ReadonlyArray<TaggedRow>
 }
 
 export function normalizeTagLabels(values: ReadonlyArray<string>): ReadonlyArray<string> {
@@ -86,16 +97,32 @@ function usageCountFor(
   return rows.filter((row) => includesTag(row.tags, label)).length
 }
 
+function customFilterTags(filters: CustomFilterDefinition): ReadonlyArray<string> {
+  return filters.tags ?? []
+}
+
 function tagUsageCounts(db: DbHandle): Effect.Effect<ReadonlyMap<string, number>, SqlError> {
   return Effect.gen(function* () {
-    const [movieRows, seriesRows, indexerRows, downloadClientRows, notificationChannelRows] =
-      yield* Effect.all([
-        db.select({ tags: movies.tags }).from(movies),
-        db.select({ tags: series.tags }).from(series),
-        db.select({ tags: indexers.tags }).from(indexers),
-        db.select({ tags: downloadClients.tags }).from(downloadClients),
-        db.select({ tags: notificationChannels.tags }).from(notificationChannels),
-      ])
+    const [
+      movieRows,
+      seriesRows,
+      indexerRows,
+      downloadClientRows,
+      notificationChannelRows,
+      autoTagRows,
+      customFilterRows,
+    ] = yield* Effect.all([
+      db.select({ tags: movies.tags }).from(movies),
+      db.select({ tags: series.tags }).from(series),
+      db.select({ tags: indexers.tags }).from(indexers),
+      db.select({ tags: downloadClients.tags }).from(downloadClients),
+      db.select({ tags: notificationChannels.tags }).from(notificationChannels),
+      db.select({ tags: autoTaggingRules.tags }).from(autoTaggingRules),
+      db.select({ filters: customFilters.filters }).from(customFilters),
+    ])
+    const customFilterTagRows = customFilterRows.map((row) => ({
+      tags: customFilterTags(row.filters),
+    }))
     const knownLabels = new Set<string>()
     for (const row of [
       ...movieRows,
@@ -103,6 +130,8 @@ function tagUsageCounts(db: DbHandle): Effect.Effect<ReadonlyMap<string, number>
       ...indexerRows,
       ...downloadClientRows,
       ...notificationChannelRows,
+      ...autoTagRows,
+      ...customFilterTagRows,
     ]) {
       for (const label of row.tags) knownLabels.add(label)
     }
@@ -115,7 +144,9 @@ function tagUsageCounts(db: DbHandle): Effect.Effect<ReadonlyMap<string, number>
           usageCountFor(label, seriesRows) +
           usageCountFor(label, indexerRows) +
           usageCountFor(label, downloadClientRows) +
-          usageCountFor(label, notificationChannelRows),
+          usageCountFor(label, notificationChannelRows) +
+          usageCountFor(label, autoTagRows) +
+          usageCountFor(label, customFilterTagRows),
       )
     }
     return usage
@@ -135,16 +166,23 @@ function referenceIdsFor(label: string, rows: ReadonlyArray<TaggedRow>): Readonl
 
 function tagReferenceRows(db: DbHandle): Effect.Effect<TagReferenceRows, SqlError> {
   return Effect.gen(function* () {
-    const [movieRows, seriesRows, indexerRows, downloadClientRows, notificationChannelRows] =
-      yield* Effect.all([
-        db.select({ id: movies.id, tags: movies.tags }).from(movies),
-        db.select({ id: series.id, tags: series.tags }).from(series),
-        db.select({ id: indexers.id, tags: indexers.tags }).from(indexers),
-        db.select({ id: downloadClients.id, tags: downloadClients.tags }).from(downloadClients),
-        db
-          .select({ id: notificationChannels.id, tags: notificationChannels.tags })
-          .from(notificationChannels),
-      ])
+    const [
+      movieRows,
+      seriesRows,
+      indexerRows,
+      downloadClientRows,
+      notificationChannelRows,
+      autoTagRows,
+    ] = yield* Effect.all([
+      db.select({ id: movies.id, tags: movies.tags }).from(movies),
+      db.select({ id: series.id, tags: series.tags }).from(series),
+      db.select({ id: indexers.id, tags: indexers.tags }).from(indexers),
+      db.select({ id: downloadClients.id, tags: downloadClients.tags }).from(downloadClients),
+      db
+        .select({ id: notificationChannels.id, tags: notificationChannels.tags })
+        .from(notificationChannels),
+      db.select({ id: autoTaggingRules.id, tags: autoTaggingRules.tags }).from(autoTaggingRules),
+    ])
 
     return {
       movieRows,
@@ -152,6 +190,7 @@ function tagReferenceRows(db: DbHandle): Effect.Effect<TagReferenceRows, SqlErro
       indexerRows,
       downloadClientRows,
       notificationChannelRows,
+      autoTagRows,
     }
   })
 }
@@ -168,7 +207,7 @@ function detailsFor(row: TagRow, refs: TagReferenceRows): TagDetails {
     excludedReleaseProfileIds: [],
     indexerIds: referenceIdsFor(row.label, refs.indexerRows),
     downloadClientIds: referenceIdsFor(row.label, refs.downloadClientRows),
-    autoTagIds: [],
+    autoTagIds: referenceIdsFor(row.label, refs.autoTagRows),
     seriesIds: referenceIdsFor(row.label, refs.seriesRows),
     movieIds: referenceIdsFor(row.label, refs.movieRows),
     indexerProxyIds: [],
@@ -198,16 +237,25 @@ function propagateTagLabel(
   nextLabel: string,
 ): Effect.Effect<void, SqlError> {
   return Effect.gen(function* () {
-    const [movieRows, seriesRows, indexerRows, downloadClientRows, notificationChannelRows] =
-      yield* Effect.all([
-        db.select({ id: movies.id, tags: movies.tags }).from(movies),
-        db.select({ id: series.id, tags: series.tags }).from(series),
-        db.select({ id: indexers.id, tags: indexers.tags }).from(indexers),
-        db.select({ id: downloadClients.id, tags: downloadClients.tags }).from(downloadClients),
-        db
-          .select({ id: notificationChannels.id, tags: notificationChannels.tags })
-          .from(notificationChannels),
-      ])
+    const [
+      movieRows,
+      seriesRows,
+      indexerRows,
+      downloadClientRows,
+      notificationChannelRows,
+      autoTagRows,
+      customFilterRows,
+    ] = yield* Effect.all([
+      db.select({ id: movies.id, tags: movies.tags }).from(movies),
+      db.select({ id: series.id, tags: series.tags }).from(series),
+      db.select({ id: indexers.id, tags: indexers.tags }).from(indexers),
+      db.select({ id: downloadClients.id, tags: downloadClients.tags }).from(downloadClients),
+      db
+        .select({ id: notificationChannels.id, tags: notificationChannels.tags })
+        .from(notificationChannels),
+      db.select({ id: autoTaggingRules.id, tags: autoTaggingRules.tags }).from(autoTaggingRules),
+      db.select({ id: customFilters.id, filters: customFilters.filters }).from(customFilters),
+    ])
 
     for (const row of movieRows) {
       const next = replaceTagLabel(row.tags, previousLabel, nextLabel)
@@ -244,6 +292,27 @@ function propagateTagLabel(
           .update(notificationChannels)
           .set({ tags: next })
           .where(eq(notificationChannels.id, row.id))
+      }
+    }
+
+    for (const row of autoTagRows) {
+      const next = replaceTagLabel(row.tags, previousLabel, nextLabel)
+      if (!sameLabels(row.tags, next)) {
+        yield* db
+          .update(autoTaggingRules)
+          .set({ tags: next })
+          .where(eq(autoTaggingRules.id, row.id))
+      }
+    }
+
+    for (const row of customFilterRows) {
+      const filterTagLabels = customFilterTags(row.filters)
+      const next = replaceTagLabel(filterTagLabels, previousLabel, nextLabel)
+      if (!sameLabels(filterTagLabels, next)) {
+        yield* db
+          .update(customFilters)
+          .set({ filters: { ...row.filters, tags: next } })
+          .where(eq(customFilters.id, row.id))
       }
     }
   })

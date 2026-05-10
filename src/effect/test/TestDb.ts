@@ -108,6 +108,27 @@ const runDdl = Effect.gen(function* () {
     updated_at INTEGER NOT NULL DEFAULT (unixepoch())
   )`
 
+  yield* sql`CREATE TABLE auto_tagging_rules (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    media_type TEXT NOT NULL DEFAULT 'both',
+    tags TEXT NOT NULL DEFAULT '[]',
+    specifications TEXT NOT NULL DEFAULT '[]',
+    remove_tags_automatically INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+  )`
+
+  yield* sql`CREATE TABLE custom_filters (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    type TEXT NOT NULL,
+    label TEXT NOT NULL,
+    filters TEXT NOT NULL DEFAULT '{}',
+    created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    UNIQUE(type, label)
+  )`
+
   yield* sql`CREATE TABLE custom_format_specs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     custom_format_id INTEGER NOT NULL REFERENCES custom_formats(id) ON DELETE CASCADE,

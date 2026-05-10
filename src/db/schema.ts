@@ -148,6 +148,83 @@ export const tags = sqliteTable("tags", {
     .default(sql`(unixepoch())`),
 })
 
+export const autoTaggingMediaTypes = ["movie", "series", "both"] as const
+export type AutoTaggingMediaType = (typeof autoTaggingMediaTypes)[number]
+
+export const autoTaggingSpecificationTypes = [
+  "genre",
+  "status",
+  "monitored",
+  "year",
+  "rootFolderPath",
+  "qualityProfileId",
+  "network",
+  "seriesType",
+  "tag",
+] as const
+export type AutoTaggingSpecificationType = (typeof autoTaggingSpecificationTypes)[number]
+
+export interface AutoTaggingSpecification {
+  readonly type: AutoTaggingSpecificationType
+  readonly value: string | number | boolean | ReadonlyArray<string> | ReadonlyArray<number>
+  readonly negate?: boolean
+}
+
+export const autoTaggingRules = sqliteTable("auto_tagging_rules", {
+  id: integer().primaryKey({ autoIncrement: true }),
+  name: text().notNull().unique(),
+  mediaType: text("media_type", { enum: autoTaggingMediaTypes }).notNull().default("both"),
+  tags: text({ mode: "json" })
+    .$type<ReadonlyArray<string>>()
+    .notNull()
+    .default(sql`'[]'`),
+  specifications: text({ mode: "json" })
+    .$type<ReadonlyArray<AutoTaggingSpecification>>()
+    .notNull()
+    .default(sql`'[]'`),
+  removeTagsAutomatically: integer("remove_tags_automatically", { mode: "boolean" })
+    .notNull()
+    .default(false),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+})
+
+export const customFilterTypes = ["movie", "series"] as const
+export type CustomFilterType = (typeof customFilterTypes)[number]
+
+export interface CustomFilterDefinition {
+  readonly status?: string | null
+  readonly monitored?: boolean | null
+  readonly tags?: ReadonlyArray<string>
+  readonly genres?: ReadonlyArray<string>
+  readonly qualityProfileId?: number | null
+  readonly rootFolderPath?: string | null
+}
+
+export const customFilters = sqliteTable(
+  "custom_filters",
+  {
+    id: integer().primaryKey({ autoIncrement: true }),
+    type: text({ enum: customFilterTypes }).notNull(),
+    label: text().notNull(),
+    filters: text({ mode: "json" })
+      .$type<CustomFilterDefinition>()
+      .notNull()
+      .default(sql`'{}'`),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+    updatedAt: integer("updated_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (t) => [unique().on(t.type, t.label)],
+)
+
 export const customFormatSpecs = sqliteTable("custom_format_specs", {
   id: integer().primaryKey({ autoIncrement: true }),
   customFormatId: integer("custom_format_id")
