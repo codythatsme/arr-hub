@@ -51,6 +51,7 @@ import { Route as ApiVersionQualityprofileRouteImport } from './routes/api.$vers
 import { Route as ApiVersionMovieRouteImport } from './routes/api.$version.movie'
 import { Route as ApiVersionHistoryRouteImport } from './routes/api.$version.history'
 import { Route as ApiVersionHealthRouteImport } from './routes/api.$version.health'
+import { Route as ApiVersionEpisodeRouteImport } from './routes/api.$version.episode'
 import { Route as ApiVersionCustomformatRouteImport } from './routes/api.$version.customformat'
 import { Route as ApiVersionCommandRouteImport } from './routes/api.$version.command'
 import { Route as ApiVersionCalendarRouteImport } from './routes/api.$version.calendar'
@@ -73,6 +74,7 @@ import { Route as ApiVersionMovieIdRouteImport } from './routes/api.$version.mov
 import { Route as ApiVersionHistorySinceRouteImport } from './routes/api.$version.history.since'
 import { Route as ApiVersionHistorySeriesRouteImport } from './routes/api.$version.history.series'
 import { Route as ApiVersionHistoryMovieRouteImport } from './routes/api.$version.history.movie'
+import { Route as ApiVersionEpisodeIdRouteImport } from './routes/api.$version.episode.$id'
 import { Route as ApiVersionCustomformatIdRouteImport } from './routes/api.$version.customformat.$id'
 import { Route as ApiVersionCommandIdRouteImport } from './routes/api.$version.command.$id'
 import { Route as ApiVersionCalendarIdRouteImport } from './routes/api.$version.calendar.$id'
@@ -291,6 +293,11 @@ const ApiVersionHealthRoute = ApiVersionHealthRouteImport.update({
   path: '/api/$version/health',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiVersionEpisodeRoute = ApiVersionEpisodeRouteImport.update({
+  id: '/api/$version/episode',
+  path: '/api/$version/episode',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiVersionCustomformatRoute = ApiVersionCustomformatRouteImport.update({
   id: '/api/$version/customformat',
   path: '/api/$version/customformat',
@@ -403,6 +410,11 @@ const ApiVersionHistoryMovieRoute = ApiVersionHistoryMovieRouteImport.update({
   path: '/movie',
   getParentRoute: () => ApiVersionHistoryRoute,
 } as any)
+const ApiVersionEpisodeIdRoute = ApiVersionEpisodeIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ApiVersionEpisodeRoute,
+} as any)
 const ApiVersionCustomformatIdRoute =
   ApiVersionCustomformatIdRouteImport.update({
     id: '/$id',
@@ -470,6 +482,7 @@ export interface FileRoutesByFullPath {
   '/api/$version/calendar': typeof ApiVersionCalendarRouteWithChildren
   '/api/$version/command': typeof ApiVersionCommandRouteWithChildren
   '/api/$version/customformat': typeof ApiVersionCustomformatRouteWithChildren
+  '/api/$version/episode': typeof ApiVersionEpisodeRouteWithChildren
   '/api/$version/health': typeof ApiVersionHealthRoute
   '/api/$version/history': typeof ApiVersionHistoryRouteWithChildren
   '/api/$version/movie': typeof ApiVersionMovieRouteWithChildren
@@ -486,6 +499,7 @@ export interface FileRoutesByFullPath {
   '/api/$version/calendar/$id': typeof ApiVersionCalendarIdRoute
   '/api/$version/command/$id': typeof ApiVersionCommandIdRoute
   '/api/$version/customformat/$id': typeof ApiVersionCustomformatIdRoute
+  '/api/$version/episode/$id': typeof ApiVersionEpisodeIdRoute
   '/api/$version/history/movie': typeof ApiVersionHistoryMovieRoute
   '/api/$version/history/series': typeof ApiVersionHistorySeriesRoute
   '/api/$version/history/since': typeof ApiVersionHistorySinceRoute
@@ -542,6 +556,7 @@ export interface FileRoutesByTo {
   '/api/$version/calendar': typeof ApiVersionCalendarRouteWithChildren
   '/api/$version/command': typeof ApiVersionCommandRouteWithChildren
   '/api/$version/customformat': typeof ApiVersionCustomformatRouteWithChildren
+  '/api/$version/episode': typeof ApiVersionEpisodeRouteWithChildren
   '/api/$version/health': typeof ApiVersionHealthRoute
   '/api/$version/history': typeof ApiVersionHistoryRouteWithChildren
   '/api/$version/movie': typeof ApiVersionMovieRouteWithChildren
@@ -558,6 +573,7 @@ export interface FileRoutesByTo {
   '/api/$version/calendar/$id': typeof ApiVersionCalendarIdRoute
   '/api/$version/command/$id': typeof ApiVersionCommandIdRoute
   '/api/$version/customformat/$id': typeof ApiVersionCustomformatIdRoute
+  '/api/$version/episode/$id': typeof ApiVersionEpisodeIdRoute
   '/api/$version/history/movie': typeof ApiVersionHistoryMovieRoute
   '/api/$version/history/series': typeof ApiVersionHistorySeriesRoute
   '/api/$version/history/since': typeof ApiVersionHistorySinceRoute
@@ -615,6 +631,7 @@ export interface FileRoutesById {
   '/api/$version/calendar': typeof ApiVersionCalendarRouteWithChildren
   '/api/$version/command': typeof ApiVersionCommandRouteWithChildren
   '/api/$version/customformat': typeof ApiVersionCustomformatRouteWithChildren
+  '/api/$version/episode': typeof ApiVersionEpisodeRouteWithChildren
   '/api/$version/health': typeof ApiVersionHealthRoute
   '/api/$version/history': typeof ApiVersionHistoryRouteWithChildren
   '/api/$version/movie': typeof ApiVersionMovieRouteWithChildren
@@ -631,6 +648,7 @@ export interface FileRoutesById {
   '/api/$version/calendar/$id': typeof ApiVersionCalendarIdRoute
   '/api/$version/command/$id': typeof ApiVersionCommandIdRoute
   '/api/$version/customformat/$id': typeof ApiVersionCustomformatIdRoute
+  '/api/$version/episode/$id': typeof ApiVersionEpisodeIdRoute
   '/api/$version/history/movie': typeof ApiVersionHistoryMovieRoute
   '/api/$version/history/series': typeof ApiVersionHistorySeriesRoute
   '/api/$version/history/since': typeof ApiVersionHistorySinceRoute
@@ -689,6 +707,7 @@ export interface FileRouteTypes {
     | '/api/$version/calendar'
     | '/api/$version/command'
     | '/api/$version/customformat'
+    | '/api/$version/episode'
     | '/api/$version/health'
     | '/api/$version/history'
     | '/api/$version/movie'
@@ -705,6 +724,7 @@ export interface FileRouteTypes {
     | '/api/$version/calendar/$id'
     | '/api/$version/command/$id'
     | '/api/$version/customformat/$id'
+    | '/api/$version/episode/$id'
     | '/api/$version/history/movie'
     | '/api/$version/history/series'
     | '/api/$version/history/since'
@@ -761,6 +781,7 @@ export interface FileRouteTypes {
     | '/api/$version/calendar'
     | '/api/$version/command'
     | '/api/$version/customformat'
+    | '/api/$version/episode'
     | '/api/$version/health'
     | '/api/$version/history'
     | '/api/$version/movie'
@@ -777,6 +798,7 @@ export interface FileRouteTypes {
     | '/api/$version/calendar/$id'
     | '/api/$version/command/$id'
     | '/api/$version/customformat/$id'
+    | '/api/$version/episode/$id'
     | '/api/$version/history/movie'
     | '/api/$version/history/series'
     | '/api/$version/history/since'
@@ -833,6 +855,7 @@ export interface FileRouteTypes {
     | '/api/$version/calendar'
     | '/api/$version/command'
     | '/api/$version/customformat'
+    | '/api/$version/episode'
     | '/api/$version/health'
     | '/api/$version/history'
     | '/api/$version/movie'
@@ -849,6 +872,7 @@ export interface FileRouteTypes {
     | '/api/$version/calendar/$id'
     | '/api/$version/command/$id'
     | '/api/$version/customformat/$id'
+    | '/api/$version/episode/$id'
     | '/api/$version/history/movie'
     | '/api/$version/history/series'
     | '/api/$version/history/since'
@@ -906,6 +930,7 @@ export interface RootRouteChildren {
   ApiVersionCalendarRoute: typeof ApiVersionCalendarRouteWithChildren
   ApiVersionCommandRoute: typeof ApiVersionCommandRouteWithChildren
   ApiVersionCustomformatRoute: typeof ApiVersionCustomformatRouteWithChildren
+  ApiVersionEpisodeRoute: typeof ApiVersionEpisodeRouteWithChildren
   ApiVersionHealthRoute: typeof ApiVersionHealthRoute
   ApiVersionHistoryRoute: typeof ApiVersionHistoryRouteWithChildren
   ApiVersionMovieRoute: typeof ApiVersionMovieRouteWithChildren
@@ -1222,6 +1247,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiVersionHealthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/$version/episode': {
+      id: '/api/$version/episode'
+      path: '/api/$version/episode'
+      fullPath: '/api/$version/episode'
+      preLoaderRoute: typeof ApiVersionEpisodeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/$version/customformat': {
       id: '/api/$version/customformat'
       path: '/api/$version/customformat'
@@ -1376,6 +1408,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiVersionHistoryMovieRouteImport
       parentRoute: typeof ApiVersionHistoryRoute
     }
+    '/api/$version/episode/$id': {
+      id: '/api/$version/episode/$id'
+      path: '/$id'
+      fullPath: '/api/$version/episode/$id'
+      preLoaderRoute: typeof ApiVersionEpisodeIdRouteImport
+      parentRoute: typeof ApiVersionEpisodeRoute
+    }
     '/api/$version/customformat/$id': {
       id: '/api/$version/customformat/$id'
       path: '/$id'
@@ -1472,6 +1511,17 @@ const ApiVersionCustomformatRouteWithChildren =
   ApiVersionCustomformatRoute._addFileChildren(
     ApiVersionCustomformatRouteChildren,
   )
+
+interface ApiVersionEpisodeRouteChildren {
+  ApiVersionEpisodeIdRoute: typeof ApiVersionEpisodeIdRoute
+}
+
+const ApiVersionEpisodeRouteChildren: ApiVersionEpisodeRouteChildren = {
+  ApiVersionEpisodeIdRoute: ApiVersionEpisodeIdRoute,
+}
+
+const ApiVersionEpisodeRouteWithChildren =
+  ApiVersionEpisodeRoute._addFileChildren(ApiVersionEpisodeRouteChildren)
 
 interface ApiVersionHistoryRouteChildren {
   ApiVersionHistoryMovieRoute: typeof ApiVersionHistoryMovieRoute
@@ -1624,6 +1674,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiVersionCalendarRoute: ApiVersionCalendarRouteWithChildren,
   ApiVersionCommandRoute: ApiVersionCommandRouteWithChildren,
   ApiVersionCustomformatRoute: ApiVersionCustomformatRouteWithChildren,
+  ApiVersionEpisodeRoute: ApiVersionEpisodeRouteWithChildren,
   ApiVersionHealthRoute: ApiVersionHealthRoute,
   ApiVersionHistoryRoute: ApiVersionHistoryRouteWithChildren,
   ApiVersionMovieRoute: ApiVersionMovieRouteWithChildren,
