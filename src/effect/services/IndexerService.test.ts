@@ -119,19 +119,19 @@ describe("IndexerService", () => {
       const second = yield* svc.refreshDefinitions()
 
       expect(first).toMatchObject({
-        total: 54,
-        created: 54,
+        total: 55,
+        created: 55,
         updated: 0,
         unchanged: 0,
       })
       expect(first.definitions.map((definition) => definition.action)).toEqual(
-        Array(54).fill("created"),
+        Array(55).fill("created"),
       )
       expect(second).toMatchObject({
-        total: 54,
+        total: 55,
         created: 0,
         updated: 0,
-        unchanged: 54,
+        unchanged: 55,
       })
       expect(second.definitions.every((definition) => definition.previousVersion !== null)).toBe(
         true,
@@ -403,6 +403,7 @@ describe("IndexerService", () => {
       expect(definitions.map((definition) => definition.definitionKey).toSorted()).toEqual([
         "alpharatio",
         "anidex",
+        "animebytes",
         "animetorrents",
         "animetosho",
         "bakabt",
@@ -472,6 +473,17 @@ describe("IndexerService", () => {
         baseUrl: "https://nyaa.si/",
         privacy: "public",
         tags: ["public", "anime", "rss"],
+      })
+      expect(
+        definitions.find((definition) => definition.definitionKey === "animebytes"),
+      ).toMatchObject({
+        displayName: "AnimeBytes",
+        protocol: "torrent",
+        implementation: "cardigann_yaml",
+        baseUrl: "https://animebytes.tv/",
+        privacy: "private",
+        supportsRss: true,
+        tags: ["private", "anime", "movies", "tv", "music", "books", "games", "json", "passkey"],
       })
       expect(
         definitions.find((definition) => definition.definitionKey === "animetorrents"),

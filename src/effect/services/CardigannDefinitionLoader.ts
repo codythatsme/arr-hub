@@ -276,6 +276,263 @@ search:
         limit: "{{ .Query.Limit }}"
 `
 
+const ANIME_BYTES = `
+id: animebytes
+name: AnimeBytes
+description: Private anime and anime-adjacent tracker exposed through a first-pass passkey JSON scrape definition.
+type: private
+links:
+  - https://animebytes.tv/
+version: builtin-cardigann-1
+tags:
+  - private
+  - anime
+  - movies
+  - tv
+  - music
+  - books
+  - games
+  - json
+  - passkey
+settings:
+  - name: username
+    label: Username
+    type: text
+    required: true
+    helpText: AnimeBytes username.
+  - name: passkey
+    label: Torrent passkey
+    type: password
+    required: true
+    helpText: AnimeBytes torrent passkey.
+  - name: freeleechOnly
+    label: Freeleech only
+    type: checkbox
+    default: false
+    required: false
+    helpText: Search freeleech torrents only.
+  - name: excludeHentai
+    label: Exclude hentai
+    type: checkbox
+    default: false
+    required: false
+    helpText: Exclude hentai results from anime searches.
+caps:
+  categorymappings:
+    - id: 'anime[tv_series]'
+      cat: TV/Anime
+      desc: TV Series
+      newznab: 5070
+    - id: 'anime[tv_special]'
+      cat: TV/Anime
+      desc: TV Special
+      newznab: 5070
+    - id: 'anime[ova]'
+      cat: TV/Anime
+      desc: OVA
+      newznab: 5070
+    - id: 'anime[ona]'
+      cat: TV/Anime
+      desc: ONA
+      newznab: 5070
+    - id: 'anime[dvd_special]'
+      cat: TV/Anime
+      desc: DVD Special
+      newznab: 5070
+    - id: 'anime[bd_special]'
+      cat: TV/Anime
+      desc: BD Special
+      newznab: 5070
+    - id: 'anime[movie]'
+      cat: Movies
+      desc: Movie
+      newznab: 2000
+    - id: audio
+      cat: Audio
+      desc: Music
+      newznab: 3000
+    - id: audio
+      cat: Audio
+      desc: Single
+      newznab: 3000
+    - id: audio
+      cat: Audio
+      desc: EP
+      newznab: 3000
+    - id: audio
+      cat: Audio
+      desc: Album
+      newznab: 3000
+    - id: audio
+      cat: Audio
+      desc: Compilation
+      newznab: 3000
+    - id: audio
+      cat: Audio/Other
+      desc: Soundtrack
+      newznab: 3050
+    - id: audio
+      cat: Audio
+      desc: Remix CD
+      newznab: 3000
+    - id: audio
+      cat: Audio/Video
+      desc: PV
+      newznab: 3020
+    - id: audio
+      cat: Audio
+      desc: Live Album
+      newznab: 3000
+    - id: audio
+      cat: Audio
+      desc: Image CD
+      newznab: 3000
+    - id: audio
+      cat: Audio
+      desc: Drama CD
+      newznab: 3000
+    - id: audio
+      cat: Audio
+      desc: Vocal CD
+      newznab: 3000
+    - id: 'gamec[game]'
+      cat: Console
+      desc: Game
+      newznab: 1000
+    - id: 'gamec[game]'
+      cat: PC/Games
+      desc: Game
+      newznab: 4050
+    - id: 'gamec[visual_novel]'
+      cat: Console
+      desc: Visual Novel
+      newznab: 1000
+    - id: 'gamec[visual_novel]'
+      cat: PC/Games
+      desc: Visual Novel
+      newznab: 4050
+    - id: 'printedtype[manga]'
+      cat: Books/Comics
+      desc: Manga
+      newznab: 7030
+    - id: 'printedtype[oneshot]'
+      cat: Books/Comics
+      desc: Oneshot
+      newznab: 7030
+    - id: 'printedtype[anthology]'
+      cat: Books/Comics
+      desc: Anthology
+      newznab: 7030
+    - id: 'printedtype[manhwa]'
+      cat: Books/Comics
+      desc: Manhwa
+      newznab: 7030
+    - id: 'printedtype[manhua]'
+      cat: Books/Comics
+      desc: Manhua
+      newznab: 7030
+    - id: 'printedtype[light_novel]'
+      cat: Books/EBook
+      desc: Light Novel
+      newznab: 7020
+    - id: 'printedtype[novel]'
+      cat: Books/EBook
+      desc: Novel
+      newznab: 7020
+    - id: 'printedtype[artbook]'
+      cat: Books/Other
+      desc: Artbook
+      newznab: 7050
+  modes:
+    search: [q]
+    movie-search: [q]
+    tv-search: [q, season, ep]
+    music-search: [q]
+    book-search: [q]
+search:
+  allowEmptyInputs: true
+  paths:
+    - path: 'scrape.php?username={{ .Config.Username | urlencode }}&torrent_pass={{ .Config.Passkey | urlencode }}&sort=grouptime&way=desc&type={{ if eq .Categories "audio" }}music{{ else }}anime{{ end }}&searchstr={{ .Keywords | urlencode }}&limit={{ if .Keywords }}50{{ else }}20{{ end }}{{ range .Categories }}&{{ . }}=1{{ end }}{{ if .Config.FreeleechOnly }}&freeleech=1{{ end }}{{ if .Config.ExcludeHentai }}&hentai=0{{ end }}'
+      response:
+        type: json
+  rows:
+    selector: $.Groups, $.groups
+    attribute: Torrents, torrents
+    multiple: true
+    missingAttributeEqualsNoResults: true
+  fields:
+    id:
+      selector: ID, id
+    groupid:
+      selector: ..ID, ..id
+    categoryname:
+      selector: ..CategoryName, ..categoryName
+    groupname:
+      selector: ..GroupName, ..groupName
+    seriesname:
+      selector: ..SeriesName, ..seriesName
+      optional: true
+      filters:
+        - name: htmldecode
+    fullname:
+      selector: ..FullName, ..fullName
+      optional: true
+      filters:
+        - name: htmldecode
+    maintitle:
+      text: "{{ if .Result.seriesname }}{{ .Result.seriesname }}{{ else }}{{ .Result.fullname }}{{ end }}"
+    year:
+      selector: ..Year, ..year
+      optional: true
+      case:
+        "0": ""
+    editiontitle:
+      selector: EditionData.EditionTitle, editionData.editionTitle
+      optional: true
+      filters:
+        - name: htmldecode
+    property:
+      selector: Property, property
+      optional: true
+      filters:
+        - name: htmldecode
+        - name: replace
+          args: [" | ", "] ["]
+        - name: replace
+          args: [" / ", "] ["]
+    title:
+      text: "{{ .Result.maintitle }}{{ if .Result.year }} ({{ .Result.year }}){{ end }}{{ if .Result.editiontitle }} [{{ .Result.editiontitle }}]{{ end }}{{ if .Result.property }} [{{ .Result.property }}]{{ end }}"
+    details:
+      text: "/torrent/{{ .Result.id }}/group"
+    download:
+      selector: Link, link
+    category:
+      text: '{{ if eq .Result.categoryname "Anime" }}{{ .Result.groupname }}{{ else }}{{ .Result.categoryname }}{{ end }}'
+    files:
+      selector: FileCount, fileCount
+      optional: true
+    date:
+      selector: UploadTime, uploadTime
+      filters:
+        - name: dateparse
+          args: "yyyy-MM-dd HH:mm:ss"
+    size:
+      selector: Size, size
+    grabs:
+      selector: Snatched, snatched
+      optional: true
+    seeders:
+      selector: Seeders, seeders
+    leechers:
+      selector: Leechers, leechers
+    downloadvolumefactor:
+      selector: RawDownMultiplier, rawDownMultiplier
+      default: "1"
+    uploadvolumefactor:
+      selector: RawUpMultiplier, rawUpMultiplier
+      default: "1"
+`
+
 const ANIME_TORRENTS = `
 id: animetorrents
 name: AnimeTorrents
@@ -8818,6 +9075,7 @@ const BUILT_IN_CARDIGANN_SOURCES = [
   OPEN_TV_TORRENTS,
   NYAA,
   ANIME_TOSHO,
+  ANIME_BYTES,
   ANIME_TORRENTS,
   BAKABT,
   NEBULANCE,

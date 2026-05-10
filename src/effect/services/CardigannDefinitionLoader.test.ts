@@ -79,6 +79,7 @@ caps:
       "open-tv-torrents",
       "nyaa",
       "animetosho",
+      "animebytes",
       "animetorrents",
       "bakabt",
       "nebulance",
@@ -147,6 +148,42 @@ caps:
       BUILT_IN_CARDIGANN_DEFINITIONS.find((definition) => definition.definitionKey === "animetosho")
         ?.baseUrl,
     ).toBe("https://feed.animetosho.org")
+    expect(
+      BUILT_IN_CARDIGANN_DEFINITIONS.find(
+        (definition) => definition.definitionKey === "animebytes",
+      ),
+    ).toMatchObject({
+      displayName: "AnimeBytes",
+      baseUrl: "https://animebytes.tv/",
+      privacy: "private",
+      supportsRss: true,
+      supportsSearch: true,
+      tags: ["private", "anime", "movies", "tv", "music", "books", "games", "json", "passkey"],
+      authFields: expect.arrayContaining([
+        expect.objectContaining({ name: "username", type: "text", required: true }),
+        expect.objectContaining({ name: "passkey", type: "password", required: true }),
+        expect.objectContaining({
+          name: "freeleechOnly",
+          type: "checkbox",
+          defaultValue: "false",
+        }),
+        expect.objectContaining({
+          name: "excludeHentai",
+          type: "checkbox",
+          defaultValue: "false",
+        }),
+      ]),
+      capabilities: {
+        searchTypes: ["search", "movie", "tvsearch"],
+        categories: expect.arrayContaining([
+          { id: 5070, name: "TV Series" },
+          { id: 2000, name: "Movie" },
+          { id: 3000, name: "Album" },
+          { id: 4050, name: "Game" },
+          { id: 7030, name: "Manga" },
+        ]),
+      },
+    })
     expect(
       BUILT_IN_CARDIGANN_DEFINITIONS.find(
         (definition) => definition.definitionKey === "animetorrents",

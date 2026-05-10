@@ -278,6 +278,63 @@ const GAZELLE_GAMES_JSON_RESULTS = JSON.stringify({
   },
 })
 
+const ANIME_BYTES_JSON_RESULTS = JSON.stringify({
+  Matches: 2,
+  Groups: [
+    {
+      ID: 9101,
+      CategoryName: "Anime",
+      FullName: "AnimeBytes Full Title",
+      GroupName: "TV Series",
+      SeriesName: "AnimeBytes Show",
+      Year: "2026",
+      Description: "A nested AnimeBytes anime group.",
+      Torrents: [
+        {
+          ID: 8101,
+          EditionData: {
+            EditionTitle: "Season 1",
+          },
+          RawDownMultiplier: 0,
+          RawUpMultiplier: 1,
+          Link: "https://animebytes.tv/torrent/8101/download?passkey=ab-pass",
+          Property: "H.264 | 1080p | WEB",
+          Snatched: 12,
+          Seeders: 44,
+          Leechers: 3,
+          Size: 2_500_000_000,
+          FileCount: 12,
+          UploadTime: "2026-05-10 05:00:00",
+        },
+      ],
+    },
+    {
+      ID: 9102,
+      CategoryName: "Anime",
+      FullName: "AnimeBytes OVA",
+      GroupName: "OVA",
+      SeriesName: "",
+      Year: 2025,
+      Torrents: [
+        {
+          ID: 8102,
+          EditionData: {},
+          RawDownMultiplier: 0.5,
+          RawUpMultiplier: 2,
+          Link: "https://animebytes.tv/torrent/8102/download?passkey=ab-pass",
+          Property: "H.265 / 720p / Blu-ray",
+          Snatched: 8,
+          Seeders: 18,
+          Leechers: 2,
+          Size: "1.4 GB",
+          FileCount: 3,
+          UploadTime: "2026-05-09 04:30:00",
+        },
+      ],
+    },
+  ],
+})
+
 const ANIME_TORRENTS_HTML_RESULTS = `
 <html><body>
   <table>
@@ -4255,6 +4312,103 @@ search:
       uploadFactor: 0,
     })
     expect(releases[1]?.publishedAt.toISOString()).toBe("2026-05-09T01:00:00.000Z")
+  })
+
+  it("parses AnimeBytes nested JSON groups with passkey scrape auth", async () => {
+    const requests: Array<{ url: string; init: RequestInit | undefined }> = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      requests.push({ url: String(input), init })
+      return new Response(ANIME_BYTES_JSON_RESULTS, {
+        headers: { "content-type": "application/json" },
+        status: 200,
+      })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 125,
+      name: "AnimeBytes",
+      type: "cardigann_yaml",
+      definitionKey: "animebytes",
+      baseUrl: "https://animebytes.tv/",
+      apiKey: "",
+      configValues: {
+        username: "ab-user",
+        passkey: "ab pass",
+        freeleechOnly: "true",
+        excludeHentai: "true",
+      },
+      priority: 65,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({
+        term: "Anime.Bytes",
+        type: "tv",
+        categories: [5070],
+      }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const request = requests[0]
+    const url = new URL(request?.url ?? "")
+    expect(url.origin + url.pathname).toBe("https://animebytes.tv/scrape.php")
+    expect(url.searchParams.get("username")).toBe("ab-user")
+    expect(url.searchParams.get("torrent_pass")).toBe("ab pass")
+    expect(url.searchParams.get("sort")).toBe("grouptime")
+    expect(url.searchParams.get("way")).toBe("desc")
+    expect(url.searchParams.get("type")).toBe("anime")
+    expect(url.searchParams.get("searchstr")).toBe("Anime.Bytes")
+    expect(url.searchParams.get("limit")).toBe("50")
+    expect(url.searchParams.get("anime[tv_series]")).toBe("1")
+    expect(url.searchParams.get("anime[ova]")).toBe("1")
+    expect(url.searchParams.get("anime[movie]")).toBeNull()
+    expect(url.searchParams.get("freeleech")).toBe("1")
+    expect(url.searchParams.get("hentai")).toBe("0")
+    expect(releases).toHaveLength(2)
+    expect(releases[0]).toMatchObject({
+      title: "AnimeBytes Show (2026) [Season 1] [H.264] [1080p] [WEB]",
+      downloadUrl: "https://animebytes.tv/torrent/8101/download?passkey=ab-pass",
+      infoUrl: "https://animebytes.tv/torrent/8101/group",
+      category: "5070",
+      size: 2_500_000_000,
+      seeders: 44,
+      leechers: 3,
+      indexerId: 125,
+      indexerName: "AnimeBytes",
+      indexerPriority: 65,
+      downloadFactor: 0,
+      uploadFactor: 1,
+    })
+    expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-10T05:00:00.000Z")
+    expect(releases[1]).toMatchObject({
+      title: "AnimeBytes OVA (2025) [H.265] [720p] [Blu-ray]",
+      downloadUrl: "https://animebytes.tv/torrent/8102/download?passkey=ab-pass",
+      infoUrl: "https://animebytes.tv/torrent/8102/group",
+      category: "5070",
+      size: 1_400_000_000,
+      seeders: 18,
+      leechers: 2,
+      downloadFactor: 0.5,
+      uploadFactor: 2,
+    })
+    expect(releases[1]?.publishedAt.toISOString()).toBe("2026-05-09T04:30:00.000Z")
+
+    requests.length = 0
+    await Effect.runPromise(
+      adapter.search({
+        term: "AnimeBytes Album",
+        type: "general",
+        categories: [3000],
+      }),
+    )
+
+    const musicUrl = new URL(requests[0]?.url ?? "")
+    expect(musicUrl.searchParams.get("type")).toBe("music")
+    expect(musicUrl.searchParams.get("audio")).toBe("1")
+    expect(musicUrl.searchParams.get("anime[tv_series]")).toBeNull()
   })
 
   it("parses AnimeTorrents AJAX HTML results with cookie auth and freeleech filtering", async () => {
