@@ -44,12 +44,14 @@ import { Route as ApiSystemStatusRouteImport } from './routes/api.system.status'
 import { Route as ApiSystemLogsRouteImport } from './routes/api.system.logs'
 import { Route as ApiSystemHealthRouteImport } from './routes/api.system.health'
 import { Route as ApiVersionTagRouteImport } from './routes/api.$version.tag'
+import { Route as ApiVersionHealthRouteImport } from './routes/api.$version.health'
 import { Route as ApiQueueIdRetryRouteImport } from './routes/api.queue.$id.retry'
 import { Route as ApiQueueIdRemoveRouteImport } from './routes/api.queue.$id.remove'
 import { Route as ApiQueueIdBlocklistRouteImport } from './routes/api.queue.$id.blocklist'
 import { Route as ApiIndexersAggregateProtocolRouteImport } from './routes/api.indexers.aggregate.$protocol'
 import { Route as ApiVersionTagDetailRouteImport } from './routes/api.$version.tag.detail'
 import { Route as ApiVersionTagIdRouteImport } from './routes/api.$version.tag.$id'
+import { Route as ApiVersionSystemStatusRouteImport } from './routes/api.$version.system.status'
 import { Route as ApiSystemBackupsIdDownloadRouteImport } from './routes/api.system.backups.$id.download'
 import { Route as ApiIndexersAggregateProtocolApiRouteImport } from './routes/api.indexers.aggregate.$protocol.api'
 import { Route as ApiVersionTagDetailIdRouteImport } from './routes/api.$version.tag.detail.$id'
@@ -229,6 +231,11 @@ const ApiVersionTagRoute = ApiVersionTagRouteImport.update({
   path: '/api/$version/tag',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiVersionHealthRoute = ApiVersionHealthRouteImport.update({
+  id: '/api/$version/health',
+  path: '/api/$version/health',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiQueueIdRetryRoute = ApiQueueIdRetryRouteImport.update({
   id: '/$id/retry',
   path: '/$id/retry',
@@ -259,6 +266,11 @@ const ApiVersionTagIdRoute = ApiVersionTagIdRouteImport.update({
   id: '/$id',
   path: '/$id',
   getParentRoute: () => ApiVersionTagRoute,
+} as any)
+const ApiVersionSystemStatusRoute = ApiVersionSystemStatusRouteImport.update({
+  id: '/api/$version/system/status',
+  path: '/api/$version/system/status',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiSystemBackupsIdDownloadRoute =
   ApiSystemBackupsIdDownloadRouteImport.update({
@@ -308,12 +320,14 @@ export interface FileRoutesByFullPath {
   '/onboarding/': typeof OnboardingIndexRoute
   '/settings/': typeof SettingsIndexRoute
   '/tv/': typeof TvIndexRoute
+  '/api/$version/health': typeof ApiVersionHealthRoute
   '/api/$version/tag': typeof ApiVersionTagRouteWithChildren
   '/api/system/health': typeof ApiSystemHealthRoute
   '/api/system/logs': typeof ApiSystemLogsRoute
   '/api/system/status': typeof ApiSystemStatusRoute
   '/api/system/tasks': typeof ApiSystemTasksRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
+  '/api/$version/system/status': typeof ApiVersionSystemStatusRoute
   '/api/$version/tag/$id': typeof ApiVersionTagIdRoute
   '/api/$version/tag/detail': typeof ApiVersionTagDetailRouteWithChildren
   '/api/indexers/aggregate/$protocol': typeof ApiIndexersAggregateProtocolRouteWithChildren
@@ -354,12 +368,14 @@ export interface FileRoutesByTo {
   '/onboarding': typeof OnboardingIndexRoute
   '/settings': typeof SettingsIndexRoute
   '/tv': typeof TvIndexRoute
+  '/api/$version/health': typeof ApiVersionHealthRoute
   '/api/$version/tag': typeof ApiVersionTagRouteWithChildren
   '/api/system/health': typeof ApiSystemHealthRoute
   '/api/system/logs': typeof ApiSystemLogsRoute
   '/api/system/status': typeof ApiSystemStatusRoute
   '/api/system/tasks': typeof ApiSystemTasksRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
+  '/api/$version/system/status': typeof ApiVersionSystemStatusRoute
   '/api/$version/tag/$id': typeof ApiVersionTagIdRoute
   '/api/$version/tag/detail': typeof ApiVersionTagDetailRouteWithChildren
   '/api/indexers/aggregate/$protocol': typeof ApiIndexersAggregateProtocolRouteWithChildren
@@ -401,12 +417,14 @@ export interface FileRoutesById {
   '/onboarding/': typeof OnboardingIndexRoute
   '/settings/': typeof SettingsIndexRoute
   '/tv/': typeof TvIndexRoute
+  '/api/$version/health': typeof ApiVersionHealthRoute
   '/api/$version/tag': typeof ApiVersionTagRouteWithChildren
   '/api/system/health': typeof ApiSystemHealthRoute
   '/api/system/logs': typeof ApiSystemLogsRoute
   '/api/system/status': typeof ApiSystemStatusRoute
   '/api/system/tasks': typeof ApiSystemTasksRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
+  '/api/$version/system/status': typeof ApiVersionSystemStatusRoute
   '/api/$version/tag/$id': typeof ApiVersionTagIdRoute
   '/api/$version/tag/detail': typeof ApiVersionTagDetailRouteWithChildren
   '/api/indexers/aggregate/$protocol': typeof ApiIndexersAggregateProtocolRouteWithChildren
@@ -449,12 +467,14 @@ export interface FileRouteTypes {
     | '/onboarding/'
     | '/settings/'
     | '/tv/'
+    | '/api/$version/health'
     | '/api/$version/tag'
     | '/api/system/health'
     | '/api/system/logs'
     | '/api/system/status'
     | '/api/system/tasks'
     | '/api/trpc/$'
+    | '/api/$version/system/status'
     | '/api/$version/tag/$id'
     | '/api/$version/tag/detail'
     | '/api/indexers/aggregate/$protocol'
@@ -495,12 +515,14 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/settings'
     | '/tv'
+    | '/api/$version/health'
     | '/api/$version/tag'
     | '/api/system/health'
     | '/api/system/logs'
     | '/api/system/status'
     | '/api/system/tasks'
     | '/api/trpc/$'
+    | '/api/$version/system/status'
     | '/api/$version/tag/$id'
     | '/api/$version/tag/detail'
     | '/api/indexers/aggregate/$protocol'
@@ -541,12 +563,14 @@ export interface FileRouteTypes {
     | '/onboarding/'
     | '/settings/'
     | '/tv/'
+    | '/api/$version/health'
     | '/api/$version/tag'
     | '/api/system/health'
     | '/api/system/logs'
     | '/api/system/status'
     | '/api/system/tasks'
     | '/api/trpc/$'
+    | '/api/$version/system/status'
     | '/api/$version/tag/$id'
     | '/api/$version/tag/detail'
     | '/api/indexers/aggregate/$protocol'
@@ -588,12 +612,14 @@ export interface RootRouteChildren {
   OnboardingIndexRoute: typeof OnboardingIndexRoute
   SettingsIndexRoute: typeof SettingsIndexRoute
   TvIndexRoute: typeof TvIndexRoute
+  ApiVersionHealthRoute: typeof ApiVersionHealthRoute
   ApiVersionTagRoute: typeof ApiVersionTagRouteWithChildren
   ApiSystemHealthRoute: typeof ApiSystemHealthRoute
   ApiSystemLogsRoute: typeof ApiSystemLogsRoute
   ApiSystemStatusRoute: typeof ApiSystemStatusRoute
   ApiSystemTasksRoute: typeof ApiSystemTasksRoute
   ApiTrpcSplatRoute: typeof ApiTrpcSplatRoute
+  ApiVersionSystemStatusRoute: typeof ApiVersionSystemStatusRoute
   ApiIndexersAggregateProtocolRoute: typeof ApiIndexersAggregateProtocolRouteWithChildren
   ApiSystemBackupsIdDownloadRoute: typeof ApiSystemBackupsIdDownloadRoute
 }
@@ -845,6 +871,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiVersionTagRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/$version/health': {
+      id: '/api/$version/health'
+      path: '/api/$version/health'
+      fullPath: '/api/$version/health'
+      preLoaderRoute: typeof ApiVersionHealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/queue/$id/retry': {
       id: '/api/queue/$id/retry'
       path: '/$id/retry'
@@ -886,6 +919,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/$version/tag/$id'
       preLoaderRoute: typeof ApiVersionTagIdRouteImport
       parentRoute: typeof ApiVersionTagRoute
+    }
+    '/api/$version/system/status': {
+      id: '/api/$version/system/status'
+      path: '/api/$version/system/status'
+      fullPath: '/api/$version/system/status'
+      preLoaderRoute: typeof ApiVersionSystemStatusRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/system/backups/$id/download': {
       id: '/api/system/backups/$id/download'
@@ -996,12 +1036,14 @@ const rootRouteChildren: RootRouteChildren = {
   OnboardingIndexRoute: OnboardingIndexRoute,
   SettingsIndexRoute: SettingsIndexRoute,
   TvIndexRoute: TvIndexRoute,
+  ApiVersionHealthRoute: ApiVersionHealthRoute,
   ApiVersionTagRoute: ApiVersionTagRouteWithChildren,
   ApiSystemHealthRoute: ApiSystemHealthRoute,
   ApiSystemLogsRoute: ApiSystemLogsRoute,
   ApiSystemStatusRoute: ApiSystemStatusRoute,
   ApiSystemTasksRoute: ApiSystemTasksRoute,
   ApiTrpcSplatRoute: ApiTrpcSplatRoute,
+  ApiVersionSystemStatusRoute: ApiVersionSystemStatusRoute,
   ApiIndexersAggregateProtocolRoute:
     ApiIndexersAggregateProtocolRouteWithChildren,
   ApiSystemBackupsIdDownloadRoute: ApiSystemBackupsIdDownloadRoute,
