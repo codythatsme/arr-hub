@@ -136,6 +136,7 @@ Completed in atomic commits after this plan was written. Milestone 5 is summariz
 - `4deb114e6b` added proactive diagnostics health checks for app data access, missing root folders, inaccessible remote path mappings, all-disabled integrations, and completed-download cleanup policy warnings.
 - `d978dc6518` added plugin author documentation, V1 API/capability version checks, and Settings contract health display.
 - `1fbf3287c4` added plugin lifecycle log recording, a plugin-scoped logs API, and a Settings plugin logs panel.
+- `3da82c74b7` documented the V1 plugin scope decision: plugins are adapter-only, while Cardigann indexer definitions stay in definition sources.
 - Subsequent Milestone 5 commits hardened the generic Cardigann runtime, request templating, category mapping, auth controls, and aggregate app-sync behavior enough for representative built-ins and checksum-pinned remote definitions. These commits are runtime support, not a decision to ship the expanded tracker catalogue.
 - `5cbb9c9e90` removed the deferred expanded built-in tracker catalogue from `main`. The safety branch `backup/milestone5-expanded-catalog` preserves the catalogue spike at `ab9e42393b`; those tracker definitions, including long-tail and adult/XXX sources, are not current built-in support.
 
@@ -680,11 +681,11 @@ Recommended minimum:
 
 Current state:
 
-- Trusted local in-process plugins exist, with author documentation, V1 API/capability version checks, Settings contract health display, and plugin lifecycle logs.
+- Trusted local in-process plugins exist, with author documentation, V1 API/capability version checks, Settings contract health display, plugin lifecycle logs, and an adapter-only V1 scope decision. Cardigann indexer definitions remain in definition sources rather than plugin manifests.
 
 Gaps:
 
-- No sandboxing, no marketplace/distribution flow, and no decision on whether plugins can cover indexer definitions or only adapters.
+- No sandboxing and no marketplace/distribution flow.
 
 Tasks:
 
@@ -692,7 +693,7 @@ Tasks:
 - [x] Add capability version negotiation.
 - [x] Add plugin health UI.
 - [x] Add plugin logs UI.
-- [ ] Decide whether plugins can cover indexer definitions or only adapters.
+- [x] Decide whether plugins can cover indexer definitions or only adapters.
 
 ### Plex/Tautulli Scope
 
