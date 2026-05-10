@@ -102,6 +102,7 @@ Completed in atomic commits after this plan was written. Milestone 5 is summariz
 - `737019c547` exposed first-pass URL-backed definition source management and checksum-pinned catalog imports in Settings.
 - `0186ed7e03` exposed first-pass Radarr/Sonarr indexer application sync controls in Settings.
 - `fc4d30ab51` exposed first-pass built-in definition refresh controls in Settings.
+- `ec7b6f3776` added true RSS/recent-feed sync, cached recent releases, and switched RSS scheduler jobs away from repeated active searches.
 - `ca8703c1bf` updated deterministic indexer definition tests for the curated built-in catalogue.
 - `beab879376` preserved app-side remote settings during aggregate Radarr/Sonarr app sync updates.
 - `904f5f2301` separated Sonarr standard and anime category filters for aggregate app sync.
@@ -130,13 +131,13 @@ Backend/service surfaces:
 - `src/effect/services/DownloadClientService.ts`, `QBittorrentAdapter.ts`, `SABnzbdAdapter.ts`, `TransmissionAdapter.ts`, `DelugeAdapter.ts`, `NZBGetAdapter.ts`, and `BlackholeAdapter.ts`: add/list/test/grab/queue/remove downloads for qBittorrent, SABnzbd, first-pass Transmission, first-pass Deluge, first-pass NZBGet, and first-pass torrent/usenet blackholes, including persisted completed output paths where the client reports them.
 - `src/effect/services/DiagnosticsService.ts`: aggregates integration health and root-folder accessibility/write-permission checks for the System view and container health endpoint.
 - `src/effect/services/ReleasePolicyEngine.ts`: parses titles, checks allowed quality, custom format score, and basic upgrade scoring.
-- `src/effect/services/AcquisitionPipeline.ts`: movie search/evaluate/grab, episode search/evaluate/grab, season pack first search, series search.
+- `src/effect/services/AcquisitionPipeline.ts`: movie search/evaluate/grab, episode search/evaluate/grab, season pack first search, series search, and RSS/recent candidate evaluation for movies and episodes.
 - `src/effect/services/MediaImportService.ts`: imports completed movie and episode files from downloader output paths, applies remote path mappings, filters samples, applies copy/move/hardlink settings, builds target names, stores real file paths, media file records, and quality state, supports manual import, scans existing libraries, and previews/applies renames.
 - `src/effect/services/DownloadMonitor.ts`: polls download clients, updates queue rows, calls media import for completed linked downloads, leaves failed imports visible in queue, triggers Plex library refresh.
 - `src/effect/services/MediaServerService.ts` and `PlexAdapter.ts`: Plex connection, libraries, library sync matching, refresh, active sessions, shared users.
 - `src/effect/services/PlexSessionMonitor.ts`: active stream monitoring and notification trigger emission.
 - `src/effect/services/NotificationService.ts`: in-app and webhook notification channels.
-- `src/effect/services/SchedulerService.ts` and `SchedulerLoop.ts`: recurring RSS/cutoff/download monitor jobs, TV job types, and metadata refresh jobs.
+- `src/effect/services/SchedulerService.ts` and `SchedulerLoop.ts`: recurring true RSS/cutoff/download monitor jobs, TV job types, and metadata refresh jobs.
 - `src/effect/services/MetadataRefreshService.ts`: refreshes movie and series metadata from TMDB and upserts season/episode data.
 - `src/effect/services/ImportService.ts`: one-time setup import from Radarr movies and Sonarr series, including Sonarr seasons, episodes, file paths, monitored state, and existing quality.
 - `src/effect/services/PluginLoader.ts`: trusted local plugin loading.
@@ -420,22 +421,22 @@ Acceptance criteria:
 
 Current state:
 
-- `SchedulerLoop` job `rss_sync` loops over every wanted movie and performs active title search.
-- `tv_rss_sync` loops over every wanted episode and performs active search.
-- There is no recent-release cache or true RSS feed processing.
+- `IndexerService.rss` fetches RSS/recent feeds from RSS-enabled indexers through Torznab/Newznab and Cardigann adapters, records RSS stats/health, and caches candidates in `recent_releases`.
+- `SchedulerLoop` job `rss_sync` fetches recent releases once and evaluates them against monitored wanted movies without active-searching every title.
+- `tv_rss_sync` fetches recent releases once and evaluates them against monitored wanted aired episodes without active-searching every episode.
 
 Gap:
 
-- Sonarr/Radarr RSS sync does not repeatedly active-search every wanted item. It consumes recent releases, matches them against wanted monitored media, and decides whether to grab.
+- Cutoff-unmet search still uses active search. Broader parity still needs richer cutoff scheduling and any future season-pack RSS matching behavior beyond single-episode RSS evaluation.
 
 Tasks:
 
-- Add indexer RSS/recent feed support distinct from active search.
-- Store recent releases with indexer/source metadata.
-- Match recent releases to movies/episodes before decision evaluation.
-- Add per-indexer RSS/search enable flags. First-pass persisted flags and Settings controls are implemented; true RSS/recent feed processing still remains.
-- Add backoff and health checks for failing RSS endpoints.
-- Add cutoff unmet queries for movies and episodes based on profile cutoff state.
+- [x] Add indexer RSS/recent feed support distinct from active search.
+- [x] Store recent releases with indexer/source metadata.
+- [x] Match recent releases to movies/episodes before decision evaluation.
+- [x] Add per-indexer RSS/search enable flags.
+- [x] Add backoff and health checks for failing RSS endpoints.
+- [ ] Add cutoff unmet queries for movies and episodes based on profile cutoff state.
 
 Acceptance criteria:
 
