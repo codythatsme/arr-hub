@@ -1543,6 +1543,266 @@ search:
       text: "1"
 `
 
+const GAZELLE_GAMES = `
+id: gazellegames
+name: GazelleGames
+description: Private games tracker exposed through a first-pass X-API-Key JSON Cardigann definition with manual torrent passkey downloads.
+type: private
+links:
+  - https://gazellegames.net/
+version: builtin-cardigann-1
+tags:
+  - private
+  - games
+  - json
+  - api-key
+  - passkey
+settings:
+  - name: apiKey
+    label: API key
+    type: password
+    required: true
+    helpText: GazelleGames API key.
+  - name: passkey
+    label: Torrent passkey
+    type: password
+    required: true
+    helpText: GazelleGames torrent passkey used to render direct download URLs.
+  - name: searchGroupNames
+    label: Search group names
+    type: checkbox
+    default: false
+    required: false
+    helpText: Search game group names instead of torrent descriptions.
+  - name: freeLeechOnly
+    label: Freeleech only
+    type: checkbox
+    default: false
+    required: false
+caps:
+  categorymappings:
+    - id: Windows
+      cat: PC/Games
+      desc: Windows
+      newznab: 4050
+    - id: DOS
+      cat: PC/Games
+      desc: DOS
+      newznab: 4050
+    - id: Android
+      cat: PC/Phone-Android
+      desc: Android
+      newznab: 4070
+    - id: iOS
+      cat: PC/Phone-IOS
+      desc: iOS
+      newznab: 4060
+    - id: Mac
+      cat: Console/Other
+      desc: Mac
+      newznab: 1090
+    - id: Linux
+      cat: Console/Other
+      desc: Linux
+      newznab: 1090
+    - id: Xbox
+      cat: Console/Xbox
+      desc: Xbox
+      newznab: 1040
+    - id: Xbox 360
+      cat: Console/Xbox 360
+      desc: Xbox 360
+      newznab: 1050
+    - id: Nintendo DS
+      cat: Console/NDS
+      desc: Nintendo DS
+      newznab: 1010
+    - id: Nintendo 3DS
+      cat: Console/Other
+      desc: Nintendo 3DS
+      newznab: 1090
+    - id: Switch
+      cat: Console/Other
+      desc: Switch
+      newznab: 1090
+    - id: Wii
+      cat: Console/Wii
+      desc: Wii
+      newznab: 1030
+    - id: Wii U
+      cat: Console/WiiU
+      desc: Wii U
+      newznab: 1130
+    - id: PlayStation 3
+      cat: Console/PS3
+      desc: PlayStation 3
+      newznab: 1080
+    - id: PlayStation 4
+      cat: Console/PS4
+      desc: PlayStation 4
+      newznab: 1180
+    - id: PlayStation Portable
+      cat: Console/PSP
+      desc: PlayStation Portable
+      newznab: 1020
+    - id: PlayStation Vita
+      cat: Console/PS Vita
+      desc: PlayStation Vita
+      newznab: 1120
+    - id: Board Game
+      cat: Console/Other
+      desc: Board Game
+      newznab: 1090
+    - id: Pen and Paper RPG
+      cat: Console/Other
+      desc: Pen and Paper RPG
+      newznab: 1090
+    - id: "1"
+      cat: PC/Games
+      desc: Games
+      newznab: 4050
+    - id: "2"
+      cat: PC/0day
+      desc: Applications
+      newznab: 4010
+    - id: "3"
+      cat: Books/EBook
+      desc: E-Books
+      newznab: 7020
+    - id: "4"
+      cat: Audio/Other
+      desc: OST
+      newznab: 3050
+  modes:
+    search: [q]
+search:
+  allowEmptyInputs: true
+  headers:
+    X-API-Key: "{{ .Config.APIKey }}"
+  paths:
+    - path: 'api.php?request=search&search_type=torrents&empty_groups=filled&order_by=time&order_way=desc{{ if .Keywords }}{{ if .Config.SearchGroupNames }}&groupname={{ .Keywords | replace "." " " | urlencode }}{{ else }}&searchstr={{ .Keywords | replace "." " " | urlencode }}{{ end }}{{ end }}{{ if .Config.FreeLeechOnly }}&freetorrent=1{{ end }}'
+      response:
+        type: json
+  rows:
+    selector: $.response.*, $.Response.*
+    attribute: torrents, Torrents
+    multiple: true
+    missingAttributeEqualsNoResults: true
+  fields:
+    id:
+      selector: __key
+    groupid:
+      selector: ..__key
+    platform:
+      selector: ..artists[0].name, ..Artists[0].Name
+      optional: true
+    categoryid:
+      selector: categoryId, CategoryId
+      default: "1090"
+      case:
+        "1": "4050"
+        "2": "4010"
+        "3": "7020"
+        "4": "3050"
+        "*": "1090"
+    releasetitle:
+      selector: releaseTitle, ReleaseTitle
+      filters:
+        - name: htmldecode
+    groupyear:
+      selector: ..year, ..Year
+      optional: true
+      case:
+        "0": ""
+    remastertitle:
+      selector: remasterTitle, RemasterTitle
+      optional: true
+      filters:
+        - name: htmldecode
+    remasteryear:
+      selector: remasterYear, RemasterYear
+      optional: true
+    format:
+      selector: format, Format
+      optional: true
+    encoding:
+      selector: encoding, Encoding
+      optional: true
+    formatencoding:
+      text: "{{ .Result.format }} {{ .Result.encoding }}"
+      filters:
+        - name: trim
+    language:
+      selector: language, Language
+      optional: true
+    region:
+      selector: region, Region
+      optional: true
+    miscellaneous:
+      selector: miscellaneous, Miscellaneous
+      optional: true
+    dupable:
+      selector: dupable, Dupable
+      optional: true
+      case:
+        "1": "Trumpable"
+        "*": ""
+    gamedoxtype:
+      selector: GameDOXType, gameDoxType, GameDoxType
+      optional: true
+    title:
+      text: "{{ .Result.releasetitle }}{{ if .Result.groupyear }} ({{ .Result.groupyear }}){{ end }}{{ if .Result.remastertitle }} [{{ .Result.remastertitle }} {{ .Result.remasteryear }}]{{ end }}{{ if .Result.formatencoding }} [{{ .Result.formatencoding }}]{{ end }}{{ if .Result.platform }} [{{ .Result.platform }}]{{ end }}{{ if .Result.language }} [{{ .Result.language }}]{{ end }}{{ if .Result.region }} [{{ .Result.region }}]{{ end }}{{ if .Result.miscellaneous }} [{{ .Result.miscellaneous }}]{{ end }}{{ if .Result.dupable }} [{{ .Result.dupable }}]{{ end }}{{ if .Result.gamedoxtype }} [{{ .Result.gamedoxtype }}]{{ end }}"
+    details:
+      text: "/torrents.php?id={{ .Result.groupid }}&torrentid={{ .Result.id }}"
+    download:
+      text: "/torrents.php?action=download&id={{ .Result.id }}&authkey=prowlarr&torrent_pass={{ .Config.Passkey | urlencode }}"
+    category:
+      text: "{{ if .Result.platform }}{{ .Result.platform }}{{ else }}{{ .Result.categoryid }}{{ end }}"
+    files:
+      selector: fileCount, FileCount
+      optional: true
+    date:
+      selector: time, Time
+    size:
+      selector: size, Size
+    grabs:
+      selector: snatched, Snatched
+      optional: true
+    seeders:
+      selector: seeders, Seeders
+    leechers:
+      selector: leechers, Leechers
+    freetorrent:
+      selector: freeTorrent, FreeTorrent
+      optional: true
+    freeleechflag:
+      selector: freeTorrent, FreeTorrent
+      optional: true
+      case:
+        FreeLeech: "True"
+        Free Leech: "True"
+        Neutral: "True"
+        "*": ""
+    lowseedfreeflag:
+      selector: lowSeedFL, LowSeedFL
+      optional: true
+      case:
+        "true": "True"
+        "True": "True"
+        "1": "True"
+        "*": ""
+    neutralflag:
+      selector: freeTorrent, FreeTorrent
+      optional: true
+      case:
+        Neutral: "True"
+        "*": ""
+    downloadvolumefactor:
+      text: '{{ if or .Result.freeleechflag .Result.lowseedfreeflag }}0{{ else }}1{{ end }}'
+    uploadvolumefactor:
+      text: '{{ if .Result.neutralflag }}0{{ else }}1{{ end }}'
+`
+
 const ANIDEX = `
 id: anidex
 name: Anidex
@@ -8566,6 +8826,7 @@ const BUILT_IN_CARDIGANN_SOURCES = [
   NORBITS,
   TOLOKA,
   MYANONAMOUSE,
+  GAZELLE_GAMES,
   ANIDEX,
   SHIZA_PROJECT,
   SUBSPLEASE,

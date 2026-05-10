@@ -1154,6 +1154,18 @@ function isJsonRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
+function withJsonObjectKey(value: unknown, key: string): unknown {
+  if (!isJsonRecord(value) || Object.hasOwn(value, "__key")) return value
+
+  const keyed = { ...value }
+  Object.defineProperty(keyed, "__key", {
+    value: key,
+    enumerable: false,
+    configurable: true,
+  })
+  return keyed
+}
+
 function selectJsonPathValues(
   value: unknown,
   tokens: ReadonlyArray<JsonPathToken>,
@@ -1167,7 +1179,7 @@ function selectJsonPathValues(
         if (Array.isArray(current)) {
           next.push(...current)
         } else if (isJsonRecord(current)) {
-          next.push(...Object.values(current))
+          next.push(...Object.entries(current).map(([key, item]) => withJsonObjectKey(item, key)))
         }
       } else if (typeof token === "number") {
         if (Array.isArray(current) && token < current.length) next.push(current[token])
@@ -2847,10 +2859,13 @@ function jsonFieldValue(
     value = renderTemplate(field.text, variables)
   } else if (field.selector !== undefined) {
     const rawSelector = renderTemplate(field.selector, variables).trim()
-    const selected = selectJsonSelectorValues(
-      rawSelector.startsWith("..") ? parent : row,
-      rawSelector.replace(/^\.+/, ""),
-    )
+    const parentScoped = rawSelector.startsWith("..")
+    const selectorText = parentScoped
+      ? splitJsonSelectorList(rawSelector)
+          .map((selector) => selector.replace(/^\.+/, ""))
+          .join(", ")
+      : rawSelector
+    const selected = selectJsonSelectorValues(parentScoped ? parent : row, selectorText)
     if (selected !== null) value = jsonSelectionToFieldString(selected)
   }
 
@@ -3162,7 +3177,8 @@ function jsonRowAttributeValues(
 
 function jsonMultipleRowValues(row: unknown): ReadonlyArray<unknown> {
   if (Array.isArray(row)) return row
-  if (isJsonRecord(row)) return Object.values(row)
+  if (isJsonRecord(row))
+    return Object.entries(row).map(([key, value]) => withJsonObjectKey(value, key))
   return []
 }
 

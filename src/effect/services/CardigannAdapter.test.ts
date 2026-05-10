@@ -215,6 +215,69 @@ const MYANONAMOUSE_JSON_RESULTS = JSON.stringify({
   ],
 })
 
+const GAZELLE_GAMES_JSON_RESULTS = JSON.stringify({
+  status: "success",
+  response: {
+    "9001": {
+      artists: [{ id: "1", name: "Windows" }],
+      year: 2026,
+      torrents: {
+        "7001": {
+          categoryId: 1,
+          format: "ISO",
+          encoding: "Scene",
+          language: "English",
+          region: "Region Free",
+          remasterYear: "2026",
+          remasterTitle: "Deluxe Edition",
+          releaseTitle: "Gazelle Game",
+          miscellaneous: "DLC Included",
+          scene: 1,
+          dupable: 0,
+          time: "2026-05-10T05:00:00.000Z",
+          torrentType: "TORRENT",
+          fileCount: 42,
+          size: "1234567890",
+          snatched: 17,
+          seeders: 31,
+          leechers: 4,
+          freeTorrent: "FreeLeech",
+          lowSeedFL: false,
+        },
+      },
+    },
+    "9002": {
+      artists: [],
+      year: 0,
+      torrents: {
+        "7002": {
+          categoryId: 4,
+          format: "MP3",
+          encoding: "V0",
+          language: "",
+          region: "",
+          remasterYear: "",
+          remasterTitle: "",
+          releaseTitle: "Gazelle OST 2026",
+          miscellaneous: "",
+          scene: 0,
+          dupable: 1,
+          time: "2026-05-09T01:00:00.000Z",
+          torrentType: "TORRENT",
+          fileCount: 12,
+          size: "700 MB",
+          snatched: 8,
+          seeders: 9,
+          leechers: 1,
+          freeTorrent: "Neutral",
+          lowSeedFL: false,
+          GameDOXType: "Manual",
+        },
+      },
+    },
+  },
+})
+
 const ANIME_TORRENTS_HTML_RESULTS = `
 <html><body>
   <table>
@@ -4112,6 +4175,88 @@ search:
     expect(releases[1]?.publishedAt.toISOString()).toBe("2026-05-09T00:00:00.000Z")
   })
 
+  it("parses GazelleGames JSON object-map results with API key auth and passkey downloads", async () => {
+    const requests: Array<{ url: string; init: RequestInit | undefined }> = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      requests.push({ url: String(input), init })
+      return new Response(GAZELLE_GAMES_JSON_RESULTS, {
+        headers: { "content-type": "application/json" },
+        status: 200,
+      })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 124,
+      name: "GazelleGames",
+      type: "cardigann_yaml",
+      definitionKey: "gazellegames",
+      baseUrl: "https://gazellegames.net/",
+      apiKey: "ggn-api",
+      configValues: {
+        passkey: "ggn-pass 123",
+        searchGroupNames: "true",
+        freeLeechOnly: "true",
+      },
+      priority: 60,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({
+        term: "Gazelle.Game",
+        type: "general",
+        categories: [4050],
+      }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const request = requests[0]
+    const url = new URL(request?.url ?? "")
+    expect(url.origin + url.pathname).toBe("https://gazellegames.net/api.php")
+    expect(url.searchParams.get("request")).toBe("search")
+    expect(url.searchParams.get("search_type")).toBe("torrents")
+    expect(url.searchParams.get("empty_groups")).toBe("filled")
+    expect(url.searchParams.get("order_by")).toBe("time")
+    expect(url.searchParams.get("order_way")).toBe("desc")
+    expect(url.searchParams.get("groupname")).toBe("Gazelle Game")
+    expect(url.searchParams.get("searchstr")).toBeNull()
+    expect(url.searchParams.get("freetorrent")).toBe("1")
+    expect(new Headers(request?.init?.headers).get("x-api-key")).toBe("ggn-api")
+    expect(releases).toHaveLength(2)
+    expect(releases[0]).toMatchObject({
+      title:
+        "Gazelle Game (2026) [Deluxe Edition 2026] [ISO Scene] [Windows] [English] [Region Free] [DLC Included]",
+      downloadUrl:
+        "https://gazellegames.net/torrents.php?action=download&id=7001&authkey=prowlarr&torrent_pass=ggn-pass%20123",
+      infoUrl: "https://gazellegames.net/torrents.php?id=9001&torrentid=7001",
+      category: "4050",
+      size: 1_234_567_890,
+      seeders: 31,
+      leechers: 4,
+      indexerId: 124,
+      indexerName: "GazelleGames",
+      indexerPriority: 60,
+      downloadFactor: 0,
+      uploadFactor: 1,
+    })
+    expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-10T05:00:00.000Z")
+    expect(releases[1]).toMatchObject({
+      title: "Gazelle OST 2026 [MP3 V0] [Trumpable] [Manual]",
+      downloadUrl:
+        "https://gazellegames.net/torrents.php?action=download&id=7002&authkey=prowlarr&torrent_pass=ggn-pass%20123",
+      infoUrl: "https://gazellegames.net/torrents.php?id=9002&torrentid=7002",
+      category: "3050",
+      size: 700_000_000,
+      seeders: 9,
+      leechers: 1,
+      downloadFactor: 0,
+      uploadFactor: 0,
+    })
+    expect(releases[1]?.publishedAt.toISOString()).toBe("2026-05-09T01:00:00.000Z")
+  })
+
   it("parses AnimeTorrents AJAX HTML results with cookie auth and freeleech filtering", async () => {
     const requests: Array<{ url: string; init: RequestInit | undefined }> = []
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -5793,7 +5938,7 @@ search:
     expect(new Headers(searchRequest?.init?.headers).get("cookie")).toBe("ar_session=abc")
     expect(releases).toHaveLength(2)
     expect(releases[0]).toMatchObject({
-      title: "AlphaRatio Movie (2026) [H.264 1080p] [WEB]",
+      title: "Alpha - AlphaRatio Movie (2026) [H.264 1080p] [WEB]",
       downloadUrl: "https://alpharatio.cc/torrents.php?action=download&id=9011&usetoken=1",
       infoUrl: "https://alpharatio.cc/torrents.php?id=901&torrentid=9011",
       category: "2040",
@@ -6042,7 +6187,7 @@ search:
     expect(new Headers(searchRequest?.init?.headers).get("cookie")).toBe("dic_session=abc")
     expect(releases).toHaveLength(2)
     expect(releases[0]).toMatchObject({
-      title: "DICMusic Album (2026) [FLAC Lossless] [WEB] [Cue]",
+      title: "DIC Artist - DICMusic Album (2026) [FLAC Lossless] [WEB] [Cue]",
       downloadUrl: "https://dicmusic.com/torrents.php?action=download&id=9711&usetoken=1",
       infoUrl: "https://dicmusic.com/torrents.php?id=971&torrentid=9711",
       category: "3000",

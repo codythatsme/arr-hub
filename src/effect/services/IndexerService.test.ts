@@ -119,19 +119,19 @@ describe("IndexerService", () => {
       const second = yield* svc.refreshDefinitions()
 
       expect(first).toMatchObject({
-        total: 53,
-        created: 53,
+        total: 54,
+        created: 54,
         updated: 0,
         unchanged: 0,
       })
       expect(first.definitions.map((definition) => definition.action)).toEqual(
-        Array(53).fill("created"),
+        Array(54).fill("created"),
       )
       expect(second).toMatchObject({
-        total: 53,
+        total: 54,
         created: 0,
         updated: 0,
-        unchanged: 53,
+        unchanged: 54,
       })
       expect(second.definitions.every((definition) => definition.previousVersion !== null)).toBe(
         true,
@@ -414,6 +414,7 @@ describe("IndexerService", () => {
         "dicmusic",
         "filelist",
         "funfile",
+        "gazellegames",
         "generic-newznab",
         "generic-torznab",
         "greatposterwall",
@@ -569,6 +570,17 @@ describe("IndexerService", () => {
         privacy: "private",
         supportsRss: false,
         tags: ["private", "books", "audiobooks", "json", "cookie-auth"],
+      })
+      expect(
+        definitions.find((definition) => definition.definitionKey === "gazellegames"),
+      ).toMatchObject({
+        displayName: "GazelleGames",
+        protocol: "torrent",
+        implementation: "cardigann_yaml",
+        baseUrl: "https://gazellegames.net/",
+        privacy: "private",
+        supportsRss: true,
+        tags: ["private", "games", "json", "api-key", "passkey"],
       })
       expect(definitions.find((definition) => definition.definitionKey === "anidex")).toMatchObject(
         {

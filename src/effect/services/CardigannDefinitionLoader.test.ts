@@ -87,6 +87,7 @@ caps:
       "norbits",
       "toloka",
       "myanonamouse",
+      "gazellegames",
       "anidex",
       "shizaproject",
       "subsplease",
@@ -393,6 +394,43 @@ caps:
           { id: 7030, name: "Ebooks - Comics/Graphic novels" },
           { id: 7010, name: "Ebooks - Magazines/Newspapers" },
           { id: 7040, name: "Ebooks - Math/Science/Tech" },
+        ]),
+      },
+    })
+    expect(
+      BUILT_IN_CARDIGANN_DEFINITIONS.find(
+        (definition) => definition.definitionKey === "gazellegames",
+      ),
+    ).toMatchObject({
+      displayName: "GazelleGames",
+      baseUrl: "https://gazellegames.net/",
+      privacy: "private",
+      supportsRss: true,
+      supportsSearch: true,
+      tags: ["private", "games", "json", "api-key", "passkey"],
+      authFields: expect.arrayContaining([
+        expect.objectContaining({ name: "apiKey", type: "password", required: true }),
+        expect.objectContaining({ name: "passkey", type: "password", required: true }),
+        expect.objectContaining({
+          name: "searchGroupNames",
+          type: "checkbox",
+          defaultValue: "false",
+        }),
+        expect.objectContaining({
+          name: "freeLeechOnly",
+          type: "checkbox",
+          defaultValue: "false",
+        }),
+      ]),
+      capabilities: {
+        searchTypes: ["search"],
+        categories: expect.arrayContaining([
+          { id: 4050, name: "Windows" },
+          { id: 4070, name: "Android" },
+          { id: 1010, name: "Nintendo DS" },
+          { id: 1180, name: "PlayStation 4" },
+          { id: 7020, name: "E-Books" },
+          { id: 3050, name: "OST" },
         ]),
       },
     })
