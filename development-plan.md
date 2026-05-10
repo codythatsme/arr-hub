@@ -22,7 +22,7 @@ Primary blockers:
 
 - The operator UI now exposes the existing backend workflows and has persisted browser smoke coverage, but deeper workflows still depend on backend work listed below.
 - The metadata lifecycle is now functional for TMDB-backed movie/TV adds, Sonarr episode import, refresh jobs, and calendar population, but still lacks Sonarr/Radarr-depth alternate titles, ratings, local artwork cache, availability semantics, and TVDB/SkyHook parity.
-- Completed download handling now has a real import path that resolves completed output paths and remote path mappings, selects media files, filters samples, renames, copy/move/hardlinks into library folders, persists media file records, supports manual import, scans existing libraries, and exposes rename preview/action. It still lacks unpack/repair waiting beyond downloader status normalization, free-space checks, recycle-bin support, and deeper Sonarr/Radarr import rejection rules.
+- Completed download handling now has a real import path that resolves completed output paths and remote path mappings, waits for stable completed output/post-processing markers, rejects wrong-media/disallowed-quality/bad-upgrade imports, selects media files, filters samples, renames, copy/move/hardlinks into library folders, persists media file records, supports manual import, scans existing libraries, and exposes rename preview/action. It still lacks import-time free-space checks, recycle-bin support, and deeper Sonarr/Radarr import parity.
 - The release decision engine now has persistent blocklist enforcement, focused specification modules, target title/year/episode/season checks, size/free-space/queue/protocol/client availability checks, minimum age/retention/seeder gates, required/ignored/preferred release terms, sample/hardcoded subtitle/raw-disk rejection, and first-pass TV/anime edge checks. It still lacks full Sonarr/Radarr parity for language profiles, tagged release profiles, deep media inspection, proper/repack version upgrade semantics, scene/XEM mapping, and exhaustive parser coverage.
 - Prowlarr replacement now has a first-pass foundation for common setups: generic Newznab and Torznab support, curated Newznab presets for NZBGeek, DrunkenSlug, NZBFinder, NinjaCentral, NZBPlanet, and altHUB, aggregate Torznab/Newznab feeds, persisted definitions, representative Cardigann/YAML torrent coverage, URL-backed checksum-pinned definition sources, proxy/health/stats basics, per-indexer category and policy controls, and first-pass Radarr/Sonarr app sync. The bundled catalogue is now intentionally curated; broad Prowlarr/Jackett-scale tracker breadth is deferred to remote definition sources or a later catalogue-maintenance milestone.
 - Download client coverage is still narrow: qBittorrent, SABnzbd, first-pass Transmission, first-pass Deluge, first-pass NZBGet, and first-pass torrent/usenet blackholes only.
@@ -33,9 +33,10 @@ Primary blockers:
 Commands run from `/Users/codythatsme/Developer/arr-hub`:
 
 - `bun run typecheck`: passed.
-- `bun run test`: passed, 40 test files plus 1 skipped live suite, 519 passed and 4 skipped tests.
-- `bun run test:e2e`: passed, 1 Chromium smoke test covering onboarding, settings, add movie, add TV from metadata, manual search display, calendar population, and queue page.
-- `bun run lint`: passed with 357 warnings and 0 errors.
+- `bun run test`: passed, 49 test files plus 1 skipped live suite, 497 passed and 4 skipped tests.
+- `bun run test:e2e`: last recorded passing smoke coverage for onboarding, settings, add movie, add TV from metadata, manual search display, calendar population, and queue page.
+- `bun run lint`: passed with 19 warnings and 0 errors.
+- `bun run fmt:check`: passed.
 - `bun run build`: passed with chunk-size and external dependency warnings.
 
 Mechanical health is acceptable. Product completeness is the issue.
@@ -106,6 +107,7 @@ Completed in atomic commits after this plan was written. Milestone 5 is summariz
 - `fc4d30ab51` exposed first-pass built-in definition refresh controls in Settings.
 - `ec7b6f3776` added true RSS/recent-feed sync, cached recent releases, and switched RSS scheduler jobs away from repeated active searches.
 - `63f57c0174` constrained movie and episode cutoff search jobs to files below their profile cutoff state.
+- `7cc1cabeb4` added persistent operational history, persisted structured system logs, Activity history filters, and history emitters for grabs, download failures, imports, import failures, renames, queue removals, blocklists, metadata refreshes, indexer/download-client health changes, and notification deliveries.
 - `ca8703c1bf` updated deterministic indexer definition tests for the curated built-in catalogue.
 - `beab879376` preserved app-side remote settings during aggregate Radarr/Sonarr app sync updates.
 - `904f5f2301` separated Sonarr standard and anime category filters for aggregate app sync.
@@ -455,16 +457,18 @@ Current state:
 
 - Plex playback history is persisted.
 - Release decisions are persisted.
-- Diagnostics logs are in-memory only.
-- There is no full history of grabs, imports, renames, deletes, failed downloads, blocklist additions, metadata refreshes, or settings changes.
+- Structured diagnostics logs are persisted in `system_logs` and still feed the System structured-log view.
+- `domain_history` persists logical audit rows for grabs, failed downloads, imports, import failures, renames, queue removals, blocklist additions, metadata refreshes, indexer/download-client health changes, and notification deliveries.
+- Activity > History has Operational and Playback views with event/media filters.
+- Settings changes and future plugin/custom actions do not yet emit history rows.
 
 Gap:
 
-- Sonarr/Radarr/Prowlarr expose history for debugging and auditing. ARR Hub cannot yet answer "what happened to this movie/episode/download?"
+- Sonarr/Radarr/Prowlarr expose broad history for debugging and auditing. ARR Hub can now answer the main "what happened to this movie/episode/download?" path for implemented acquisition/import/queue workflows, but settings-change history and future extension events still need emitters.
 
 Tasks:
 
-- Add domain history tables for:
+- [x] Add domain history tables for:
   - grabbed,
   - download failed,
   - imported,
@@ -475,13 +479,14 @@ Tasks:
   - metadata refreshed,
   - indexer/download client health changes,
   - notification deliveries.
-- Persist structured logs or add a log-file ingestion/viewing path.
-- Link history rows to media, episode, release, indexer, download client, and scheduler job where possible.
-- Add history filters in UI.
+- [x] Persist structured logs or add a log-file ingestion/viewing path.
+- [x] Link history rows to media, episode, release, indexer, download client, and scheduler job where possible.
+- [x] Add history filters in UI.
+- [ ] Add settings-change history emitters.
 
 Acceptance criteria:
 
-- Every automated action has a history row with timestamps and useful context.
+- Implemented grab/import/queue/metadata/health/notification actions have history rows with timestamps and useful context.
 - Logs survive process restart or are explicitly sourced from a persistent log file.
 
 ### 9. Harden Security And API Boundaries
