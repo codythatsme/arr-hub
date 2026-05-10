@@ -26,7 +26,7 @@ Primary blockers:
 - The release decision engine now has persistent blocklist enforcement, focused specification modules, target title/year/episode/season checks, size/free-space/queue/protocol/client availability checks, minimum age/retention/seeder gates, required/ignored/preferred release terms, sample/hardcoded subtitle/raw-disk rejection, first-pass proper/repack/version revision ranking/upgrades with imported-media revision persistence, and first-pass TV/anime edge checks. It still lacks full Sonarr/Radarr parity for language profiles, tagged release profiles, deep media inspection, replacement-grade revision policy controls, scene/XEM mapping, and exhaustive parser coverage.
 - Prowlarr replacement now has a first-pass foundation for common setups: generic Newznab and Torznab support, curated Newznab presets for NZBGeek, DrunkenSlug, NZBFinder, NinjaCentral, NZBPlanet, and altHUB, aggregate Torznab/Newznab feeds, persisted definitions, representative Cardigann/YAML torrent coverage, URL-backed checksum-pinned definition sources, proxy/health/stats basics, per-indexer category and policy controls, and first-pass Radarr/Sonarr app sync. The bundled catalogue is now intentionally curated; broad Prowlarr/Jackett-scale tracker breadth is deferred to remote definition sources or a later catalogue-maintenance milestone.
 - Download client coverage is still narrow: qBittorrent, SABnzbd, first-pass Transmission, first-pass Deluge, first-pass NZBGet, and first-pass torrent/usenet blackholes only.
-- There is no Radarr/Sonarr/Prowlarr REST API compatibility layer, which matters if existing tools are expected to treat ARR Hub as a drop-in replacement.
+- The Radarr/Sonarr/Prowlarr REST API compatibility layer has only started: tags now have first-pass compatible endpoints, but the broader API surface is still missing.
 
 ## Verification Snapshot
 
@@ -45,7 +45,7 @@ Commands run from `/Users/codythatsme/Developer/arr-hub`:
 - Focused auth/startup tests passed for persistent login lockout, failed-attempt cleanup after successful login, TRPC 429 mapping, and startup schema validation.
 - Focused auth tests passed for authenticated admin password change, active-session revocation, current-password rejection, and new-password validation.
 - Focused diagnostics tests passed for indexer search/RSS failure rollups, unavailable download clients, stale download-client health checks, clock/update metadata checks, and import-mechanism failure checks.
-- Focused tag tests passed for label normalization, automatic tag row creation, usage counts, deletion guards, movie/series/indexer/download-client/notification service integration, and startup schema validation.
+- Focused tag tests passed for label normalization, automatic tag row creation, usage counts, deletion guards, movie/series/indexer/download-client/notification service integration, compatible tag detail IDs, tag label rename propagation, compatible API-key auth extraction, and startup schema validation.
 - Settings diagnostics UI wiring passed format, lint, typecheck, and build verification.
 - `bun run test:e2e`: last recorded passing smoke coverage for onboarding, settings, add movie, add TV from metadata, manual search display, calendar population, and queue page.
 - `bun run lint`: passed with 18 warnings and 0 errors.
@@ -165,6 +165,7 @@ Completed in atomic commits after this plan was written. Milestone 5 is summariz
 - `ba3c529215` added proactive diagnostics for local clock jumps, deployment-supplied update availability metadata, disabled scheduler/import monitoring, and completed downloads missing output paths, plus System/Settings surfacing.
 - `7597ba4648` added the first-pass tag table, media tag fields, canonical tag creation for movies/series/indexers, tRPC tag management, Settings tag library UI, and movie/TV tag editing.
 - `298aa6688d` extended first-pass tag attachment to download clients and notification channels, including migrations, Settings UI fields, tag usage counts, and service coverage.
+- `88f5658388` added first-pass compatible `/api/v1|v3/tag` and `/api/v1|v3/tag/detail` routes with tag CRUD/detail responses and API-key/Bearer auth extraction.
 - Subsequent Milestone 5 commits hardened the generic Cardigann runtime, request templating, category mapping, auth controls, and aggregate app-sync behavior enough for representative built-ins and checksum-pinned remote definitions. These commits are runtime support, not a decision to ship the expanded tracker catalogue.
 - `5cbb9c9e90` removed the deferred expanded built-in tracker catalogue from `main`. The safety branch `backup/milestone5-expanded-catalog` preserves the catalogue spike at `ab9e42393b`; those tracker definitions, including long-tail and adult/XXX sources, are not current built-in support.
 
@@ -179,7 +180,7 @@ Backend/service surfaces:
 - `src/effect/services/SeriesService.ts`: CRUD/list/local lookup, season/episode monitor toggles, and monitored episode calendar queries.
 - `src/effect/services/TmdbClient.ts`: movie TMDB search/details/popular/trending plus TV search/details/season hydration.
 - `src/effect/services/IndexerService.ts`, `src/effect/services/CardigannDefinitionLoader.ts`, `src/effect/services/CardigannAdapter.ts`, `src/effect/services/TorznabAdapter.ts`, `src/effect/services/IndexerDefinitionSourceService.ts`, and `src/effect/services/IndexerApplicationService.ts`: Torznab/Newznab connection testing and search, generic definitions, core Newznab presets, representative Cardigann/YAML definitions, encrypted definition-specific config/auth values, definition source refresh with checksum pinning and catalog manifest import, aggregate Torznab/Newznab feeds, proxy application, search stats, health/backoff state, per-indexer category and policy controls, and first-pass Radarr/Sonarr aggregate app sync. Broad built-in tracker breadth is intentionally deferred.
-- `src/effect/services/TagService.ts`: canonical tag row creation, tag listing with first-pass media/indexer/download-client/notification usage counts, unused-tag deletion, and guards against deleting used tags.
+- `src/effect/services/TagService.ts`: canonical tag row creation, tag listing with first-pass media/indexer/download-client/notification usage counts, compatibility detail IDs, tag label rename propagation, unused-tag deletion, and guards against deleting used tags.
 - `src/effect/services/DownloadClientService.ts`, `QBittorrentAdapter.ts`, `SABnzbdAdapter.ts`, `TransmissionAdapter.ts`, `DelugeAdapter.ts`, `NZBGetAdapter.ts`, and `BlackholeAdapter.ts`: add/list/test/grab/queue/remove downloads for qBittorrent, SABnzbd, first-pass Transmission, first-pass Deluge, first-pass NZBGet, and first-pass torrent/usenet blackholes, including persisted completed output paths where the client reports them.
 - `src/effect/services/DiagnosticsService.ts`: aggregates integration health, root-folder accessibility/write-permission, app data, clock, update metadata, import mechanism, and queue-output checks for the System view and container health endpoint.
 - `src/effect/services/ReleasePolicyEngine.ts`: parses titles, checks allowed quality, custom format score, and basic upgrade scoring.
@@ -551,7 +552,7 @@ Current state:
 - tRPC app procedures are authenticated after onboarding.
 - Onboarding and import routers are public because they are setup flows; onboarding mutations, import execution, and import connection tests now reject after setup completion.
 - Normal service/UI responses omit encrypted indexer, download-client, media-server, and indexer-application credentials, and notification channels now redact webhook/provider/script/SMTP secret settings before returning channels.
-- There is no Sonarr/Radarr/Prowlarr-compatible REST API.
+- The Sonarr/Radarr/Prowlarr-compatible REST API has first-pass tag coverage only. `/api/v1/tag`, `/api/v1/tag/detail`, `/api/v3/tag`, and `/api/v3/tag/detail` accept Bearer, `X-Api-Key`, or `apikey` authentication and expose tag CRUD/detail responses.
 
 Gap:
 
@@ -564,7 +565,8 @@ Tasks:
 - [x] Add authenticated password change flow.
 - Add password reset/recovery flow.
 - Add API key scoping if external API compatibility is implemented.
-- Decide whether to implement compatible `/api/v3` Sonarr/Radarr-style endpoints and Prowlarr-style `/api/v1`/Torznab endpoints.
+- [x] Decide whether to implement compatible `/api/v3` Sonarr/Radarr-style endpoints and Prowlarr-style `/api/v1`/Torznab endpoints. Current decision is incremental compatibility, starting with tags plus the existing aggregate Torznab/Newznab endpoints.
+- [x] Add first compatible tag REST endpoints for `/api/v1|v3/tag` and `/api/v1|v3/tag/detail`.
 - Add OpenAPI or equivalent docs for public APIs.
 - [x] Audit secret redaction in errors, logs, diagnostics, and UI. Current coverage redacts normal service/UI credential responses for integration and notification-channel secrets; broader API compatibility secret scoping remains tied to any future compatible REST API.
 
@@ -648,6 +650,7 @@ Current state:
 
 - First-pass tag persistence exists. Movies, series, indexers, download clients, and notification channels can store normalized tag labels; creating or editing those records ensures canonical tag rows exist.
 - Settings includes a tag library that can create tags, show first-pass usage counts, and delete unused tags.
+- Compatible tag CRUD/detail endpoints exist for `/api/v1/tag`, `/api/v1/tag/detail`, `/api/v3/tag`, and `/api/v3/tag/detail`.
 
 Gap:
 
@@ -657,6 +660,7 @@ Tasks:
 
 - [x] Add tags schema and UI. Current coverage includes the `tags` table, movie/series tag fields, indexer tag canonicalization, Settings tag management, and movie/TV tag editing.
 - [x] Attach tags to movies, series, indexers, download clients, and notifications as first-pass normalized label arrays.
+- [x] Expose first compatible tag REST CRUD/detail endpoints.
 - [ ] Attach tags to import lists, release profiles, and delay profiles once those policy surfaces exist.
 - [ ] Add custom filters and auto-tagging rules modeled after Sonarr/Radarr `AutoTagging` and `CustomFilters`.
 
@@ -706,14 +710,18 @@ Tasks:
 
 ### API Compatibility
 
-Decision needed:
+Current state:
 
-- If "replacement" means external tools can point at ARR Hub, implement REST compatibility for relevant Sonarr/Radarr/Prowlarr endpoints.
-- If not, document "not API-compatible with Sonarr/Radarr/Prowlarr" prominently.
+- ARR Hub is taking the incremental compatibility path. First-pass authenticated tag CRUD/detail endpoints exist for Sonarr/Radarr-style `/api/v3/tag` and `/api/v3/tag/detail` plus Prowlarr-style `/api/v1/tag` and `/api/v1/tag/detail`.
+- The aggregate Torznab/Newznab endpoints exist for Prowlarr-style indexer consumption.
+
+Gap:
+
+- Most Sonarr/Radarr/Prowlarr REST resources remain absent, so external ecosystem clients still cannot treat ARR Hub as a drop-in replacement.
 
 Recommended minimum:
 
-- Compatible read/write endpoints for movies, series, episodes, queue, history, wanted, calendar, commands, indexers, download clients, root folders, quality profiles, custom formats, tags, system status, and health.
+- Compatible read/write endpoints for movies, series, episodes, queue, history, wanted, calendar, commands, indexers, download clients, root folders, quality profiles, custom formats, tags, system status, and health. Current REST compatibility coverage is tags only.
 - Prowlarr aggregate Torznab/Newznab endpoints.
 
 ### Plugin System
@@ -753,7 +761,7 @@ Likely new tables or table expansions:
 - `blocklist` with media linkage, source title, protocol, indexer, infohash, reason.
 - `history` for grab/import/rename/delete/fail/metadata events.
 - `remote_path_mappings`.
-- Tag join tables and tag-scoped policy tables. The first-pass `tags` table exists, while current media/indexer assignments use JSON label arrays.
+- Tag join tables and tag-scoped policy tables. The first-pass `tags` table exists, while current media/indexer/download-client/notification assignments use JSON label arrays.
 - `delay_profiles`, `release_profiles`, `quality_definitions`.
 - `import_lists`, `import_list_items`, `import_exclusions`.
 - `indexer_definitions`, `indexer_categories`, `indexer_stats`, `indexer_proxy`, `indexer_definition_versions`.
