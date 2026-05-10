@@ -156,6 +156,7 @@ Completed in atomic commits after this plan was written. Milestone 5 is summariz
 - `a0e4cc55d0` added a first-pass Notifiarr notification channel with passthrough payload delivery and Settings UI fields.
 - `c756f06144` added a first-pass custom script notification channel with direct executable invocation, notification environment variables, and Settings UI fields.
 - `bf948c9e9e` added a first-pass SMTP email notification channel with STARTTLS/TLS/plain delivery support and Settings UI fields.
+- `2960ae285c` documented TMDB metadata credentials, current migration paths from existing Arr apps, and added `TMDB_API_KEY` to `.env.example`.
 - `413824fa91` added filtered diagnostics panels to Indexer, Download Client, Media Server, and Media Management settings pages.
 - Subsequent Milestone 5 commits hardened the generic Cardigann runtime, request templating, category mapping, auth controls, and aggregate app-sync behavior enough for representative built-ins and checksum-pinned remote definitions. These commits are runtime support, not a decision to ship the expanded tracker catalogue.
 - `5cbb9c9e90` removed the deferred expanded built-in tracker catalogue from `main`. The safety branch `backup/milestone5-expanded-catalog` preserves the catalogue spike at `ab9e42393b`; those tracker definitions, including long-tail and adult/XXX sources, are not current built-in support.
@@ -862,12 +863,12 @@ Acceptance:
 
 Update `README.md` after each milestone:
 
-- Replace optimistic "Available UI Validation Surfaces" statements that are not true for placeholder pages.
-- Add clear "current limitations" until replacement-grade work is complete.
-- Document API compatibility stance.
-- Document Docker volume and permission setup.
-- Document required metadata provider API keys.
-- Document how to migrate from Sonarr/Radarr/Prowlarr.
+- [x] Replace optimistic "Available UI Validation Surfaces" statements that are not true for placeholder pages.
+- [x] Add clear "current limitations" until replacement-grade work is complete.
+- [x] Document API compatibility stance.
+- [x] Document Docker volume and permission setup.
+- [x] Document required metadata provider API keys.
+- [x] Document how to migrate from Sonarr/Radarr/Prowlarr.
 
 ## Known Risk Areas
 
