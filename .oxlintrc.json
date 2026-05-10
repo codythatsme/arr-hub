@@ -10,6 +10,7 @@
   "rules": {
     "no-console": "warn",
     "typescript/no-explicit-any": "error",
+    "react_perf/jsx-no-new-function-as-prop": "off",
     "react/react-in-jsx-scope": "off"
   },
   "ignorePatterns": [
