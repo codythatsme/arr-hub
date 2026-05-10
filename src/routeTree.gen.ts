@@ -53,6 +53,7 @@ import { Route as ApiVersionIndexerRouteImport } from './routes/api.$version.ind
 import { Route as ApiVersionHistoryRouteImport } from './routes/api.$version.history'
 import { Route as ApiVersionHealthRouteImport } from './routes/api.$version.health'
 import { Route as ApiVersionEpisodeRouteImport } from './routes/api.$version.episode'
+import { Route as ApiVersionDownloadclientRouteImport } from './routes/api.$version.downloadclient'
 import { Route as ApiVersionCustomformatRouteImport } from './routes/api.$version.customformat'
 import { Route as ApiVersionCommandRouteImport } from './routes/api.$version.command'
 import { Route as ApiVersionCalendarRouteImport } from './routes/api.$version.calendar'
@@ -77,6 +78,7 @@ import { Route as ApiVersionHistorySinceRouteImport } from './routes/api.$versio
 import { Route as ApiVersionHistorySeriesRouteImport } from './routes/api.$version.history.series'
 import { Route as ApiVersionHistoryMovieRouteImport } from './routes/api.$version.history.movie'
 import { Route as ApiVersionEpisodeIdRouteImport } from './routes/api.$version.episode.$id'
+import { Route as ApiVersionDownloadclientIdRouteImport } from './routes/api.$version.downloadclient.$id'
 import { Route as ApiVersionCustomformatIdRouteImport } from './routes/api.$version.customformat.$id'
 import { Route as ApiVersionCommandIdRouteImport } from './routes/api.$version.command.$id'
 import { Route as ApiVersionCalendarIdRouteImport } from './routes/api.$version.calendar.$id'
@@ -305,6 +307,12 @@ const ApiVersionEpisodeRoute = ApiVersionEpisodeRouteImport.update({
   path: '/api/$version/episode',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiVersionDownloadclientRoute =
+  ApiVersionDownloadclientRouteImport.update({
+    id: '/api/$version/downloadclient',
+    path: '/api/$version/downloadclient',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiVersionCustomformatRoute = ApiVersionCustomformatRouteImport.update({
   id: '/api/$version/customformat',
   path: '/api/$version/customformat',
@@ -427,6 +435,12 @@ const ApiVersionEpisodeIdRoute = ApiVersionEpisodeIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => ApiVersionEpisodeRoute,
 } as any)
+const ApiVersionDownloadclientIdRoute =
+  ApiVersionDownloadclientIdRouteImport.update({
+    id: '/$id',
+    path: '/$id',
+    getParentRoute: () => ApiVersionDownloadclientRoute,
+  } as any)
 const ApiVersionCustomformatIdRoute =
   ApiVersionCustomformatIdRouteImport.update({
     id: '/$id',
@@ -494,6 +508,7 @@ export interface FileRoutesByFullPath {
   '/api/$version/calendar': typeof ApiVersionCalendarRouteWithChildren
   '/api/$version/command': typeof ApiVersionCommandRouteWithChildren
   '/api/$version/customformat': typeof ApiVersionCustomformatRouteWithChildren
+  '/api/$version/downloadclient': typeof ApiVersionDownloadclientRouteWithChildren
   '/api/$version/episode': typeof ApiVersionEpisodeRouteWithChildren
   '/api/$version/health': typeof ApiVersionHealthRoute
   '/api/$version/history': typeof ApiVersionHistoryRouteWithChildren
@@ -512,6 +527,7 @@ export interface FileRoutesByFullPath {
   '/api/$version/calendar/$id': typeof ApiVersionCalendarIdRoute
   '/api/$version/command/$id': typeof ApiVersionCommandIdRoute
   '/api/$version/customformat/$id': typeof ApiVersionCustomformatIdRoute
+  '/api/$version/downloadclient/$id': typeof ApiVersionDownloadclientIdRoute
   '/api/$version/episode/$id': typeof ApiVersionEpisodeIdRoute
   '/api/$version/history/movie': typeof ApiVersionHistoryMovieRoute
   '/api/$version/history/series': typeof ApiVersionHistorySeriesRoute
@@ -570,6 +586,7 @@ export interface FileRoutesByTo {
   '/api/$version/calendar': typeof ApiVersionCalendarRouteWithChildren
   '/api/$version/command': typeof ApiVersionCommandRouteWithChildren
   '/api/$version/customformat': typeof ApiVersionCustomformatRouteWithChildren
+  '/api/$version/downloadclient': typeof ApiVersionDownloadclientRouteWithChildren
   '/api/$version/episode': typeof ApiVersionEpisodeRouteWithChildren
   '/api/$version/health': typeof ApiVersionHealthRoute
   '/api/$version/history': typeof ApiVersionHistoryRouteWithChildren
@@ -588,6 +605,7 @@ export interface FileRoutesByTo {
   '/api/$version/calendar/$id': typeof ApiVersionCalendarIdRoute
   '/api/$version/command/$id': typeof ApiVersionCommandIdRoute
   '/api/$version/customformat/$id': typeof ApiVersionCustomformatIdRoute
+  '/api/$version/downloadclient/$id': typeof ApiVersionDownloadclientIdRoute
   '/api/$version/episode/$id': typeof ApiVersionEpisodeIdRoute
   '/api/$version/history/movie': typeof ApiVersionHistoryMovieRoute
   '/api/$version/history/series': typeof ApiVersionHistorySeriesRoute
@@ -647,6 +665,7 @@ export interface FileRoutesById {
   '/api/$version/calendar': typeof ApiVersionCalendarRouteWithChildren
   '/api/$version/command': typeof ApiVersionCommandRouteWithChildren
   '/api/$version/customformat': typeof ApiVersionCustomformatRouteWithChildren
+  '/api/$version/downloadclient': typeof ApiVersionDownloadclientRouteWithChildren
   '/api/$version/episode': typeof ApiVersionEpisodeRouteWithChildren
   '/api/$version/health': typeof ApiVersionHealthRoute
   '/api/$version/history': typeof ApiVersionHistoryRouteWithChildren
@@ -665,6 +684,7 @@ export interface FileRoutesById {
   '/api/$version/calendar/$id': typeof ApiVersionCalendarIdRoute
   '/api/$version/command/$id': typeof ApiVersionCommandIdRoute
   '/api/$version/customformat/$id': typeof ApiVersionCustomformatIdRoute
+  '/api/$version/downloadclient/$id': typeof ApiVersionDownloadclientIdRoute
   '/api/$version/episode/$id': typeof ApiVersionEpisodeIdRoute
   '/api/$version/history/movie': typeof ApiVersionHistoryMovieRoute
   '/api/$version/history/series': typeof ApiVersionHistorySeriesRoute
@@ -725,6 +745,7 @@ export interface FileRouteTypes {
     | '/api/$version/calendar'
     | '/api/$version/command'
     | '/api/$version/customformat'
+    | '/api/$version/downloadclient'
     | '/api/$version/episode'
     | '/api/$version/health'
     | '/api/$version/history'
@@ -743,6 +764,7 @@ export interface FileRouteTypes {
     | '/api/$version/calendar/$id'
     | '/api/$version/command/$id'
     | '/api/$version/customformat/$id'
+    | '/api/$version/downloadclient/$id'
     | '/api/$version/episode/$id'
     | '/api/$version/history/movie'
     | '/api/$version/history/series'
@@ -801,6 +823,7 @@ export interface FileRouteTypes {
     | '/api/$version/calendar'
     | '/api/$version/command'
     | '/api/$version/customformat'
+    | '/api/$version/downloadclient'
     | '/api/$version/episode'
     | '/api/$version/health'
     | '/api/$version/history'
@@ -819,6 +842,7 @@ export interface FileRouteTypes {
     | '/api/$version/calendar/$id'
     | '/api/$version/command/$id'
     | '/api/$version/customformat/$id'
+    | '/api/$version/downloadclient/$id'
     | '/api/$version/episode/$id'
     | '/api/$version/history/movie'
     | '/api/$version/history/series'
@@ -877,6 +901,7 @@ export interface FileRouteTypes {
     | '/api/$version/calendar'
     | '/api/$version/command'
     | '/api/$version/customformat'
+    | '/api/$version/downloadclient'
     | '/api/$version/episode'
     | '/api/$version/health'
     | '/api/$version/history'
@@ -895,6 +920,7 @@ export interface FileRouteTypes {
     | '/api/$version/calendar/$id'
     | '/api/$version/command/$id'
     | '/api/$version/customformat/$id'
+    | '/api/$version/downloadclient/$id'
     | '/api/$version/episode/$id'
     | '/api/$version/history/movie'
     | '/api/$version/history/series'
@@ -954,6 +980,7 @@ export interface RootRouteChildren {
   ApiVersionCalendarRoute: typeof ApiVersionCalendarRouteWithChildren
   ApiVersionCommandRoute: typeof ApiVersionCommandRouteWithChildren
   ApiVersionCustomformatRoute: typeof ApiVersionCustomformatRouteWithChildren
+  ApiVersionDownloadclientRoute: typeof ApiVersionDownloadclientRouteWithChildren
   ApiVersionEpisodeRoute: typeof ApiVersionEpisodeRouteWithChildren
   ApiVersionHealthRoute: typeof ApiVersionHealthRoute
   ApiVersionHistoryRoute: typeof ApiVersionHistoryRouteWithChildren
@@ -1286,6 +1313,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiVersionEpisodeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/$version/downloadclient': {
+      id: '/api/$version/downloadclient'
+      path: '/api/$version/downloadclient'
+      fullPath: '/api/$version/downloadclient'
+      preLoaderRoute: typeof ApiVersionDownloadclientRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/$version/customformat': {
       id: '/api/$version/customformat'
       path: '/api/$version/customformat'
@@ -1454,6 +1488,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiVersionEpisodeIdRouteImport
       parentRoute: typeof ApiVersionEpisodeRoute
     }
+    '/api/$version/downloadclient/$id': {
+      id: '/api/$version/downloadclient/$id'
+      path: '/$id'
+      fullPath: '/api/$version/downloadclient/$id'
+      preLoaderRoute: typeof ApiVersionDownloadclientIdRouteImport
+      parentRoute: typeof ApiVersionDownloadclientRoute
+    }
     '/api/$version/customformat/$id': {
       id: '/api/$version/customformat/$id'
       path: '/$id'
@@ -1549,6 +1590,20 @@ const ApiVersionCustomformatRouteChildren: ApiVersionCustomformatRouteChildren =
 const ApiVersionCustomformatRouteWithChildren =
   ApiVersionCustomformatRoute._addFileChildren(
     ApiVersionCustomformatRouteChildren,
+  )
+
+interface ApiVersionDownloadclientRouteChildren {
+  ApiVersionDownloadclientIdRoute: typeof ApiVersionDownloadclientIdRoute
+}
+
+const ApiVersionDownloadclientRouteChildren: ApiVersionDownloadclientRouteChildren =
+  {
+    ApiVersionDownloadclientIdRoute: ApiVersionDownloadclientIdRoute,
+  }
+
+const ApiVersionDownloadclientRouteWithChildren =
+  ApiVersionDownloadclientRoute._addFileChildren(
+    ApiVersionDownloadclientRouteChildren,
   )
 
 interface ApiVersionEpisodeRouteChildren {
@@ -1724,6 +1779,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiVersionCalendarRoute: ApiVersionCalendarRouteWithChildren,
   ApiVersionCommandRoute: ApiVersionCommandRouteWithChildren,
   ApiVersionCustomformatRoute: ApiVersionCustomformatRouteWithChildren,
+  ApiVersionDownloadclientRoute: ApiVersionDownloadclientRouteWithChildren,
   ApiVersionEpisodeRoute: ApiVersionEpisodeRouteWithChildren,
   ApiVersionHealthRoute: ApiVersionHealthRoute,
   ApiVersionHistoryRoute: ApiVersionHistoryRouteWithChildren,
