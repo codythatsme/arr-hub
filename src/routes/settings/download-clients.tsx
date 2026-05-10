@@ -22,6 +22,8 @@ interface DownloadClientFormState {
   readonly priority: string
   readonly pollIntervalMs: string
   readonly addPaused: boolean
+  readonly removeCompletedDownloads: boolean
+  readonly removeFailedDownloads: boolean
   readonly blackholeFolder: string
   readonly watchFolder: string
   readonly saveMagnetFiles: boolean
@@ -43,6 +45,8 @@ const emptyForm: DownloadClientFormState = {
   priority: "50",
   pollIntervalMs: "5000",
   addPaused: false,
+  removeCompletedDownloads: false,
+  removeFailedDownloads: false,
   blackholeFolder: "/downloads/blackhole",
   watchFolder: "/downloads",
   saveMagnetFiles: false,
@@ -129,6 +133,8 @@ function DownloadClients() {
     const settings = {
       pollIntervalMs: Number(form.pollIntervalMs),
       addPaused: form.addPaused,
+      removeCompletedDownloads: form.removeCompletedDownloads,
+      removeFailedDownloads: form.removeFailedDownloads,
       ...(isBlackhole
         ? {
             blackholeFolder: form.blackholeFolder.trim(),
@@ -225,6 +231,8 @@ function DownloadClients() {
                         priority: String(client.priority),
                         pollIntervalMs: String(client.settings.pollIntervalMs),
                         addPaused: client.settings.addPaused ?? false,
+                        removeCompletedDownloads: client.settings.removeCompletedDownloads ?? false,
+                        removeFailedDownloads: client.settings.removeFailedDownloads ?? false,
                         blackholeFolder:
                           client.settings.blackholeFolder ??
                           blackholeDefaults(client.type).blackholeFolder,
@@ -500,6 +508,30 @@ function DownloadClients() {
                     onChange={(event) => setForm({ ...form, addPaused: event.target.checked })}
                   />
                   Add paused
+                </label>
+              )}
+              {!isBlackhole && (
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={form.removeCompletedDownloads}
+                    onChange={(event) =>
+                      setForm({ ...form, removeCompletedDownloads: event.target.checked })
+                    }
+                  />
+                  Remove completed
+                </label>
+              )}
+              {!isBlackhole && (
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={form.removeFailedDownloads}
+                    onChange={(event) =>
+                      setForm({ ...form, removeFailedDownloads: event.target.checked })
+                    }
+                  />
+                  Remove failed
                 </label>
               )}
             </div>

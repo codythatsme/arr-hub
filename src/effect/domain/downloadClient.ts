@@ -17,6 +17,8 @@ export type DownloadClientHealthStatus = "healthy" | "unhealthy" | "unknown"
 export interface DownloadClientSettings {
   readonly pollIntervalMs: number
   readonly addPaused?: boolean
+  readonly removeCompletedDownloads?: boolean
+  readonly removeFailedDownloads?: boolean
   readonly blackholeFolder?: string
   readonly watchFolder?: string
   readonly saveMagnetFiles?: boolean

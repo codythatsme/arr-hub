@@ -518,6 +518,22 @@ export const DownloadClientServiceLive = Layer.effect(
                       },
                     })
                   }
+
+                  if (status.status === "failed" && client.settings.removeFailedDownloads) {
+                    const removed = yield* adapter.removeDownload(status.externalId, false).pipe(
+                      Effect.as(true),
+                      Effect.catchAll((error) =>
+                        Effect.logWarning(
+                          `failed to remove failed download ${status.externalId} from ${client.name}: ${error.message}`,
+                        ).pipe(Effect.as(false)),
+                      ),
+                    )
+                    if (removed) {
+                      yield* db
+                        .delete(downloadQueue)
+                        .where(eq(downloadQueue.externalId, status.externalId))
+                    }
+                  }
                 }
 
                 return statuses

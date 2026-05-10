@@ -44,6 +44,27 @@ const MockDownloadClientService = Layer.succeed(DownloadClientService, {
   listTypes: () => [],
 })
 
+interface RemoveDownloadCall {
+  readonly clientId: number
+  readonly externalId: string
+  readonly deleteFiles: boolean
+}
+
+const makeTrackingDownloadClientService = (ref: Ref.Ref<ReadonlyArray<RemoveDownloadCall>>) =>
+  Layer.succeed(DownloadClientService, {
+    add: () => Effect.die("not implemented"),
+    list: () => Effect.succeed([]),
+    getById: () => Effect.die("not implemented"),
+    update: () => Effect.die("not implemented"),
+    remove: () => Effect.die("not implemented"),
+    testConnection: () => Effect.die("not implemented"),
+    addDownload: () => Effect.die("not implemented"),
+    getQueue: () => Effect.succeed([]),
+    removeDownload: (clientId, externalId, deleteFiles) =>
+      Ref.update(ref, (calls) => [...calls, { clientId, externalId, deleteFiles }]),
+    listTypes: () => [],
+  })
+
 const MockMediaServerService = Layer.succeed(MediaServerService, {
   add: () => Effect.die("not implemented"),
   list: () => Effect.succeed([]),
@@ -176,7 +197,9 @@ const TestLayer = DownloadMonitorLive.pipe(Layer.provideMerge(BaseLayer))
 
 // ── Helpers ──
 
-function seedData() {
+function seedData(
+  settings: typeof downloadClients.$inferInsert.settings = { pollIntervalMs: 5000 },
+) {
   return Effect.gen(function* () {
     const db = yield* Db
 
@@ -189,6 +212,7 @@ function seedData() {
       port: 8080,
       username: "admin",
       passwordEncrypted: "encrypted",
+      settings,
     })
 
     yield* db.insert(movies).values({
@@ -261,6 +285,30 @@ describe("DownloadMonitor", () => {
       expect(historyRows[0]?.downloadClientName).toBe("test-qbit")
     }).pipe(Effect.provide(TestLayer)),
   )
+
+  it.effect("removes completed downloads from the client when configured", () => {
+    const removeCalls = Ref.unsafeMake<ReadonlyArray<RemoveDownloadCall>>([])
+    const LayerWithRemoveTracking = DownloadMonitorLive.pipe(
+      Layer.provideMerge(
+        Layer.mergeAll(
+          makeTrackingDownloadClientService(removeCalls),
+          MockMediaServerService,
+          MockMediaImportService,
+          SettingsServiceLive,
+        ).pipe(Layer.provideMerge(TestDbLive)),
+      ),
+    )
+
+    return Effect.gen(function* () {
+      yield* seedData({ pollIntervalMs: 5000, removeCompletedDownloads: true })
+      const monitor = yield* DownloadMonitor
+      yield* monitor.checkCompletions()
+
+      expect(yield* Ref.get(removeCalls)).toEqual([
+        { clientId: 1, externalId: "hash_abc", deleteFiles: false },
+      ])
+    }).pipe(Effect.provide(LayerWithRemoveTracking))
+  })
 
   it.scoped("defers import while completed output is still stabilizing", () =>
     Effect.gen(function* () {

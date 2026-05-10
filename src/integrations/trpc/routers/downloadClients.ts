@@ -8,6 +8,9 @@ import { authedProcedure, runEffect } from "../init"
 
 const downloadClientSettingsSchema = z.object({
   pollIntervalMs: z.number().int().min(1000),
+  addPaused: z.boolean().optional(),
+  removeCompletedDownloads: z.boolean().optional(),
+  removeFailedDownloads: z.boolean().optional(),
   blackholeFolder: z.string().optional(),
   watchFolder: z.string().optional(),
   saveMagnetFiles: z.boolean().optional(),
@@ -118,6 +121,7 @@ export const downloadClientsRouter = {
           .object({
             category: z.string().optional(),
             savePath: z.string().optional(),
+            paused: z.boolean().optional(),
           })
           .optional(),
       }),

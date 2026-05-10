@@ -210,6 +210,7 @@ export const DownloadMonitorLive = Layer.effect(
               id: downloadQueue.id,
               downloadClientId: downloadQueue.downloadClientId,
               downloadClientName: downloadClients.name,
+              downloadClientSettings: downloadClients.settings,
               movieId: downloadQueue.movieId,
               movieTitle: movies.title,
               seriesId: downloadQueue.seriesId,
@@ -294,6 +295,19 @@ export const DownloadMonitorLive = Layer.effect(
                 errorMessage: row.errorMessage,
                 outputPath: row.outputPath,
               })
+              if (row.downloadClientSettings.removeCompletedDownloads) {
+                yield* downloadClientService
+                  .removeDownload(row.downloadClientId, row.externalId, false)
+                  .pipe(
+                    Effect.catchAll((error) =>
+                      Effect.logWarning(
+                        `failed to remove completed download ${row.externalId} from ${row.downloadClientName}: ${
+                          error instanceof Error ? error.message : String(error)
+                        }`,
+                      ),
+                    ),
+                  )
+              }
               yield* db.delete(downloadQueue).where(eq(downloadQueue.id, row.id))
               completions.push({
                 movieId: row.movieId,
@@ -350,6 +364,19 @@ export const DownloadMonitorLive = Layer.effect(
                 errorMessage: row.errorMessage,
                 outputPath: row.outputPath,
               })
+              if (row.downloadClientSettings.removeCompletedDownloads) {
+                yield* downloadClientService
+                  .removeDownload(row.downloadClientId, row.externalId, false)
+                  .pipe(
+                    Effect.catchAll((error) =>
+                      Effect.logWarning(
+                        `failed to remove completed download ${row.externalId} from ${row.downloadClientName}: ${
+                          error instanceof Error ? error.message : String(error)
+                        }`,
+                      ),
+                    ),
+                  )
+              }
               yield* db.delete(downloadQueue).where(eq(downloadQueue.id, row.id))
               completions.push({
                 movieId: null,
