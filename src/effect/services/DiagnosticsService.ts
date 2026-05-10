@@ -1,4 +1,5 @@
-import { existsSync, statSync } from "node:fs"
+import { constants, existsSync, statSync } from "node:fs"
+import { access, stat } from "node:fs/promises"
 
 import { SqlError } from "@effect/sql/SqlError"
 import { count, eq } from "drizzle-orm"
@@ -11,6 +12,7 @@ import {
   indexers,
   mediaServers,
   movies,
+  rootFolders,
   schedulerJobs,
   series,
   settings,
@@ -58,7 +60,7 @@ export interface SystemStatus {
 }
 
 export interface IntegrationHealthItem {
-  readonly type: "indexer" | "download_client" | "media_server"
+  readonly type: "indexer" | "download_client" | "media_server" | "root_folder"
   readonly id: number
   readonly name: string
   readonly enabled: boolean
@@ -127,6 +129,29 @@ function worstStatus(
     return "degraded" as const
   }
   return "healthy" as const
+}
+
+async function rootFolderHealth(
+  path: string,
+): Promise<Pick<IntegrationHealthItem, "status" | "message">> {
+  try {
+    const stats = await stat(path)
+    if (!stats.isDirectory()) {
+      return {
+        status: "unhealthy",
+        message: "path exists but is not a directory",
+      }
+    }
+
+    await access(path, constants.R_OK | constants.W_OK | constants.X_OK)
+    return { status: "healthy", message: null }
+  } catch (error) {
+    const reason = error instanceof Error && error.message ? error.message : "unknown error"
+    return {
+      status: "unhealthy",
+      message: `path is not accessible for media imports: ${reason}`,
+    }
+  }
 }
 
 export const DiagnosticsServiceLive = Layer.effect(
@@ -202,10 +227,11 @@ export const DiagnosticsServiceLive = Layer.effect(
 
       health: () =>
         Effect.gen(function* () {
-          const [indexerResult, clientResult, serverResult] = yield* Effect.all([
+          const [indexerResult, clientResult, serverResult, rootFolderResult] = yield* Effect.all([
             Effect.either(indexerService.list()),
             Effect.either(downloadClientService.list()),
             Effect.either(mediaServerService.list()),
+            Effect.either(db.select().from(rootFolders)),
           ])
 
           const failures: Array<{ type: string; message: string }> = []
@@ -257,6 +283,25 @@ export const DiagnosticsServiceLive = Layer.effect(
                 message: item.health?.errorMessage ?? null,
               })
             }
+          }
+
+          if (rootFolderResult._tag === "Left") {
+            failures.push({ type: "root_folder", message: rootFolderResult.left.message })
+          } else {
+            const checked = yield* Effect.forEach(rootFolderResult.right, (folder) =>
+              Effect.promise(() => rootFolderHealth(folder.path)).pipe(
+                Effect.map((health) => ({
+                  type: "root_folder" as const,
+                  id: folder.id,
+                  name: folder.path,
+                  enabled: true,
+                  status: health.status,
+                  lastCheck: new Date(),
+                  message: health.message,
+                })),
+              ),
+            )
+            integrations.push(...checked)
           }
 
           return {

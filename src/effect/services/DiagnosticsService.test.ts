@@ -1,6 +1,8 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Layer } from "effect"
 
+import { rootFolders } from "#/db/schema"
+import { Db } from "#/effect/services/Db"
 import { TestDbLive } from "#/effect/test/TestDb"
 
 import { DiagnosticsService, DiagnosticsServiceLive } from "./DiagnosticsService"
@@ -152,6 +154,27 @@ describe("DiagnosticsService", () => {
 
       expect(health.status).toBe("unhealthy")
       expect(health.integrations.some((item) => item.type === "download_client")).toBe(true)
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("reports inaccessible root folders as unhealthy", () =>
+    Effect.gen(function* () {
+      const db = yield* Db
+      const diagnostics = yield* DiagnosticsService
+      const missingPath = `${process.cwd()}/.tmp/missing-root-folder-for-diagnostics`
+
+      yield* db.insert(rootFolders).values({ path: missingPath })
+
+      const health = yield* diagnostics.health()
+
+      expect(health.status).toBe("unhealthy")
+      expect(health.integrations).toContainEqual(
+        expect.objectContaining({
+          type: "root_folder",
+          name: missingPath,
+          status: "unhealthy",
+        }),
+      )
     }).pipe(Effect.provide(TestLayer)),
   )
 

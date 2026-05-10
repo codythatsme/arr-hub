@@ -29,7 +29,7 @@ function System() {
       <section className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-md border">
           <div className="border-b px-4 py-3">
-            <h2 className="font-semibold">Integration Health</h2>
+            <h2 className="font-semibold">System Health</h2>
           </div>
           <div className="divide-y">
             {health.data?.integrations.length === 0 && (
