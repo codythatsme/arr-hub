@@ -45,6 +45,7 @@ Commands run from `/Users/codythatsme/Developer/arr-hub`:
 - Focused auth/startup tests passed for persistent login lockout, failed-attempt cleanup after successful login, TRPC 429 mapping, and startup schema validation.
 - Focused auth tests passed for authenticated admin password change, active-session revocation, current-password rejection, and new-password validation.
 - Focused diagnostics tests passed for indexer search/RSS failure rollups, unavailable download clients, and stale download-client health checks.
+- Settings diagnostics UI wiring passed format, lint, typecheck, and build verification.
 - `bun run test:e2e`: last recorded passing smoke coverage for onboarding, settings, add movie, add TV from metadata, manual search display, calendar population, and queue page.
 - `bun run lint`: passed with 18 warnings and 0 errors.
 - `bun run fmt:check`: passed.
@@ -147,6 +148,7 @@ Completed in atomic commits after this plan was written. Milestone 5 is summariz
 - `9ffc8ca1ae` added authenticated admin password change, active-session revocation, and Security UI controls.
 - `78f57560b4` added diagnostics rollups for indexer search/RSS failures plus unavailable and stale download-client health.
 - `69036660cf` added first-pass Discord and Slack notification channels with provider-specific webhook payload formatting and Settings UI selection.
+- `413824fa91` added filtered diagnostics panels to Indexer, Download Client, Media Server, and Media Management settings pages.
 - Subsequent Milestone 5 commits hardened the generic Cardigann runtime, request templating, category mapping, auth controls, and aggregate app-sync behavior enough for representative built-ins and checksum-pinned remote definitions. These commits are runtime support, not a decision to ship the expanded tracker catalogue.
 - `5cbb9c9e90` removed the deferred expanded built-in tracker catalogue from `main`. The safety branch `backup/milestone5-expanded-catalog` preserves the catalogue spike at `ab9e42393b`; those tracker definitions, including long-tail and adult/XXX sources, are not current built-in support.
 
@@ -181,7 +183,7 @@ UI surfaces:
 - Movies: TMDB search/add, edit/delete, monitor toggle, profile/root assignment, manual release evaluate/grab, manual file import, and rename preview/action.
 - TV: TMDB metadata search/add with season/episode hydration, manual series add with season/episode scaffolding, edit/delete, show/season/episode monitor toggles, series/season search, episode evaluate/grab, manual episode file import, and series rename preview/action.
 - Activity queue/history/users/stats. Queue supports retry, remove with delete-files option, clear error, and blocklist.
-- Settings: indexers, download clients, media servers, scheduler, general, media management/root folders/remote path mappings/library scan, notifications, profiles, security, and plugins now have operational UI. Plugin settings show contract health status and lifecycle logs. Indexer settings also include first-pass Cardigann definition selection, definition-specific config/auth field inputs including select options/defaults, checkbox controls, informational auth notes, and manual CAPTCHA fields without exposing stored secret values, tags, search/RSS toggles, proxy management/assignment controls, stats readouts, built-in definition refresh controls, definition source/catalog management controls with required catalog manifest pins, and Radarr/Sonarr app-sync controls including Sonarr anime category filters.
+- Settings: indexers, download clients, media servers, scheduler, general, media management/root folders/remote path mappings/library scan, notifications, profiles, security, and plugins now have operational UI. Relevant settings pages surface filtered diagnostics health/failure panels. Plugin settings show contract health status and lifecycle logs. Indexer settings also include first-pass Cardigann definition selection, definition-specific config/auth field inputs including select options/defaults, checkbox controls, informational auth notes, and manual CAPTCHA fields without exposing stored secret values, tags, search/RSS toggles, proxy management/assignment controls, stats readouts, built-in definition refresh controls, definition source/catalog management controls with required catalog manifest pins, and Radarr/Sonarr app-sync controls including Sonarr anime category filters.
 - Onboarding quickstart and advanced wizard.
 - System diagnostics view.
 
@@ -646,6 +648,7 @@ Current state:
 - Integration health is recorded when tests are run and aggregated in diagnostics.
 - Diagnostics now also checks app data path accessibility, missing root folders, inaccessible root folders, inaccessible remote path mapping targets, all-disabled indexers/download clients, and enabled download clients that leave completed downloads in the client after import.
 - Diagnostics also reports indexer search/RSS failure rollups, enabled download clients marked unavailable, and stale/missing download-client health checks.
+- Indexer, Download Client, Media Server, and Media Management settings pages show filtered diagnostics items and failures for their respective integration types.
 
 Gap:
 
@@ -657,7 +660,7 @@ Tasks:
 - [x] Add checks for indexer search/RSS failure rollups and download client unavailable/stale health.
 - Add checks for clock skew, update availability, and deeper import mechanism problems.
 - [x] Show checks in System.
-- Show checks in relevant settings pages.
+- [x] Show checks in relevant settings pages.
 
 ### Backup, Update, And Maintenance Jobs
 
