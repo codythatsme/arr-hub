@@ -47,6 +47,7 @@ import { Route as ApiVersionTagRouteImport } from './routes/api.$version.tag'
 import { Route as ApiVersionRootfolderRouteImport } from './routes/api.$version.rootfolder'
 import { Route as ApiVersionQueueRouteImport } from './routes/api.$version.queue'
 import { Route as ApiVersionQualityprofileRouteImport } from './routes/api.$version.qualityprofile'
+import { Route as ApiVersionMovieRouteImport } from './routes/api.$version.movie'
 import { Route as ApiVersionHistoryRouteImport } from './routes/api.$version.history'
 import { Route as ApiVersionHealthRouteImport } from './routes/api.$version.health'
 import { Route as ApiVersionCustomformatRouteImport } from './routes/api.$version.customformat'
@@ -66,6 +67,7 @@ import { Route as ApiVersionQueueStatusRouteImport } from './routes/api.$version
 import { Route as ApiVersionQueueDetailsRouteImport } from './routes/api.$version.queue.details'
 import { Route as ApiVersionQueueIdRouteImport } from './routes/api.$version.queue.$id'
 import { Route as ApiVersionQualityprofileIdRouteImport } from './routes/api.$version.qualityprofile.$id'
+import { Route as ApiVersionMovieIdRouteImport } from './routes/api.$version.movie.$id'
 import { Route as ApiVersionHistorySinceRouteImport } from './routes/api.$version.history.since'
 import { Route as ApiVersionHistorySeriesRouteImport } from './routes/api.$version.history.series'
 import { Route as ApiVersionHistoryMovieRouteImport } from './routes/api.$version.history.movie'
@@ -267,6 +269,11 @@ const ApiVersionQualityprofileRoute =
     path: '/api/$version/qualityprofile',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiVersionMovieRoute = ApiVersionMovieRouteImport.update({
+  id: '/api/$version/movie',
+  path: '/api/$version/movie',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiVersionHistoryRoute = ApiVersionHistoryRouteImport.update({
   id: '/api/$version/history',
   path: '/api/$version/history',
@@ -364,6 +371,11 @@ const ApiVersionQualityprofileIdRoute =
     path: '/$id',
     getParentRoute: () => ApiVersionQualityprofileRoute,
   } as any)
+const ApiVersionMovieIdRoute = ApiVersionMovieIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ApiVersionMovieRoute,
+} as any)
 const ApiVersionHistorySinceRoute = ApiVersionHistorySinceRouteImport.update({
   id: '/since',
   path: '/since',
@@ -448,6 +460,7 @@ export interface FileRoutesByFullPath {
   '/api/$version/customformat': typeof ApiVersionCustomformatRouteWithChildren
   '/api/$version/health': typeof ApiVersionHealthRoute
   '/api/$version/history': typeof ApiVersionHistoryRouteWithChildren
+  '/api/$version/movie': typeof ApiVersionMovieRouteWithChildren
   '/api/$version/qualityprofile': typeof ApiVersionQualityprofileRouteWithChildren
   '/api/$version/queue': typeof ApiVersionQueueRouteWithChildren
   '/api/$version/rootfolder': typeof ApiVersionRootfolderRouteWithChildren
@@ -463,6 +476,7 @@ export interface FileRoutesByFullPath {
   '/api/$version/history/movie': typeof ApiVersionHistoryMovieRoute
   '/api/$version/history/series': typeof ApiVersionHistorySeriesRoute
   '/api/$version/history/since': typeof ApiVersionHistorySinceRoute
+  '/api/$version/movie/$id': typeof ApiVersionMovieIdRoute
   '/api/$version/qualityprofile/$id': typeof ApiVersionQualityprofileIdRoute
   '/api/$version/queue/$id': typeof ApiVersionQueueIdRoute
   '/api/$version/queue/details': typeof ApiVersionQueueDetailsRoute
@@ -516,6 +530,7 @@ export interface FileRoutesByTo {
   '/api/$version/customformat': typeof ApiVersionCustomformatRouteWithChildren
   '/api/$version/health': typeof ApiVersionHealthRoute
   '/api/$version/history': typeof ApiVersionHistoryRouteWithChildren
+  '/api/$version/movie': typeof ApiVersionMovieRouteWithChildren
   '/api/$version/qualityprofile': typeof ApiVersionQualityprofileRouteWithChildren
   '/api/$version/queue': typeof ApiVersionQueueRouteWithChildren
   '/api/$version/rootfolder': typeof ApiVersionRootfolderRouteWithChildren
@@ -531,6 +546,7 @@ export interface FileRoutesByTo {
   '/api/$version/history/movie': typeof ApiVersionHistoryMovieRoute
   '/api/$version/history/series': typeof ApiVersionHistorySeriesRoute
   '/api/$version/history/since': typeof ApiVersionHistorySinceRoute
+  '/api/$version/movie/$id': typeof ApiVersionMovieIdRoute
   '/api/$version/qualityprofile/$id': typeof ApiVersionQualityprofileIdRoute
   '/api/$version/queue/$id': typeof ApiVersionQueueIdRoute
   '/api/$version/queue/details': typeof ApiVersionQueueDetailsRoute
@@ -585,6 +601,7 @@ export interface FileRoutesById {
   '/api/$version/customformat': typeof ApiVersionCustomformatRouteWithChildren
   '/api/$version/health': typeof ApiVersionHealthRoute
   '/api/$version/history': typeof ApiVersionHistoryRouteWithChildren
+  '/api/$version/movie': typeof ApiVersionMovieRouteWithChildren
   '/api/$version/qualityprofile': typeof ApiVersionQualityprofileRouteWithChildren
   '/api/$version/queue': typeof ApiVersionQueueRouteWithChildren
   '/api/$version/rootfolder': typeof ApiVersionRootfolderRouteWithChildren
@@ -600,6 +617,7 @@ export interface FileRoutesById {
   '/api/$version/history/movie': typeof ApiVersionHistoryMovieRoute
   '/api/$version/history/series': typeof ApiVersionHistorySeriesRoute
   '/api/$version/history/since': typeof ApiVersionHistorySinceRoute
+  '/api/$version/movie/$id': typeof ApiVersionMovieIdRoute
   '/api/$version/qualityprofile/$id': typeof ApiVersionQualityprofileIdRoute
   '/api/$version/queue/$id': typeof ApiVersionQueueIdRoute
   '/api/$version/queue/details': typeof ApiVersionQueueDetailsRoute
@@ -655,6 +673,7 @@ export interface FileRouteTypes {
     | '/api/$version/customformat'
     | '/api/$version/health'
     | '/api/$version/history'
+    | '/api/$version/movie'
     | '/api/$version/qualityprofile'
     | '/api/$version/queue'
     | '/api/$version/rootfolder'
@@ -670,6 +689,7 @@ export interface FileRouteTypes {
     | '/api/$version/history/movie'
     | '/api/$version/history/series'
     | '/api/$version/history/since'
+    | '/api/$version/movie/$id'
     | '/api/$version/qualityprofile/$id'
     | '/api/$version/queue/$id'
     | '/api/$version/queue/details'
@@ -723,6 +743,7 @@ export interface FileRouteTypes {
     | '/api/$version/customformat'
     | '/api/$version/health'
     | '/api/$version/history'
+    | '/api/$version/movie'
     | '/api/$version/qualityprofile'
     | '/api/$version/queue'
     | '/api/$version/rootfolder'
@@ -738,6 +759,7 @@ export interface FileRouteTypes {
     | '/api/$version/history/movie'
     | '/api/$version/history/series'
     | '/api/$version/history/since'
+    | '/api/$version/movie/$id'
     | '/api/$version/qualityprofile/$id'
     | '/api/$version/queue/$id'
     | '/api/$version/queue/details'
@@ -791,6 +813,7 @@ export interface FileRouteTypes {
     | '/api/$version/customformat'
     | '/api/$version/health'
     | '/api/$version/history'
+    | '/api/$version/movie'
     | '/api/$version/qualityprofile'
     | '/api/$version/queue'
     | '/api/$version/rootfolder'
@@ -806,6 +829,7 @@ export interface FileRouteTypes {
     | '/api/$version/history/movie'
     | '/api/$version/history/series'
     | '/api/$version/history/since'
+    | '/api/$version/movie/$id'
     | '/api/$version/qualityprofile/$id'
     | '/api/$version/queue/$id'
     | '/api/$version/queue/details'
@@ -860,6 +884,7 @@ export interface RootRouteChildren {
   ApiVersionCustomformatRoute: typeof ApiVersionCustomformatRouteWithChildren
   ApiVersionHealthRoute: typeof ApiVersionHealthRoute
   ApiVersionHistoryRoute: typeof ApiVersionHistoryRouteWithChildren
+  ApiVersionMovieRoute: typeof ApiVersionMovieRouteWithChildren
   ApiVersionQualityprofileRoute: typeof ApiVersionQualityprofileRouteWithChildren
   ApiVersionQueueRoute: typeof ApiVersionQueueRouteWithChildren
   ApiVersionRootfolderRoute: typeof ApiVersionRootfolderRouteWithChildren
@@ -1144,6 +1169,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiVersionQualityprofileRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/$version/movie': {
+      id: '/api/$version/movie'
+      path: '/api/$version/movie'
+      fullPath: '/api/$version/movie'
+      preLoaderRoute: typeof ApiVersionMovieRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/$version/history': {
       id: '/api/$version/history'
       path: '/api/$version/history'
@@ -1276,6 +1308,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/$version/qualityprofile/$id'
       preLoaderRoute: typeof ApiVersionQualityprofileIdRouteImport
       parentRoute: typeof ApiVersionQualityprofileRoute
+    }
+    '/api/$version/movie/$id': {
+      id: '/api/$version/movie/$id'
+      path: '/$id'
+      fullPath: '/api/$version/movie/$id'
+      preLoaderRoute: typeof ApiVersionMovieIdRouteImport
+      parentRoute: typeof ApiVersionMovieRoute
     }
     '/api/$version/history/since': {
       id: '/api/$version/history/since'
@@ -1410,6 +1449,18 @@ const ApiVersionHistoryRouteChildren: ApiVersionHistoryRouteChildren = {
 const ApiVersionHistoryRouteWithChildren =
   ApiVersionHistoryRoute._addFileChildren(ApiVersionHistoryRouteChildren)
 
+interface ApiVersionMovieRouteChildren {
+  ApiVersionMovieIdRoute: typeof ApiVersionMovieIdRoute
+}
+
+const ApiVersionMovieRouteChildren: ApiVersionMovieRouteChildren = {
+  ApiVersionMovieIdRoute: ApiVersionMovieIdRoute,
+}
+
+const ApiVersionMovieRouteWithChildren = ApiVersionMovieRoute._addFileChildren(
+  ApiVersionMovieRouteChildren,
+)
+
 interface ApiVersionQualityprofileRouteChildren {
   ApiVersionQualityprofileIdRoute: typeof ApiVersionQualityprofileIdRoute
 }
@@ -1525,6 +1576,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiVersionCustomformatRoute: ApiVersionCustomformatRouteWithChildren,
   ApiVersionHealthRoute: ApiVersionHealthRoute,
   ApiVersionHistoryRoute: ApiVersionHistoryRouteWithChildren,
+  ApiVersionMovieRoute: ApiVersionMovieRouteWithChildren,
   ApiVersionQualityprofileRoute: ApiVersionQualityprofileRouteWithChildren,
   ApiVersionQueueRoute: ApiVersionQueueRouteWithChildren,
   ApiVersionRootfolderRoute: ApiVersionRootfolderRouteWithChildren,
