@@ -192,7 +192,13 @@ function Quickstart() {
                     const type = e.target.value
                     setDownloadClientType(type)
                     setDownloadClientPort(
-                      type === "transmission" ? "9091" : type === "nzbget" ? "6789" : "8080",
+                      type === "transmission"
+                        ? "9091"
+                        : type === "nzbget"
+                          ? "6789"
+                          : type === "deluge"
+                            ? "8112"
+                            : "8080",
                     )
                   }}
                   className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
@@ -201,6 +207,7 @@ function Quickstart() {
                   <option value="sabnzbd">SABnzbd</option>
                   <option value="nzbget">NZBGet</option>
                   <option value="transmission">Transmission</option>
+                  <option value="deluge">Deluge</option>
                 </select>
               </Field>
               <Field label="Host">

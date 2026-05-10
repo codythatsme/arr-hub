@@ -19,6 +19,7 @@ import {
   usenetBlackholeMetadata,
 } from "./BlackholeAdapter"
 import { cardigannYamlMetadata, createCardigannYamlAdapter } from "./CardigannAdapter"
+import { createDelugeAdapter, delugeMetadata } from "./DelugeAdapter"
 import type { DownloadClientAdapter } from "./DownloadClientAdapter"
 import type { IndexerAdapter } from "./IndexerAdapter"
 import { createJellyfinAdapter, jellyfinMetadata } from "./JellyfinAdapter"
@@ -172,6 +173,7 @@ export const AdapterRegistryLive = Layer.sync(AdapterRegistry, () => {
   }
 
   // Register built-in adapters
+  registry.registerDownloadClient("deluge", delugeMetadata, createDelugeAdapter)
   registry.registerDownloadClient("qbittorrent", qbittorrentMetadata, createQBittorrentAdapter)
   registry.registerDownloadClient("sabnzbd", sabnzbdMetadata, createSABnzbdAdapter)
   registry.registerDownloadClient("nzbget", nzbgetMetadata, createNZBGetAdapter)
