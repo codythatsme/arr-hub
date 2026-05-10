@@ -800,11 +800,14 @@ export const notificationChannelTypes = [
   "ntfy",
   "gotify",
   "telegram",
+  "pushover",
 ] as const
 export type NotificationChannelType = (typeof notificationChannelTypes)[number]
 
 export interface NotificationChannelSettings {
   readonly url?: string
+  readonly token?: string
+  readonly user?: string
   readonly headers?: Record<string, string>
 }
 

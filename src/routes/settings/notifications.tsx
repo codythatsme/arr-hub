@@ -87,6 +87,14 @@ const CHANNEL_TYPES = [
     urlLabel: "Telegram sendMessage URL",
     placeholder: "https://api.telegram.org/bot.../sendMessage?chat_id=...",
   },
+  {
+    value: "pushover",
+    label: "Pushover",
+    defaultName: "Pushover alerts",
+    destination: "Pushover API",
+    urlLabel: "",
+    placeholder: "",
+  },
 ] as const
 
 type ChannelType = (typeof CHANNEL_TYPES)[number]["value"]
@@ -100,14 +108,17 @@ function channelTypeConfig(type: ChannelType) {
 }
 
 function requiresUrl(type: ChannelType): boolean {
-  return type !== "in_app"
+  return channelTypeConfig(type).urlLabel.length > 0
 }
 
 function channelDestination(channel: {
   readonly type: ChannelType
-  readonly settings: { readonly url?: string }
+  readonly settings: { readonly url?: string; readonly user?: string }
 }): string {
   const config = channelTypeConfig(channel.type)
+  if (channel.type === "pushover") {
+    return channel.settings.user ? "Pushover user key configured" : "Pushover credentials missing"
+  }
   if (!requiresUrl(channel.type)) return config.destination
   return channel.settings.url ?? `${config.label} URL not configured`
 }
@@ -118,6 +129,8 @@ function Notifications() {
   const [name, setName] = useState("In-app alerts")
   const [type, setType] = useState<ChannelType>("in_app")
   const [url, setUrl] = useState("")
+  const [pushoverToken, setPushoverToken] = useState("")
+  const [pushoverUser, setPushoverUser] = useState("")
   const [events, setEvents] = useState<ReadonlyArray<NotificationEvent>>(
     EVENTS.map((event) => event.value),
   )
@@ -132,6 +145,8 @@ function Notifications() {
         queryClient.invalidateQueries({ queryKey: channelsKey })
         setName(channelTypeConfig(type).defaultName)
         setUrl("")
+        setPushoverToken("")
+        setPushoverUser("")
       },
     }),
   )
@@ -156,6 +171,9 @@ function Notifications() {
 
   const selectedEvents = useMemo(() => new Set(events), [events])
   const pending = create.isPending || update.isPending || remove.isPending || test.isPending
+  const missingSettings =
+    (requiresUrl(type) && url.length === 0) ||
+    (type === "pushover" && (pushoverToken.length === 0 || pushoverUser.length === 0))
 
   return (
     <div className="space-y-6 p-6">
@@ -270,7 +288,12 @@ function Notifications() {
               type,
               enabled: true,
               events: [...events],
-              settings: requiresUrl(type) ? { url } : {},
+              settings:
+                type === "pushover"
+                  ? { token: pushoverToken, user: pushoverUser }
+                  : requiresUrl(type)
+                    ? { url }
+                    : {},
             })
           }}
         >
@@ -312,6 +335,29 @@ function Notifications() {
               </label>
             )}
 
+            {type === "pushover" && (
+              <>
+                <label className="block text-sm">
+                  <span className="font-medium">Pushover app token</span>
+                  <input
+                    className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                    value={pushoverToken}
+                    onChange={(event) => setPushoverToken(event.target.value)}
+                    placeholder="APP_TOKEN"
+                  />
+                </label>
+                <label className="block text-sm">
+                  <span className="font-medium">Pushover user or group key</span>
+                  <input
+                    className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                    value={pushoverUser}
+                    onChange={(event) => setPushoverUser(event.target.value)}
+                    placeholder="USER_KEY"
+                  />
+                </label>
+              </>
+            )}
+
             <fieldset className="space-y-2">
               <legend className="text-sm font-medium">Events</legend>
               <div className="grid gap-2 sm:grid-cols-2">
@@ -338,7 +384,7 @@ function Notifications() {
             <button
               type="submit"
               className="bg-primary text-primary-foreground rounded px-3 py-2 text-sm disabled:opacity-50"
-              disabled={pending || events.length === 0 || (requiresUrl(type) && url.length === 0)}
+              disabled={pending || events.length === 0 || missingSettings}
             >
               Add channel
             </button>

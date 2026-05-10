@@ -28,6 +28,7 @@ const URL_CHANNEL_TYPES = new Set<NotificationChannelType>([
   "gotify",
   "telegram",
 ])
+const OUTBOUND_CHANNEL_TYPES = new Set<NotificationChannelType>([...URL_CHANNEL_TYPES, "pushover"])
 
 interface FormattedNotification {
   readonly event: NotificationEvent
@@ -38,6 +39,10 @@ interface FormattedNotification {
 
 function isUrlChannelType(type: NotificationChannelType): boolean {
   return URL_CHANNEL_TYPES.has(type)
+}
+
+function isOutboundChannelType(type: NotificationChannelType): boolean {
+  return OUTBOUND_CHANNEL_TYPES.has(type)
 }
 
 function channelTypeLabel(type: NotificationChannelType): string {
@@ -56,6 +61,8 @@ function channelTypeLabel(type: NotificationChannelType): string {
       return "Gotify message endpoint"
     case "telegram":
       return "Telegram sendMessage endpoint"
+    case "pushover":
+      return "Pushover"
   }
 }
 
@@ -118,6 +125,7 @@ function formatOutboundPayload(
       }
     case "webhook":
     case "ntfy":
+    case "pushover":
     case "in_app":
       return { event, title, message, payload }
   }
@@ -303,15 +311,25 @@ export const NotificationServiceLive = Layer.effect(
             new ValidationError({ message: `${channelTypeLabel(input.type)} url is required` }),
           )
         }
+        if (input.type === "pushover" && (!settings.token?.trim() || !settings.user?.trim())) {
+          return yield* Effect.fail(
+            new ValidationError({ message: "Pushover token and user key are required" }),
+          )
+        }
+
+        const normalizedSettings =
+          input.type === "pushover"
+            ? { ...settings, token: settings.token?.trim(), user: settings.user?.trim() }
+            : isUrlChannelType(input.type)
+              ? { ...settings, url: settings.url?.trim() }
+              : settings
 
         return {
           name,
           type: input.type,
           enabled: input.enabled ?? true,
           events,
-          settings: isUrlChannelType(input.type)
-            ? { ...settings, url: settings.url?.trim() }
-            : settings,
+          settings: normalizedSettings,
         }
       })
 
@@ -324,26 +342,45 @@ export const NotificationServiceLive = Layer.effect(
     ) =>
       Effect.tryPromise({
         try: async () => {
-          const response = await fetch(channel.settings.url ?? "", {
-            method: "POST",
-            headers:
-              channel.type === "ntfy"
-                ? {
-                    "content-type": "text/plain; charset=utf-8",
-                    title,
-                    tags: event.includes("failed") || event.includes("down") ? "warning" : "bell",
-                    priority: event.includes("failed") || event.includes("down") ? "4" : "3",
-                    ...channel.settings.headers,
-                  }
-                : {
-                    "content-type": "application/json",
+          const response =
+            channel.type === "pushover"
+              ? await fetch("https://api.pushover.net/1/messages.json", {
+                  method: "POST",
+                  headers: {
+                    "content-type": "application/x-www-form-urlencoded",
                     ...channel.settings.headers,
                   },
-            body:
-              channel.type === "ntfy"
-                ? message
-                : JSON.stringify(formatOutboundPayload(channel, event, title, message, payload)),
-          })
+                  body: new URLSearchParams({
+                    token: channel.settings.token ?? "",
+                    user: channel.settings.user ?? "",
+                    title,
+                    message,
+                    priority: event.includes("failed") || event.includes("down") ? "1" : "0",
+                  }).toString(),
+                })
+              : await fetch(channel.settings.url ?? "", {
+                  method: "POST",
+                  headers:
+                    channel.type === "ntfy"
+                      ? {
+                          "content-type": "text/plain; charset=utf-8",
+                          title,
+                          tags:
+                            event.includes("failed") || event.includes("down") ? "warning" : "bell",
+                          priority: event.includes("failed") || event.includes("down") ? "4" : "3",
+                          ...channel.settings.headers,
+                        }
+                      : {
+                          "content-type": "application/json",
+                          ...channel.settings.headers,
+                        },
+                  body:
+                    channel.type === "ntfy"
+                      ? message
+                      : JSON.stringify(
+                          formatOutboundPayload(channel, event, title, message, payload),
+                        ),
+                })
           if (!response.ok) {
             throw new Error(`${channelTypeLabel(channel.type)} returned ${response.status}`)
           }
@@ -395,7 +432,7 @@ export const NotificationServiceLive = Layer.effect(
       formatted: FormattedNotification,
     ) =>
       Effect.gen(function* () {
-        if (isUrlChannelType(channel.type)) {
+        if (isOutboundChannelType(channel.type)) {
           const result = yield* Effect.either(
             sendOutbound(
               channel,

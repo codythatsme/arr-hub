@@ -387,6 +387,61 @@ describe("NotificationService", () => {
     }).pipe(Effect.provide(TestLayer))
   })
 
+  it.effect("formats Pushover message deliveries", () => {
+    const fetchSpy = stubSuccessfulFetch()
+
+    return Effect.gen(function* () {
+      const service = yield* NotificationService
+      const channel = yield* service.createChannel({
+        name: "Pushover",
+        type: "pushover",
+        enabled: true,
+        events: ["server_down"],
+        settings: { token: "app-token", user: "user-key" },
+      })
+
+      const delivery = yield* service.testChannel(channel.id, "server_down")
+      const init = getFetchInit(fetchSpy)
+      const body = new URLSearchParams(String(init.body))
+
+      expect(delivery.status).toBe("sent")
+      expect(fetchSpy).toHaveBeenCalledWith(
+        "https://api.pushover.net/1/messages.json",
+        expect.objectContaining({ method: "POST" }),
+      )
+      expect(init.headers).toMatchObject({
+        "content-type": "application/x-www-form-urlencoded",
+      })
+      expect(Object.fromEntries(body)).toMatchObject({
+        token: "app-token",
+        user: "user-key",
+        title: "Test media server offline",
+        message: "Example Server is not responding",
+        priority: "1",
+      })
+    }).pipe(Effect.provide(TestLayer))
+  })
+
+  it.effect("requires Pushover credentials", () =>
+    Effect.gen(function* () {
+      const service = yield* NotificationService
+      const result = yield* Effect.either(
+        service.createChannel({
+          name: "Pushover",
+          type: "pushover",
+          enabled: true,
+          events: ["server_down"],
+          settings: { token: "app-token" },
+        }),
+      )
+
+      expect(result._tag).toBe("Left")
+      if (result._tag === "Left") {
+        expect(result.left.message).toBe("Pushover token and user key are required")
+      }
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
   it.effect("requires URLs for provider-backed webhook channels", () =>
     Effect.gen(function* () {
       const service = yield* NotificationService
