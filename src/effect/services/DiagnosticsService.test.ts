@@ -123,6 +123,7 @@ const MockDownloadClientService = Layer.succeed(DownloadClientService, {
         username: "admin",
         useSsl: false,
         category: null,
+        tags: [],
         priority: 50,
         enabled: true,
         settings: { pollIntervalMs: 5000 },

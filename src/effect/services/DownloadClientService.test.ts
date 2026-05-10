@@ -9,6 +9,7 @@ import { AdapterRegistry } from "./AdapterRegistry"
 import { CryptoService } from "./CryptoService"
 import { Db } from "./Db"
 import { DownloadClientService, DownloadClientServiceLive } from "./DownloadClientService"
+import { TagService, TagServiceLive } from "./TagService"
 
 interface RemoveCall {
   readonly externalId: string
@@ -74,6 +75,47 @@ function makeRegistry(status: DownloadStatus, removeCalls: Array<RemoveCall>) {
 }
 
 describe("DownloadClientService", () => {
+  it.effect("normalizes and registers download client tags", () => {
+    const removeCalls: Array<RemoveCall> = []
+    const status: DownloadStatus = {
+      externalId: "queued_hash",
+      title: "Queued.Release.2026.1080p",
+      status: "queued",
+      sizeBytes: 123,
+      progressFraction: 0,
+      etaSeconds: null,
+      errorMessage: null,
+      outputPath: null,
+      downloadClientId: 1,
+    }
+    const TestLayer = Layer.mergeAll(DownloadClientServiceLive, TagServiceLive).pipe(
+      Layer.provideMerge(Layer.mergeAll(TestDbLive, MockCrypto, makeRegistry(status, removeCalls))),
+    )
+
+    return Effect.gen(function* () {
+      const clients = yield* DownloadClientService
+      const tags = yield* TagService
+
+      const client = yield* clients.add({
+        name: "Tagged client",
+        type: "mock",
+        host: "localhost",
+        port: 1,
+        username: "",
+        password: "",
+        tags: [" primary ", "primary", "usenet"],
+      })
+
+      expect(client.tags).toEqual(["primary", "usenet"])
+      const rows = yield* tags.list()
+      expect(rows.find((row) => row.tag.label === "primary")?.usageCount).toBe(1)
+      expect(rows.find((row) => row.tag.label === "usenet")?.usageCount).toBe(1)
+
+      const updated = yield* clients.update(client.id, { tags: ["backup"] })
+      expect(updated.tags).toEqual(["backup"])
+    }).pipe(Effect.provide(TestLayer))
+  })
+
   it.effect("removes failed downloads when the client policy is enabled", () => {
     const removeCalls: Array<RemoveCall> = []
     const failedStatus: DownloadStatus = {

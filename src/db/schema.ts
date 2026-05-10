@@ -558,6 +558,10 @@ export const downloadClients = sqliteTable("download_clients", {
     .$type<DownloadClientSettings>()
     .notNull()
     .default(sql`'{"pollIntervalMs":5000}'`),
+  tags: text({ mode: "json" })
+    .$type<ReadonlyArray<string>>()
+    .notNull()
+    .default(sql`'[]'`),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),
@@ -867,6 +871,10 @@ export const notificationChannels = sqliteTable("notification_channels", {
     .$type<NotificationChannelSettings>()
     .notNull()
     .default(sql`'{}'`),
+  tags: text({ mode: "json" })
+    .$type<ReadonlyArray<string>>()
+    .notNull()
+    .default(sql`'[]'`),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),

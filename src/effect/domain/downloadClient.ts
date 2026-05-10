@@ -83,6 +83,7 @@ export interface DownloadClientWithHealth {
   readonly username: string
   readonly useSsl: boolean
   readonly category: string | null
+  readonly tags: ReadonlyArray<string>
   readonly priority: number
   readonly enabled: boolean
   readonly settings: DownloadClientSettings

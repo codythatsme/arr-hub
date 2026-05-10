@@ -2,7 +2,7 @@ import { SqlError } from "@effect/sql/SqlError"
 import { asc, eq } from "drizzle-orm"
 import { Context, Effect, Layer } from "effect"
 
-import { indexers, movies, series, tags } from "#/db/schema"
+import { downloadClients, indexers, movies, notificationChannels, series, tags } from "#/db/schema"
 
 import { NotFoundError, ValidationError } from "../errors"
 import { Db } from "./Db"
@@ -57,13 +57,22 @@ function usageCountFor(
 
 function tagUsageCounts(db: DbHandle): Effect.Effect<ReadonlyMap<string, number>, SqlError> {
   return Effect.gen(function* () {
-    const [movieRows, seriesRows, indexerRows] = yield* Effect.all([
-      db.select({ tags: movies.tags }).from(movies),
-      db.select({ tags: series.tags }).from(series),
-      db.select({ tags: indexers.tags }).from(indexers),
-    ])
+    const [movieRows, seriesRows, indexerRows, downloadClientRows, notificationChannelRows] =
+      yield* Effect.all([
+        db.select({ tags: movies.tags }).from(movies),
+        db.select({ tags: series.tags }).from(series),
+        db.select({ tags: indexers.tags }).from(indexers),
+        db.select({ tags: downloadClients.tags }).from(downloadClients),
+        db.select({ tags: notificationChannels.tags }).from(notificationChannels),
+      ])
     const knownLabels = new Set<string>()
-    for (const row of [...movieRows, ...seriesRows, ...indexerRows]) {
+    for (const row of [
+      ...movieRows,
+      ...seriesRows,
+      ...indexerRows,
+      ...downloadClientRows,
+      ...notificationChannelRows,
+    ]) {
       for (const label of row.tags) knownLabels.add(label)
     }
 
@@ -73,7 +82,9 @@ function tagUsageCounts(db: DbHandle): Effect.Effect<ReadonlyMap<string, number>
         label.toLocaleLowerCase(),
         usageCountFor(label, movieRows) +
           usageCountFor(label, seriesRows) +
-          usageCountFor(label, indexerRows),
+          usageCountFor(label, indexerRows) +
+          usageCountFor(label, downloadClientRows) +
+          usageCountFor(label, notificationChannelRows),
       )
     }
     return usage

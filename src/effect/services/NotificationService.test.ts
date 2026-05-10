@@ -12,8 +12,9 @@ import { MonitoringTriggerBusLive } from "#/effect/services/MonitoringTriggerBus
 import { TestDbLive } from "#/effect/test/TestDb"
 
 import { NotificationService, NotificationServiceLive } from "./NotificationService"
+import { TagService, TagServiceLive } from "./TagService"
 
-const TestLayer = NotificationServiceLive.pipe(
+const TestLayer = Layer.mergeAll(NotificationServiceLive, TagServiceLive).pipe(
   Layer.provideMerge(MonitoringTriggerBusLive),
   Layer.provideMerge(TestDbLive),
 )
@@ -178,6 +179,29 @@ describe("NotificationService", () => {
       expect(channel.name).toBe("Ops")
       expect(channel.events).toContain("session_start")
       expect(channel.events).toContain("server_down")
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("normalizes and registers notification channel tags", () =>
+    Effect.gen(function* () {
+      const service = yield* NotificationService
+      const tags = yield* TagService
+      const channel = yield* service.createChannel({
+        name: "Tagged alerts",
+        type: "in_app",
+        enabled: true,
+        events: ["server_down"],
+        settings: {},
+        tags: [" ops ", "ops", "critical"],
+      })
+
+      expect(channel.tags).toEqual(["ops", "critical"])
+      const rows = yield* tags.list()
+      expect(rows.find((row) => row.tag.label === "ops")?.usageCount).toBe(1)
+      expect(rows.find((row) => row.tag.label === "critical")?.usageCount).toBe(1)
+
+      const updated = yield* service.updateChannel(channel.id, { tags: ["alerts"] })
+      expect(updated.tags).toEqual(["alerts"])
     }).pipe(Effect.provide(TestLayer)),
   )
 

@@ -191,6 +191,13 @@ function parseEmailList(value: string): Array<string> {
     .filter((email) => email.length > 0)
 }
 
+function parseTags(value: string): Array<string> {
+  return value
+    .split(",")
+    .map((tag) => tag.trim())
+    .filter((tag) => tag.length > 0)
+}
+
 function Notifications() {
   const trpc = useTRPC()
   const queryClient = useQueryClient()
@@ -210,6 +217,8 @@ function Notifications() {
   const [smtpPassword, setSmtpPassword] = useState("")
   const [fromEmail, setFromEmail] = useState("")
   const [toEmails, setToEmails] = useState("")
+  const [tags, setTags] = useState("")
+  const [channelTagDrafts, setChannelTagDrafts] = useState<Record<number, string>>({})
   const [events, setEvents] = useState<ReadonlyArray<NotificationEvent>>(
     EVENTS.map((event) => event.value),
   )
@@ -237,6 +246,7 @@ function Notifications() {
         setSmtpPassword("")
         setFromEmail("")
         setToEmails("")
+        setTags("")
       },
     }),
   )
@@ -245,6 +255,7 @@ function Notifications() {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: channelsKey })
         queryClient.invalidateQueries({ queryKey: deliveriesKey })
+        setChannelTagDrafts({})
       },
     }),
   )
@@ -302,6 +313,15 @@ function Notifications() {
                   <p className="text-muted-foreground mt-1 text-sm">
                     {channelDestination(channel)} · {channel.events.length} events
                   </p>
+                  {channel.tags.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {channel.tags.map((tag) => (
+                        <span key={tag} className="bg-muted rounded px-2 py-1 text-xs">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="flex gap-2">
                   <button
@@ -372,6 +392,37 @@ function Notifications() {
                   })}
                 </div>
               </fieldset>
+              <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+                <label className="block text-sm">
+                  <span className="text-muted-foreground text-xs font-medium">Tags</span>
+                  <input
+                    className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                    value={channelTagDrafts[channel.id] ?? channel.tags.join(", ")}
+                    onChange={(event) =>
+                      setChannelTagDrafts((current) => ({
+                        ...current,
+                        [channel.id]: event.target.value,
+                      }))
+                    }
+                    placeholder="ops, critical"
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="mt-6 rounded border px-3 py-2 text-sm disabled:opacity-50"
+                  disabled={pending}
+                  onClick={() =>
+                    update.mutate({
+                      id: channel.id,
+                      data: {
+                        tags: parseTags(channelTagDrafts[channel.id] ?? channel.tags.join(", ")),
+                      },
+                    })
+                  }
+                >
+                  Save tags
+                </button>
+              </div>
             </article>
           ))}
         </div>
@@ -385,6 +436,7 @@ function Notifications() {
               type,
               enabled: true,
               events: [...events],
+              tags: parseTags(tags),
               settings:
                 type === "pushover"
                   ? { token: pushoverToken, user: pushoverUser }
@@ -592,6 +644,16 @@ function Notifications() {
                 </label>
               </>
             )}
+
+            <label className="block text-sm">
+              <span className="font-medium">Tags</span>
+              <input
+                className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                value={tags}
+                onChange={(event) => setTags(event.target.value)}
+                placeholder="ops, critical"
+              />
+            </label>
 
             <fieldset className="space-y-2">
               <legend className="text-sm font-medium">Events</legend>

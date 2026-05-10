@@ -366,6 +366,7 @@ const runDdl = Effect.gen(function* () {
     priority INTEGER NOT NULL DEFAULT 50,
     enabled INTEGER NOT NULL DEFAULT 1,
     settings TEXT NOT NULL DEFAULT '{"pollIntervalMs":5000}',
+    tags TEXT NOT NULL DEFAULT '[]',
     created_at INTEGER NOT NULL DEFAULT (unixepoch()),
     updated_at INTEGER NOT NULL DEFAULT (unixepoch())
   )`
@@ -537,6 +538,7 @@ const runDdl = Effect.gen(function* () {
     enabled INTEGER NOT NULL DEFAULT 1,
     events TEXT NOT NULL DEFAULT '[]',
     settings TEXT NOT NULL DEFAULT '{}',
+    tags TEXT NOT NULL DEFAULT '[]',
     created_at INTEGER NOT NULL DEFAULT (unixepoch()),
     updated_at INTEGER NOT NULL DEFAULT (unixepoch())
   )`

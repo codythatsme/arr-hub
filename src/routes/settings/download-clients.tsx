@@ -20,6 +20,7 @@ interface DownloadClientFormState {
   readonly password: string
   readonly useSsl: boolean
   readonly category: string
+  readonly tags: string
   readonly priority: string
   readonly pollIntervalMs: string
   readonly addPaused: boolean
@@ -43,6 +44,7 @@ const emptyForm: DownloadClientFormState = {
   password: "",
   useSsl: false,
   category: "",
+  tags: "",
   priority: "50",
   pollIntervalMs: "5000",
   addPaused: false,
@@ -84,6 +86,13 @@ function blackholeDefaults(
     saveMagnetFiles: false,
     magnetFileExtension: ".magnet",
   }
+}
+
+function parseTags(value: string): Array<string> {
+  return value
+    .split(",")
+    .map((tag) => tag.trim())
+    .filter((tag) => tag.length > 0)
 }
 
 function DownloadClients() {
@@ -170,6 +179,7 @@ function DownloadClients() {
       username: isBlackhole ? "" : form.username.trim(),
       useSsl: isBlackhole ? false : form.useSsl,
       category: isBlackhole ? undefined : form.category.trim() || undefined,
+      tags: parseTags(form.tags),
       enabled: form.enabled,
       priority: Number(form.priority),
       settings,
@@ -234,6 +244,15 @@ function DownloadClients() {
                     {client.type} · priority {client.priority} · {client.category ?? "no category"}{" "}
                     · poll {client.settings.pollIntervalMs}ms
                   </p>
+                  {client.tags.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {client.tags.map((tag) => (
+                        <span key={tag} className="bg-muted rounded px-2 py-1 text-xs">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                   {client.health?.errorMessage && (
                     <p className="text-destructive mt-2 text-xs">{client.health.errorMessage}</p>
                   )}
@@ -254,6 +273,7 @@ function DownloadClients() {
                         password: "",
                         useSsl: client.useSsl,
                         category: client.category ?? "",
+                        tags: client.tags.join(", "),
                         priority: String(client.priority),
                         pollIntervalMs: String(client.settings.pollIntervalMs),
                         addPaused: client.settings.addPaused ?? false,
@@ -480,6 +500,15 @@ function DownloadClients() {
                 </Field>
               </>
             )}
+
+            <Field label="Tags" hint="Comma-separated labels used by tag-scoped workflows.">
+              <input
+                className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                value={form.tags}
+                onChange={(event) => setForm({ ...form, tags: event.target.value })}
+                placeholder="anime, usenet"
+              />
+            </Field>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Priority">

@@ -32,6 +32,7 @@ const channelInputSchema = z.object({
       headers: z.record(z.string(), z.string()).optional(),
     })
     .default({}),
+  tags: z.array(z.string()).optional(),
 })
 
 export const notificationsRouter = {

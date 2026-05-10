@@ -25,6 +25,7 @@ import { CryptoService } from "./CryptoService"
 import { Db } from "./Db"
 import { recordDownloadHistory } from "./DownloadHistoryService"
 import { recordDomainHistory } from "./OperationalHistoryService"
+import { ensureTagRows } from "./TagService"
 
 // ── Input types ──
 
@@ -37,6 +38,7 @@ interface DownloadClientInput {
   readonly password: string
   readonly useSsl?: boolean
   readonly category?: string
+  readonly tags?: ReadonlyArray<string>
   readonly enabled?: boolean
   readonly priority?: number
   readonly settings?: DownloadClientSettings
@@ -51,6 +53,7 @@ interface DownloadClientUpdate {
   readonly password?: string
   readonly useSsl?: boolean
   readonly category?: string | null
+  readonly tags?: ReadonlyArray<string>
   readonly enabled?: boolean
   readonly priority?: number
   readonly settings?: DownloadClientSettings
@@ -126,6 +129,7 @@ function toWithHealth(
     username: row.username,
     useSsl: row.useSsl,
     category: row.category,
+    tags: row.tags,
     priority: row.priority,
     enabled: row.enabled,
     settings: row.settings,
@@ -197,6 +201,7 @@ export const DownloadClientServiceLive = Layer.effect(
           // Validate type is registered before persisting
           yield* registry.getDownloadClientFactory(input.type)
 
+          const tagLabels = yield* ensureTagRows(db, input.tags ?? [])
           const encrypted = yield* crypto.encrypt(input.password)
           const inserted = yield* db
             .insert(downloadClients)
@@ -209,6 +214,7 @@ export const DownloadClientServiceLive = Layer.effect(
               passwordEncrypted: encrypted,
               useSsl: input.useSsl ?? false,
               category: input.category ?? null,
+              tags: tagLabels,
               enabled: input.enabled ?? true,
               priority: input.priority ?? 50,
               settings: input.settings ?? { pollIntervalMs: 5000 },
@@ -251,6 +257,7 @@ export const DownloadClientServiceLive = Layer.effect(
           if (data.username !== undefined) updateData.username = data.username
           if (data.useSsl !== undefined) updateData.useSsl = data.useSsl
           if (data.category !== undefined) updateData.category = data.category
+          if (data.tags !== undefined) updateData.tags = yield* ensureTagRows(db, data.tags)
           if (data.enabled !== undefined) updateData.enabled = data.enabled
           if (data.priority !== undefined) updateData.priority = data.priority
           if (data.settings !== undefined) updateData.settings = data.settings

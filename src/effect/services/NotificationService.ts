@@ -22,6 +22,7 @@ import type { MonitoringTrigger } from "./MonitoringTriggerBus"
 import { MonitoringTriggerBus } from "./MonitoringTriggerBus"
 import { recordDomainHistory } from "./OperationalHistoryService"
 import { sendSmtpEmail, type SmtpSecurity } from "./SmtpClient"
+import { ensureTagRows } from "./TagService"
 
 const ALL_EVENTS: ReadonlyArray<NotificationEvent> = notificationEvents
 const ALL_CHANNEL_TYPES: ReadonlyArray<NotificationChannelType> = notificationChannelTypes
@@ -377,6 +378,7 @@ export interface NotificationChannelInput {
   readonly enabled: boolean
   readonly events: ReadonlyArray<NotificationEvent>
   readonly settings: NotificationChannelSettings
+  readonly tags?: ReadonlyArray<string>
 }
 
 export type NotificationChannel = typeof notificationChannels.$inferSelect
@@ -432,7 +434,7 @@ export const NotificationServiceLive = Layer.effect(
 
     const normalizeInput = (
       input: Partial<NotificationChannelInput> & Pick<NotificationChannelInput, "name" | "type">,
-    ): Effect.Effect<NotificationChannelInput, ValidationError> =>
+    ): Effect.Effect<NotificationChannelInput, ValidationError | SqlError> =>
       Effect.gen(function* () {
         const name = input.name.trim()
         if (name.length === 0) {
@@ -576,6 +578,7 @@ export const NotificationServiceLive = Layer.effect(
           enabled: input.enabled ?? true,
           events,
           settings: normalizedSettings,
+          tags: yield* ensureTagRows(db, input.tags ?? []),
         }
       })
 
@@ -805,6 +808,7 @@ export const NotificationServiceLive = Layer.effect(
             enabled: input.enabled ?? existing.enabled,
             events: input.events ?? existing.events,
             settings: input.settings ?? existing.settings,
+            tags: input.tags ?? existing.tags,
           })
           const updated = yield* db
             .update(notificationChannels)
