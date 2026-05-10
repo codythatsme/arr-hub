@@ -696,6 +696,107 @@ search:
       text: "1"
 `
 
+const BROADCASTHE_NET = `
+id: broadcasthe-net
+name: BroadcasTheNet
+description: Private TV tracker exposed through a first-pass JSON-RPC Cardigann definition.
+type: private
+links:
+  - https://api.broadcasthe.net/
+legacylinks:
+  - http://api.broadcasthe.net/
+version: builtin-cardigann-1
+rss: true
+tags:
+  - private
+  - tv
+  - json
+  - json-rpc
+  - api-key
+settings:
+  - name: apiKey
+    label: API key
+    type: password
+    required: true
+    helpText: BroadcasTheNet API key.
+caps:
+  categorymappings:
+    - id: SD
+      cat: TV/SD
+      desc: SD
+      newznab: 5030
+    - id: 720p
+      cat: TV/HD
+      desc: 720p
+      newznab: 5040
+    - id: 1080p
+      cat: TV/HD
+      desc: 1080p
+      newznab: 5040
+    - id: 1080i
+      cat: TV/HD
+      desc: 1080i
+      newznab: 5040
+    - id: 2160p
+      cat: TV/UHD
+      desc: 2160p
+      newznab: 5045
+    - id: Portable Device
+      cat: TV/SD
+      desc: Portable Device
+      newznab: 5030
+  modes:
+    search: [q]
+    tv-search: [q, season, ep, tvdbid]
+search:
+  paths:
+    - path: /
+      method: post
+      response:
+        type: json
+      headers:
+        content-type: application/json
+      body: |
+        {"jsonrpc":"2.0","method":"getTorrents","params":["{{ .Config.APIKey | jsonescape }}",{"age":">0"{{ if .Keywords }},"search":"{{ .Keywords | replace " " "%" | jsonescape }}"{{ end }}{{ if .Query.TVDBID }},"tvdb":"{{ .Query.TVDBID | jsonescape }}"{{ end }}{{ if and .Query.Season .Query.Ep }},"category":"Episode","name":"S{{ .Query.Season }}E{{ .Query.Ep }}%"{{ end }}},{{ .Query.Limit | default "100" }},{{ .Query.Offset | default "0" }}],"id":1}
+  rows:
+    selector: $.result.torrents, $.Result.Torrents
+    multiple: true
+    missingAttributeEqualsNoResults: true
+  fields:
+    id:
+      selector: TorrentID, torrentID, torrentId
+    groupid:
+      selector: GroupID, groupID, groupId
+    title:
+      selector: ReleaseName, releaseName
+    details:
+      text: "https://broadcasthe.net/torrents.php?id={{ .Result.groupid }}&torrentid={{ .Result.id }}"
+    download:
+      selector: DownloadURL, downloadURL, downloadUrl
+    category:
+      selector: Resolution, resolution
+      default: "5000"
+    infohash:
+      selector: InfoHash, infoHash
+      optional: true
+    size:
+      selector: Size, size
+    grabs:
+      selector: Snatched, snatched
+    seeders:
+      selector: Seeders, seeders
+    leechers:
+      selector: Leechers, leechers
+    date:
+      selector: Time, time
+      filters:
+        - name: unixtime
+    downloadvolumefactor:
+      text: "0"
+    uploadvolumefactor:
+      text: "1"
+`
+
 const ANIDEX = `
 id: anidex
 name: Anidex
@@ -7714,6 +7815,7 @@ const BUILT_IN_CARDIGANN_SOURCES = [
   ANIME_TORRENTS,
   BAKABT,
   NEBULANCE,
+  BROADCASTHE_NET,
   ANIDEX,
   SHIZA_PROJECT,
   SUBSPLEASE,

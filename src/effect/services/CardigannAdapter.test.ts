@@ -276,6 +276,62 @@ const NEBULANCE_JSON_RESULTS = JSON.stringify({
   id: 1,
 })
 
+const BROADCASTHE_NET_JSON_RESULTS = JSON.stringify({
+  jsonrpc: "2.0",
+  result: {
+    results: 2,
+    torrents: {
+      "8801": {
+        GroupID: 88,
+        TorrentID: 8801,
+        SeriesID: 123,
+        Series: "BroadcasTheNet Show",
+        Category: "Episode",
+        Snatched: 44,
+        Seeders: 62,
+        Leechers: 5,
+        Source: "WEB",
+        Container: "MKV",
+        Codec: "H.264",
+        Resolution: "1080p",
+        Origin: "Internal",
+        ReleaseName: "BroadcasTheNet.Show.S01E02.1080p.WEB.H264-BTN",
+        Size: 2_345_678_900,
+        Time: Date.parse("2026-05-10T10:30:00.000Z") / 1000,
+        TvdbID: 12345,
+        TvrageID: null,
+        ImdbID: "7654321",
+        InfoHash: "ABCDEF1234567890",
+        DownloadURL: "https://broadcasthe.net/torrents.php?action=download&id=8801",
+      },
+      "8802": {
+        GroupID: 89,
+        TorrentID: 8802,
+        SeriesID: 123,
+        Series: "BroadcasTheNet Show",
+        Category: "Season",
+        Snatched: 18,
+        Seeders: 28,
+        Leechers: 2,
+        Source: "Blu-ray",
+        Container: "MKV",
+        Codec: "HEVC",
+        Resolution: "2160p",
+        Origin: "Scene",
+        ReleaseName: "BroadcasTheNet.Show.S01.2160p.BluRay.HEVC-BTN",
+        Size: 22_345_678_900,
+        Time: Date.parse("2026-05-09T06:15:00.000Z") / 1000,
+        TvdbID: 12345,
+        TvrageID: null,
+        ImdbID: "7654321",
+        InfoHash: "1234567890ABCDEF",
+        DownloadURL: "https://broadcasthe.net/torrents.php?action=download&id=8802",
+      },
+    },
+  },
+  id: 1,
+})
+
 const IPTORRENTS_HTML_RESULTS = `
 <html><body>
   <table id="torrents">
@@ -4018,6 +4074,84 @@ search:
       uploadFactor: 1,
     })
     expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-09T10:00:00.000Z")
+  })
+
+  it("parses BroadcasTheNet JSON-RPC API results with API key auth", async () => {
+    const requests: Array<{ url: string; init: RequestInit | undefined }> = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      requests.push({ url: String(input), init })
+      return new Response(BROADCASTHE_NET_JSON_RESULTS, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 119,
+      name: "BroadcasTheNet",
+      type: "cardigann_yaml",
+      definitionKey: "broadcasthe-net",
+      baseUrl: "https://api.broadcasthe.net/",
+      apiKey: "btn-api-key",
+      priority: 55,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({
+        term: "BroadcasTheNet Show S01E02",
+        type: "tv",
+        categories: [5040],
+        tvdbId: 12345,
+        season: 1,
+        episode: 2,
+      }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const request = requests[0]
+    expect(request?.url).toBe("https://api.broadcasthe.net/")
+    expect(request?.init?.method).toBe("POST")
+    expect(new Headers(request?.init?.headers).get("content-type")).toBe("application/json")
+    expect(JSON.parse(String(request?.init?.body))).toEqual({
+      jsonrpc: "2.0",
+      method: "getTorrents",
+      params: [
+        "btn-api-key",
+        {
+          age: ">0",
+          search: "BroadcasTheNet%Show%S01E02",
+          tvdb: "12345",
+          category: "Episode",
+          name: "S1E2%",
+        },
+        100,
+        0,
+      ],
+      id: 1,
+    })
+    expect(releases).toHaveLength(2)
+    expect(releases[0]).toMatchObject({
+      title: "BroadcasTheNet.Show.S01E02.1080p.WEB.H264-BTN",
+      downloadUrl: "https://broadcasthe.net/torrents.php?action=download&id=8801",
+      infoUrl: "https://broadcasthe.net/torrents.php?id=88&torrentid=8801",
+      category: "5040",
+      size: 2_345_678_900,
+      seeders: 62,
+      leechers: 5,
+      indexerId: 119,
+      indexerName: "BroadcasTheNet",
+      indexerPriority: 55,
+      infohash: "ABCDEF1234567890",
+      downloadFactor: 0,
+      uploadFactor: 1,
+    })
+    expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-10T10:30:00.000Z")
+    expect(releases[1]).toMatchObject({
+      title: "BroadcasTheNet.Show.S01.2160p.BluRay.HEVC-BTN",
+      category: "5045",
+      downloadFactor: 0,
+      uploadFactor: 1,
+    })
   })
 
   it("parses IPTorrents HTML results with cookie auth and user-agent headers", async () => {

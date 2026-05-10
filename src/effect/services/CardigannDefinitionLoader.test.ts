@@ -82,6 +82,7 @@ caps:
       "animetorrents",
       "bakabt",
       "nebulance",
+      "broadcasthe-net",
       "anidex",
       "shizaproject",
       "subsplease",
@@ -231,6 +232,30 @@ caps:
           { id: 5030, name: "TV SD" },
           { id: 5040, name: "TV HD" },
           { id: 5045, name: "TV UHD" },
+        ]),
+      },
+    })
+    expect(
+      BUILT_IN_CARDIGANN_DEFINITIONS.find(
+        (definition) => definition.definitionKey === "broadcasthe-net",
+      ),
+    ).toMatchObject({
+      displayName: "BroadcasTheNet",
+      baseUrl: "https://api.broadcasthe.net/",
+      privacy: "private",
+      supportsRss: true,
+      supportsSearch: true,
+      tags: ["private", "tv", "json", "json-rpc", "api-key"],
+      authFields: expect.arrayContaining([
+        expect.objectContaining({ name: "apiKey", type: "password", required: true }),
+      ]),
+      capabilities: {
+        searchTypes: ["search", "tvsearch"],
+        categories: expect.arrayContaining([
+          { id: 5030, name: "SD" },
+          { id: 5040, name: "720p" },
+          { id: 5040, name: "1080p" },
+          { id: 5045, name: "2160p" },
         ]),
       },
     })

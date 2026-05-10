@@ -119,19 +119,19 @@ describe("IndexerService", () => {
       const second = yield* svc.refreshDefinitions()
 
       expect(first).toMatchObject({
-        total: 48,
-        created: 48,
+        total: 49,
+        created: 49,
         updated: 0,
         unchanged: 0,
       })
       expect(first.definitions.map((definition) => definition.action)).toEqual(
-        Array(48).fill("created"),
+        Array(49).fill("created"),
       )
       expect(second).toMatchObject({
-        total: 48,
+        total: 49,
         created: 0,
         updated: 0,
-        unchanged: 48,
+        unchanged: 49,
       })
       expect(second.definitions.every((definition) => definition.previousVersion !== null)).toBe(
         true,
@@ -408,6 +408,7 @@ describe("IndexerService", () => {
         "bakabt",
         "beyond-hd",
         "bit-hdtv",
+        "broadcasthe-net",
         "brokenstones",
         "cgpeers",
         "dicmusic",
@@ -499,6 +500,17 @@ describe("IndexerService", () => {
         privacy: "private",
         supportsRss: false,
         tags: ["private", "tv", "json", "api"],
+      })
+      expect(
+        definitions.find((definition) => definition.definitionKey === "broadcasthe-net"),
+      ).toMatchObject({
+        displayName: "BroadcasTheNet",
+        protocol: "torrent",
+        implementation: "cardigann_yaml",
+        baseUrl: "https://api.broadcasthe.net/",
+        privacy: "private",
+        supportsRss: true,
+        tags: ["private", "tv", "json", "json-rpc", "api-key"],
       })
       expect(definitions.find((definition) => definition.definitionKey === "anidex")).toMatchObject(
         {
