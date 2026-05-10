@@ -33,7 +33,7 @@ Primary blockers:
 Commands run from `/Users/codythatsme/Developer/arr-hub`:
 
 - `bun run typecheck`: passed.
-- `bun run test`: passed outside the sandbox for the SMTP bind test, 74 test files plus 1 skipped live suite, 619 passed and 4 skipped tests.
+- `bun run test`: passed outside the sandbox for the SMTP bind test, 74 test files plus 2 skipped live suites, 619 passed and 5 skipped tests.
 - Focused add-paused adapter tests passed for qBittorrent, Transmission, Deluge, NZBGet, and built-in adapter interop.
 - Focused download-client remove-policy tests passed for completed-import cleanup and failed-download cleanup.
 - Focused import free-space tests passed for settings validation and copy-import reserve rejection.
@@ -47,6 +47,7 @@ Commands run from `/Users/codythatsme/Developer/arr-hub`:
 - Focused API key scoping tests passed for default full-app keys, REST read/write keys, write-implies-read checks, tRPC full-app enforcement, and HTTP read/write method mapping.
 - Focused auto-tagging/custom-filter tests passed for movie rule application, automatic tag removal when rules stop matching, series rule reapply counts, custom filter storage, tag usage, and auto-tag detail IDs.
 - Focused policy-surface tests passed for import-list tag detail IDs, release-profile include/exclude tag detail IDs, delay-profile tag detail IDs, usage counts, and tag rename propagation.
+- Focused live common-indexer validation harness passed its credential-missing skip path for NZBGeek, DrunkenSlug, NZBFinder, optional Newznab, and torrent Torznab coverage.
 - Focused diagnostics tests passed for indexer search/RSS failure rollups, unavailable download clients, stale download-client health checks, clock/update metadata checks, and import-mechanism failure checks.
 - Focused tag tests passed for label normalization, automatic tag row creation, usage counts, deletion guards, movie/series/indexer/download-client/notification service integration, compatible tag detail IDs, tag label rename propagation, compatible API-key auth extraction, and startup schema validation.
 - Focused compatible API tests passed for system status, health, root folder, quality profile, custom format, movie, series, episode, indexer, download client, command, queue, history, wanted, and calendar resource mapping/input parsing, plus public OpenAPI route/document coverage.
@@ -191,8 +192,9 @@ Completed in atomic commits after this plan was written. Milestone 5 is summariz
 - `2d86538606` added scoped API keys with full-app, REST read-only, and REST read/write modes enforced across tRPC, compatible HTTP routes, and aggregate Torznab/Newznab feeds.
 - `432b1ed2f5` added Sonarr/Radarr-style auto-tagging rules and saved custom filters, including persistence, services, tRPC procedures, Settings UI, automatic media tag application/removal, tag detail/rename propagation, and deterministic service coverage.
 - `37b337dd0c` added first-pass tag-scoped import list, release profile, and delay profile policy surfaces with persistence, tRPC management, Settings UI, tag detail/usage integration, rename propagation, and deterministic service coverage.
+- `9bb5362152` added an opt-in live common-indexer validation harness, `test:live-common-indexers` script, and README/`.env.example` documentation for the target NZBGeek, DrunkenSlug, NZBFinder, optional Newznab, and torrent Torznab credential shape. This makes the remaining live validation executable, but it does not replace running real provider credentials.
 
-Milestones 1, 2, 3, and 4 are complete for deterministic local coverage against the current backend surface. Milestone 5 is now scoped as a curated Prowlarr replacement foundation, not a broad tracker-porting effort. It includes persisted generic indexer definitions, core Newznab presets for NZBGeek, DrunkenSlug, NZBFinder, NinjaCentral, NZBPlanet, and altHUB, representative Cardigann/YAML torrent definitions, aggregate Torznab/Newznab feeds with offset/extended metadata forwarding, response/enclosure feed metadata, caps search-type normalization, nested category parsing, URL-backed checksum-pinned definition sources, proxy/health/stats basics, per-indexer category and policy controls, deterministic common Newznab-plus-torrent app-sync coverage, and first-pass Radarr/Sonarr aggregate app sync. Long-tail and adult/XXX tracker breadth is deferred to remote definition sources or a future catalogue-maintenance milestone. Milestone 6 now has first-pass Transmission, Deluge, NZBGet, and blackhole coverage plus Docker/NAS volume docs, backup/restore docs, root-folder permission diagnostics, and completed download history separate from active queue state; live multi-container validation remains. Milestone 3 now includes import-time target free-space guards but still needs live qBittorrent/SABnzbd fixture validation in an environment with those services running, and Milestone 5 still needs live common-indexer validation with real credentials before claiming interoperability with specific upstream providers.
+Milestones 1, 2, 3, and 4 are complete for deterministic local coverage against the current backend surface. Milestone 5 is now scoped as a curated Prowlarr replacement foundation, not a broad tracker-porting effort. It includes persisted generic indexer definitions, core Newznab presets for NZBGeek, DrunkenSlug, NZBFinder, NinjaCentral, NZBPlanet, and altHUB, representative Cardigann/YAML torrent definitions, aggregate Torznab/Newznab feeds with offset/extended metadata forwarding, response/enclosure feed metadata, caps search-type normalization, nested category parsing, URL-backed checksum-pinned definition sources, proxy/health/stats basics, per-indexer category and policy controls, deterministic common Newznab-plus-torrent app-sync coverage, an environment-gated live common-indexer validation harness, and first-pass Radarr/Sonarr aggregate app sync. Long-tail and adult/XXX tracker breadth is deferred to remote definition sources or a future catalogue-maintenance milestone. Milestone 6 now has first-pass Transmission, Deluge, NZBGet, and blackhole coverage plus Docker/NAS volume docs, backup/restore docs, root-folder permission diagnostics, and completed download history separate from active queue state; live multi-container validation remains. Milestone 3 now includes import-time target free-space guards but still needs live qBittorrent/SABnzbd fixture validation in an environment with those services running, and Milestone 5 still needs live common-indexer validation with real credentials before claiming interoperability with specific upstream providers.
 
 ## Current Functionality Inventory
 
@@ -453,7 +455,7 @@ Tasks:
 - [x] Add URL-backed checksum-pinned definition source refresh and checksum-pinned catalog manifest import.
 - [x] Add first-pass Radarr/Sonarr aggregate app sync and Settings controls.
 - [x] Freeze broad built-in Cardigann tracker expansion for the current milestone.
-- [ ] Validate the target common setup path against live credentials: NZBGeek, DrunkenSlug, NZBFinder, one optional Newznab preset, and one practical torrent path. Deterministic app-sync coverage now exercises this shape locally, but live provider credentials have not been run in this workspace.
+- [ ] Validate the target common setup path against live credentials: NZBGeek, DrunkenSlug, NZBFinder, one optional Newznab preset, and one practical torrent path. Deterministic app-sync coverage now exercises this shape locally, and `bun run test:live-common-indexers` provides an environment-gated live harness, but real provider credentials have not been run in this workspace.
 - [x] Harden generic Torznab/Newznab configuration, aggregate feed behavior, and app sync around that target path.
 - [x] Defer long-tail and adult/XXX tracker breadth to checksum-pinned remote definition sources or a later catalogue-maintenance milestone.
 
@@ -964,6 +966,6 @@ Stabilize Milestone 5 around the curated replacement path. Do not continue broad
 
 Recommended order:
 
-1. Live-validate the common setup path with real credentials: NZBGeek, DrunkenSlug, NZBFinder, one optional Newznab preset, and at least one Torznab or representative torrent source.
+1. Set the documented `ARR_HUB_LIVE_*` credentials in `.env.local` and run `bun run test:live-common-indexers` to live-validate the common setup path: NZBGeek, DrunkenSlug, NZBFinder, one optional Newznab preset, and at least one Torznab or representative torrent source.
 2. Use URL-backed checksum-pinned definition sources for long-tail and adult/XXX trackers instead of adding more built-ins.
 3. Move to Milestone 6 once the common indexer path is verified, or explicitly document that live provider validation remains an environment-gated release task.
