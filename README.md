@@ -225,6 +225,7 @@ bun run lint
 bun run fmt:check
 bun run test:e2e
 bun run test:live-adapters
+bun run test:live-common-indexers
 bun run test:live-adapters:docker
 ```
 
@@ -252,6 +253,18 @@ are skipped unless their matching environment variables are set:
 
 The default unit suite uses deterministic protocol fixtures; run the live suite
 before claiming interoperability with a specific service version or deployment.
+`test:live-common-indexers` is an opt-in check for the target common setup path:
+NZBGeek, DrunkenSlug, NZBFinder, one optional Newznab preset, and one practical
+torrent Torznab path. It loads `.env.local` and `.env`, skips unless all
+required common credentials are present, and never requires committing secrets.
+Required variables are `ARR_HUB_LIVE_NZBGEEK_API_KEY`,
+`ARR_HUB_LIVE_DRUNKENSLUG_API_KEY`, `ARR_HUB_LIVE_NZBFINDER_API_KEY`,
+`ARR_HUB_LIVE_TORRENT_URL`, and `ARR_HUB_LIVE_TORRENT_API_KEY`. Provider URLs
+default to the built-in presets for the three named Newznab indexers; the
+torrent path requires its Torznab URL. Optional variables include
+`ARR_HUB_LIVE_OPTIONAL_NEWZNAB_NAME`, `ARR_HUB_LIVE_OPTIONAL_NEWZNAB_URL`,
+`ARR_HUB_LIVE_OPTIONAL_NEWZNAB_API_KEY`, `ARR_HUB_LIVE_COMMON_USENET_QUERY`,
+and `ARR_HUB_LIVE_COMMON_TORRENT_QUERY`.
 `test:live-adapters:docker` starts temporary qBittorrent, SABnzbd, and Prowlarr
 containers, runs the matching live adapter checks, and stops/removes the
 temporary resources. Plex is still opt-in through the `ARR_HUB_LIVE_PLEX_*`

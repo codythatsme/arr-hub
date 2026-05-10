@@ -13,6 +13,7 @@
     "test:e2e": "playwright test",
     "e2e:serve": "node scripts/e2e-server.mjs",
     "test:live-adapters": "vitest run src/effect/services/LiveAdapterInterop.test.ts",
+    "test:live-common-indexers": "vitest run src/effect/services/CommonIndexerLiveValidation.test.ts",
     "test:live-adapters:docker": "node scripts/live-adapter-smoke.mjs",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
