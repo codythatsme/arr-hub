@@ -35,6 +35,7 @@ Commands run from `/Users/codythatsme/Developer/arr-hub`:
 - `bun run typecheck`: passed.
 - `bun run test`: last full run passed, 51 test files plus 1 skipped live suite, 502 passed and 4 skipped tests.
 - Focused add-paused adapter tests passed for qBittorrent, Transmission, Deluge, NZBGet, and built-in adapter interop.
+- Focused download-client remove-policy tests passed for completed-import cleanup and failed-download cleanup.
 - `bun run test:e2e`: last recorded passing smoke coverage for onboarding, settings, add movie, add TV from metadata, manual search display, calendar population, and queue page.
 - `bun run lint`: passed with 18 warnings and 0 errors.
 - `bun run fmt:check`: passed.
@@ -124,6 +125,7 @@ Completed in atomic commits after this plan was written. Milestone 5 is summariz
 - `c9b86a9bd9` added durable completed download history storage, terminal queue-event history writers, a queue history API, and a separate Queue history view.
 - `627da8c859` hardened qBittorrent torrent-URL hash recovery and removed the unsafe `"unknown"` external ID fallback.
 - `33b19ce6cd` added an add-paused download-client option across qBittorrent, SABnzbd, Transmission, Deluge, and NZBGet, with Settings UI wiring and deterministic adapter coverage.
+- `d99b2ef9fd` added opt-in remove-completed and remove-failed download-client policies, fixed download-client settings schema persistence for add-paused, and added deterministic service/monitor coverage.
 - Subsequent Milestone 5 commits hardened the generic Cardigann runtime, request templating, category mapping, auth controls, and aggregate app-sync behavior enough for representative built-ins and checksum-pinned remote definitions. These commits are runtime support, not a decision to ship the expanded tracker catalogue.
 - `5cbb9c9e90` removed the deferred expanded built-in tracker catalogue from `main`. The safety branch `backup/milestone5-expanded-catalog` preserves the catalogue spike at `ab9e42393b`; those tracker definitions, including long-tail and adult/XXX sources, are not current built-in support.
 
@@ -402,7 +404,7 @@ Current state:
 - Deluge support covers web JSON-RPC session authentication, daemon connection, label validation/creation, magnet and torrent-file add flows, queue listing with label filtering and output paths, and remove with optional data deletion.
 - NZBGet support covers JSON-RPC version/status/config checks, v16-style NZB append with `drone` parameters, queue/history normalization, category filtering, and queue/history removal.
 - Blackhole support covers torrent/NZB submission folder writes, optional magnet-file saving for torrent blackholes, watch-folder scanning for completed media files/folders, stable title-derived external IDs, delete-only removal, and Settings fields for submission/watch folders and watch grace period.
-- Client settings now include first-pass add-paused support for qBittorrent, SABnzbd, Transmission, Deluge, and NZBGet; tags, recent-priority, remove-completed, and remove-failed behavior remain incomplete.
+- Client settings now include first-pass add-paused support for qBittorrent, SABnzbd, Transmission, Deluge, and NZBGet, plus opt-in remove-completed and remove-failed policies; tags and recent-priority behavior remain incomplete.
 - Completed, failed, and removed download terminal events are persisted to `download_history` and exposed in a separate Queue history view.
 - Remote path mappings exist and are used by media import.
 - Docker/NAS volume docs and root-folder health checks exist, but live multi-container validation remains shallow.
@@ -421,7 +423,8 @@ Tasks:
   - [x] usenet blackhole.
 - Add remote path mappings with host/client/source/destination fields.
 - [x] Add first-pass add-paused download-client option where supported by current built-in adapters.
-- Add remaining per-client tags, priority/recent-priority refinements, remove-completed, and remove-failed options where supported.
+- [x] Add opt-in remove-completed and remove-failed download-client policies.
+- Add remaining per-client tags and priority/recent-priority refinements where supported.
 - Add client-specific validation and UI fields.
 - [x] Improve qBittorrent hash detection. URL grabs now fail if qBittorrent accepts the add but never exposes a concrete hash.
 - [x] Track completed download history separately from active queue.
