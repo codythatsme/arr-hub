@@ -5,7 +5,7 @@ import { Effect, Layer } from "effect"
 import { users, apiKeys, loginAttempts } from "#/db/schema"
 import { TestDbLive } from "#/effect/test/TestDb"
 
-import { AuthService, AuthServiceLive } from "./AuthService"
+import { AuthService, AuthServiceLive, tokenAllowsScope } from "./AuthService"
 import { CryptoService, CryptoServiceLive } from "./CryptoService"
 import { Db } from "./Db"
 
@@ -125,6 +125,7 @@ describe("AuthService", () => {
       expect(validated.kind).toBe("session")
       expect(typeof validated.userId).toBe("number")
       expect(typeof validated.keyId).toBe("number")
+      expect(validated.scopes).toEqual(["app"])
     }).pipe(Effect.provide(TestLayer)),
   )
 
@@ -343,6 +344,7 @@ describe("AuthService", () => {
       const result = yield* auth.createApiKey(userId, "my-key")
       expect(typeof result.id).toBe("number")
       expect(result.token).toHaveLength(64)
+      expect(result.scopes).toEqual(["app"])
     }).pipe(Effect.provide(TestLayer)),
   )
 
@@ -354,6 +356,35 @@ describe("AuthService", () => {
       const validated = yield* auth.validateToken(apiKey.token)
       expect(validated.kind).toBe("api_key")
       expect(validated.userId).toBe(userId)
+      expect(validated.scopes).toEqual(["app"])
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("createApiKey stores and validates scoped API keys", () =>
+    Effect.gen(function* () {
+      const userId = yield* seedUser("scoped", "pass")
+      const auth = yield* AuthService
+      const apiKey = yield* auth.createApiKey(userId, "read-write", ["api:read", "api:write"])
+      const validated = yield* auth.validateToken(apiKey.token)
+
+      expect(apiKey.scopes).toEqual(["api:read", "api:write"])
+      expect(validated.scopes).toEqual(["api:read", "api:write"])
+      expect(tokenAllowsScope(validated, "api:read")).toBe(true)
+      expect(tokenAllowsScope(validated, "api:write")).toBe(true)
+      expect(tokenAllowsScope(validated, "app")).toBe(false)
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("API write scope implies API read scope", () =>
+    Effect.gen(function* () {
+      const userId = yield* seedUser("write-scoped", "pass")
+      const auth = yield* AuthService
+      const apiKey = yield* auth.createApiKey(userId, "write-only", ["api:write"])
+      const validated = yield* auth.validateToken(apiKey.token)
+
+      expect(tokenAllowsScope(validated, "api:read")).toBe(true)
+      expect(tokenAllowsScope(validated, "api:write")).toBe(true)
+      expect(tokenAllowsScope(validated, "app")).toBe(false)
     }).pipe(Effect.provide(TestLayer)),
   )
 
@@ -369,6 +400,7 @@ describe("AuthService", () => {
       expect(keys.length).toBeGreaterThanOrEqual(2)
       expect(keys.some((k) => k.kind === "session")).toBe(true)
       expect(keys.some((k) => k.kind === "api_key" && k.name === "automation")).toBe(true)
+      expect(keys.every((k) => k.scopes.length > 0)).toBe(true)
     }).pipe(Effect.provide(TestLayer)),
   )
 })

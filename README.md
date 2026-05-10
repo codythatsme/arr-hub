@@ -131,7 +131,8 @@ still tracked in [development-plan.md](./development-plan.md).
 
 1. Sign in with local admin credentials.
 2. Open **Settings → Security** for password changes and API keys.
-3. Session token is stored locally and used automatically for tRPC requests.
+3. Choose full-app API keys for UI/tRPC automation, or REST-scoped keys for the compatible HTTP API. REST read/write keys can call read and write HTTP routes; REST read-only keys are limited to read-style HTTP methods and aggregate Torznab/Newznab feeds.
+4. Session token is stored locally and used automatically for tRPC requests.
 
 Password recovery is opt-in and operator-controlled. Set
 `ARR_HUB_PASSWORD_RECOVERY_TOKEN` to a temporary random value of at least 16

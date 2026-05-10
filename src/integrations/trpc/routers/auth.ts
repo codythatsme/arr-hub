@@ -6,6 +6,8 @@ import { AuthService } from "#/effect/services/AuthService"
 
 import { authedProcedure, publicProcedure, runEffect } from "../init"
 
+const apiKeyScopeSchema = z.enum(["app", "api:read", "api:write"])
+
 export const authRouter = {
   login: publicProcedure
     .input(z.object({ username: z.string(), password: z.string() }))
@@ -18,14 +20,18 @@ export const authRouter = {
       ),
     ),
 
-  createApiKey: authedProcedure.input(z.object({ name: z.string() })).mutation(({ ctx, input }) =>
-    runEffect(
-      Effect.gen(function* () {
-        const auth = yield* AuthService
-        return yield* auth.createApiKey(ctx.userId, input.name)
-      }),
+  createApiKey: authedProcedure
+    .input(
+      z.object({ name: z.string().min(1), scopes: z.array(apiKeyScopeSchema).min(1).optional() }),
+    )
+    .mutation(({ ctx, input }) =>
+      runEffect(
+        Effect.gen(function* () {
+          const auth = yield* AuthService
+          return yield* auth.createApiKey(ctx.userId, input.name, input.scopes)
+        }),
+      ),
     ),
-  ),
 
   changePassword: authedProcedure
     .input(z.object({ currentPassword: z.string(), newPassword: z.string() }))

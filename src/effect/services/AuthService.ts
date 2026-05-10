@@ -4,32 +4,35 @@ import { SqlError } from "@effect/sql/SqlError"
 import { and, desc, eq, isNull } from "drizzle-orm"
 import { Context, Effect, Layer } from "effect"
 
-import { users, apiKeys, loginAttempts } from "#/db/schema"
+import { apiKeyScopes, users, apiKeys, loginAttempts, type ApiKeyScope } from "#/db/schema"
 
 import { AuthError, ValidationError } from "../errors"
 import { CryptoService } from "./CryptoService"
 import { Db } from "./Db"
 
-interface SessionResult {
+export interface SessionResult {
   readonly token: string
   readonly expiresAt: Date
 }
 
-interface ApiKeyResult {
+export interface ApiKeyResult {
   readonly id: number
   readonly token: string
+  readonly scopes: ReadonlyArray<ApiKeyScope>
 }
 
-interface ValidatedUser {
+export interface ValidatedUser {
   readonly userId: number
   readonly keyId: number
   readonly kind: "session" | "api_key"
+  readonly scopes: ReadonlyArray<ApiKeyScope>
 }
 
-interface ApiKeySummary {
+export interface ApiKeySummary {
   readonly id: number
   readonly kind: "session" | "api_key"
   readonly name: string
+  readonly scopes: ReadonlyArray<ApiKeyScope>
   readonly lastUsedAt: Date | null
   readonly expiresAt: Date | null
   readonly revokedAt: Date | null
@@ -54,7 +57,11 @@ export class AuthService extends Context.Tag("AuthService")<
       newPassword: string,
     ) => Effect.Effect<void, AuthError | ValidationError | SqlError>
     readonly validateToken: (token: string) => Effect.Effect<ValidatedUser, AuthError | SqlError>
-    readonly createApiKey: (userId: number, name: string) => Effect.Effect<ApiKeyResult, SqlError>
+    readonly createApiKey: (
+      userId: number,
+      name: string,
+      scopes?: ReadonlyArray<ApiKeyScope>,
+    ) => Effect.Effect<ApiKeyResult, SqlError>
     readonly revokeApiKey: (id: number) => Effect.Effect<void, SqlError>
     readonly listApiKeys: (userId: number) => Effect.Effect<ReadonlyArray<ApiKeySummary>, SqlError>
   }
@@ -65,6 +72,31 @@ const LOGIN_FAILURE_WINDOW_MS = 15 * 60 * 1000
 const LOGIN_LOCKOUT_MS = 15 * 60 * 1000
 const LOGIN_LOCKOUT_THRESHOLD = 5
 const PASSWORD_RECOVERY_TOKEN_MIN_LENGTH = 16
+const DEFAULT_API_KEY_SCOPES: ReadonlyArray<ApiKeyScope> = ["app"]
+const apiKeyScopeSet = new Set<string>(apiKeyScopes)
+
+function isApiKeyScope(value: string): value is ApiKeyScope {
+  return apiKeyScopeSet.has(value)
+}
+
+export function normalizeApiKeyScopes(scopes: unknown): ReadonlyArray<ApiKeyScope> {
+  if (!Array.isArray(scopes)) return DEFAULT_API_KEY_SCOPES
+
+  const normalized: Array<ApiKeyScope> = []
+  for (const scope of scopes) {
+    if (typeof scope !== "string" || !isApiKeyScope(scope) || normalized.includes(scope)) continue
+    normalized.push(scope)
+  }
+
+  return normalized.length > 0 ? normalized : DEFAULT_API_KEY_SCOPES
+}
+
+export function tokenAllowsScope(validated: ValidatedUser, requiredScope: ApiKeyScope): boolean {
+  if (validated.kind === "session") return true
+  if (validated.scopes.includes("app")) return true
+  if (requiredScope === "api:read" && validated.scopes.includes("api:write")) return true
+  return validated.scopes.includes(requiredScope)
+}
 
 function loginKey(username: string): string {
   return username.trim().toLowerCase()
@@ -216,7 +248,12 @@ export const AuthServiceLive = Layer.effect(
 
           yield* db.update(apiKeys).set({ lastUsedAt: new Date() }).where(eq(apiKeys.id, key.id))
 
-          return { userId: key.userId, keyId: key.id, kind: key.kind }
+          return {
+            userId: key.userId,
+            keyId: key.id,
+            kind: key.kind,
+            scopes: normalizeApiKeyScopes(key.scopes),
+          }
         }),
 
       changePassword: (userId, currentPassword, newPassword) =>
@@ -289,10 +326,11 @@ export const AuthServiceLive = Layer.effect(
           yield* clearLoginFailures(key)
         }),
 
-      createApiKey: (userId, name) =>
+      createApiKey: (userId, name, scopes) =>
         Effect.gen(function* () {
           const rawToken = yield* crypto.generateToken()
           const tokenHash = yield* crypto.hashToken(rawToken)
+          const normalizedScopes = normalizeApiKeyScopes(scopes)
 
           const rows = yield* db
             .insert(apiKeys)
@@ -301,10 +339,11 @@ export const AuthServiceLive = Layer.effect(
               kind: "api_key",
               name,
               tokenHash,
+              scopes: normalizedScopes,
             })
             .returning({ id: apiKeys.id })
 
-          return { id: rows[0].id, token: rawToken }
+          return { id: rows[0].id, token: rawToken, scopes: normalizedScopes }
         }),
 
       revokeApiKey: (id) =>
@@ -319,6 +358,7 @@ export const AuthServiceLive = Layer.effect(
               id: apiKeys.id,
               kind: apiKeys.kind,
               name: apiKeys.name,
+              scopes: apiKeys.scopes,
               lastUsedAt: apiKeys.lastUsedAt,
               expiresAt: apiKeys.expiresAt,
               revokedAt: apiKeys.revokedAt,

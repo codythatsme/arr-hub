@@ -65,6 +65,9 @@ export const users = sqliteTable("users", {
     .default(sql`(unixepoch())`),
 })
 
+export const apiKeyScopes = ["app", "api:read", "api:write"] as const
+export type ApiKeyScope = (typeof apiKeyScopes)[number]
+
 export const apiKeys = sqliteTable("api_keys", {
   id: integer().primaryKey({ autoIncrement: true }),
   userId: integer("user_id")
@@ -73,6 +76,10 @@ export const apiKeys = sqliteTable("api_keys", {
   kind: text({ enum: ["session", "api_key"] }).notNull(),
   name: text().notNull(),
   tokenHash: text("token_hash").notNull().unique(),
+  scopes: text({ mode: "json" })
+    .$type<ReadonlyArray<ApiKeyScope>>()
+    .notNull()
+    .default(sql`'["app"]'`),
   lastUsedAt: integer("last_used_at", { mode: "timestamp" }),
   expiresAt: integer("expires_at", { mode: "timestamp" }),
   revokedAt: integer("revoked_at", { mode: "timestamp" }),

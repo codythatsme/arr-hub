@@ -26,6 +26,7 @@ const runDdl = Effect.gen(function* () {
     kind TEXT NOT NULL,
     name TEXT NOT NULL,
     token_hash TEXT NOT NULL UNIQUE,
+    scopes TEXT NOT NULL DEFAULT '["app"]',
     last_used_at INTEGER,
     expires_at INTEGER,
     revoked_at INTEGER,

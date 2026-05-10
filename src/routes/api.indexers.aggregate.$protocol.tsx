@@ -4,7 +4,7 @@ import { Effect } from "effect"
 
 import { AuthError } from "#/effect/errors"
 import { AppRuntime } from "#/effect/runtime"
-import { AuthService } from "#/effect/services/AuthService"
+import { AuthService, tokenAllowsScope } from "#/effect/services/AuthService"
 import { IndexerService } from "#/effect/services/IndexerService"
 import {
   buildCapsXml,
@@ -41,24 +41,33 @@ export async function aggregateIndexerHandler({ request }: { request: Request })
   }
 
   try {
-    const body = await AppRuntime.runPromise(
+    const feedResult = await AppRuntime.runPromise(
       Effect.gen(function* () {
         const auth = yield* AuthService
-        yield* auth.validateToken(apiKey)
+        const validated = yield* auth.validateToken(apiKey)
+        if (!tokenAllowsScope(validated, "api:read")) {
+          return { ok: false as const }
+        }
 
         const indexers = yield* IndexerService
         if (parsed.request.kind === "caps") {
           const caps = yield* indexers.aggregateCapabilities(protocol)
-          return buildCapsXml(caps, protocol)
+          return { ok: true as const, body: buildCapsXml(caps, protocol) }
         }
 
-        const result = yield* indexers.search(parsed.request.query)
-        return buildReleaseFeedXml(result.releases, protocolPath, {
-          offset: parsed.request.query.offset ?? 0,
-        })
+        const searchResult = yield* indexers.search(parsed.request.query)
+        return {
+          ok: true as const,
+          body: buildReleaseFeedXml(searchResult.releases, protocolPath, {
+            offset: parsed.request.query.offset ?? 0,
+          }),
+        }
       }),
     )
-    return xmlResponse(body)
+    if (!feedResult.ok) {
+      return xmlResponse(buildTorznabErrorXml(100, "forbidden"), 403)
+    }
+    return xmlResponse(feedResult.body)
   } catch (error) {
     if (error instanceof AuthError) {
       return xmlResponse(buildTorznabErrorXml(100, error.reason), 401)

@@ -7,11 +7,38 @@ import { setAuthToken } from "#/lib/auth-token"
 
 export const Route = createFileRoute("/settings/security")({ component: Security })
 
+const apiKeyScopeOptions = [
+  { value: "app", label: "Full app" },
+  { value: "api-read", label: "REST read-only" },
+  { value: "api-write", label: "REST read/write" },
+] as const
+
+type ApiKeyScopePreset = (typeof apiKeyScopeOptions)[number]["value"]
+
+function scopesForPreset(preset: ApiKeyScopePreset): Array<"app" | "api:read" | "api:write"> {
+  switch (preset) {
+    case "api-read":
+      return ["api:read"]
+    case "api-write":
+      return ["api:read", "api:write"]
+    default:
+      return ["app"]
+  }
+}
+
+function scopeLabel(scopes: ReadonlyArray<string>): string {
+  if (scopes.includes("app")) return "Full app"
+  if (scopes.includes("api:write")) return "REST read/write"
+  if (scopes.includes("api:read")) return "REST read-only"
+  return "Unknown"
+}
+
 function Security() {
   const trpc = useTRPC()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [name, setName] = useState("")
+  const [scopePreset, setScopePreset] = useState<ApiKeyScopePreset>("app")
   const [createdToken, setCreatedToken] = useState<string | null>(null)
   const [currentPassword, setCurrentPassword] = useState("")
   const [newPassword, setNewPassword] = useState("")
@@ -24,6 +51,7 @@ function Security() {
       onSuccess: (result) => {
         setCreatedToken(result.token)
         setName("")
+        setScopePreset("app")
         queryClient.invalidateQueries({ queryKey: keysKey })
       },
     }),
@@ -117,10 +145,12 @@ function Security() {
       <section className="rounded-md border p-4">
         <h2 className="font-semibold">API Keys</h2>
         <form
-          className="mt-3 flex max-w-xl gap-2"
+          className="mt-3 grid max-w-2xl gap-2 sm:grid-cols-[minmax(0,1fr)_12rem_auto]"
           onSubmit={(event) => {
             event.preventDefault()
-            if (name.trim()) createKey.mutate({ name: name.trim() })
+            if (name.trim()) {
+              createKey.mutate({ name: name.trim(), scopes: scopesForPreset(scopePreset) })
+            }
           }}
         >
           <input
@@ -129,6 +159,17 @@ function Security() {
             onChange={(event) => setName(event.target.value)}
             placeholder="Key name"
           />
+          <select
+            className="bg-background rounded border px-3 py-2 text-sm"
+            value={scopePreset}
+            onChange={(event) => setScopePreset(event.target.value as ApiKeyScopePreset)}
+          >
+            {apiKeyScopeOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
           <button
             type="submit"
             className="rounded border px-3 py-2 text-sm disabled:opacity-50"
@@ -151,6 +192,7 @@ function Security() {
             <tr>
               <th className="px-3 py-2 text-left font-medium">Name</th>
               <th className="px-3 py-2 text-left font-medium">Kind</th>
+              <th className="px-3 py-2 text-left font-medium">Scope</th>
               <th className="px-3 py-2 text-left font-medium">Last Used</th>
               <th className="px-3 py-2 text-left font-medium">Created</th>
               <th className="px-3 py-2 text-right font-medium">Actions</th>
@@ -161,6 +203,7 @@ function Security() {
               <tr key={key.id} className="border-t">
                 <td className="px-3 py-2">{key.name}</td>
                 <td className="px-3 py-2">{key.kind}</td>
+                <td className="px-3 py-2">{scopeLabel(key.scopes)}</td>
                 <td className="text-muted-foreground px-3 py-2">
                   {key.lastUsedAt ? new Date(key.lastUsedAt).toLocaleString() : "Never"}
                 </td>

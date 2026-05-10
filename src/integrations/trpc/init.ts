@@ -30,7 +30,7 @@ import type {
   ValidationError,
 } from "#/effect/errors"
 import { AppRuntime } from "#/effect/runtime"
-import { AuthService } from "#/effect/services/AuthService"
+import { AuthService, tokenAllowsScope } from "#/effect/services/AuthService"
 
 type AppContext =
   typeof AppRuntime extends ManagedRuntime.ManagedRuntime<infer R, infer _E> ? R : never
@@ -310,6 +310,9 @@ export const authedProcedure = publicProcedure.use(async ({ ctx, next }) => {
       return yield* auth.validateToken(token)
     }),
   )
+  if (!tokenAllowsScope(validated, "app")) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "forbidden" })
+  }
 
   return next({ ctx: { ...ctx, userId: validated.userId } })
 })

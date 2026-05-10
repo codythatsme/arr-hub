@@ -2,8 +2,9 @@ import { SqlError } from "@effect/sql/SqlError"
 import { TRPCError } from "@trpc/server"
 import { Effect } from "effect"
 
+import type { ApiKeyScope } from "#/db/schema"
 import { AppRuntime } from "#/effect/runtime"
-import { AuthService } from "#/effect/services/AuthService"
+import { AuthService, tokenAllowsScope } from "#/effect/services/AuthService"
 import type { DomainError } from "#/integrations/trpc/init"
 import { domainToTRPC } from "#/integrations/trpc/init"
 
@@ -21,32 +22,61 @@ function errorResponse(error: unknown): Response {
   return Response.json({ error: "unexpected error" }, { status: 500 })
 }
 
-export async function runAuthedJson<A>(
-  request: Request,
-  effect: Effect.Effect<A, DomainError | SqlError, AppContext>,
-): Promise<Response> {
+function effectErrorResponse(error: unknown): Response {
+  if (typeof error === "object" && error !== null && "_tag" in error) {
+    if (error._tag === "SqlError") {
+      return Response.json({ error: "database error" }, { status: 500 })
+    }
+    return errorResponse(domainToTRPC(error as DomainError))
+  }
+  return errorResponse(error)
+}
+
+export function requiredApiKeyScopeForMethod(method: string): ApiKeyScope {
+  switch (method.toUpperCase()) {
+    case "GET":
+    case "HEAD":
+    case "OPTIONS":
+      return "api:read"
+    default:
+      return "api:write"
+  }
+}
+
+async function authorizeHttpRequest(request: Request): Promise<Response | null> {
   const token = authTokenFromRequest(request)
   if (!token) {
     return Response.json({ error: "missing" }, { status: 401 })
   }
 
   try {
-    const data = await AppRuntime.runPromise(
+    const validated = await AppRuntime.runPromise(
       Effect.gen(function* () {
         const auth = yield* AuthService
-        yield* auth.validateToken(token)
-        return yield* effect
+        return yield* auth.validateToken(token)
       }),
     )
+    if (!tokenAllowsScope(validated, requiredApiKeyScopeForMethod(request.method))) {
+      return Response.json({ error: "forbidden" }, { status: 403 })
+    }
+    return null
+  } catch (error) {
+    return effectErrorResponse(error)
+  }
+}
+
+export async function runAuthedJson<A>(
+  request: Request,
+  effect: Effect.Effect<A, DomainError | SqlError, AppContext>,
+): Promise<Response> {
+  const authError = await authorizeHttpRequest(request)
+  if (authError) return authError
+
+  try {
+    const data = await AppRuntime.runPromise(effect)
     return Response.json(data)
   } catch (error) {
-    if (typeof error === "object" && error !== null && "_tag" in error) {
-      if (error._tag === "SqlError") {
-        return Response.json({ error: "database error" }, { status: 500 })
-      }
-      return errorResponse(domainToTRPC(error as DomainError))
-    }
-    return errorResponse(error)
+    return effectErrorResponse(error)
   }
 }
 
@@ -54,27 +84,13 @@ export async function runAuthedResponse(
   request: Request,
   effect: Effect.Effect<Response, DomainError | SqlError, AppContext>,
 ): Promise<Response> {
-  const token = authTokenFromRequest(request)
-  if (!token) {
-    return Response.json({ error: "missing" }, { status: 401 })
-  }
+  const authError = await authorizeHttpRequest(request)
+  if (authError) return authError
 
   try {
-    return await AppRuntime.runPromise(
-      Effect.gen(function* () {
-        const auth = yield* AuthService
-        yield* auth.validateToken(token)
-        return yield* effect
-      }),
-    )
+    return await AppRuntime.runPromise(effect)
   } catch (error) {
-    if (typeof error === "object" && error !== null && "_tag" in error) {
-      if (error._tag === "SqlError") {
-        return Response.json({ error: "database error" }, { status: 500 })
-      }
-      return errorResponse(domainToTRPC(error as DomainError))
-    }
-    return errorResponse(error)
+    return effectErrorResponse(error)
   }
 }
 
@@ -85,13 +101,7 @@ export async function runJson<A>(
     const data = await AppRuntime.runPromise(effect)
     return Response.json(data)
   } catch (error) {
-    if (typeof error === "object" && error !== null && "_tag" in error) {
-      if (error._tag === "SqlError") {
-        return Response.json({ error: "database error" }, { status: 500 })
-      }
-      return errorResponse(domainToTRPC(error as DomainError))
-    }
-    return errorResponse(error)
+    return effectErrorResponse(error)
   }
 }
 

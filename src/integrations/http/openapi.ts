@@ -505,19 +505,22 @@ export const publicOpenApiDocument = {
       BearerAuth: {
         type: "http",
         scheme: "bearer",
-        description: "Bearer token from an ARR Hub session or API credential.",
+        description:
+          "Bearer token from an ARR Hub session or full-app API credential. REST-scoped API keys should use X-Api-Key or apikey.",
       },
       "X-Api-Key": {
         type: "apiKey",
         in: "header",
         name: "X-Api-Key",
-        description: "API key passed as a header, matching Radarr/Sonarr/Prowlarr clients.",
+        description:
+          "API key passed as a header, matching Radarr/Sonarr/Prowlarr clients. Requires REST read scope for GET/HEAD/OPTIONS and REST write scope for mutating methods.",
       },
       apikey: {
         type: "apiKey",
         in: "query",
         name: "apikey",
-        description: "API key passed as a query parameter for Arr-compatible clients and feeds.",
+        description:
+          "API key passed as a query parameter for Arr-compatible clients and feeds. Aggregate feeds require REST read scope.",
       },
     },
     parameters: {

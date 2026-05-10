@@ -52,12 +52,24 @@ describe("tRPC router integration", () => {
     const createdKey = listed.find((k) => k.id === created.id)
     expect(createdKey?.name).toBe("integration-key")
     expect(createdKey?.kind).toBe("api_key")
+    expect(createdKey?.scopes).toEqual(["app"])
 
     await caller.auth.revokeApiKey({ id: created.id })
 
     const listedAfter = await caller.auth.listApiKeys()
     const revoked = listedAfter.find((k) => k.id === created.id)
     expect(revoked?.revokedAt).not.toBeNull()
+  })
+
+  it("rejects REST-scoped API keys for app tRPC routes", async () => {
+    const { caller } = await createAuthedCaller()
+    const created = await caller.auth.createApiKey({ name: "rest-read", scopes: ["api:read"] })
+
+    const headers = new Headers()
+    headers.set("authorization", `Bearer ${created.token}`)
+    const restScopedCaller = trpcRouter.createCaller({ headers, userId: null })
+
+    await expect(restScopedCaller.auth.listApiKeys()).rejects.toMatchObject({ code: "FORBIDDEN" })
   })
 
   it("supports scheduler global pause/resume and retryJob", async () => {
