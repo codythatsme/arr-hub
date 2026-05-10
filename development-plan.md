@@ -38,7 +38,7 @@ Commands run from `/Users/codythatsme/Developer/arr-hub`:
 - Focused download-client remove-policy tests passed for completed-import cleanup and failed-download cleanup.
 - Focused import free-space tests passed for settings validation and copy-import reserve rejection.
 - Focused notification/history tests passed for channel event subscription edits, direct test-send deliveries, and operational event notification triggers.
-- Focused notification provider tests passed for generic webhook payload preservation, Discord/Slack webhook formatting, Ntfy topic delivery, Gotify message delivery, Telegram sendMessage formatting, Pushover form delivery, Apprise API delivery, Notifiarr passthrough delivery, and provider URL/credential validation.
+- Focused notification provider tests passed for generic webhook payload preservation, Discord/Slack webhook formatting, Ntfy topic delivery, Gotify message delivery, Telegram sendMessage formatting, Pushover form delivery, Apprise API delivery, Notifiarr passthrough delivery, custom script execution, and provider URL/credential/path validation.
 - Focused diagnostics tests passed for proactive health checks covering app data, missing root folders, remote path mappings, and completed-download cleanup warnings.
 - Focused plugin-loader tests passed for plugin contract status reporting, unsupported capability-version rejection, and plugin lifecycle log retrieval.
 - Focused setup-import tests passed for rejecting Radarr/Sonarr connection tests after setup completion without outbound requests.
@@ -154,6 +154,7 @@ Completed in atomic commits after this plan was written. Milestone 5 is summariz
 - `aefc3e0c70` added a first-pass Pushover notification channel with token/user settings, form-encoded delivery, and Settings UI fields.
 - `85e67419d0` added a first-pass Apprise notification channel with saved notify URL delivery and Settings UI selection.
 - `a0e4cc55d0` added a first-pass Notifiarr notification channel with passthrough payload delivery and Settings UI fields.
+- `c756f06144` added a first-pass custom script notification channel with direct executable invocation, notification environment variables, and Settings UI fields.
 - `413824fa91` added filtered diagnostics panels to Indexer, Download Client, Media Server, and Media Management settings pages.
 - Subsequent Milestone 5 commits hardened the generic Cardigann runtime, request templating, category mapping, auth controls, and aggregate app-sync behavior enough for representative built-ins and checksum-pinned remote definitions. These commits are runtime support, not a decision to ship the expanded tracker catalogue.
 - `5cbb9c9e90` removed the deferred expanded built-in tracker catalogue from `main`. The safety branch `backup/milestone5-expanded-catalog` preserves the catalogue spike at `ab9e42393b`; those tracker definitions, including long-tail and adult/XXX sources, are not current built-in support.
@@ -177,7 +178,7 @@ Backend/service surfaces:
 - `src/effect/services/DownloadMonitor.ts`: polls download clients, updates queue rows, calls media import for completed linked downloads, leaves failed imports visible in queue, triggers Plex library refresh.
 - `src/effect/services/MediaServerService.ts` and `PlexAdapter.ts`: Plex connection, libraries, library sync matching, refresh, active sessions, shared users.
 - `src/effect/services/PlexSessionMonitor.ts`: active stream monitoring and notification trigger emission.
-- `src/effect/services/NotificationService.ts`: in-app, generic webhook, Discord, Slack, Ntfy, Gotify, Telegram, Pushover, Apprise, and Notifiarr notification channels.
+- `src/effect/services/NotificationService.ts`: in-app, generic webhook, Discord, Slack, Ntfy, Gotify, Telegram, Pushover, Apprise, Notifiarr, and custom script notification channels.
 - `src/effect/services/SchedulerService.ts` and `SchedulerLoop.ts`: recurring true RSS/cutoff/download monitor jobs, TV job types, and metadata refresh jobs.
 - `src/effect/services/MetadataRefreshService.ts`: refreshes movie and series metadata from TMDB and upserts season/episode data.
 - `src/effect/services/ImportService.ts`: one-time setup import from Radarr movies and Sonarr series, including Sonarr seasons, episodes, file paths, monitored state, and existing quality.
@@ -616,7 +617,7 @@ Tasks:
 
 Current state:
 
-- In-app, generic webhook, Discord, Slack, Ntfy, Gotify, Telegram, Pushover, Apprise, and Notifiarr channels exist.
+- In-app, generic webhook, Discord, Slack, Ntfy, Gotify, Telegram, Pushover, Apprise, Notifiarr, and custom script channels exist.
 - Settings exposes editable per-channel event subscriptions and direct test-send controls.
 - Event coverage now includes Plex monitoring plus operational history events for grabs, download failures, imports, import failures, renames, deletes, blocklists, metadata refreshes, indexer/download-client health changes, and settings changes.
 
@@ -627,8 +628,8 @@ Gap:
 Tasks:
 
 - [x] Add event emissions for grab/import/upgrade/fail/blocklist/health/update. Implemented through operational history events for current grab, import, fail, blocklist, health, metadata, and settings workflows; explicit version-upgrade and application-update events remain future work.
-- [x] Add first-pass Discord, Slack, Ntfy, Gotify, Telegram, Pushover, Apprise, and Notifiarr provider adapters using provider-specific webhook/topic/message/API/passthrough payloads and Settings channel selection.
-- Add provider adapters for email/SMTP and custom scripts.
+- [x] Add first-pass Discord, Slack, Ntfy, Gotify, Telegram, Pushover, Apprise, Notifiarr, and custom script provider adapters using provider-specific webhook/topic/message/API/passthrough/env payloads and Settings channel selection.
+- Add provider adapter for email/SMTP.
 - [x] Add per-event notification settings and test-send UI.
 
 ### Tags, Filters, And Auto Tagging
