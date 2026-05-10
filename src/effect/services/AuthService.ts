@@ -2,7 +2,7 @@ import { SqlError } from "@effect/sql/SqlError"
 import { and, desc, eq, isNull } from "drizzle-orm"
 import { Context, Effect, Layer } from "effect"
 
-import { users, apiKeys } from "#/db/schema"
+import { users, apiKeys, loginAttempts } from "#/db/schema"
 
 import { AuthError } from "../errors"
 import { CryptoService } from "./CryptoService"
@@ -49,6 +49,13 @@ export class AuthService extends Context.Tag("AuthService")<
 >() {}
 
 const SESSION_DURATION_MS = 24 * 60 * 60 * 1000
+const LOGIN_FAILURE_WINDOW_MS = 15 * 60 * 1000
+const LOGIN_LOCKOUT_MS = 15 * 60 * 1000
+const LOGIN_LOCKOUT_THRESHOLD = 5
+
+function loginKey(username: string): string {
+  return username.trim().toLowerCase()
+}
 
 export const AuthServiceLive = Layer.effect(
   AuthService,
@@ -56,20 +63,80 @@ export const AuthServiceLive = Layer.effect(
     const db = yield* Db
     const crypto = yield* CryptoService
 
+    const assertLoginAllowed = (key: string, now: Date) =>
+      Effect.gen(function* () {
+        const attempts = yield* db
+          .select()
+          .from(loginAttempts)
+          .where(eq(loginAttempts.loginKey, key))
+
+        const attempt = attempts[0]
+        if (attempt?.lockedUntil && attempt.lockedUntil > now) {
+          return yield* new AuthError({ reason: "rate_limited" })
+        }
+      })
+
+    const recordLoginFailure = (key: string, now: Date) =>
+      Effect.gen(function* () {
+        const attempts = yield* db
+          .select()
+          .from(loginAttempts)
+          .where(eq(loginAttempts.loginKey, key))
+
+        const attempt = attempts[0]
+        const windowExpired =
+          !attempt || now.getTime() - attempt.firstFailedAt.getTime() > LOGIN_FAILURE_WINDOW_MS
+        const failedCount = windowExpired ? 1 : attempt.failedCount + 1
+        const firstFailedAt = windowExpired ? now : attempt.firstFailedAt
+        const lockedUntil =
+          failedCount >= LOGIN_LOCKOUT_THRESHOLD ? new Date(now.getTime() + LOGIN_LOCKOUT_MS) : null
+
+        if (!attempt) {
+          yield* db.insert(loginAttempts).values({
+            loginKey: key,
+            failedCount,
+            firstFailedAt,
+            lastFailedAt: now,
+            lockedUntil,
+          })
+        } else {
+          yield* db
+            .update(loginAttempts)
+            .set({ failedCount, firstFailedAt, lastFailedAt: now, lockedUntil })
+            .where(eq(loginAttempts.id, attempt.id))
+        }
+
+        if (lockedUntil) {
+          return yield* new AuthError({ reason: "rate_limited" })
+        }
+      })
+
+    const clearLoginFailures = (key: string) =>
+      db.delete(loginAttempts).where(eq(loginAttempts.loginKey, key))
+
     return {
       login: (username, password) =>
         Effect.gen(function* () {
+          const key = loginKey(username)
+          const now = new Date()
+
+          yield* assertLoginAllowed(key, now)
+
           const rows = yield* db.select().from(users).where(eq(users.username, username))
 
           const user = rows[0]
           if (!user) {
+            yield* recordLoginFailure(key, now)
             return yield* new AuthError({ reason: "invalid_credentials" })
           }
 
           const valid = yield* crypto.verifyPassword(password, user.passwordHash)
           if (!valid) {
+            yield* recordLoginFailure(key, now)
             return yield* new AuthError({ reason: "invalid_credentials" })
           }
+
+          yield* clearLoginFailures(key)
 
           const rawToken = yield* crypto.generateToken()
           const tokenHash = yield* crypto.hashToken(rawToken)

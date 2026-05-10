@@ -32,6 +32,15 @@ const runDdl = Effect.gen(function* () {
     created_at INTEGER NOT NULL DEFAULT (unixepoch())
   )`
 
+  yield* sql`CREATE TABLE login_attempts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    login_key TEXT NOT NULL UNIQUE,
+    failed_count INTEGER NOT NULL DEFAULT 0,
+    first_failed_at INTEGER NOT NULL,
+    last_failed_at INTEGER NOT NULL,
+    locked_until INTEGER
+  )`
+
   yield* sql`CREATE TABLE quality_profiles (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE,

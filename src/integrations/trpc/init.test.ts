@@ -37,6 +37,12 @@ describe("domainToTRPC", () => {
     expect(err.code).toBe("UNAUTHORIZED")
   })
 
+  it("maps AuthError rate_limited to TOO_MANY_REQUESTS", () => {
+    const err = domainToTRPC(new AuthError({ reason: "rate_limited" }))
+    expect(err).toBeInstanceOf(TRPCError)
+    expect(err.code).toBe("TOO_MANY_REQUESTS")
+  })
+
   it("maps IndexerError auth_failed to UNAUTHORIZED", () => {
     const err = domainToTRPC(
       new IndexerError({

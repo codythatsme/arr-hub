@@ -11,6 +11,7 @@ const MIGRATIONS_TABLE = "__drizzle_migrations"
 export const STARTUP_REQUIRED_TABLES = [
   "users",
   "api_keys",
+  "login_attempts",
   "quality_profiles",
   "quality_items",
   "custom_formats",
@@ -55,6 +56,8 @@ export const STARTUP_REQUIRED_TABLES = [
 
 export const STARTUP_REQUIRED_COLUMNS = [
   { table: "users", column: "password_hash" },
+  { table: "login_attempts", column: "login_key" },
+  { table: "login_attempts", column: "locked_until" },
   { table: "scheduler_config", column: "job_type" },
   { table: "scheduler_jobs", column: "payload" },
   { table: "scheduler_jobs", column: "dedupe_key" },

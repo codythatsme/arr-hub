@@ -90,7 +90,10 @@ export function domainToTRPC(error: DomainError): TRPCError {
         message: `${error.entity} with ${error.field}=${error.value} already exists`,
       })
     case "AuthError":
-      return new TRPCError({ code: "UNAUTHORIZED", message: error.reason })
+      return new TRPCError({
+        code: error.reason === "rate_limited" ? "TOO_MANY_REQUESTS" : "UNAUTHORIZED",
+        message: error.reason,
+      })
     case "BackupError": {
       const codeMap: Record<string, TRPCError["code"]> = {
         backup_not_found: "NOT_FOUND",

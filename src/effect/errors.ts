@@ -15,7 +15,12 @@ export class ConflictError extends Data.TaggedError("ConflictError")<{
   readonly value: string | number
 }> {}
 
-export type AuthErrorReason = "invalid_credentials" | "expired" | "revoked" | "missing"
+export type AuthErrorReason =
+  | "invalid_credentials"
+  | "expired"
+  | "revoked"
+  | "missing"
+  | "rate_limited"
 
 export class AuthError extends Data.TaggedError("AuthError")<{
   readonly reason: AuthErrorReason

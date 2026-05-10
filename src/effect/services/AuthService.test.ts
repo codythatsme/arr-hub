@@ -2,7 +2,7 @@ import { describe, expect, it } from "@effect/vitest"
 import { eq } from "drizzle-orm"
 import { Effect, Layer } from "effect"
 
-import { users, apiKeys } from "#/db/schema"
+import { users, apiKeys, loginAttempts } from "#/db/schema"
 import { TestDbLive } from "#/effect/test/TestDb"
 
 import { AuthService, AuthServiceLive } from "./AuthService"
@@ -45,6 +45,57 @@ describe("AuthService", () => {
       const error = yield* Effect.flip(auth.login("bob", "wrong"))
       expect(error._tag).toBe("AuthError")
       if (error._tag === "AuthError") expect(error.reason).toBe("invalid_credentials")
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("login locks a username after repeated failures", () =>
+    Effect.gen(function* () {
+      yield* seedUser("locked", "correct")
+      const auth = yield* AuthService
+
+      for (let i = 0; i < 4; i++) {
+        const error = yield* Effect.flip(auth.login("locked", "wrong"))
+        expect(error._tag).toBe("AuthError")
+        if (error._tag === "AuthError") expect(error.reason).toBe("invalid_credentials")
+      }
+
+      const lockoutError = yield* Effect.flip(auth.login("locked", "wrong"))
+      expect(lockoutError._tag).toBe("AuthError")
+      if (lockoutError._tag === "AuthError") expect(lockoutError.reason).toBe("rate_limited")
+
+      const correctPasswordError = yield* Effect.flip(auth.login("locked", "correct"))
+      expect(correctPasswordError._tag).toBe("AuthError")
+      if (correctPasswordError._tag === "AuthError") {
+        expect(correctPasswordError.reason).toBe("rate_limited")
+      }
+
+      const db = yield* Db
+      const attempts = yield* db
+        .select()
+        .from(loginAttempts)
+        .where(eq(loginAttempts.loginKey, "locked"))
+      expect(attempts[0]?.failedCount).toBe(5)
+      expect(attempts[0]?.lockedUntil).toBeInstanceOf(Date)
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("successful login clears previous failed attempts", () =>
+    Effect.gen(function* () {
+      yield* seedUser("recover", "correct")
+      const auth = yield* AuthService
+
+      yield* Effect.flip(auth.login("recover", "wrong"))
+      yield* Effect.flip(auth.login("recover", "wrong"))
+
+      const result = yield* auth.login("recover", "correct")
+      expect(result.token).toHaveLength(64)
+
+      const db = yield* Db
+      const attempts = yield* db
+        .select()
+        .from(loginAttempts)
+        .where(eq(loginAttempts.loginKey, "recover"))
+      expect(attempts).toHaveLength(0)
     }).pipe(Effect.provide(TestLayer)),
   )
 

@@ -81,6 +81,15 @@ export const apiKeys = sqliteTable("api_keys", {
     .default(sql`(unixepoch())`),
 })
 
+export const loginAttempts = sqliteTable("login_attempts", {
+  id: integer().primaryKey({ autoIncrement: true }),
+  loginKey: text("login_key").notNull().unique(),
+  failedCount: integer("failed_count").notNull().default(0),
+  firstFailedAt: integer("first_failed_at", { mode: "timestamp" }).notNull(),
+  lastFailedAt: integer("last_failed_at", { mode: "timestamp" }).notNull(),
+  lockedUntil: integer("locked_until", { mode: "timestamp" }),
+})
+
 export const qualityProfiles = sqliteTable("quality_profiles", {
   id: integer().primaryKey({ autoIncrement: true }),
   name: text().notNull().unique(),
