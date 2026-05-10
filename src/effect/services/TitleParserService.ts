@@ -50,7 +50,16 @@ const EDITION_RE =
 
 const RELEASE_GROUP_RE = /-(\w+)$/
 
-const PROPER_RE = /\b(?:proper|repack)\b/i
+const PROPER_RE = /\bproper\b/i
+const REPACK_RE = /\b(?:repack\d?|rerip\d?)\b/i
+const REAL_RE = /\bREAL\b/g
+const VERSION_PATTERNS: ReadonlyArray<RegExp> = [
+  /\d[-._ ]?v(\d)[-._ ]/i,
+  /\[v(\d)\]/i,
+  /repack(\d)/i,
+  /rerip(\d)/i,
+  /(?:480|576|720|1080|2160)p[._ ]v(\d)/i,
+]
 
 /**
  * Find the first occurrence of any quality-related token in the title string.
@@ -63,6 +72,7 @@ function findFirstQualityTokenIndex(raw: string): number {
     ...MODIFIER_PATTERNS.map(([re]) => re),
     ...CODEC_PATTERNS.map(([re]) => re),
     PROPER_RE,
+    REPACK_RE,
     EDITION_RE,
     SEASON_EPISODE,
     SEASON_EPISODE_ALT,
@@ -83,6 +93,17 @@ function findFirstQualityTokenIndex(raw: string): number {
 function matchFirst<T>(raw: string, patterns: ReadonlyArray<readonly [RegExp, T]>): T | null {
   for (const [re, value] of patterns) {
     if (re.test(raw)) return value
+  }
+  return null
+}
+
+function explicitRevisionVersion(raw: string): number | null {
+  for (const pattern of VERSION_PATTERNS) {
+    const match = pattern.exec(raw)
+    const value = match?.[1]
+    if (value === undefined) continue
+    const version = Number.parseInt(value, 10)
+    if (Number.isInteger(version) && version > 0) return version
   }
   return null
 }
@@ -237,8 +258,16 @@ export const TitleParserServiceLive = Layer.succeed(TitleParserService, {
       const groupMatch = RELEASE_GROUP_RE.exec(withoutExt)
       const releaseGroup = groupMatch ? groupMatch[1] : null
 
-      // PROPER/REPACK
-      const proper = PROPER_RE.test(trimmed)
+      // PROPER/REPACK/revision metadata. Version semantics mirror the Arr
+      // parser convention: a base release is v1, PROPER/REPACK is v2, and
+      // explicit repack/rerip numbers increment from the parsed version.
+      const hasProperToken = PROPER_RE.test(trimmed)
+      const repack = REPACK_RE.test(trimmed)
+      const explicitVersion = explicitRevisionVersion(trimmed)
+      const revisionVersion =
+        hasProperToken || repack ? (explicitVersion ?? 1) + 1 : (explicitVersion ?? 1)
+      const revisionReal = [...trimmed.matchAll(REAL_RE)].length
+      const proper = hasProperToken || repack
 
       // Title: everything before first quality token, dots/underscores → spaces
       const qualityIdx = findFirstQualityTokenIndex(trimmed)
@@ -272,6 +301,9 @@ export const TitleParserServiceLive = Layer.succeed(TitleParserService, {
         releaseGroup,
         edition,
         proper,
+        repack,
+        revisionVersion,
+        revisionReal,
         qualityName,
       }
     }),

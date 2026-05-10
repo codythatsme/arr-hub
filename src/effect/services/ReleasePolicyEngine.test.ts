@@ -512,6 +512,25 @@ describe("ReleasePolicyEngine", () => {
     }).pipe(Effect.provide(TestLayer)),
   )
 
+  it.effect("prefers proper and repack revisions when quality and format score tie", () =>
+    Effect.gen(function* () {
+      const profileId = yield* setupProfile()
+      const engine = yield* ReleasePolicyEngine
+      const results = yield* engine.evaluate(
+        [
+          makeCandidate({ title: "Movie.2024.1080p.BluRay.x264-GRP", seeders: 500 }),
+          makeCandidate({ title: "Movie.2024.PROPER.1080p.BluRay.x264-GRP", seeders: 1 }),
+        ],
+        profileId,
+        baseContext,
+      )
+
+      expect(results).toHaveLength(2)
+      expect(results[0].candidate.title).toContain("PROPER")
+      expect(results[0].decision).toBe("accepted")
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
   it.effect("rejects quality not in allowed list", () =>
     Effect.gen(function* () {
       const svc = yield* ProfileService
@@ -617,6 +636,52 @@ describe("ReleasePolicyEngine", () => {
       expect(results).toHaveLength(1)
       expect(results[0].decision).toBe("upgrade")
       expect(results[0].reasons.some((r) => r.rule === "quality_upgrade")).toBe(true)
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("upgrade accepted: same quality proper revision", () =>
+    Effect.gen(function* () {
+      const profileId = yield* setupProfile({ upgradeAllowed: true })
+      const existing: ExistingFile = {
+        qualityName: "Bluray1080p",
+        qualityRank: 6,
+        formatScore: 0,
+        revisionVersion: 1,
+        releaseGroup: "GRP",
+      }
+      const engine = yield* ReleasePolicyEngine
+      const results = yield* engine.evaluate(
+        [makeCandidate({ title: "Movie.2024.PROPER.1080p.BluRay.x264-GRP" })],
+        profileId,
+        { ...baseContext, existingFile: existing },
+      )
+
+      expect(results).toHaveLength(1)
+      expect(results[0].decision).toBe("upgrade")
+      expect(results[0].reasons.some((r) => r.rule === "revision_upgrade")).toBe(true)
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("upgrade blocked: repack from a different known release group", () =>
+    Effect.gen(function* () {
+      const profileId = yield* setupProfile({ upgradeAllowed: true })
+      const existing: ExistingFile = {
+        qualityName: "Bluray1080p",
+        qualityRank: 6,
+        formatScore: 0,
+        revisionVersion: 1,
+        releaseGroup: "OLD",
+      }
+      const engine = yield* ReleasePolicyEngine
+      const results = yield* engine.evaluate(
+        [makeCandidate({ title: "Movie.2024.REPACK.1080p.BluRay.x264-GRP" })],
+        profileId,
+        { ...baseContext, existingFile: existing },
+      )
+
+      expect(results).toHaveLength(1)
+      expect(results[0].decision).toBe("skipped")
+      expect(results[0].reasons.some((r) => r.rule === "repack_release_group_mismatch")).toBe(true)
     }).pipe(Effect.provide(TestLayer)),
   )
 

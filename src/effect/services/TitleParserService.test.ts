@@ -117,6 +117,9 @@ describe("TitleParserService", () => {
       const svc = yield* TitleParserService
       const p = yield* svc.parse("Show.S01E01.PROPER.720p.HDTV.x264-GRP")
       expect(p.proper).toBe(true)
+      expect(p.repack).toBe(false)
+      expect(p.revisionVersion).toBe(2)
+      expect(p.revisionReal).toBe(0)
       expect(p.qualityName).toBe("HDTV720p")
     }).pipe(Effect.provide(TestLayer)),
   )
@@ -126,8 +129,25 @@ describe("TitleParserService", () => {
       const svc = yield* TitleParserService
       const p = yield* svc.parse("Show.S02E05.REPACK.1080p.WEB-DL-GRP")
       expect(p.proper).toBe(true)
+      expect(p.repack).toBe(true)
+      expect(p.revisionVersion).toBe(2)
       expect(p.source).toBe("webdl")
       expect(p.qualityName).toBe("WEBDL1080p")
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("detects explicit revision versions", () =>
+    Effect.gen(function* () {
+      const svc = yield* TitleParserService
+      const v2 = yield* svc.parse("Show.S02E05.1080p.v2.WEB-DL-GRP")
+      const repack2 = yield* svc.parse("Show.S02E05.REPACK2.1080p.WEB-DL-GRP")
+
+      expect(v2.proper).toBe(false)
+      expect(v2.repack).toBe(false)
+      expect(v2.revisionVersion).toBe(2)
+      expect(repack2.proper).toBe(true)
+      expect(repack2.repack).toBe(true)
+      expect(repack2.revisionVersion).toBe(3)
     }).pipe(Effect.provide(TestLayer)),
   )
 

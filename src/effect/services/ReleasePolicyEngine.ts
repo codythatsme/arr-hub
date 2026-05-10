@@ -146,6 +146,26 @@ function preferredTermScore(title: string, terms: ReadonlyArray<string>): number
   return terms.reduce((score, term) => (releaseTermMatches(title, term) ? score + 10 : score), 0)
 }
 
+function releaseRevisionRank(input: {
+  readonly revisionVersion?: number
+  readonly revisionReal?: number
+}): number {
+  const version =
+    Number.isInteger(input.revisionVersion) && (input.revisionVersion ?? 0) > 0
+      ? (input.revisionVersion ?? 1)
+      : 1
+  const real =
+    Number.isInteger(input.revisionReal) && (input.revisionReal ?? 0) > 0
+      ? (input.revisionReal ?? 0)
+      : 0
+  return real * 100 + version
+}
+
+function normalizedReleaseGroup(value: string | null | undefined): string | null {
+  const normalized = value?.trim().toLowerCase()
+  return normalized && normalized.length > 0 ? normalized : null
+}
+
 function loadReleaseTarget(
   db: Context.Tag.Service<typeof Db>,
   context: EvaluationContext,
@@ -635,6 +655,72 @@ export const ReleasePolicyEngineLive = Layer.effect(
                 continue
               }
 
+              const candidateRevision = releaseRevisionRank(parsed)
+              const existingRevision = releaseRevisionRank(existing)
+              if (candidateRevision < existingRevision) {
+                decisions.push({
+                  candidate,
+                  parsed,
+                  qualityRank,
+                  formatScore,
+                  decision: "skipped",
+                  reasons: [
+                    ...reasons,
+                    {
+                      stage: "upgrade",
+                      rule: "revision_downgrade",
+                      detail: `revision ${candidateRevision} < existing ${existingRevision}`,
+                    },
+                  ],
+                })
+                continue
+              }
+
+              if (candidateRevision > existingRevision) {
+                const existingGroup = normalizedReleaseGroup(existing.releaseGroup)
+                const candidateGroup = normalizedReleaseGroup(parsed.releaseGroup)
+                if (
+                  parsed.repack &&
+                  existingGroup !== null &&
+                  candidateGroup !== null &&
+                  existingGroup !== candidateGroup
+                ) {
+                  decisions.push({
+                    candidate,
+                    parsed,
+                    qualityRank,
+                    formatScore,
+                    decision: "skipped",
+                    reasons: [
+                      ...reasons,
+                      {
+                        stage: "upgrade",
+                        rule: "repack_release_group_mismatch",
+                        detail: `repack group ${candidateGroup} != existing ${existingGroup}`,
+                      },
+                    ],
+                  })
+                  continue
+                }
+
+                decisions.push({
+                  candidate,
+                  parsed,
+                  qualityRank,
+                  formatScore,
+                  decision: "upgrade",
+                  reasons: [
+                    ...reasons,
+                    {
+                      stage: "upgrade",
+                      rule: "revision_upgrade",
+                      detail: `revision ${candidateRevision} > existing ${existingRevision}`,
+                    },
+                  ],
+                })
+                continue
+              }
+
               // Same quality — check format score
               if (formatScore <= existing.formatScore) {
                 decisions.push({
@@ -741,6 +827,11 @@ export const ReleasePolicyEngineLive = Layer.effect(
 
             // Format score DESC
             if (a.formatScore !== b.formatScore) return b.formatScore - a.formatScore
+
+            // Proper/repack/REAL revisions DESC
+            const aRevision = a.parsed ? releaseRevisionRank(a.parsed) : 1
+            const bRevision = b.parsed ? releaseRevisionRank(b.parsed) : 1
+            if (aRevision !== bRevision) return bRevision - aRevision
 
             // Seeders DESC (null last)
             const aSeeders = a.candidate.seeders ?? -1

@@ -37,6 +37,9 @@ const evaluateInputSchema = z.object({
         qualityName: z.enum(Object.keys(Quality) as [QualityName, ...ReadonlyArray<QualityName>]),
         qualityRank: z.number().int(),
         formatScore: z.number().int(),
+        revisionVersion: z.number().int().positive().optional(),
+        revisionReal: z.number().int().nonnegative().optional(),
+        releaseGroup: z.string().nullable().optional(),
       })
       .optional(),
   }),

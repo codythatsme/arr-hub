@@ -407,6 +407,9 @@ const packParsed: ParsedTitle = {
   releaseGroup: "GROUP",
   edition: null,
   proper: false,
+  repack: false,
+  revisionVersion: 1,
+  revisionReal: 0,
   qualityName: "Bluray1080p",
 }
 
@@ -423,6 +426,9 @@ const ep1Parsed: ParsedTitle = {
   releaseGroup: "GROUP",
   edition: null,
   proper: false,
+  repack: false,
+  revisionVersion: 1,
+  revisionReal: 0,
   qualityName: "WEBDL1080p",
 }
 

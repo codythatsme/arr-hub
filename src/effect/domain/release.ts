@@ -16,6 +16,9 @@ export interface ParsedTitle {
   readonly releaseGroup: string | null
   readonly edition: string | null
   readonly proper: boolean
+  readonly repack: boolean
+  readonly revisionVersion: number
+  readonly revisionReal: number
   readonly qualityName: QualityName | null
 }
 
@@ -48,6 +51,9 @@ export interface ExistingFile {
   readonly qualityName: QualityName
   readonly qualityRank: number
   readonly formatScore: number
+  readonly revisionVersion?: number
+  readonly revisionReal?: number
+  readonly releaseGroup?: string | null
 }
 
 export interface EvaluationContext {
