@@ -44,7 +44,7 @@ Commands run from `/Users/codythatsme/Developer/arr-hub`:
 - Focused setup-import tests passed for rejecting Radarr/Sonarr connection tests after setup completion without outbound requests.
 - Focused auth/startup tests passed for persistent login lockout, failed-attempt cleanup after successful login, TRPC 429 mapping, and startup schema validation.
 - Focused auth tests passed for authenticated admin password change, active-session revocation, current-password rejection, and new-password validation.
-- Focused diagnostics tests passed for indexer search/RSS failure rollups, unavailable download clients, and stale download-client health checks.
+- Focused diagnostics tests passed for indexer search/RSS failure rollups, unavailable download clients, stale download-client health checks, clock/update metadata checks, and import-mechanism failure checks.
 - Settings diagnostics UI wiring passed format, lint, typecheck, and build verification.
 - `bun run test:e2e`: last recorded passing smoke coverage for onboarding, settings, add movie, add TV from metadata, manual search display, calendar population, and queue page.
 - `bun run lint`: passed with 18 warnings and 0 errors.
@@ -161,6 +161,7 @@ Completed in atomic commits after this plan was written. Milestone 5 is summariz
 - `2960ae285c` documented TMDB metadata credentials, current migration paths from existing Arr apps, and added `TMDB_API_KEY` to `.env.example`.
 - `7c499328d0` redacted notification channel response settings for webhook URLs, provider tokens/user keys, headers, script arguments, and SMTP passwords.
 - `413824fa91` added filtered diagnostics panels to Indexer, Download Client, Media Server, and Media Management settings pages.
+- `ba3c529215` added proactive diagnostics for local clock jumps, deployment-supplied update availability metadata, disabled scheduler/import monitoring, and completed downloads missing output paths, plus System/Settings surfacing.
 - Subsequent Milestone 5 commits hardened the generic Cardigann runtime, request templating, category mapping, auth controls, and aggregate app-sync behavior enough for representative built-ins and checksum-pinned remote definitions. These commits are runtime support, not a decision to ship the expanded tracker catalogue.
 - `5cbb9c9e90` removed the deferred expanded built-in tracker catalogue from `main`. The safety branch `backup/milestone5-expanded-catalog` preserves the catalogue spike at `ab9e42393b`; those tracker definitions, including long-tail and adult/XXX sources, are not current built-in support.
 
@@ -176,7 +177,7 @@ Backend/service surfaces:
 - `src/effect/services/TmdbClient.ts`: movie TMDB search/details/popular/trending plus TV search/details/season hydration.
 - `src/effect/services/IndexerService.ts`, `src/effect/services/CardigannDefinitionLoader.ts`, `src/effect/services/CardigannAdapter.ts`, `src/effect/services/TorznabAdapter.ts`, `src/effect/services/IndexerDefinitionSourceService.ts`, and `src/effect/services/IndexerApplicationService.ts`: Torznab/Newznab connection testing and search, generic definitions, core Newznab presets, representative Cardigann/YAML definitions, encrypted definition-specific config/auth values, definition source refresh with checksum pinning and catalog manifest import, aggregate Torznab/Newznab feeds, proxy application, search stats, health/backoff state, per-indexer category and policy controls, and first-pass Radarr/Sonarr aggregate app sync. Broad built-in tracker breadth is intentionally deferred.
 - `src/effect/services/DownloadClientService.ts`, `QBittorrentAdapter.ts`, `SABnzbdAdapter.ts`, `TransmissionAdapter.ts`, `DelugeAdapter.ts`, `NZBGetAdapter.ts`, and `BlackholeAdapter.ts`: add/list/test/grab/queue/remove downloads for qBittorrent, SABnzbd, first-pass Transmission, first-pass Deluge, first-pass NZBGet, and first-pass torrent/usenet blackholes, including persisted completed output paths where the client reports them.
-- `src/effect/services/DiagnosticsService.ts`: aggregates integration health and root-folder accessibility/write-permission checks for the System view and container health endpoint.
+- `src/effect/services/DiagnosticsService.ts`: aggregates integration health, root-folder accessibility/write-permission, app data, clock, update metadata, import mechanism, and queue-output checks for the System view and container health endpoint.
 - `src/effect/services/ReleasePolicyEngine.ts`: parses titles, checks allowed quality, custom format score, and basic upgrade scoring.
 - `src/effect/services/AcquisitionPipeline.ts`: movie search/evaluate/grab, episode search/evaluate/grab, season pack first search, series search, and RSS/recent candidate evaluation for movies and episodes.
 - `src/effect/services/MediaImportService.ts`: imports completed movie and episode files from downloader output paths, applies remote path mappings, filters samples, applies copy/move/hardlink settings, builds target names, stores real file paths, media file records, quality and revision state, supports manual import, scans existing libraries, and previews/applies renames.
@@ -660,6 +661,7 @@ Current state:
 - Integration health is recorded when tests are run and aggregated in diagnostics.
 - Diagnostics now also checks app data path accessibility, missing root folders, inaccessible root folders, inaccessible remote path mapping targets, all-disabled indexers/download clients, and enabled download clients that leave completed downloads in the client after import.
 - Diagnostics also reports indexer search/RSS failure rollups, enabled download clients marked unavailable, and stale/missing download-client health checks.
+- Diagnostics now reports local clock jumps after startup, deployment-supplied update availability metadata, disabled/global-paused scheduler import monitoring, and completed linked downloads that cannot be imported because no output path was recorded.
 - Indexer, Download Client, Media Server, and Media Management settings pages show filtered diagnostics items and failures for their respective integration types.
 
 Gap:
@@ -670,7 +672,7 @@ Tasks:
 
 - [x] Add checks for root folder missing/unwritable, all-indexers-disabled, all-download-clients-disabled, remote path missing, download client not removing completed downloads, and app data path accessibility.
 - [x] Add checks for indexer search/RSS failure rollups and download client unavailable/stale health.
-- Add checks for clock skew, update availability, and deeper import mechanism problems.
+- [x] Add checks for clock skew, update availability, and deeper import mechanism problems. Current coverage detects post-start local clock jumps, optional `ARR_HUB_LATEST_VERSION` update metadata, disabled/global-paused import monitoring, and completed linked queue rows without output paths.
 - [x] Show checks in System.
 - [x] Show checks in relevant settings pages.
 
