@@ -188,11 +188,18 @@ function Quickstart() {
               <Field label="Type">
                 <select
                   value={downloadClientType}
-                  onChange={(e) => setDownloadClientType(e.target.value)}
+                  onChange={(e) => {
+                    const type = e.target.value
+                    setDownloadClientType(type)
+                    setDownloadClientPort(
+                      type === "transmission" ? "9091" : type === "nzbget" ? "6789" : "8080",
+                    )
+                  }}
                   className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
                 >
                   <option value="qbittorrent">qBittorrent</option>
                   <option value="sabnzbd">SABnzbd</option>
+                  <option value="nzbget">NZBGet</option>
                   <option value="transmission">Transmission</option>
                 </select>
               </Field>

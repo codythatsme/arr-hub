@@ -486,7 +486,7 @@ function DownloadClientStep() {
       <div>
         <h2 className="text-xl font-semibold">Download client</h2>
         <p className="text-muted-foreground text-sm">
-          Add qBittorrent or SABnzbd and verify ARR Hub can connect.
+          Add a download client and verify ARR Hub can connect.
         </p>
       </div>
 
@@ -499,7 +499,12 @@ function DownloadClientStep() {
           <select
             className="bg-background w-full rounded-md border px-3 py-2 text-sm"
             value={type}
-            onChange={(e) => setType(e.target.value)}
+            onChange={(e) => {
+              const nextType = e.target.value
+              setType(nextType)
+              const selected = types.data?.find((entry) => entry.type === nextType)
+              if (selected) setPort(selected.metadata.defaultPort)
+            }}
           >
             {(types.data ?? []).map((entry) => (
               <option key={entry.type} value={entry.type}>

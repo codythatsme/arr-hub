@@ -23,6 +23,7 @@ import type { DownloadClientAdapter } from "./DownloadClientAdapter"
 import type { IndexerAdapter } from "./IndexerAdapter"
 import { createJellyfinAdapter, jellyfinMetadata } from "./JellyfinAdapter"
 import type { MediaServerAdapter } from "./MediaServerAdapter"
+import { createNZBGetAdapter, nzbgetMetadata } from "./NZBGetAdapter"
 import { createPlexAdapter, plexMetadata } from "./PlexAdapter"
 import { createQBittorrentAdapter, qbittorrentMetadata } from "./QBittorrentAdapter"
 import { createSABnzbdAdapter, sabnzbdMetadata } from "./SABnzbdAdapter"
@@ -173,6 +174,7 @@ export const AdapterRegistryLive = Layer.sync(AdapterRegistry, () => {
   // Register built-in adapters
   registry.registerDownloadClient("qbittorrent", qbittorrentMetadata, createQBittorrentAdapter)
   registry.registerDownloadClient("sabnzbd", sabnzbdMetadata, createSABnzbdAdapter)
+  registry.registerDownloadClient("nzbget", nzbgetMetadata, createNZBGetAdapter)
   registry.registerDownloadClient("transmission", transmissionMetadata, createTransmissionAdapter)
   registry.registerDownloadClient(
     "torrent_blackhole",

@@ -22,6 +22,7 @@ describe("AdapterRegistry", () => {
         .toSorted()
 
       expect(downloadTypes).toEqual([
+        "nzbget",
         "qbittorrent",
         "sabnzbd",
         "torrent_blackhole",
