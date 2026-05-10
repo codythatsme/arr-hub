@@ -11,7 +11,11 @@ export const Route = createFileRoute("/settings/media-management")({
 })
 
 const MEDIA_MANAGEMENT_DIAGNOSTIC_TYPES = new Set(["root_folder", "remote_path_mapping"])
-const MEDIA_MANAGEMENT_DIAGNOSTIC_FAILURE_TYPES = new Set(["root_folder", "remote_path_mapping"])
+const MEDIA_MANAGEMENT_DIAGNOSTIC_FAILURE_TYPES = new Set([
+  "root_folder",
+  "remote_path_mapping",
+  "import_output_missing",
+])
 
 function MediaManagement() {
   const trpc = useTRPC()

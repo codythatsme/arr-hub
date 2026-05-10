@@ -111,6 +111,7 @@ docker compose start arr-hub
 - `ARR_HUB_DOWNLOADS_PATH` (Compose host path mounted at `/downloads`)
 - `ARR_HUB_MOVIES_PATH` (Compose host path mounted at `/movies`)
 - `ARR_HUB_TV_PATH` (Compose host path mounted at `/tv`)
+- `ARR_HUB_LATEST_VERSION` (optional deployment metadata for System health update-available diagnostics)
 - `TMDB_API_KEY` (required for movie/TV metadata lookup, add flows, and refresh jobs)
 
 ### Development defaults

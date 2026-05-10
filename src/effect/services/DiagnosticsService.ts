@@ -1,9 +1,10 @@
 import { constants, existsSync, statSync } from "node:fs"
 import { access, stat } from "node:fs/promises"
 import { dirname } from "node:path"
+import { performance } from "node:perf_hooks"
 
 import { SqlError } from "@effect/sql/SqlError"
-import { count, desc, eq } from "drizzle-orm"
+import { and, count, desc, eq, isNotNull, isNull, or } from "drizzle-orm"
 import { Context, Effect, Layer } from "effect"
 
 import {
@@ -33,11 +34,18 @@ import { SchedulerService } from "./SchedulerService"
 const DB_PATH = process.env.DATABASE_PATH ?? "data/arr-hub.db"
 const LOG_LIMIT = 500
 const HEALTH_STALE_MS = 24 * 60 * 60 * 1000
+const CLOCK_SKEW_THRESHOLD_MS = 24 * 60 * 60 * 1000
 const FAILURE_ROLLUP_MIN_TOTAL = 3
 const FAILURE_ROLLUP_RATIO = 0.5
+const SERVICE_START_WALL_MS = Date.now()
+const SERVICE_START_MONOTONIC_MS = performance.now()
 
 export type LogLevel = SystemLogLevel
 export type HealthStatus = "healthy" | "degraded" | "unhealthy"
+export interface HealthFailure {
+  readonly type: string
+  readonly message: string
+}
 
 export interface SystemStatus {
   readonly version: string
@@ -85,7 +93,7 @@ export interface IntegrationHealthItem {
 export interface AggregatedHealth {
   readonly status: HealthStatus
   readonly integrations: ReadonlyArray<IntegrationHealthItem>
-  readonly failures: ReadonlyArray<{ readonly type: string; readonly message: string }>
+  readonly failures: ReadonlyArray<HealthFailure>
 }
 
 export interface LogEntry {
@@ -150,6 +158,71 @@ function isStaleHealthCheck(lastCheck: Date | null, now: Date) {
 
 function hasFailureRollup(failed: number, total: number) {
   return total >= FAILURE_ROLLUP_MIN_TOTAL && failed / total >= FAILURE_ROLLUP_RATIO
+}
+
+function parseSemanticVersion(value: string): readonly [number, number, number] | null {
+  const match = value.trim().match(/^v?(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$/)
+  if (!match) return null
+  return [Number(match[1]), Number(match[2]), Number(match[3])]
+}
+
+export function compareSemanticVersions(current: string, latest: string): number | null {
+  const currentVersion = parseSemanticVersion(current)
+  const latestVersion = parseSemanticVersion(latest)
+  if (currentVersion === null || latestVersion === null) return null
+
+  for (let index = 0; index < currentVersion.length; index += 1) {
+    const delta = currentVersion[index] - latestVersion[index]
+    if (delta !== 0) return delta
+  }
+  return 0
+}
+
+export function updateAvailabilityFailure(
+  currentVersion: string,
+  latestVersion = process.env.ARR_HUB_LATEST_VERSION,
+): HealthFailure | null {
+  const normalizedLatest = latestVersion?.trim()
+  if (!normalizedLatest) return null
+
+  const comparison = compareSemanticVersions(currentVersion, normalizedLatest)
+  if (comparison === null) {
+    return {
+      type: "update_metadata",
+      message: `ARR_HUB_LATEST_VERSION must be a semantic version; received ${normalizedLatest}`,
+    }
+  }
+
+  if (comparison < 0) {
+    return {
+      type: "update_available",
+      message: `ARR Hub ${normalizedLatest} is available; installed version is ${currentVersion}`,
+    }
+  }
+
+  return null
+}
+
+export function systemClockSkewFailure(options?: {
+  readonly startWallMs?: number
+  readonly startMonotonicMs?: number
+  readonly wallNowMs?: number
+  readonly monotonicNowMs?: number
+}): HealthFailure | null {
+  const startWallMs = options?.startWallMs ?? SERVICE_START_WALL_MS
+  const startMonotonicMs = options?.startMonotonicMs ?? SERVICE_START_MONOTONIC_MS
+  const wallNowMs = options?.wallNowMs ?? Date.now()
+  const monotonicNowMs = options?.monotonicNowMs ?? performance.now()
+  const expectedWallMs = startWallMs + (monotonicNowMs - startMonotonicMs)
+  const driftMs = Math.abs(wallNowMs - expectedWallMs)
+
+  if (driftMs < CLOCK_SKEW_THRESHOLD_MS) return null
+
+  const driftHours = (driftMs / (60 * 60 * 1000)).toFixed(1)
+  return {
+    type: "system_clock_skew",
+    message: `system clock moved by about ${driftHours} hours since ARR Hub started; update system time`,
+  }
 }
 
 async function directoryHealth(
@@ -261,6 +334,9 @@ export const DiagnosticsServiceLive = Layer.effect(
             serverResult,
             rootFolderResult,
             mappingResult,
+            schedulerStatusResult,
+            schedulerPausedResult,
+            missingOutputResult,
           ] = yield* Effect.all([
             Effect.either(indexerService.list()),
             Effect.either(indexerService.listStats()),
@@ -268,11 +344,38 @@ export const DiagnosticsServiceLive = Layer.effect(
             Effect.either(mediaServerService.list()),
             Effect.either(db.select().from(rootFolders)),
             Effect.either(db.select().from(remotePathMappings)),
+            Effect.either(schedulerService.status()),
+            Effect.either(
+              db
+                .select({ value: settings.value })
+                .from(settings)
+                .where(eq(settings.key, "scheduler.paused"))
+                .limit(1),
+            ),
+            Effect.either(
+              db
+                .select({ id: downloadQueue.id, title: downloadQueue.title })
+                .from(downloadQueue)
+                .where(
+                  and(
+                    eq(downloadQueue.status, "completed"),
+                    isNull(downloadQueue.outputPath),
+                    or(isNotNull(downloadQueue.movieId), isNotNull(downloadQueue.seriesId)),
+                  ),
+                )
+                .limit(5),
+            ),
           ])
 
-          const failures: Array<{ type: string; message: string }> = []
+          const failures: Array<HealthFailure> = []
           const integrations: Array<IntegrationHealthItem> = []
           let enabledIndexerIds: ReadonlySet<number> | null = null
+          const clockSkew = systemClockSkewFailure()
+          const updateAvailability = updateAvailabilityFailure(
+            process.env.npm_package_version ?? "0.0.0-dev",
+          )
+          if (clockSkew) failures.push(clockSkew)
+          if (updateAvailability) failures.push(updateAvailability)
 
           if (indexerResult._tag === "Left") {
             failures.push({ type: "indexer", message: indexerResult.left.message })
@@ -429,6 +532,45 @@ export const DiagnosticsServiceLive = Layer.effect(
               ),
             )
             integrations.push(...checkedMappings)
+          }
+
+          if (schedulerStatusResult._tag === "Left") {
+            failures.push({ type: "scheduler", message: schedulerStatusResult.left.message })
+          } else {
+            const downloadMonitorConfig = schedulerStatusResult.right.find(
+              (item) => item.jobType === "download_monitor",
+            )
+            if (downloadMonitorConfig && !downloadMonitorConfig.enabled) {
+              failures.push({
+                type: "import_mechanism",
+                message:
+                  "download monitor scheduler job is disabled; completed downloads will not import automatically",
+              })
+            }
+          }
+
+          if (schedulerPausedResult._tag === "Left") {
+            failures.push({ type: "settings", message: schedulerPausedResult.left.message })
+          } else if (schedulerPausedResult.right[0]?.value === "true") {
+            failures.push({
+              type: "scheduler_paused",
+              message:
+                "scheduler is globally paused; RSS sync, cutoff searches, and completed download imports will not run automatically",
+            })
+          }
+
+          if (missingOutputResult._tag === "Left") {
+            failures.push({ type: "download_queue", message: missingOutputResult.left.message })
+          } else if (missingOutputResult.right.length > 0) {
+            const examples = missingOutputResult.right
+              .map((row) => `#${row.id} ${row.title}`)
+              .join(", ")
+            failures.push({
+              type: "import_output_missing",
+              message: `${missingOutputResult.right.length} completed linked download${
+                missingOutputResult.right.length === 1 ? " has" : "s have"
+              } no output path; completed import cannot locate the files (${examples})`,
+            })
           }
 
           const appDataPath = dirname(DB_PATH)

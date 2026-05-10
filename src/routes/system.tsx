@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { DatabaseBackup, Download, RotateCcw } from "lucide-react"
+import { AlertTriangle, DatabaseBackup, Download, RotateCcw } from "lucide-react"
 import { useState } from "react"
 
 import { useTRPC } from "#/integrations/trpc/react"
@@ -82,7 +82,16 @@ function System() {
             <h2 className="font-semibold">System Health</h2>
           </div>
           <div className="divide-y">
-            {health.data?.integrations.length === 0 && (
+            {health.data?.failures.map((failure) => (
+              <div key={`${failure.type}-${failure.message}`} className="flex gap-3 p-4 text-sm">
+                <AlertTriangle className="text-destructive mt-0.5 size-4 shrink-0" />
+                <div>
+                  <p className="font-medium">{failure.type.replaceAll("_", " ")}</p>
+                  <p className="text-muted-foreground">{failure.message}</p>
+                </div>
+              </div>
+            ))}
+            {health.data?.integrations.length === 0 && health.data.failures.length === 0 && (
               <p className="text-muted-foreground p-4 text-sm">No integrations configured.</p>
             )}
             {health.data?.integrations.map((item) => (

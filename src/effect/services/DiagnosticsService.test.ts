@@ -1,11 +1,23 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Layer } from "effect"
 
-import { remotePathMappings, rootFolders } from "#/db/schema"
+import {
+  downloadClients,
+  downloadQueue,
+  movies,
+  remotePathMappings,
+  rootFolders,
+} from "#/db/schema"
 import { Db } from "#/effect/services/Db"
 import { TestDbLive } from "#/effect/test/TestDb"
 
-import { DiagnosticsService, DiagnosticsServiceLive } from "./DiagnosticsService"
+import {
+  compareSemanticVersions,
+  DiagnosticsService,
+  DiagnosticsServiceLive,
+  systemClockSkewFailure,
+  updateAvailabilityFailure,
+} from "./DiagnosticsService"
 import { DownloadClientService } from "./DownloadClientService"
 import { IndexerService } from "./IndexerService"
 import { MediaServerService } from "./MediaServerService"
@@ -157,6 +169,37 @@ const BaseLayer = Layer.mergeAll(
 const TestLayer = DiagnosticsServiceLive.pipe(Layer.provideMerge(BaseLayer))
 
 describe("DiagnosticsService", () => {
+  it("compares deployment supplied update versions", () => {
+    expect(compareSemanticVersions("1.2.3", "1.2.4")).toBeLessThan(0)
+    expect(compareSemanticVersions("1.2.3", "1.2.3")).toBe(0)
+    expect(compareSemanticVersions("1.2.4", "1.2.3")).toBeGreaterThan(0)
+    expect(updateAvailabilityFailure("1.0.0", "1.1.0")).toEqual(
+      expect.objectContaining({ type: "update_available" }),
+    )
+    expect(updateAvailabilityFailure("1.0.0", "latest")).toEqual(
+      expect.objectContaining({ type: "update_metadata" }),
+    )
+  })
+
+  it("detects local system clock jumps after startup", () => {
+    expect(
+      systemClockSkewFailure({
+        startWallMs: 1_000,
+        startMonotonicMs: 0,
+        monotonicNowMs: 60_000,
+        wallNowMs: 61_000,
+      }),
+    ).toBeNull()
+    expect(
+      systemClockSkewFailure({
+        startWallMs: 1_000,
+        startMonotonicMs: 0,
+        monotonicNowMs: 60_000,
+        wallNowMs: 1_000 + 25 * 60 * 60 * 1000,
+      }),
+    ).toEqual(expect.objectContaining({ type: "system_clock_skew" }))
+  })
+
   it.effect("returns system status with DB counts and resource usage", () =>
     Effect.gen(function* () {
       const diagnostics = yield* DiagnosticsService
@@ -211,6 +254,59 @@ describe("DiagnosticsService", () => {
         expect.objectContaining({
           type: "app_data",
           status: "healthy",
+        }),
+      )
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("reports disabled import monitoring and completed downloads without output paths", () =>
+    Effect.gen(function* () {
+      const db = yield* Db
+      const scheduler = yield* SchedulerService
+      const diagnostics = yield* DiagnosticsService
+
+      yield* scheduler.seedConfig()
+      yield* scheduler.pause("download_monitor")
+      const clientRows = yield* db
+        .insert(downloadClients)
+        .values({
+          name: "qBit",
+          type: "qbittorrent",
+          host: "localhost",
+          port: 8080,
+          username: "admin",
+          passwordEncrypted: "encrypted",
+          settings: { pollIntervalMs: 5000 },
+        })
+        .returning()
+      const movieRows = yield* db
+        .insert(movies)
+        .values({
+          tmdbId: 1000,
+          title: "Missing Output",
+          year: 2026,
+        })
+        .returning()
+
+      yield* db.insert(downloadQueue).values({
+        downloadClientId: clientRows[0].id,
+        movieId: movieRows[0].id,
+        externalId: "missing-output",
+        status: "completed",
+        title: "Missing.Output.2026.1080p-GRP",
+        outputPath: null,
+      })
+
+      const health = yield* diagnostics.health()
+
+      expect(health.failures).toContainEqual(
+        expect.objectContaining({
+          type: "import_mechanism",
+        }),
+      )
+      expect(health.failures).toContainEqual(
+        expect.objectContaining({
+          type: "import_output_missing",
         }),
       )
     }).pipe(Effect.provide(TestLayer)),

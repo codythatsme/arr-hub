@@ -62,6 +62,9 @@ const DOWNLOAD_CLIENT_DIAGNOSTIC_FAILURE_TYPES = new Set([
   "download_client_unavailable",
   "download_client_health_stale",
   "download_client_remove_completed",
+  "import_mechanism",
+  "import_output_missing",
+  "scheduler_paused",
 ])
 
 function isBlackholeType(type: string): boolean {
