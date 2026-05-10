@@ -16,6 +16,7 @@ function General() {
 
   const settingsKey = trpc.settings.list.queryKey()
   const settings = useQuery(trpc.settings.list.queryOptions())
+  const status = useQuery(trpc.diagnostics.status.queryOptions())
   const setSetting = useMutation(
     trpc.settings.set.mutationOptions({
       onSuccess: async (result) => {
@@ -79,6 +80,20 @@ function General() {
 
         <form className="rounded-md border p-4" onSubmit={saveUpdateChannel}>
           <h2 className="text-lg font-semibold">Updates</h2>
+          <dl className="mt-4 grid gap-3 text-sm">
+            <div className="flex items-center justify-between gap-3">
+              <dt className="text-muted-foreground">Installed version</dt>
+              <dd className="font-mono">{status.data?.version ?? "unknown"}</dd>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <dt className="text-muted-foreground">Update source</dt>
+              <dd>Deployment managed</dd>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <dt className="text-muted-foreground">Self-updates</dt>
+              <dd>Disabled</dd>
+            </div>
+          </dl>
           <label className="mt-4 block text-sm">
             <span className="font-medium">Update channel</span>
             <select
@@ -90,6 +105,9 @@ function General() {
               <option value="beta">Beta</option>
             </select>
           </label>
+          <p className="text-muted-foreground mt-2 text-sm">
+            Channel is operator metadata; source and Docker installs are updated outside the app.
+          </p>
           <button
             type="submit"
             className="bg-primary text-primary-foreground mt-4 inline-flex items-center gap-2 rounded px-3 py-2 text-sm disabled:opacity-50"

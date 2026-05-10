@@ -240,6 +240,10 @@ variables because a claimed server token is required.
 
 ## Upgrades
 
+ARR Hub does not perform in-app self-updates. Version rollout is owned by the
+deployment method: update the source checkout or container image, run database
+migrations, and restart the process/container.
+
 For source installs, pull the new version, reinstall dependencies if the lockfile
 changed, run migrations, then restart:
 
@@ -255,6 +259,9 @@ For Docker installs:
 docker compose pull
 docker compose up -d --build
 ```
+
+The Settings update channel is persisted for operator metadata only; it does not
+download or install releases from inside the running app.
 
 Setup state is stored in SQLite, so upgrading does not require repeating
 onboarding. Keep the data volume and `ENCRYPTION_KEY` stable across upgrades or

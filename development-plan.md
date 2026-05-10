@@ -610,7 +610,7 @@ Current state:
 
 - Daily scheduler-backed SQLite database snapshots are written to `ARR_HUB_BACKUP_PATH` or a `backups` directory beside `DATABASE_PATH`.
 - Daily scheduler-backed housekeeping removes old completed scheduler jobs, notification deliveries, release decisions/blocklist rows, stale completed/failed queue rows, and expired local session tokens. Diagnostics logs are in-memory and capped.
-- No first-class update workflow beyond Docker docs and Drizzle migrations.
+- Update rollout is explicitly deployment-managed: ARR Hub does not self-update in-app, and source/Docker upgrade steps plus the metadata-only update channel are documented.
 
 Gap:
 
@@ -621,7 +621,7 @@ Tasks:
 - [x] Add scheduled database backups.
 - Add backup download/restore UI.
 - [x] Add housekeeping jobs for old jobs, bounded diagnostics logs, old release decisions, stale queue, old notifications, and old sessions.
-- Add update status display or explicitly document container-only updates.
+- [x] Add update status display or explicitly document container-only updates.
 
 ## P2 Compatibility And Polish
 
