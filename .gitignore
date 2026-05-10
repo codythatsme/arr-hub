@@ -13,6 +13,7 @@ __unconfig*
 todos.json
 test-results/
 playwright-report/
+lint-warnings-summary.html
 data/
 .tmp/
 *.db
