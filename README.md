@@ -230,6 +230,10 @@ variables because a claimed server token is required.
 - Drizzle schema: `src/db/schema.ts`
 - Migration config: `drizzle.config.ts`
 - Container database path: `/data/arr-hub.db`
+- Startup validates the database file, app data directory permissions, migration
+  metadata when present, and a current schema shape before seeding background
+  jobs. If validation fails, the startup log includes the database path and the
+  migration command to run.
 
 ## Upgrades
 
