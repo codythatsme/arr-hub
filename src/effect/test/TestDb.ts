@@ -129,6 +129,53 @@ const runDdl = Effect.gen(function* () {
     UNIQUE(type, label)
   )`
 
+  yield* sql`CREATE TABLE import_lists (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    type TEXT NOT NULL DEFAULT 'custom',
+    enabled INTEGER NOT NULL DEFAULT 1,
+    enable_auto INTEGER NOT NULL DEFAULT 0,
+    quality_profile_id INTEGER REFERENCES quality_profiles(id),
+    root_folder_path TEXT,
+    search_on_add INTEGER NOT NULL DEFAULT 0,
+    tags TEXT NOT NULL DEFAULT '[]',
+    settings TEXT NOT NULL DEFAULT '{}',
+    last_synced_at INTEGER,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+  )`
+
+  yield* sql`CREATE TABLE release_profiles (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    required_terms TEXT NOT NULL DEFAULT '[]',
+    ignored_terms TEXT NOT NULL DEFAULT '[]',
+    preferred_terms TEXT NOT NULL DEFAULT '[]',
+    indexer_ids TEXT NOT NULL DEFAULT '[]',
+    tags TEXT NOT NULL DEFAULT '[]',
+    excluded_tags TEXT NOT NULL DEFAULT '[]',
+    created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+  )`
+
+  yield* sql`CREATE TABLE delay_profiles (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    enable_usenet INTEGER NOT NULL DEFAULT 1,
+    enable_torrent INTEGER NOT NULL DEFAULT 1,
+    preferred_protocol TEXT NOT NULL DEFAULT 'either',
+    usenet_delay_minutes INTEGER NOT NULL DEFAULT 0,
+    torrent_delay_minutes INTEGER NOT NULL DEFAULT 0,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    bypass_if_highest_quality INTEGER NOT NULL DEFAULT 0,
+    bypass_if_above_custom_format_score INTEGER NOT NULL DEFAULT 0,
+    minimum_custom_format_score INTEGER NOT NULL DEFAULT 0,
+    tags TEXT NOT NULL DEFAULT '[]',
+    created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+  )`
+
   yield* sql`CREATE TABLE custom_format_specs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     custom_format_id INTEGER NOT NULL REFERENCES custom_formats(id) ON DELETE CASCADE,

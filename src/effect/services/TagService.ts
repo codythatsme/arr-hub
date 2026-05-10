@@ -5,10 +5,13 @@ import { Context, Effect, Layer } from "effect"
 import {
   autoTaggingRules,
   customFilters,
+  delayProfiles,
   downloadClients,
   indexers,
+  importLists,
   movies,
   notificationChannels,
+  releaseProfiles,
   series,
   tags,
   type CustomFilterDefinition,
@@ -55,6 +58,10 @@ interface TagReferenceRows {
   readonly downloadClientRows: ReadonlyArray<TaggedRow>
   readonly notificationChannelRows: ReadonlyArray<TaggedRow>
   readonly autoTagRows: ReadonlyArray<TaggedRow>
+  readonly importListRows: ReadonlyArray<TaggedRow>
+  readonly releaseProfileRows: ReadonlyArray<TaggedRow>
+  readonly excludedReleaseProfileRows: ReadonlyArray<TaggedRow>
+  readonly delayProfileRows: ReadonlyArray<TaggedRow>
 }
 
 export function normalizeTagLabels(values: ReadonlyArray<string>): ReadonlyArray<string> {
@@ -111,6 +118,10 @@ function tagUsageCounts(db: DbHandle): Effect.Effect<ReadonlyMap<string, number>
       notificationChannelRows,
       autoTagRows,
       customFilterRows,
+      importListRows,
+      releaseProfileRows,
+      excludedReleaseProfileRows,
+      delayProfileRows,
     ] = yield* Effect.all([
       db.select({ tags: movies.tags }).from(movies),
       db.select({ tags: series.tags }).from(series),
@@ -119,6 +130,10 @@ function tagUsageCounts(db: DbHandle): Effect.Effect<ReadonlyMap<string, number>
       db.select({ tags: notificationChannels.tags }).from(notificationChannels),
       db.select({ tags: autoTaggingRules.tags }).from(autoTaggingRules),
       db.select({ filters: customFilters.filters }).from(customFilters),
+      db.select({ tags: importLists.tags }).from(importLists),
+      db.select({ tags: releaseProfiles.tags }).from(releaseProfiles),
+      db.select({ tags: releaseProfiles.excludedTags }).from(releaseProfiles),
+      db.select({ tags: delayProfiles.tags }).from(delayProfiles),
     ])
     const customFilterTagRows = customFilterRows.map((row) => ({
       tags: customFilterTags(row.filters),
@@ -132,6 +147,10 @@ function tagUsageCounts(db: DbHandle): Effect.Effect<ReadonlyMap<string, number>
       ...notificationChannelRows,
       ...autoTagRows,
       ...customFilterTagRows,
+      ...importListRows,
+      ...releaseProfileRows,
+      ...excludedReleaseProfileRows,
+      ...delayProfileRows,
     ]) {
       for (const label of row.tags) knownLabels.add(label)
     }
@@ -146,7 +165,11 @@ function tagUsageCounts(db: DbHandle): Effect.Effect<ReadonlyMap<string, number>
           usageCountFor(label, downloadClientRows) +
           usageCountFor(label, notificationChannelRows) +
           usageCountFor(label, autoTagRows) +
-          usageCountFor(label, customFilterTagRows),
+          usageCountFor(label, customFilterTagRows) +
+          usageCountFor(label, importListRows) +
+          usageCountFor(label, releaseProfileRows) +
+          usageCountFor(label, excludedReleaseProfileRows) +
+          usageCountFor(label, delayProfileRows),
       )
     }
     return usage
@@ -173,6 +196,10 @@ function tagReferenceRows(db: DbHandle): Effect.Effect<TagReferenceRows, SqlErro
       downloadClientRows,
       notificationChannelRows,
       autoTagRows,
+      importListRows,
+      releaseProfileRows,
+      excludedReleaseProfileRows,
+      delayProfileRows,
     ] = yield* Effect.all([
       db.select({ id: movies.id, tags: movies.tags }).from(movies),
       db.select({ id: series.id, tags: series.tags }).from(series),
@@ -182,6 +209,12 @@ function tagReferenceRows(db: DbHandle): Effect.Effect<TagReferenceRows, SqlErro
         .select({ id: notificationChannels.id, tags: notificationChannels.tags })
         .from(notificationChannels),
       db.select({ id: autoTaggingRules.id, tags: autoTaggingRules.tags }).from(autoTaggingRules),
+      db.select({ id: importLists.id, tags: importLists.tags }).from(importLists),
+      db.select({ id: releaseProfiles.id, tags: releaseProfiles.tags }).from(releaseProfiles),
+      db
+        .select({ id: releaseProfiles.id, tags: releaseProfiles.excludedTags })
+        .from(releaseProfiles),
+      db.select({ id: delayProfiles.id, tags: delayProfiles.tags }).from(delayProfiles),
     ])
 
     return {
@@ -191,6 +224,10 @@ function tagReferenceRows(db: DbHandle): Effect.Effect<TagReferenceRows, SqlErro
       downloadClientRows,
       notificationChannelRows,
       autoTagRows,
+      importListRows,
+      releaseProfileRows,
+      excludedReleaseProfileRows,
+      delayProfileRows,
     }
   })
 }
@@ -199,12 +236,12 @@ function detailsFor(row: TagRow, refs: TagReferenceRows): TagDetails {
   return {
     id: row.id,
     label: row.label,
-    delayProfileIds: [],
-    importListIds: [],
+    delayProfileIds: referenceIdsFor(row.label, refs.delayProfileRows),
+    importListIds: referenceIdsFor(row.label, refs.importListRows),
     notificationIds: referenceIdsFor(row.label, refs.notificationChannelRows),
     restrictionIds: [],
-    releaseProfileIds: [],
-    excludedReleaseProfileIds: [],
+    releaseProfileIds: referenceIdsFor(row.label, refs.releaseProfileRows),
+    excludedReleaseProfileIds: referenceIdsFor(row.label, refs.excludedReleaseProfileRows),
     indexerIds: referenceIdsFor(row.label, refs.indexerRows),
     downloadClientIds: referenceIdsFor(row.label, refs.downloadClientRows),
     autoTagIds: referenceIdsFor(row.label, refs.autoTagRows),
@@ -245,6 +282,9 @@ function propagateTagLabel(
       notificationChannelRows,
       autoTagRows,
       customFilterRows,
+      importListRows,
+      releaseProfileRows,
+      delayProfileRows,
     ] = yield* Effect.all([
       db.select({ id: movies.id, tags: movies.tags }).from(movies),
       db.select({ id: series.id, tags: series.tags }).from(series),
@@ -255,6 +295,15 @@ function propagateTagLabel(
         .from(notificationChannels),
       db.select({ id: autoTaggingRules.id, tags: autoTaggingRules.tags }).from(autoTaggingRules),
       db.select({ id: customFilters.id, filters: customFilters.filters }).from(customFilters),
+      db.select({ id: importLists.id, tags: importLists.tags }).from(importLists),
+      db
+        .select({
+          id: releaseProfiles.id,
+          tags: releaseProfiles.tags,
+          excludedTags: releaseProfiles.excludedTags,
+        })
+        .from(releaseProfiles),
+      db.select({ id: delayProfiles.id, tags: delayProfiles.tags }).from(delayProfiles),
     ])
 
     for (const row of movieRows) {
@@ -313,6 +362,31 @@ function propagateTagLabel(
           .update(customFilters)
           .set({ filters: { ...row.filters, tags: next } })
           .where(eq(customFilters.id, row.id))
+      }
+    }
+
+    for (const row of importListRows) {
+      const next = replaceTagLabel(row.tags, previousLabel, nextLabel)
+      if (!sameLabels(row.tags, next)) {
+        yield* db.update(importLists).set({ tags: next }).where(eq(importLists.id, row.id))
+      }
+    }
+
+    for (const row of releaseProfileRows) {
+      const nextTags = replaceTagLabel(row.tags, previousLabel, nextLabel)
+      const nextExcludedTags = replaceTagLabel(row.excludedTags, previousLabel, nextLabel)
+      if (!sameLabels(row.tags, nextTags) || !sameLabels(row.excludedTags, nextExcludedTags)) {
+        yield* db
+          .update(releaseProfiles)
+          .set({ tags: nextTags, excludedTags: nextExcludedTags })
+          .where(eq(releaseProfiles.id, row.id))
+      }
+    }
+
+    for (const row of delayProfileRows) {
+      const next = replaceTagLabel(row.tags, previousLabel, nextLabel)
+      if (!sameLabels(row.tags, next)) {
+        yield* db.update(delayProfiles).set({ tags: next }).where(eq(delayProfiles.id, row.id))
       }
     }
   })

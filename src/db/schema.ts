@@ -225,6 +225,120 @@ export const customFilters = sqliteTable(
   (t) => [unique().on(t.type, t.label)],
 )
 
+export const importListTypes = [
+  "trakt",
+  "tmdb",
+  "rss",
+  "plex",
+  "radarr",
+  "sonarr",
+  "custom",
+] as const
+export type ImportListType = (typeof importListTypes)[number]
+export type ImportListSettings = Record<string, unknown>
+
+export const importLists = sqliteTable("import_lists", {
+  id: integer().primaryKey({ autoIncrement: true }),
+  name: text().notNull().unique(),
+  type: text({ enum: importListTypes }).notNull().default("custom"),
+  enabled: integer({ mode: "boolean" }).notNull().default(true),
+  enableAuto: integer("enable_auto", { mode: "boolean" }).notNull().default(false),
+  qualityProfileId: integer("quality_profile_id").references(() => qualityProfiles.id),
+  rootFolderPath: text("root_folder_path"),
+  searchOnAdd: integer("search_on_add", { mode: "boolean" }).notNull().default(false),
+  tags: text({ mode: "json" })
+    .$type<ReadonlyArray<string>>()
+    .notNull()
+    .default(sql`'[]'`),
+  settings: text({ mode: "json" })
+    .$type<ImportListSettings>()
+    .notNull()
+    .default(sql`'{}'`),
+  lastSyncedAt: integer("last_synced_at", { mode: "timestamp" }),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+})
+
+export interface ReleaseProfileTerm {
+  readonly term: string
+  readonly score?: number
+}
+
+export const releaseProfiles = sqliteTable("release_profiles", {
+  id: integer().primaryKey({ autoIncrement: true }),
+  name: text().notNull().unique(),
+  enabled: integer({ mode: "boolean" }).notNull().default(true),
+  requiredTerms: text("required_terms", { mode: "json" })
+    .$type<ReadonlyArray<string>>()
+    .notNull()
+    .default(sql`'[]'`),
+  ignoredTerms: text("ignored_terms", { mode: "json" })
+    .$type<ReadonlyArray<string>>()
+    .notNull()
+    .default(sql`'[]'`),
+  preferredTerms: text("preferred_terms", { mode: "json" })
+    .$type<ReadonlyArray<ReleaseProfileTerm>>()
+    .notNull()
+    .default(sql`'[]'`),
+  indexerIds: text("indexer_ids", { mode: "json" })
+    .$type<ReadonlyArray<number>>()
+    .notNull()
+    .default(sql`'[]'`),
+  tags: text({ mode: "json" })
+    .$type<ReadonlyArray<string>>()
+    .notNull()
+    .default(sql`'[]'`),
+  excludedTags: text("excluded_tags", { mode: "json" })
+    .$type<ReadonlyArray<string>>()
+    .notNull()
+    .default(sql`'[]'`),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+})
+
+export const delayProfileProtocols = ["either", "usenet", "torrent"] as const
+export type DelayProfileProtocol = (typeof delayProfileProtocols)[number]
+
+export const delayProfiles = sqliteTable("delay_profiles", {
+  id: integer().primaryKey({ autoIncrement: true }),
+  name: text().notNull().unique(),
+  enableUsenet: integer("enable_usenet", { mode: "boolean" }).notNull().default(true),
+  enableTorrent: integer("enable_torrent", { mode: "boolean" }).notNull().default(true),
+  preferredProtocol: text("preferred_protocol", { enum: delayProfileProtocols })
+    .notNull()
+    .default("either"),
+  usenetDelayMinutes: integer("usenet_delay_minutes").notNull().default(0),
+  torrentDelayMinutes: integer("torrent_delay_minutes").notNull().default(0),
+  order: integer("sort_order").notNull().default(0),
+  bypassIfHighestQuality: integer("bypass_if_highest_quality", { mode: "boolean" })
+    .notNull()
+    .default(false),
+  bypassIfAboveCustomFormatScore: integer("bypass_if_above_custom_format_score", {
+    mode: "boolean",
+  })
+    .notNull()
+    .default(false),
+  minimumCustomFormatScore: integer("minimum_custom_format_score").notNull().default(0),
+  tags: text({ mode: "json" })
+    .$type<ReadonlyArray<string>>()
+    .notNull()
+    .default(sql`'[]'`),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+})
+
 export const customFormatSpecs = sqliteTable("custom_format_specs", {
   id: integer().primaryKey({ autoIncrement: true }),
   customFormatId: integer("custom_format_id")

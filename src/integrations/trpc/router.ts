@@ -16,6 +16,7 @@ import { notificationsRouter } from "./routers/notifications"
 import { onboardingRouter } from "./routers/onboarding"
 import { plexUsersRouter } from "./routers/plexUsers"
 import { pluginsRouter } from "./routers/plugins"
+import { policiesRouter } from "./routers/policies"
 import { profilesRouter } from "./routers/profiles"
 import { queueRouter } from "./routers/queue"
 import { releasesRouter } from "./routers/releases"
@@ -45,6 +46,7 @@ export const trpcRouter = createTRPCRouter({
   mediaServers: mediaServersRouter,
   plexUsers: plexUsersRouter,
   plugins: pluginsRouter,
+  policies: policiesRouter,
   history: historyRouter,
   import: importRouter,
   releases: releasesRouter,

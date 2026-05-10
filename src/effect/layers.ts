@@ -28,6 +28,7 @@ import { OperationalHistoryServiceLive } from "./services/OperationalHistoryServ
 import { PlexSessionMonitorLive } from "./services/PlexSessionMonitor"
 import { PlexUserServiceLive } from "./services/PlexUserService"
 import { PluginLoaderLive } from "./services/PluginLoader"
+import { PolicyServiceLive } from "./services/PolicyService"
 import { ProfileDefaultsEngineLive } from "./services/ProfileDefaultsEngine"
 import { ProfileServiceLive } from "./services/ProfileService"
 import { QueueServiceLive } from "./services/QueueService"
@@ -81,6 +82,7 @@ export function makeAppLayer(tmdbClientLayer: Layer.Layer<TmdbClient> = TmdbClie
         StatsServiceLive,
         TagServiceLive,
         AutoTaggingServiceLive,
+        PolicyServiceLive,
       ),
     ),
     Layer.provideMerge(TitleParserServiceLive),

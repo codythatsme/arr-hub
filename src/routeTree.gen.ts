@@ -23,6 +23,7 @@ import { Route as SettingsTagsRouteImport } from './routes/settings/tags'
 import { Route as SettingsSecurityRouteImport } from './routes/settings/security'
 import { Route as SettingsSchedulerRouteImport } from './routes/settings/scheduler'
 import { Route as SettingsProfilesRouteImport } from './routes/settings/profiles'
+import { Route as SettingsPoliciesRouteImport } from './routes/settings/policies'
 import { Route as SettingsPluginsRouteImport } from './routes/settings/plugins'
 import { Route as SettingsNotificationsRouteImport } from './routes/settings/notifications'
 import { Route as SettingsMediaServersRouteImport } from './routes/settings/media-servers'
@@ -156,6 +157,11 @@ const SettingsSchedulerRoute = SettingsSchedulerRouteImport.update({
 const SettingsProfilesRoute = SettingsProfilesRouteImport.update({
   id: '/settings/profiles',
   path: '/settings/profiles',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsPoliciesRoute = SettingsPoliciesRouteImport.update({
+  id: '/settings/policies',
+  path: '/settings/policies',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsPluginsRoute = SettingsPluginsRouteImport.update({
@@ -508,6 +514,7 @@ export interface FileRoutesByFullPath {
   '/settings/media-servers': typeof SettingsMediaServersRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/plugins': typeof SettingsPluginsRoute
+  '/settings/policies': typeof SettingsPoliciesRoute
   '/settings/profiles': typeof SettingsProfilesRoute
   '/settings/scheduler': typeof SettingsSchedulerRoute
   '/settings/security': typeof SettingsSecurityRoute
@@ -588,6 +595,7 @@ export interface FileRoutesByTo {
   '/settings/media-servers': typeof SettingsMediaServersRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/plugins': typeof SettingsPluginsRoute
+  '/settings/policies': typeof SettingsPoliciesRoute
   '/settings/profiles': typeof SettingsProfilesRoute
   '/settings/scheduler': typeof SettingsSchedulerRoute
   '/settings/security': typeof SettingsSecurityRoute
@@ -669,6 +677,7 @@ export interface FileRoutesById {
   '/settings/media-servers': typeof SettingsMediaServersRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/plugins': typeof SettingsPluginsRoute
+  '/settings/policies': typeof SettingsPoliciesRoute
   '/settings/profiles': typeof SettingsProfilesRoute
   '/settings/scheduler': typeof SettingsSchedulerRoute
   '/settings/security': typeof SettingsSecurityRoute
@@ -751,6 +760,7 @@ export interface FileRouteTypes {
     | '/settings/media-servers'
     | '/settings/notifications'
     | '/settings/plugins'
+    | '/settings/policies'
     | '/settings/profiles'
     | '/settings/scheduler'
     | '/settings/security'
@@ -831,6 +841,7 @@ export interface FileRouteTypes {
     | '/settings/media-servers'
     | '/settings/notifications'
     | '/settings/plugins'
+    | '/settings/policies'
     | '/settings/profiles'
     | '/settings/scheduler'
     | '/settings/security'
@@ -911,6 +922,7 @@ export interface FileRouteTypes {
     | '/settings/media-servers'
     | '/settings/notifications'
     | '/settings/plugins'
+    | '/settings/policies'
     | '/settings/profiles'
     | '/settings/scheduler'
     | '/settings/security'
@@ -992,6 +1004,7 @@ export interface RootRouteChildren {
   SettingsMediaServersRoute: typeof SettingsMediaServersRoute
   SettingsNotificationsRoute: typeof SettingsNotificationsRoute
   SettingsPluginsRoute: typeof SettingsPluginsRoute
+  SettingsPoliciesRoute: typeof SettingsPoliciesRoute
   SettingsProfilesRoute: typeof SettingsProfilesRoute
   SettingsSchedulerRoute: typeof SettingsSchedulerRoute
   SettingsSecurityRoute: typeof SettingsSecurityRoute
@@ -1127,6 +1140,13 @@ declare module '@tanstack/react-router' {
       path: '/settings/profiles'
       fullPath: '/settings/profiles'
       preLoaderRoute: typeof SettingsProfilesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/policies': {
+      id: '/settings/policies'
+      path: '/settings/policies'
+      fullPath: '/settings/policies'
+      preLoaderRoute: typeof SettingsPoliciesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings/plugins': {
@@ -1807,6 +1827,7 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsMediaServersRoute: SettingsMediaServersRoute,
   SettingsNotificationsRoute: SettingsNotificationsRoute,
   SettingsPluginsRoute: SettingsPluginsRoute,
+  SettingsPoliciesRoute: SettingsPoliciesRoute,
   SettingsProfilesRoute: SettingsProfilesRoute,
   SettingsSchedulerRoute: SettingsSchedulerRoute,
   SettingsSecurityRoute: SettingsSecurityRoute,
