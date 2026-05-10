@@ -25,7 +25,9 @@ export type PluginRow = typeof plugins.$inferSelect
 export interface PluginManifest {
   readonly name: string
   readonly version: string
+  readonly apiVersion: 1
   readonly capabilities: ReadonlyArray<PluginCapability>
+  readonly capabilityVersions: Readonly<Partial<Record<PluginCapability, 1>>>
   readonly entrypoint: string
 }
 
@@ -53,15 +55,18 @@ export interface PluginModule {
   readonly mediaServer?: PluginMediaServerExport
 }
 
+export type PluginContractStatus = "not_loaded" | "valid" | "invalid"
+
 export interface PluginStatus extends PluginRow {
   readonly status: "disabled" | "error" | "loaded"
+  readonly contractStatus: PluginContractStatus
 }
 
 export interface PluginHealth {
   readonly name: string
   readonly enabled: boolean
   readonly status: PluginStatus["status"]
-  readonly contractStatus: "not_loaded" | "valid" | "invalid"
+  readonly contractStatus: PluginContractStatus
   readonly capabilities: ReadonlyArray<PluginCapability>
   readonly errorMessage: string | null
 }
@@ -82,11 +87,14 @@ export class PluginLoader extends Context.Tag("@arr-hub/PluginLoader")<
 
 const DEFAULT_PLUGIN_DIR = path.resolve(process.cwd(), "plugins")
 const CAPABILITIES: ReadonlySet<string> = new Set(["download_client", "indexer", "media_server"])
+const SUPPORTED_API_VERSION = 1
+const SUPPORTED_CAPABILITY_VERSION = 1
 
-function statusFor(row: PluginRow): PluginStatus {
+function statusFor(row: PluginRow, registered = false): PluginStatus {
   return {
     ...row,
     status: row.errorMessage ? "error" : row.enabled ? "loaded" : "disabled",
+    contractStatus: row.errorMessage ? "invalid" : registered ? "valid" : "not_loaded",
   }
 }
 
@@ -120,13 +128,22 @@ function parseManifest(
 
     const name = parsed.name
     const version = parsed.version
+    const apiVersion = parsed.apiVersion ?? SUPPORTED_API_VERSION
     const entrypoint = parsed.entrypoint
     const capabilities = parsed.capabilities
+    const capabilityVersions = parsed.capabilityVersions ?? {}
     if (typeof name !== "string" || name.trim() === "") {
       return yield* pluginError(fallbackName, "manifest_invalid", "manifest name is required")
     }
     if (typeof version !== "string" || version.trim() === "") {
       return yield* pluginError(name, "manifest_invalid", "manifest version is required")
+    }
+    if (apiVersion !== SUPPORTED_API_VERSION) {
+      return yield* pluginError(
+        name,
+        "manifest_invalid",
+        `unsupported plugin apiVersion: ${String(apiVersion)}`,
+      )
     }
     if (typeof entrypoint !== "string" || entrypoint.trim() === "") {
       return yield* pluginError(name, "manifest_invalid", "manifest entrypoint is required")
@@ -143,12 +160,33 @@ function parseManifest(
         )
       }
     }
+    if (!isObject(capabilityVersions)) {
+      return yield* pluginError(
+        name,
+        "manifest_invalid",
+        "capabilityVersions must be an object when provided",
+      )
+    }
+    const normalizedCapabilityVersions: Partial<Record<PluginCapability, 1>> = {}
+    for (const capability of capabilities as ReadonlyArray<PluginCapability>) {
+      const capabilityVersion = capabilityVersions[capability] ?? SUPPORTED_CAPABILITY_VERSION
+      if (capabilityVersion !== SUPPORTED_CAPABILITY_VERSION) {
+        return yield* pluginError(
+          name,
+          "manifest_invalid",
+          `unsupported ${capability} capability version: ${String(capabilityVersion)}`,
+        )
+      }
+      normalizedCapabilityVersions[capability] = SUPPORTED_CAPABILITY_VERSION
+    }
 
     return {
       name,
       version,
+      apiVersion: SUPPORTED_API_VERSION,
       entrypoint,
       capabilities: capabilities as ReadonlyArray<PluginCapability>,
+      capabilityVersions: normalizedCapabilityVersions,
     }
   })
 }
@@ -427,7 +465,7 @@ export const PluginLoaderLive = Layer.effect(
       list: () =>
         Effect.gen(function* () {
           const rows = yield* db.select().from(plugins).orderBy(plugins.name)
-          return rows.map(statusFor)
+          return rows.map((row) => statusFor(row, (registeredTypes.get(row.name)?.length ?? 0) > 0))
         }),
 
       scan: (directory) =>
@@ -478,7 +516,7 @@ export const PluginLoaderLive = Layer.effect(
           }
 
           const rows = yield* db.select().from(plugins).orderBy(plugins.name)
-          return rows.map(statusFor)
+          return rows.map((row) => statusFor(row, (registeredTypes.get(row.name)?.length ?? 0) > 0))
         }),
 
       enable: (name) =>
@@ -499,7 +537,7 @@ export const PluginLoaderLive = Layer.effect(
             .where(eq(plugins.name, name))
             .returning()
           registeredTypes.set(name, registrations)
-          return statusFor(updated)
+          return statusFor(updated, true)
         }),
 
       disable: (name) =>
@@ -524,13 +562,12 @@ export const PluginLoaderLive = Layer.effect(
       health: (name) =>
         Effect.gen(function* () {
           const row = yield* getByName(name)
-          const status = statusFor(row)
-          const isRegistered = (registeredTypes.get(name)?.length ?? 0) > 0
+          const status = statusFor(row, (registeredTypes.get(name)?.length ?? 0) > 0)
           return {
             name: row.name,
             enabled: row.enabled,
             status: status.status,
-            contractStatus: row.errorMessage ? "invalid" : isRegistered ? "valid" : "not_loaded",
+            contractStatus: status.contractStatus,
             capabilities: row.capabilities,
             errorMessage: row.errorMessage,
           }

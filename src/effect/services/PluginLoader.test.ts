@@ -141,6 +141,7 @@ describe("PluginLoader", () => {
 
       const enabled = yield* loader.enable("mock-plugin")
       expect(enabled.status).toBe("loaded")
+      expect(enabled.contractStatus).toBe("valid")
       expect(
         registry.listDownloadClientTypes().some((entry) => entry.type === "mock-download"),
       ).toBe(true)
@@ -175,6 +176,7 @@ describe("PluginLoader", () => {
 
       const disabled = yield* loader.disable("mock-plugin")
       expect(disabled.status).toBe("disabled")
+      expect(disabled.contractStatus).toBe("not_loaded")
       const missing = yield* Effect.flip(registry.getDownloadClientFactory("mock-download"))
       expect(missing._tag).toBe("ValidationError")
       const missingIndexer = yield* Effect.flip(registry.getIndexerFactory("mock-indexer"))
@@ -211,6 +213,33 @@ describe("PluginLoader", () => {
       const health = yield* loader.health("bad-plugin")
       expect(health.contractStatus).toBe("invalid")
       expect(health.errorMessage).toContain("methods are incomplete")
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.scoped("rejects unsupported capability contract versions during scan", () =>
+    Effect.gen(function* () {
+      const root = yield* withTempDir
+      yield* writePlugin(
+        root,
+        "future",
+        {
+          name: "future-plugin",
+          version: "1.0.0",
+          apiVersion: 1,
+          capabilities: ["download_client"],
+          capabilityVersions: { download_client: 2 },
+          entrypoint: "index.mjs",
+        },
+        validPluginModule,
+      )
+
+      const loader = yield* PluginLoader
+      const scanned = yield* loader.scan(root)
+      const plugin = scanned.find((item) => item.name === "future")
+
+      expect(plugin?.status).toBe("error")
+      expect(plugin?.contractStatus).toBe("invalid")
+      expect(plugin?.errorMessage).toContain("unsupported download_client capability version")
     }).pipe(Effect.provide(TestLayer)),
   )
 })

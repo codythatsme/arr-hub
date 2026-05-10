@@ -61,6 +61,7 @@ function Plugins() {
                 <th className="px-3 py-2 text-left font-medium">Version</th>
                 <th className="px-3 py-2 text-left font-medium">Capabilities</th>
                 <th className="px-3 py-2 text-left font-medium">Status</th>
+                <th className="px-3 py-2 text-left font-medium">Contract</th>
                 <th className="px-3 py-2 text-left font-medium">Path</th>
                 <th className="px-3 py-2 text-right font-medium">Actions</th>
               </tr>
@@ -81,6 +82,7 @@ function Plugins() {
                       </div>
                     )}
                   </td>
+                  <td className="px-3 py-2">{plugin.contractStatus}</td>
                   <td className="text-muted-foreground max-w-sm truncate px-3 py-2">
                     {plugin.path}
                   </td>
