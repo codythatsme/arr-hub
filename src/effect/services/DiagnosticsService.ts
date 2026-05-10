@@ -32,6 +32,9 @@ import { SchedulerService } from "./SchedulerService"
 
 const DB_PATH = process.env.DATABASE_PATH ?? "data/arr-hub.db"
 const LOG_LIMIT = 500
+const HEALTH_STALE_MS = 24 * 60 * 60 * 1000
+const FAILURE_ROLLUP_MIN_TOTAL = 3
+const FAILURE_ROLLUP_RATIO = 0.5
 
 export type LogLevel = SystemLogLevel
 export type HealthStatus = "healthy" | "degraded" | "unhealthy"
@@ -141,6 +144,14 @@ function worstStatus(
   return "healthy" as const
 }
 
+function isStaleHealthCheck(lastCheck: Date | null, now: Date) {
+  return lastCheck === null || now.getTime() - lastCheck.getTime() > HEALTH_STALE_MS
+}
+
+function hasFailureRollup(failed: number, total: number) {
+  return total >= FAILURE_ROLLUP_MIN_TOTAL && failed / total >= FAILURE_ROLLUP_RATIO
+}
+
 async function directoryHealth(
   path: string,
   inaccessibleMessage: string,
@@ -242,21 +253,33 @@ export const DiagnosticsServiceLive = Layer.effect(
 
       health: () =>
         Effect.gen(function* () {
-          const [indexerResult, clientResult, serverResult, rootFolderResult, mappingResult] =
-            yield* Effect.all([
-              Effect.either(indexerService.list()),
-              Effect.either(downloadClientService.list()),
-              Effect.either(mediaServerService.list()),
-              Effect.either(db.select().from(rootFolders)),
-              Effect.either(db.select().from(remotePathMappings)),
-            ])
+          const now = new Date()
+          const [
+            indexerResult,
+            indexerStatsResult,
+            clientResult,
+            serverResult,
+            rootFolderResult,
+            mappingResult,
+          ] = yield* Effect.all([
+            Effect.either(indexerService.list()),
+            Effect.either(indexerService.listStats()),
+            Effect.either(downloadClientService.list()),
+            Effect.either(mediaServerService.list()),
+            Effect.either(db.select().from(rootFolders)),
+            Effect.either(db.select().from(remotePathMappings)),
+          ])
 
           const failures: Array<{ type: string; message: string }> = []
           const integrations: Array<IntegrationHealthItem> = []
+          let enabledIndexerIds: ReadonlySet<number> | null = null
 
           if (indexerResult._tag === "Left") {
             failures.push({ type: "indexer", message: indexerResult.left.message })
           } else {
+            enabledIndexerIds = new Set(
+              indexerResult.right.filter((item) => item.enabled).map((item) => item.id),
+            )
             for (const item of indexerResult.right) {
               integrations.push({
                 type: "indexer",
@@ -273,6 +296,28 @@ export const DiagnosticsServiceLive = Layer.effect(
               indexerResult.right.every((item) => !item.enabled)
             ) {
               failures.push({ type: "indexer", message: "all indexers are disabled" })
+            }
+          }
+
+          if (indexerStatsResult._tag === "Left") {
+            failures.push({ type: "indexer_stats", message: indexerStatsResult.left.message })
+          } else {
+            for (const stats of indexerStatsResult.right) {
+              if (enabledIndexerIds !== null && !enabledIndexerIds.has(stats.indexerId)) continue
+
+              if (hasFailureRollup(stats.failedSearches, stats.totalSearches)) {
+                failures.push({
+                  type: "indexer_search_failures",
+                  message: `${stats.indexerName} has ${stats.failedSearches}/${stats.totalSearches} failed searches`,
+                })
+              }
+
+              if (hasFailureRollup(stats.failedRss, stats.totalRss)) {
+                failures.push({
+                  type: "indexer_rss_failures",
+                  message: `${stats.indexerName} has ${stats.failedRss}/${stats.totalRss} failed RSS syncs`,
+                })
+              }
             }
           }
 
@@ -300,6 +345,18 @@ export const DiagnosticsServiceLive = Layer.effect(
               })
             }
             for (const item of clientResult.right) {
+              if (item.enabled && item.health?.status === "unhealthy") {
+                failures.push({
+                  type: "download_client_unavailable",
+                  message: `${item.name} is unavailable: ${item.health.errorMessage ?? "last connection test failed"}`,
+                })
+              }
+              if (item.enabled && isStaleHealthCheck(item.health?.lastCheck ?? null, now)) {
+                failures.push({
+                  type: "download_client_health_stale",
+                  message: `${item.name} has no recent health check`,
+                })
+              }
               if (item.enabled && item.settings.removeCompletedDownloads !== true) {
                 failures.push({
                   type: "download_client_remove_completed",

@@ -23,7 +23,28 @@ const mockIndexerCatalogMethods = {
       definitions: [],
     }),
   listDefinitions: () => Effect.succeed([]),
-  listStats: () => Effect.succeed([]),
+  listStats: () =>
+    Effect.succeed([
+      {
+        indexerId: 1,
+        indexerName: "Indexer",
+        totalSearches: 5,
+        successfulSearches: 1,
+        failedSearches: 4,
+        totalRss: 4,
+        successfulRss: 1,
+        failedRss: 3,
+        totalGrabs: 0,
+        averageResponseTimeMs: 100,
+        lastSearchAt: new Date(),
+        lastRssAt: new Date(),
+        lastGrabAt: null,
+        queryLimitWindowStartedAt: null,
+        queryLimitWindowSearches: 0,
+        grabLimitWindowStartedAt: null,
+        grabLimitWindowGrabs: 0,
+      },
+    ]),
   aggregateCapabilities: () => Effect.succeed({ searchTypes: [], categories: [] }),
   rss: () => Effect.succeed({ releases: [], errors: [] }),
   canGrab: () => Effect.succeed(true),
@@ -97,7 +118,7 @@ const MockDownloadClientService = Layer.succeed(DownloadClientService, {
         updatedAt: new Date(),
         health: {
           status: "unhealthy",
-          lastCheck: new Date(),
+          lastCheck: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
           errorMessage: "connection refused",
           responseTimeMs: null,
         },
@@ -158,6 +179,26 @@ describe("DiagnosticsService", () => {
       expect(health.failures).toContainEqual(
         expect.objectContaining({
           type: "download_client_remove_completed",
+        }),
+      )
+      expect(health.failures).toContainEqual(
+        expect.objectContaining({
+          type: "download_client_unavailable",
+        }),
+      )
+      expect(health.failures).toContainEqual(
+        expect.objectContaining({
+          type: "download_client_health_stale",
+        }),
+      )
+      expect(health.failures).toContainEqual(
+        expect.objectContaining({
+          type: "indexer_search_failures",
+        }),
+      )
+      expect(health.failures).toContainEqual(
+        expect.objectContaining({
+          type: "indexer_rss_failures",
         }),
       )
       expect(health.failures).toContainEqual(
