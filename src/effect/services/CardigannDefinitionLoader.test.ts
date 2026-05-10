@@ -85,6 +85,7 @@ caps:
       "broadcasthe-net",
       "shazbat",
       "norbits",
+      "toloka",
       "anidex",
       "shizaproject",
       "subsplease",
@@ -316,6 +317,36 @@ caps:
           { id: 4000, name: "Programmer" },
           { id: 3000, name: "Musikk" },
           { id: 3030, name: "Lydbøker" },
+        ]),
+      },
+    })
+    expect(
+      BUILT_IN_CARDIGANN_DEFINITIONS.find((definition) => definition.definitionKey === "toloka"),
+    ).toMatchObject({
+      displayName: "Toloka.to",
+      baseUrl: "https://toloka.to/",
+      privacy: "semi_private",
+      supportsRss: true,
+      supportsSearch: true,
+      tags: ["semi-private", "movies", "tv", "audio", "books", "pc", "games", "html", "form-login"],
+      authFields: expect.arrayContaining([
+        expect.objectContaining({ name: "username", type: "text", required: true }),
+        expect.objectContaining({ name: "password", type: "password", required: true }),
+        expect.objectContaining({
+          name: "freeLeechOnly",
+          type: "checkbox",
+          defaultValue: "false",
+        }),
+      ]),
+      capabilities: {
+        searchTypes: ["search", "movie", "tvsearch"],
+        categories: expect.arrayContaining([
+          { id: 2000, name: "Українське кіно" },
+          { id: 5000, name: "Телесеріали" },
+          { id: 5070, name: "Аніме" },
+          { id: 3040, name: "Українська музика (lossless)" },
+          { id: 3030, name: "Аудіокниги українською" },
+          { id: 4050, name: "Ігри українською" },
         ]),
       },
     })

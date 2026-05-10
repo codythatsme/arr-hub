@@ -412,6 +412,50 @@ const NORBITS_HTML_RESULTS = `
   </table>
 </body></html>`
 
+const TOLOKA_HTML_RESULTS = `
+<html><body>
+  <table class="forumline">
+    <tbody>
+      <tr class="prow1">
+        <td></td>
+        <td><a href="tracker.php?f=117">Movies</a></td>
+        <td>
+          <a href="viewtopic.php?t=1001">Toloka Movie 2026 1080p WEB-DL</a>
+          <img src="images/gold.gif" alt="gold">
+        </td>
+        <td></td>
+        <td></td>
+        <td><a href="download.php?id=1001">Download</a></td>
+        <td>2.5 GB</td>
+        <td></td>
+        <td>17</td>
+        <td><b>29</b></td>
+        <td><b>3</b></td>
+        <td></td>
+        <td>2026-05-10</td>
+      </tr>
+      <tr class="prow2">
+        <td></td>
+        <td><a href="tracker.php?f=173">TV HD</a></td>
+        <td>
+          <a href="viewtopic.php?t=1002">Toloka Show Season 1 720p HDTV</a>
+          <img src="images/silver.gif" alt="silver">
+        </td>
+        <td></td>
+        <td></td>
+        <td><a href="download.php?id=1002">Download</a></td>
+        <td>1.4 GB</td>
+        <td></td>
+        <td>8</td>
+        <td><b>16</b></td>
+        <td><b>2</b></td>
+        <td></td>
+        <td>2026-05-09</td>
+      </tr>
+    </tbody>
+  </table>
+</body></html>`
+
 const IPTORRENTS_HTML_RESULTS = `
 <html><body>
   <table id="torrents">
@@ -4431,6 +4475,102 @@ search:
       category: "5000",
       size: 1_200_000_000,
       seeders: 14,
+      leechers: 2,
+      downloadFactor: 0.5,
+      uploadFactor: 1,
+    })
+  })
+
+  it("parses Toloka HTML results after POST login", async () => {
+    const requests: Array<{ url: string; init: RequestInit | undefined }> = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(String(input))
+      requests.push({ url: String(input), init })
+
+      if (url.pathname === "/login.php") {
+        return new Response(
+          '<html><body><a href="login.php?logout=true">Logout</a></body></html>',
+          {
+            status: 200,
+            headers: { "set-cookie": "toloka_session=abc; Path=/" },
+          },
+        )
+      }
+
+      return new Response(TOLOKA_HTML_RESULTS, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 122,
+      name: "Toloka.to",
+      type: "cardigann_yaml",
+      definitionKey: "toloka",
+      baseUrl: "https://toloka.to/",
+      apiKey: "",
+      configValues: {
+        username: "alice",
+        password: "secret",
+        freeLeechOnly: "true",
+      },
+      priority: 58,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({
+        term: "Toloka Movie",
+        type: "movie",
+        categories: [2000],
+      }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    const loginRequest = requests[0]
+    expect(loginRequest?.url).toBe("https://toloka.to/login.php")
+    expect(loginRequest?.init?.method).toBe("POST")
+    expect(new Headers(loginRequest?.init?.headers).get("referer")).toBe(
+      "https://toloka.to/login.php",
+    )
+    const loginBody = new URLSearchParams(String(loginRequest?.init?.body ?? ""))
+    expect(loginBody.get("username")).toBe("alice")
+    expect(loginBody.get("password")).toBe("secret")
+    expect(loginBody.get("autologin")).toBe("on")
+    expect(loginBody.get("ssl")).toBe("on")
+    expect(loginBody.get("login")).toBe("Вхід")
+
+    const searchRequest = requests[1]
+    const searchUrl = new URL(searchRequest?.url ?? "")
+    expect(searchUrl.origin + searchUrl.pathname).toBe("https://toloka.to/tracker.php")
+    expect(searchUrl.searchParams.get("o")).toBe("1")
+    expect(searchUrl.searchParams.get("s")).toBe("2")
+    expect(searchUrl.searchParams.get("nm")).toBe("Toloka Movie")
+    expect(searchUrl.searchParams.get("sds")).toBe("1")
+    expect(searchUrl.searchParams.get("f[]")).toBe("117")
+    expect(new Headers(searchRequest?.init?.headers).get("cookie")).toBe("toloka_session=abc")
+
+    expect(releases).toHaveLength(2)
+    expect(releases[0]).toMatchObject({
+      title: "Toloka Movie 2026 1080p WEB-DL",
+      downloadUrl: "https://toloka.to/download.php?id=1001",
+      infoUrl: "https://toloka.to/viewtopic.php?t=1001",
+      category: "2000",
+      size: 2_500_000_000,
+      seeders: 29,
+      leechers: 3,
+      indexerId: 122,
+      indexerName: "Toloka.to",
+      indexerPriority: 58,
+      downloadFactor: 0,
+      uploadFactor: 1,
+    })
+    expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-10T00:00:00.000Z")
+    expect(releases[1]).toMatchObject({
+      title: "Toloka Show Season 1 720p HDTV",
+      category: "5040",
+      size: 1_400_000_000,
+      seeders: 16,
       leechers: 2,
       downloadFactor: 0.5,
       uploadFactor: 1,

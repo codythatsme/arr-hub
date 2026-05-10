@@ -1074,6 +1074,193 @@ search:
       text: "1"
 `
 
+const TOLOKA = `
+id: toloka
+name: Toloka.to
+description: Ukrainian semi-private general tracker exposed through a first-pass POST-login HTML Cardigann definition.
+type: semi-private
+language: uk-UA
+links:
+  - https://toloka.to/
+version: builtin-cardigann-1
+tags:
+  - semi-private
+  - movies
+  - tv
+  - audio
+  - books
+  - pc
+  - games
+  - html
+  - form-login
+settings:
+  - name: username
+    label: Username
+    type: text
+    required: true
+  - name: password
+    label: Password
+    type: password
+    required: true
+  - name: freeLeechOnly
+    label: Freeleech only
+    type: checkbox
+    default: false
+    required: false
+caps:
+  categorymappings:
+    - id: "117"
+      cat: Movies
+      desc: Українське кіно
+      newznab: 2000
+    - id: "124"
+      cat: TV
+      desc: Телесеріали
+      newznab: 5000
+    - id: "127"
+      cat: TV/Anime
+      desc: Аніме
+      newznab: 5070
+    - id: "225"
+      cat: TV/Documentary
+      desc: Документальні фільми українською
+      newznab: 5080
+    - id: "157"
+      cat: TV/Sport
+      desc: Український спорт
+      newznab: 5060
+    - id: "96"
+      cat: Movies/HD
+      desc: Фільми в HD
+      newznab: 2040
+    - id: "173"
+      cat: TV/HD
+      desc: Серіали в HD
+      newznab: 5040
+    - id: "120"
+      cat: Movies/DVD
+      desc: DVD українською
+      newznab: 2070
+    - id: "8"
+      cat: Audio
+      desc: Українська музика (lossy)
+      newznab: 3000
+    - id: "98"
+      cat: Audio/Lossless
+      desc: Українська музика (lossless)
+      newznab: 3040
+    - id: "33"
+      cat: Audio/Video
+      desc: Звукові доріжки та субтитри
+      newznab: 3020
+    - id: "11"
+      cat: Books
+      desc: Друкована література
+      newznab: 7000
+    - id: "181"
+      cat: Books/Mags
+      desc: Періодика
+      newznab: 7010
+    - id: "184"
+      cat: Books/Comics
+      desc: Графіка (комікси, манґа, BD та інше)
+      newznab: 7030
+    - id: "185"
+      cat: Audio/Audiobook
+      desc: Аудіокниги українською
+      newznab: 3030
+    - id: "9"
+      cat: PC
+      desc: Windows
+      newznab: 4000
+    - id: "25"
+      cat: PC
+      desc: Windows
+      newznab: 4000
+    - id: "239"
+      cat: PC/Mac
+      desc: Linux, Mac OS
+      newznab: 4030
+    - id: "211"
+      cat: PC/Phone-Android
+      desc: Android
+      newznab: 4070
+    - id: "122"
+      cat: PC/Phone-IOS
+      desc: iOS
+      newznab: 4060
+    - id: "10"
+      cat: PC/Games
+      desc: Ігри українською
+      newznab: 4050
+    - id: "28"
+      cat: PC/Games
+      desc: PC ігри
+      newznab: 4050
+  modes:
+    search: [q]
+    movie-search: [q]
+    tv-search: [q, season, ep]
+    music-search: [q]
+    book-search: [q]
+login:
+  method: post
+  paths:
+    - path: login.php
+      inputs:
+        username: "{{ .Config.Username }}"
+        password: "{{ .Config.Password }}"
+        autologin: "on"
+        ssl: "on"
+        login: "Вхід"
+      headers:
+        referer: "{{ .Config.sitelink }}login.php"
+search:
+  paths:
+    - path: 'tracker.php?o=1&s=2&nm={{ .Keywords | urlencode }}{{ if .Query.Season }}%20Сезон%20{{ .Query.Season }}{{ end }}{{ if .Config.FreeLeechOnly }}&sds=1{{ end }}{{ if .Categories }}&f[]={{ .Categories | join "&f[]=" }}{{ end }}'
+      response:
+        type: html
+  rows:
+    selector: 'table.forumline tr[class*="prow"]'
+  fields:
+    title:
+      selector: td:nth-of-type(3) > a
+    details:
+      selector: td:nth-of-type(3) > a
+      attribute: href
+    download:
+      selector: td:nth-of-type(6) > a
+      attribute: href
+    category:
+      selector: td:nth-of-type(2) > a
+      attribute: href
+      filters:
+        - name: querystring
+          args: f
+    size:
+      selector: td:nth-of-type(7)
+    grabs:
+      selector: td:nth-of-type(9)
+      optional: true
+    seeders:
+      selector: td:nth-of-type(10) > b
+    leechers:
+      selector: td:nth-of-type(11) > b
+    date:
+      selector: td:nth-of-type(13)
+      filters:
+        - name: dateparse
+          args: "yyyy-MM-dd"
+    downloadvolumefactor:
+      case:
+        'tr:has(img[src="images/gold.gif"]), tr:has(img[src="images/authors.gif"])': "0"
+        'tr:has(img[src="images/silver.gif"])': "0.5"
+        'tr:has(img[src="images/bronze.gif"])': "0.75"
+        tr: "1"
+    uploadvolumefactor:
+      text: "1"
+`
+
 const ANIDEX = `
 id: anidex
 name: Anidex
@@ -8095,6 +8282,7 @@ const BUILT_IN_CARDIGANN_SOURCES = [
   BROADCASTHE_NET,
   SHAZBAT,
   NORBITS,
+  TOLOKA,
   ANIDEX,
   SHIZA_PROJECT,
   SUBSPLEASE,

@@ -119,19 +119,19 @@ describe("IndexerService", () => {
       const second = yield* svc.refreshDefinitions()
 
       expect(first).toMatchObject({
-        total: 51,
-        created: 51,
+        total: 52,
+        created: 52,
         updated: 0,
         unchanged: 0,
       })
       expect(first.definitions.map((definition) => definition.action)).toEqual(
-        Array(51).fill("created"),
+        Array(52).fill("created"),
       )
       expect(second).toMatchObject({
-        total: 51,
+        total: 52,
         created: 0,
         updated: 0,
-        unchanged: 51,
+        unchanged: 52,
       })
       expect(second.definitions.every((definition) => definition.previousVersion !== null)).toBe(
         true,
@@ -445,6 +445,7 @@ describe("IndexerService", () => {
         "speedapp",
         "speedcd",
         "subsplease",
+        "toloka",
         "torrent-network",
         "torrentbytes",
         "torrentday",
@@ -536,6 +537,27 @@ describe("IndexerService", () => {
         supportsRss: true,
         tags: ["private", "movies", "tv", "general", "html", "multi-step-login"],
       })
+      expect(definitions.find((definition) => definition.definitionKey === "toloka")).toMatchObject(
+        {
+          displayName: "Toloka.to",
+          protocol: "torrent",
+          implementation: "cardigann_yaml",
+          baseUrl: "https://toloka.to/",
+          privacy: "semi_private",
+          supportsRss: true,
+          tags: [
+            "semi-private",
+            "movies",
+            "tv",
+            "audio",
+            "books",
+            "pc",
+            "games",
+            "html",
+            "form-login",
+          ],
+        },
+      )
       expect(definitions.find((definition) => definition.definitionKey === "anidex")).toMatchObject(
         {
           displayName: "Anidex",
