@@ -44,6 +44,7 @@ import { Route as ApiSystemStatusRouteImport } from './routes/api.system.status'
 import { Route as ApiSystemLogsRouteImport } from './routes/api.system.logs'
 import { Route as ApiSystemHealthRouteImport } from './routes/api.system.health'
 import { Route as ApiVersionTagRouteImport } from './routes/api.$version.tag'
+import { Route as ApiVersionRootfolderRouteImport } from './routes/api.$version.rootfolder'
 import { Route as ApiVersionQualityprofileRouteImport } from './routes/api.$version.qualityprofile'
 import { Route as ApiVersionHealthRouteImport } from './routes/api.$version.health'
 import { Route as ApiQueueIdRetryRouteImport } from './routes/api.queue.$id.retry'
@@ -53,6 +54,7 @@ import { Route as ApiIndexersAggregateProtocolRouteImport } from './routes/api.i
 import { Route as ApiVersionTagDetailRouteImport } from './routes/api.$version.tag.detail'
 import { Route as ApiVersionTagIdRouteImport } from './routes/api.$version.tag.$id'
 import { Route as ApiVersionSystemStatusRouteImport } from './routes/api.$version.system.status'
+import { Route as ApiVersionRootfolderIdRouteImport } from './routes/api.$version.rootfolder.$id'
 import { Route as ApiVersionQualityprofileIdRouteImport } from './routes/api.$version.qualityprofile.$id'
 import { Route as ApiSystemBackupsIdDownloadRouteImport } from './routes/api.system.backups.$id.download'
 import { Route as ApiIndexersAggregateProtocolApiRouteImport } from './routes/api.indexers.aggregate.$protocol.api'
@@ -233,6 +235,11 @@ const ApiVersionTagRoute = ApiVersionTagRouteImport.update({
   path: '/api/$version/tag',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiVersionRootfolderRoute = ApiVersionRootfolderRouteImport.update({
+  id: '/api/$version/rootfolder',
+  path: '/api/$version/rootfolder',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiVersionQualityprofileRoute =
   ApiVersionQualityprofileRouteImport.update({
     id: '/api/$version/qualityprofile',
@@ -279,6 +286,11 @@ const ApiVersionSystemStatusRoute = ApiVersionSystemStatusRouteImport.update({
   id: '/api/$version/system/status',
   path: '/api/$version/system/status',
   getParentRoute: () => rootRouteImport,
+} as any)
+const ApiVersionRootfolderIdRoute = ApiVersionRootfolderIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ApiVersionRootfolderRoute,
 } as any)
 const ApiVersionQualityprofileIdRoute =
   ApiVersionQualityprofileIdRouteImport.update({
@@ -336,6 +348,7 @@ export interface FileRoutesByFullPath {
   '/tv/': typeof TvIndexRoute
   '/api/$version/health': typeof ApiVersionHealthRoute
   '/api/$version/qualityprofile': typeof ApiVersionQualityprofileRouteWithChildren
+  '/api/$version/rootfolder': typeof ApiVersionRootfolderRouteWithChildren
   '/api/$version/tag': typeof ApiVersionTagRouteWithChildren
   '/api/system/health': typeof ApiSystemHealthRoute
   '/api/system/logs': typeof ApiSystemLogsRoute
@@ -343,6 +356,7 @@ export interface FileRoutesByFullPath {
   '/api/system/tasks': typeof ApiSystemTasksRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
   '/api/$version/qualityprofile/$id': typeof ApiVersionQualityprofileIdRoute
+  '/api/$version/rootfolder/$id': typeof ApiVersionRootfolderIdRoute
   '/api/$version/system/status': typeof ApiVersionSystemStatusRoute
   '/api/$version/tag/$id': typeof ApiVersionTagIdRoute
   '/api/$version/tag/detail': typeof ApiVersionTagDetailRouteWithChildren
@@ -386,6 +400,7 @@ export interface FileRoutesByTo {
   '/tv': typeof TvIndexRoute
   '/api/$version/health': typeof ApiVersionHealthRoute
   '/api/$version/qualityprofile': typeof ApiVersionQualityprofileRouteWithChildren
+  '/api/$version/rootfolder': typeof ApiVersionRootfolderRouteWithChildren
   '/api/$version/tag': typeof ApiVersionTagRouteWithChildren
   '/api/system/health': typeof ApiSystemHealthRoute
   '/api/system/logs': typeof ApiSystemLogsRoute
@@ -393,6 +408,7 @@ export interface FileRoutesByTo {
   '/api/system/tasks': typeof ApiSystemTasksRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
   '/api/$version/qualityprofile/$id': typeof ApiVersionQualityprofileIdRoute
+  '/api/$version/rootfolder/$id': typeof ApiVersionRootfolderIdRoute
   '/api/$version/system/status': typeof ApiVersionSystemStatusRoute
   '/api/$version/tag/$id': typeof ApiVersionTagIdRoute
   '/api/$version/tag/detail': typeof ApiVersionTagDetailRouteWithChildren
@@ -437,6 +453,7 @@ export interface FileRoutesById {
   '/tv/': typeof TvIndexRoute
   '/api/$version/health': typeof ApiVersionHealthRoute
   '/api/$version/qualityprofile': typeof ApiVersionQualityprofileRouteWithChildren
+  '/api/$version/rootfolder': typeof ApiVersionRootfolderRouteWithChildren
   '/api/$version/tag': typeof ApiVersionTagRouteWithChildren
   '/api/system/health': typeof ApiSystemHealthRoute
   '/api/system/logs': typeof ApiSystemLogsRoute
@@ -444,6 +461,7 @@ export interface FileRoutesById {
   '/api/system/tasks': typeof ApiSystemTasksRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
   '/api/$version/qualityprofile/$id': typeof ApiVersionQualityprofileIdRoute
+  '/api/$version/rootfolder/$id': typeof ApiVersionRootfolderIdRoute
   '/api/$version/system/status': typeof ApiVersionSystemStatusRoute
   '/api/$version/tag/$id': typeof ApiVersionTagIdRoute
   '/api/$version/tag/detail': typeof ApiVersionTagDetailRouteWithChildren
@@ -489,6 +507,7 @@ export interface FileRouteTypes {
     | '/tv/'
     | '/api/$version/health'
     | '/api/$version/qualityprofile'
+    | '/api/$version/rootfolder'
     | '/api/$version/tag'
     | '/api/system/health'
     | '/api/system/logs'
@@ -496,6 +515,7 @@ export interface FileRouteTypes {
     | '/api/system/tasks'
     | '/api/trpc/$'
     | '/api/$version/qualityprofile/$id'
+    | '/api/$version/rootfolder/$id'
     | '/api/$version/system/status'
     | '/api/$version/tag/$id'
     | '/api/$version/tag/detail'
@@ -539,6 +559,7 @@ export interface FileRouteTypes {
     | '/tv'
     | '/api/$version/health'
     | '/api/$version/qualityprofile'
+    | '/api/$version/rootfolder'
     | '/api/$version/tag'
     | '/api/system/health'
     | '/api/system/logs'
@@ -546,6 +567,7 @@ export interface FileRouteTypes {
     | '/api/system/tasks'
     | '/api/trpc/$'
     | '/api/$version/qualityprofile/$id'
+    | '/api/$version/rootfolder/$id'
     | '/api/$version/system/status'
     | '/api/$version/tag/$id'
     | '/api/$version/tag/detail'
@@ -589,6 +611,7 @@ export interface FileRouteTypes {
     | '/tv/'
     | '/api/$version/health'
     | '/api/$version/qualityprofile'
+    | '/api/$version/rootfolder'
     | '/api/$version/tag'
     | '/api/system/health'
     | '/api/system/logs'
@@ -596,6 +619,7 @@ export interface FileRouteTypes {
     | '/api/system/tasks'
     | '/api/trpc/$'
     | '/api/$version/qualityprofile/$id'
+    | '/api/$version/rootfolder/$id'
     | '/api/$version/system/status'
     | '/api/$version/tag/$id'
     | '/api/$version/tag/detail'
@@ -640,6 +664,7 @@ export interface RootRouteChildren {
   TvIndexRoute: typeof TvIndexRoute
   ApiVersionHealthRoute: typeof ApiVersionHealthRoute
   ApiVersionQualityprofileRoute: typeof ApiVersionQualityprofileRouteWithChildren
+  ApiVersionRootfolderRoute: typeof ApiVersionRootfolderRouteWithChildren
   ApiVersionTagRoute: typeof ApiVersionTagRouteWithChildren
   ApiSystemHealthRoute: typeof ApiSystemHealthRoute
   ApiSystemLogsRoute: typeof ApiSystemLogsRoute
@@ -898,6 +923,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiVersionTagRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/$version/rootfolder': {
+      id: '/api/$version/rootfolder'
+      path: '/api/$version/rootfolder'
+      fullPath: '/api/$version/rootfolder'
+      preLoaderRoute: typeof ApiVersionRootfolderRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/$version/qualityprofile': {
       id: '/api/$version/qualityprofile'
       path: '/api/$version/qualityprofile'
@@ -961,6 +993,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiVersionSystemStatusRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/$version/rootfolder/$id': {
+      id: '/api/$version/rootfolder/$id'
+      path: '/$id'
+      fullPath: '/api/$version/rootfolder/$id'
+      preLoaderRoute: typeof ApiVersionRootfolderIdRouteImport
+      parentRoute: typeof ApiVersionRootfolderRoute
+    }
     '/api/$version/qualityprofile/$id': {
       id: '/api/$version/qualityprofile/$id'
       path: '/$id'
@@ -1021,6 +1060,17 @@ const ApiVersionQualityprofileRouteWithChildren =
   ApiVersionQualityprofileRoute._addFileChildren(
     ApiVersionQualityprofileRouteChildren,
   )
+
+interface ApiVersionRootfolderRouteChildren {
+  ApiVersionRootfolderIdRoute: typeof ApiVersionRootfolderIdRoute
+}
+
+const ApiVersionRootfolderRouteChildren: ApiVersionRootfolderRouteChildren = {
+  ApiVersionRootfolderIdRoute: ApiVersionRootfolderIdRoute,
+}
+
+const ApiVersionRootfolderRouteWithChildren =
+  ApiVersionRootfolderRoute._addFileChildren(ApiVersionRootfolderRouteChildren)
 
 interface ApiVersionTagDetailRouteChildren {
   ApiVersionTagDetailIdRoute: typeof ApiVersionTagDetailIdRoute
@@ -1093,6 +1143,7 @@ const rootRouteChildren: RootRouteChildren = {
   TvIndexRoute: TvIndexRoute,
   ApiVersionHealthRoute: ApiVersionHealthRoute,
   ApiVersionQualityprofileRoute: ApiVersionQualityprofileRouteWithChildren,
+  ApiVersionRootfolderRoute: ApiVersionRootfolderRouteWithChildren,
   ApiVersionTagRoute: ApiVersionTagRouteWithChildren,
   ApiSystemHealthRoute: ApiSystemHealthRoute,
   ApiSystemLogsRoute: ApiSystemLogsRoute,
