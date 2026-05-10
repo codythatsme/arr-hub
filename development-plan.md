@@ -11,7 +11,7 @@ ARR Hub has a credible foundation, but it is not yet a viable Sonarr/Radarr/Prow
 What exists today:
 
 - TanStack Start + tRPC + Effect service architecture.
-- SQLite/Drizzle schema for users, API keys, movies, series/seasons/episodes, quality profiles, custom formats, tags, auto-tagging rules, custom filters, indexers, download clients, media servers, queue, notifications, plugins, release decisions, scheduler, onboarding, and Plex playback history.
+- SQLite/Drizzle schema for users, API keys, movies, series/seasons/episodes, quality profiles, custom formats, tags, auto-tagging rules, custom filters, import lists, release profiles, delay profiles, indexers, download clients, media servers, queue, notifications, plugins, release decisions, scheduler, onboarding, and Plex playback history.
 - Built-in adapters for qBittorrent, SABnzbd, first-pass Transmission, first-pass Deluge, first-pass NZBGet, first-pass torrent/usenet blackholes, Torznab/Newznab, Plex, and experimental Jellyfin.
 - Basic release parsing, quality/profile scoring, search/grab pipeline, queue polling, and scheduler loop.
 - TMDB-backed movie/TV metadata lookup, metadata-backed add flows, series episode hydration, Sonarr episode import, metadata refresh jobs, and a TV episode calendar.
@@ -33,7 +33,7 @@ Primary blockers:
 Commands run from `/Users/codythatsme/Developer/arr-hub`:
 
 - `bun run typecheck`: passed.
-- `bun run test`: passed outside the sandbox for the SMTP bind test, 73 test files plus 1 skipped live suite, 616 passed and 4 skipped tests.
+- `bun run test`: passed outside the sandbox for the SMTP bind test, 74 test files plus 1 skipped live suite, 619 passed and 4 skipped tests.
 - Focused add-paused adapter tests passed for qBittorrent, Transmission, Deluge, NZBGet, and built-in adapter interop.
 - Focused download-client remove-policy tests passed for completed-import cleanup and failed-download cleanup.
 - Focused import free-space tests passed for settings validation and copy-import reserve rejection.
@@ -46,6 +46,7 @@ Commands run from `/Users/codythatsme/Developer/arr-hub`:
 - Focused auth tests passed for authenticated admin password change, active-session revocation, current-password rejection, new-password validation, password recovery reset, recovery-token rejection, disabled recovery behavior, and recovery token/session/API-key revocation.
 - Focused API key scoping tests passed for default full-app keys, REST read/write keys, write-implies-read checks, tRPC full-app enforcement, and HTTP read/write method mapping.
 - Focused auto-tagging/custom-filter tests passed for movie rule application, automatic tag removal when rules stop matching, series rule reapply counts, custom filter storage, tag usage, and auto-tag detail IDs.
+- Focused policy-surface tests passed for import-list tag detail IDs, release-profile include/exclude tag detail IDs, delay-profile tag detail IDs, usage counts, and tag rename propagation.
 - Focused diagnostics tests passed for indexer search/RSS failure rollups, unavailable download clients, stale download-client health checks, clock/update metadata checks, and import-mechanism failure checks.
 - Focused tag tests passed for label normalization, automatic tag row creation, usage counts, deletion guards, movie/series/indexer/download-client/notification service integration, compatible tag detail IDs, tag label rename propagation, compatible API-key auth extraction, and startup schema validation.
 - Focused compatible API tests passed for system status, health, root folder, quality profile, custom format, movie, series, episode, indexer, download client, command, queue, history, wanted, and calendar resource mapping/input parsing, plus public OpenAPI route/document coverage.
@@ -189,6 +190,7 @@ Completed in atomic commits after this plan was written. Milestone 5 is summariz
 - `b19fe236da` added an operator-controlled admin password recovery flow using a temporary `ARR_HUB_PASSWORD_RECOVERY_TOKEN`, login-screen reset UI, session/API-key revocation, and README/Compose/env docs.
 - `2d86538606` added scoped API keys with full-app, REST read-only, and REST read/write modes enforced across tRPC, compatible HTTP routes, and aggregate Torznab/Newznab feeds.
 - `432b1ed2f5` added Sonarr/Radarr-style auto-tagging rules and saved custom filters, including persistence, services, tRPC procedures, Settings UI, automatic media tag application/removal, tag detail/rename propagation, and deterministic service coverage.
+- `37b337dd0c` added first-pass tag-scoped import list, release profile, and delay profile policy surfaces with persistence, tRPC management, Settings UI, tag detail/usage integration, rename propagation, and deterministic service coverage.
 
 Milestones 1, 2, 3, and 4 are complete for deterministic local coverage against the current backend surface. Milestone 5 is now scoped as a curated Prowlarr replacement foundation, not a broad tracker-porting effort. It includes persisted generic indexer definitions, core Newznab presets for NZBGeek, DrunkenSlug, NZBFinder, NinjaCentral, NZBPlanet, and altHUB, representative Cardigann/YAML torrent definitions, aggregate Torznab/Newznab feeds with offset/extended metadata forwarding, response/enclosure feed metadata, caps search-type normalization, nested category parsing, URL-backed checksum-pinned definition sources, proxy/health/stats basics, per-indexer category and policy controls, deterministic common Newznab-plus-torrent app-sync coverage, and first-pass Radarr/Sonarr aggregate app sync. Long-tail and adult/XXX tracker breadth is deferred to remote definition sources or a future catalogue-maintenance milestone. Milestone 6 now has first-pass Transmission, Deluge, NZBGet, and blackhole coverage plus Docker/NAS volume docs, backup/restore docs, root-folder permission diagnostics, and completed download history separate from active queue state; live multi-container validation remains. Milestone 3 now includes import-time target free-space guards but still needs live qBittorrent/SABnzbd fixture validation in an environment with those services running, and Milestone 5 still needs live common-indexer validation with real credentials before claiming interoperability with specific upstream providers.
 
@@ -196,13 +198,14 @@ Milestones 1, 2, 3, and 4 are complete for deterministic local coverage against 
 
 Backend/service surfaces:
 
-- `src/db/schema.ts`: core tables for admin auth, media, profiles, integrations, queue, Plex/session analytics, notifications, plugins, release decisions, scheduler, and onboarding.
+- `src/db/schema.ts`: core tables for admin auth, media, profiles, integrations, queue, Plex/session analytics, notifications, plugins, release decisions, import lists, release profiles, delay profiles, scheduler, and onboarding.
 - `src/effect/services/MovieService.ts`: CRUD/list/lookup over local movie rows.
 - `src/effect/services/SeriesService.ts`: CRUD/list/local lookup, season/episode monitor toggles, and monitored episode calendar queries.
 - `src/effect/services/TmdbClient.ts`: movie TMDB search/details/popular/trending plus TV search/details/season hydration.
 - `src/effect/services/IndexerService.ts`, `src/effect/services/CardigannDefinitionLoader.ts`, `src/effect/services/CardigannAdapter.ts`, `src/effect/services/TorznabAdapter.ts`, `src/effect/services/IndexerDefinitionSourceService.ts`, and `src/effect/services/IndexerApplicationService.ts`: Torznab/Newznab connection testing and search, generic definitions, core Newznab presets, representative Cardigann/YAML definitions, encrypted definition-specific config/auth values, definition source refresh with checksum pinning and catalog manifest import, aggregate Torznab/Newznab feeds, proxy application, search stats, health/backoff state, per-indexer category and policy controls, and first-pass Radarr/Sonarr aggregate app sync. Broad built-in tracker breadth is intentionally deferred.
-- `src/effect/services/TagService.ts`: canonical tag row creation, tag listing with first-pass media/indexer/download-client/notification/auto-tag/custom-filter usage counts, compatibility detail IDs, tag label rename propagation across tag-aware surfaces, unused-tag deletion, and guards against deleting used tags.
+- `src/effect/services/TagService.ts`: canonical tag row creation, tag listing with first-pass media/indexer/download-client/notification/auto-tag/custom-filter/import-list/release-profile/delay-profile usage counts, compatibility detail IDs, tag label rename propagation across tag-aware surfaces, unused-tag deletion, and guards against deleting used tags.
 - `src/effect/services/AutoTaggingService.ts` and `AutoTaggingEngine.ts`: Sonarr/Radarr-style saved auto-tagging rules and custom filters, rule validation, rule application across movies/series, optional automatic removal when rules stop matching, and custom filter tag registration.
+- `src/effect/services/PolicyService.ts`: first-pass import list, release profile, and delay profile CRUD with normalized tag attachment and canonical tag registration.
 - `src/integrations/http/compatTags.ts`, `src/integrations/http/compatSystem.ts`, `src/integrations/http/compatQualityProfiles.ts`, `src/integrations/http/compatRootFolders.ts`, `src/integrations/http/compatCustomFormats.ts`, `src/integrations/http/compatCalendar.ts`, `src/integrations/http/compatQueue.ts`, `src/integrations/http/compatHistory.ts`, `src/integrations/http/compatCommands.ts`, `src/integrations/http/compatWanted.ts`, `src/integrations/http/compatMovies.ts`, `src/integrations/http/compatSeries.ts`, `src/integrations/http/compatEpisodes.ts`, `src/integrations/http/compatIndexers.ts`, `src/integrations/http/compatDownloadClients.ts`, and `src/integrations/http/openapi.ts`: first-pass authenticated Arr-compatible movie, series, episode, indexer, download client, tag, root folder, quality profile, custom format, calendar, queue, history, command, wanted, system status, and health REST routes for `/api/v1` and `/api/v3`, plus public OpenAPI JSON at `/api/openapi` and `/api/v1|v3/openapi`.
 - `src/effect/services/DownloadClientService.ts`, `QBittorrentAdapter.ts`, `SABnzbdAdapter.ts`, `TransmissionAdapter.ts`, `DelugeAdapter.ts`, `NZBGetAdapter.ts`, and `BlackholeAdapter.ts`: add/list/test/grab/queue/remove downloads for qBittorrent, SABnzbd, first-pass Transmission, first-pass Deluge, first-pass NZBGet, and first-pass torrent/usenet blackholes, including persisted completed output paths where the client reports them.
 - `src/effect/services/DiagnosticsService.ts`: aggregates integration health, root-folder accessibility/write-permission, app data, clock, update metadata, import mechanism, and queue-output checks for the System view and container health endpoint.
@@ -224,7 +227,7 @@ UI surfaces:
 - Movies: TMDB search/add, edit/delete, monitor toggle, profile/root assignment, manual release evaluate/grab, manual file import, and rename preview/action.
 - TV: TMDB metadata search/add with season/episode hydration, manual series add with season/episode scaffolding, edit/delete, show/season/episode monitor toggles, series/season search, episode evaluate/grab, manual episode file import, and series rename preview/action.
 - Activity queue/history/users/stats. Queue supports retry, remove with delete-files option, clear error, and blocklist.
-- Settings: indexers, download clients, media servers, scheduler, general, media management/root folders/remote path mappings/library scan, notifications, profiles, security, tags, and plugins now have operational UI. Relevant settings pages surface filtered diagnostics health/failure panels. Plugin settings show contract health status and lifecycle logs. Security coverage now includes login, password change, operator-token password recovery from the login screen, and scoped API key list/create/revoke. Tag settings now include tag library management, saved auto-tagging rules, manual rule reapply, and saved custom filters. Indexer settings also include first-pass Cardigann definition selection, definition-specific config/auth field inputs including select options/defaults, checkbox controls, informational auth notes, and manual CAPTCHA fields without exposing stored secret values, tags, search/RSS toggles, proxy management/assignment controls, stats readouts, built-in definition refresh controls, definition source/catalog management controls with required catalog manifest pins, and Radarr/Sonarr app-sync controls including Sonarr anime category filters. Download client and notification settings include first-pass tag fields.
+- Settings: indexers, download clients, media servers, scheduler, general, media management/root folders/remote path mappings/library scan, notifications, profiles, policies, security, tags, and plugins now have operational UI. Relevant settings pages surface filtered diagnostics health/failure panels. Plugin settings show contract health status and lifecycle logs. Security coverage now includes login, password change, operator-token password recovery from the login screen, and scoped API key list/create/revoke. Tag settings now include tag library management, saved auto-tagging rules, manual rule reapply, and saved custom filters. Policy settings expose first-pass import list, release profile, and delay profile tag scopes. Indexer settings also include first-pass Cardigann definition selection, definition-specific config/auth field inputs including select options/defaults, checkbox controls, informational auth notes, and manual CAPTCHA fields without exposing stored secret values, tags, search/RSS toggles, proxy management/assignment controls, stats readouts, built-in definition refresh controls, definition source/catalog management controls with required catalog manifest pins, and Radarr/Sonarr app-sync controls including Sonarr anime category filters. Download client and notification settings include first-pass tag fields.
 - Onboarding quickstart and advanced wizard.
 - System diagnostics view.
 
@@ -692,17 +695,18 @@ Current state:
 - Compatible tag CRUD/detail endpoints exist for `/api/v1/tag`, `/api/v1/tag/detail`, `/api/v3/tag`, and `/api/v3/tag/detail`.
 - Auto-tagging rules can target movies, series, or both with genre/status/monitored/year/root-folder/profile/tag predicates plus series network/type predicates, apply matching tags on media add/update, and optionally remove rule tags when media stops matching.
 - Saved custom filters persist movie/series filter definitions and register referenced tag labels for usage tracking and rename propagation.
+- Import lists, release profiles, and delay profiles now persist normalized tag labels, register canonical tag rows, appear in tag usage/detail fields, and participate in tag rename propagation.
 
 Gap:
 
-- Tags still do not drive release restrictions, client selection, notification routing, import lists, release profiles, or delay profiles.
+- Tags still do not drive release restriction execution, client selection, notification routing, import-list syncing, or delay scheduling. The current policy surfaces persist scopes and expose them to tags; deeper enforcement remains future work.
 
 Tasks:
 
 - [x] Add tags schema and UI. Current coverage includes the `tags` table, movie/series tag fields, indexer tag canonicalization, Settings tag management, and movie/TV tag editing.
 - [x] Attach tags to movies, series, indexers, download clients, and notifications as first-pass normalized label arrays.
 - [x] Expose first compatible tag REST CRUD/detail endpoints.
-- [ ] Attach tags to import lists, release profiles, and delay profiles once those policy surfaces exist.
+- [x] Attach tags to import lists, release profiles, and delay profiles once those policy surfaces exist. Current coverage includes first-pass policy tables, tRPC management, Settings policy UI, canonical tag registration, usage/detail IDs, and tag rename propagation.
 - [x] Add custom filters and auto-tagging rules modeled after Sonarr/Radarr `AutoTagging` and `CustomFilters`. Current coverage includes persistence, validation, tRPC management procedures, Settings UI, automatic movie/series tag application, optional automatic removal, tag usage/detail integration, tag rename propagation, and service tests.
 
 ### Health Checks
@@ -817,9 +821,9 @@ Likely new tables or table expansions:
 - `blocklist` with media linkage, source title, protocol, indexer, infohash, reason.
 - `history` for grab/import/rename/delete/fail/metadata events.
 - `remote_path_mappings`.
-- Tag join tables and tag-scoped policy tables. The first-pass `tags` table exists, while current media/indexer/download-client/notification assignments use JSON label arrays.
-- `delay_profiles`, `release_profiles`, `quality_definitions`.
-- `import_lists`, `import_list_items`, `import_exclusions`.
+- Tag join tables. The first-pass `tags` table and tag-scoped policy tables exist, while current media/indexer/download-client/notification/policy assignments use JSON label arrays.
+- `quality_definitions`.
+- `import_list_items`, `import_exclusions`.
 - `indexer_definitions`, `indexer_categories`, `indexer_stats`, `indexer_proxy`, `indexer_definition_versions`.
 - `download_history` or completed download tracking.
 - `naming_config`.
