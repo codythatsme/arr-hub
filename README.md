@@ -34,17 +34,62 @@ App runs at `http://localhost:3000`.
 ARR Hub ships a first-party container path for NAS and home-server deployments.
 
 ```bash
-export ENCRYPTION_KEY="$(openssl rand -base64 32)"
-export INITIAL_ADMIN_PASSWORD="change-me-before-first-login"
+cp .env.example .env
+# Edit .env and set ENCRYPTION_KEY plus INITIAL_ADMIN_PASSWORD before first start.
 docker compose up -d --build
 ```
 
 The compose file publishes `http://localhost:3000`, stores SQLite data in the
-`arr-hub-data` volume, runs Drizzle migrations before the server starts, and
-checks `/api/system/health` for container health.
+`arr-hub-data` volume, mounts `/downloads`, `/movies`, and `/tv` from host paths,
+runs Drizzle migrations before the server starts, and checks
+`/api/system/health` for container health.
 
 Native modules such as `better-sqlite3` are installed and built inside the Linux
 container image. Do not bind-mount host `node_modules` into the container.
+
+### Docker storage and permissions
+
+`compose.yml` uses these container paths by default:
+
+- `/data` for ARR Hub SQLite data and encrypted credentials.
+- `/downloads` for completed download paths visible to ARR Hub.
+- `/movies` for movie imports.
+- `/tv` for TV imports.
+
+Set `ARR_HUB_DOWNLOADS_PATH`, `ARR_HUB_MOVIES_PATH`, and `ARR_HUB_TV_PATH` in
+`.env` to the matching host or NAS paths. In onboarding or
+**Settings → Media Management**, use `/movies` and `/tv` as ARR Hub root
+folders. Configure download clients to report completed files under
+`/downloads`, or add a remote path mapping when the client reports a different
+container path.
+
+The current image does not implement `PUID`/`PGID`; the runtime stage does not
+set `USER`, so it currently runs as root inside the container. On Linux/NAS
+hosts, create the bind mount directories first and grant the container read,
+write, and directory traverse access. The **System** health view reports
+configured root folders that are missing, not directories, or not readable and
+writable by ARR Hub.
+
+### Backup and restore
+
+Keep `ENCRYPTION_KEY` stable across backups and restores. Without the original
+key, encrypted integration credentials cannot be decrypted.
+
+```bash
+mkdir -p backups/arr-hub-data
+docker compose stop arr-hub
+docker compose cp arr-hub:/data/. ./backups/arr-hub-data
+docker compose start arr-hub
+```
+
+Restore by stopping the container, copying the saved data directory back into
+`/data`, and starting the container again:
+
+```bash
+docker compose stop arr-hub
+docker compose cp ./backups/arr-hub-data/. arr-hub:/data/
+docker compose start arr-hub
+```
 
 ## Environment
 
@@ -57,6 +102,9 @@ container image. Do not bind-mount host `node_modules` into the container.
 
 - `DATABASE_PATH` (default: `data/arr-hub.db`)
 - `PORT` (default: `3000`)
+- `ARR_HUB_DOWNLOADS_PATH` (Compose host path mounted at `/downloads`)
+- `ARR_HUB_MOVIES_PATH` (Compose host path mounted at `/movies`)
+- `ARR_HUB_TV_PATH` (Compose host path mounted at `/tv`)
 
 ### Development defaults
 
