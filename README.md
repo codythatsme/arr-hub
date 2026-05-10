@@ -75,6 +75,11 @@ writable by ARR Hub.
 Keep `ENCRYPTION_KEY` stable across backups and restores. Without the original
 key, encrypted integration credentials cannot be decrypted.
 
+ARR Hub also runs a daily scheduler-backed SQLite backup job. It writes online
+database snapshots and JSON manifests to `ARR_HUB_BACKUP_PATH`; when unset, the
+default is a `backups` directory beside `DATABASE_PATH` such as `/data/backups`
+in the Compose container.
+
 ```bash
 mkdir -p backups/arr-hub-data
 docker compose stop arr-hub
@@ -101,6 +106,7 @@ docker compose start arr-hub
 ### Optional
 
 - `DATABASE_PATH` (default: `data/arr-hub.db`)
+- `ARR_HUB_BACKUP_PATH` (default: `backups` beside `DATABASE_PATH`)
 - `PORT` (default: `3000`)
 - `ARR_HUB_DOWNLOADS_PATH` (Compose host path mounted at `/downloads`)
 - `ARR_HUB_MOVIES_PATH` (Compose host path mounted at `/movies`)

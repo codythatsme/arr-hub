@@ -9,6 +9,7 @@ import {
 } from "#/effect/domain/scheduler"
 
 import { AcquisitionPipeline } from "./AcquisitionPipeline"
+import { BackupService } from "./BackupService"
 import { Db } from "./Db"
 import { DownloadMonitor } from "./DownloadMonitor"
 import { IndexerApplicationService } from "./IndexerApplicationService"
@@ -23,6 +24,7 @@ const tick = Effect.gen(function* () {
   const db = yield* Db
   const scheduler = yield* SchedulerService
   const pipeline = yield* AcquisitionPipeline
+  const backups = yield* BackupService
   const monitor = yield* DownloadMonitor
   const indexerApplications = yield* IndexerApplicationService
   const definitionSources = yield* IndexerDefinitionSourceService
@@ -133,6 +135,11 @@ const tick = Effect.gen(function* () {
         )
         break
       }
+      case "database_backup": {
+        const backup = yield* backups.createDatabaseBackup()
+        yield* Effect.log(`database_backup: wrote ${backup.backupPath}`)
+        break
+      }
       case "tv_rss_sync": {
         // For each monitored, wanted episode whose air_date is sufficiently past, search.
         const airCutoff = new Date(Date.now() - DEFAULT_AIR_DATE_DELAY_MINUTES * 60_000)
@@ -230,6 +237,8 @@ function payloadForType(jobType: SchedulerJobType): SchedulerJobPayload | null {
       return { _tag: "movie_metadata_refresh" }
     case "series_metadata_refresh":
       return { _tag: "series_metadata_refresh" }
+    case "database_backup":
+      return { _tag: "database_backup" }
     case "search_cutoff":
       return { _tag: "search_cutoff" }
     case "search_missing":

@@ -3,6 +3,7 @@ import { Layer } from "effect"
 import { AcquisitionPipelineLive } from "./services/AcquisitionPipeline"
 import { AdapterRegistryLive } from "./services/AdapterRegistry"
 import { AuthServiceLive } from "./services/AuthService"
+import { BackupServiceLive } from "./services/BackupService"
 import { ConfigServiceLive } from "./services/ConfigService"
 import { CryptoServiceLive } from "./services/CryptoService"
 import { DbLive } from "./services/Db"
@@ -45,6 +46,7 @@ const DownloadMonitorWithImportLive = DownloadMonitorLive.pipe(
 export function makeAppLayer(tmdbClientLayer: Layer.Layer<TmdbClient> = TmdbClientLive) {
   return Layer.mergeAll(
     DiagnosticsServiceLive,
+    BackupServiceLive,
     QueueServiceLive,
     AcquisitionPipelineLive,
     DownloadMonitorWithImportLive,

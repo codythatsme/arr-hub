@@ -107,6 +107,13 @@ export class DiagnosticsError extends Data.TaggedError("DiagnosticsError")<{
   readonly message: string
 }> {}
 
+export type BackupErrorReason = "database_missing" | "backup_failed"
+
+export class BackupError extends Data.TaggedError("BackupError")<{
+  readonly reason: BackupErrorReason
+  readonly message: string
+}> {}
+
 export type SettingsErrorReason = "invalid_key" | "invalid_value"
 
 export class SettingsError extends Data.TaggedError("SettingsError")<{

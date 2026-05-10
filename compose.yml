@@ -9,6 +9,7 @@ services:
       NODE_ENV: production
       PORT: "3000"
       DATABASE_PATH: /data/arr-hub.db
+      ARR_HUB_BACKUP_PATH: ${ARR_HUB_BACKUP_PATH:-/data/backups}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:?set ENCRYPTION_KEY in your shell or .env}
       INITIAL_ADMIN_PASSWORD: ${INITIAL_ADMIN_PASSWORD:?set INITIAL_ADMIN_PASSWORD in your shell or .env}
     volumes:
