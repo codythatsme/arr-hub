@@ -108,6 +108,7 @@ Completed in atomic commits after this plan was written. Milestone 5 is summariz
 - `ec7b6f3776` added true RSS/recent-feed sync, cached recent releases, and switched RSS scheduler jobs away from repeated active searches.
 - `63f57c0174` constrained movie and episode cutoff search jobs to files below their profile cutoff state.
 - `7cc1cabeb4` added persistent operational history, persisted structured system logs, Activity history filters, and history emitters for grabs, download failures, imports, import failures, renames, queue removals, blocklists, metadata refreshes, indexer/download-client health changes, and notification deliveries.
+- `8d38ab3f3f` added settings-change history emitters for validated `SettingsService` updates.
 - `ca8703c1bf` updated deterministic indexer definition tests for the curated built-in catalogue.
 - `beab879376` preserved app-side remote settings during aggregate Radarr/Sonarr app sync updates.
 - `904f5f2301` separated Sonarr standard and anime category filters for aggregate app sync.
@@ -458,13 +459,13 @@ Current state:
 - Plex playback history is persisted.
 - Release decisions are persisted.
 - Structured diagnostics logs are persisted in `system_logs` and still feed the System structured-log view.
-- `domain_history` persists logical audit rows for grabs, failed downloads, imports, import failures, renames, queue removals, blocklist additions, metadata refreshes, indexer/download-client health changes, and notification deliveries.
+- `domain_history` persists logical audit rows for grabs, failed downloads, imports, import failures, renames, queue removals, blocklist additions, metadata refreshes, indexer/download-client health changes, notification deliveries, and settings changes.
 - Activity > History has Operational and Playback views with event/media filters.
-- Settings changes and future plugin/custom actions do not yet emit history rows.
+- Future plugin/custom actions still need emitters as those extension points mature.
 
 Gap:
 
-- Sonarr/Radarr/Prowlarr expose broad history for debugging and auditing. ARR Hub can now answer the main "what happened to this movie/episode/download?" path for implemented acquisition/import/queue workflows, but settings-change history and future extension events still need emitters.
+- Sonarr/Radarr/Prowlarr expose broad history for debugging and auditing. ARR Hub can now answer the main "what happened to this movie/episode/download?" path for implemented acquisition/import/queue/settings workflows, but future extension events still need emitters.
 
 Tasks:
 
@@ -482,7 +483,7 @@ Tasks:
 - [x] Persist structured logs or add a log-file ingestion/viewing path.
 - [x] Link history rows to media, episode, release, indexer, download client, and scheduler job where possible.
 - [x] Add history filters in UI.
-- [ ] Add settings-change history emitters.
+- [x] Add settings-change history emitters.
 
 Acceptance criteria:
 
