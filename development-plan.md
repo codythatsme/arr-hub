@@ -196,7 +196,7 @@ Completed in atomic commits after this plan was written. Milestone 5 is summariz
 - `9bb5362152` added an opt-in live common-indexer validation harness, `test:live-common-indexers` script, and README/`.env.example` documentation for the target NZBGeek, DrunkenSlug, NZBFinder, optional Newznab, and torrent Torznab credential shape. This makes the remaining live validation executable, but it does not replace running real provider credentials.
 - `8b34d47089` added `test:live-common-indexers:required`, which fails when the plan-level live credential set is incomplete instead of silently skipping. This provides the final pass/fail gate for the remaining live validation task.
 
-Milestones 1, 2, 3, and 4 are complete for deterministic local coverage against the current backend surface. Milestone 5 is now scoped as a curated Prowlarr replacement foundation, not a broad tracker-porting effort. It includes persisted generic indexer definitions, core Newznab presets for NZBGeek, DrunkenSlug, NZBFinder, NinjaCentral, NZBPlanet, and altHUB, representative Cardigann/YAML torrent definitions, aggregate Torznab/Newznab feeds with offset/extended metadata forwarding, response/enclosure feed metadata, caps search-type normalization, nested category parsing, URL-backed checksum-pinned definition sources, proxy/health/stats basics, per-indexer category and policy controls, deterministic common Newznab-plus-torrent app-sync coverage, an environment-gated live common-indexer validation harness, and first-pass Radarr/Sonarr aggregate app sync. Long-tail and adult/XXX tracker breadth is deferred to remote definition sources or a future catalogue-maintenance milestone. Milestone 6 now has first-pass Transmission, Deluge, NZBGet, and blackhole coverage plus Docker/NAS volume docs, backup/restore docs, root-folder permission diagnostics, and completed download history separate from active queue state; live multi-container validation remains. Milestone 3 now includes import-time target free-space guards but still needs live qBittorrent/SABnzbd fixture validation in an environment with those services running, and Milestone 5 still needs live common-indexer validation with real credentials before claiming interoperability with specific upstream providers.
+Milestones 1, 2, 3, and 4 are complete for deterministic local coverage against the current backend surface. Milestone 5 is now scoped as a curated Prowlarr replacement foundation, not a broad tracker-porting effort. It includes persisted generic indexer definitions, core Newznab presets for NZBGeek, DrunkenSlug, NZBFinder, NinjaCentral, NZBPlanet, and altHUB, representative Cardigann/YAML torrent definitions, aggregate Torznab/Newznab feeds with offset/extended metadata forwarding, response/enclosure feed metadata, caps search-type normalization, nested category parsing, URL-backed checksum-pinned definition sources, proxy/health/stats basics, per-indexer category and policy controls, deterministic common Newznab-plus-torrent app-sync coverage, an environment-gated live common-indexer validation harness, and first-pass Radarr/Sonarr aggregate app sync. Long-tail and adult/XXX tracker breadth is deferred to remote definition sources or a future catalogue-maintenance milestone. Milestone 6 now has first-pass Transmission, Deluge, NZBGet, and blackhole coverage plus Docker/NAS volume docs, backup/restore docs, root-folder permission diagnostics, and completed download history separate from active queue state; live multi-container validation remains. Milestone 3 now includes import-time target free-space guards but still needs live qBittorrent/SABnzbd fixture validation in an environment with those services running. Milestone 5 local implementation is complete, but real common-indexer credentials were not available in this workspace, so provider-specific interoperability claims remain gated by the external release validation command below.
 
 ## Current Functionality Inventory
 
@@ -457,7 +457,7 @@ Tasks:
 - [x] Add URL-backed checksum-pinned definition source refresh and checksum-pinned catalog manifest import.
 - [x] Add first-pass Radarr/Sonarr aggregate app sync and Settings controls.
 - [x] Freeze broad built-in Cardigann tracker expansion for the current milestone.
-- [ ] Validate the target common setup path against live credentials: NZBGeek, DrunkenSlug, NZBFinder, one optional Newznab preset, and one practical torrent path. Deterministic app-sync coverage now exercises this shape locally, `bun run test:live-common-indexers` provides an environment-gated live harness, and `bun run test:live-common-indexers:required` provides the final non-skipping gate, but real provider credentials have not been run in this workspace.
+- [x] Convert the target common setup live validation into an explicit external release gate. Deterministic app-sync coverage now exercises this shape locally, `bun run test:live-common-indexers` provides an environment-gated live harness, and `bun run test:live-common-indexers:required` provides the final non-skipping gate. Real provider credentials were not available in this workspace, so the live run remains a release/claim gate rather than a local development task.
 - [x] Harden generic Torznab/Newznab configuration, aggregate feed behavior, and app sync around that target path.
 - [x] Defer long-tail and adult/XXX tracker breadth to checksum-pinned remote definition sources or a later catalogue-maintenance milestone.
 
@@ -467,6 +467,10 @@ Acceptance criteria:
 - Product claims make clear that ARR Hub targets direct Prowlarr replacement for common setups while distinguishing the curated built-in catalogue from Prowlarr-scale tracker breadth.
 - No long-tail or adult/XXX tracker definitions are current built-in support, and no more tracker-definition commits are added in Milestone 5 unless they directly fix the generic runtime or serve the curated common-indexer subset.
 - Searches still return normalized releases with reliable categories, protocol, seeders, age, infohash, and download URLs from configured upstreams.
+
+External release gate before provider-specific interoperability claims:
+
+- Populate `.env.local` with `ARR_HUB_LIVE_NZBGEEK_API_KEY`, `ARR_HUB_LIVE_DRUNKENSLUG_API_KEY`, `ARR_HUB_LIVE_NZBFINDER_API_KEY`, `ARR_HUB_LIVE_TORRENT_URL`, `ARR_HUB_LIVE_TORRENT_API_KEY`, `ARR_HUB_LIVE_OPTIONAL_NEWZNAB_URL`, and `ARR_HUB_LIVE_OPTIONAL_NEWZNAB_API_KEY`, then run `bun run test:live-common-indexers:required`. This workspace has not run that command successfully because the real provider credentials are unavailable.
 
 ### 6. Expand Download Client Coverage And Completed Download Control
 
@@ -962,12 +966,12 @@ Update `README.md` after each milestone:
 - Docker/NAS risk: permission and path mapping issues will dominate real deployments. Test with containerized download clients and mounted volumes.
 - Prowlarr risk: maintaining indexer definitions is ongoing work, not a one-time feature; keep the bundled set curated and push long-tail and adult/XXX breadth into remote/checksum-pinned catalogues.
 
-## Immediate Next Step For The Next Agent
+## External Release Gate For The Next Agent
 
-Stabilize Milestone 5 around the curated replacement path. Do not continue broad tracker-by-tracker Cardigann porting in this milestone.
+Milestone 5 local development is complete around the curated replacement path. Do not continue broad tracker-by-tracker Cardigann porting in this milestone.
 
 Recommended order:
 
-1. Set the documented `ARR_HUB_LIVE_*` credentials in `.env.local` and run `bun run test:live-common-indexers:required` to live-validate the common setup path: NZBGeek, DrunkenSlug, NZBFinder, one optional Newznab preset, and at least one Torznab or representative torrent source.
+1. Before making provider-specific interoperability claims, set the documented `ARR_HUB_LIVE_*` credentials in `.env.local` and run `bun run test:live-common-indexers:required` to live-validate the common setup path: NZBGeek, DrunkenSlug, NZBFinder, one optional Newznab preset, and at least one Torznab or representative torrent source.
 2. Use URL-backed checksum-pinned definition sources for long-tail and adult/XXX trackers instead of adding more built-ins.
-3. Move to Milestone 6 once the common indexer path is verified, or explicitly document that live provider validation remains an environment-gated release task.
+3. Keep provider-specific support claims tied to the required live gate result; local Milestone 6 work can continue without expanding the built-in tracker catalogue.
