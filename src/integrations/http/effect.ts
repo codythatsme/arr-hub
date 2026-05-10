@@ -7,6 +7,8 @@ import { AuthService } from "#/effect/services/AuthService"
 import type { DomainError } from "#/integrations/trpc/init"
 import { domainToTRPC } from "#/integrations/trpc/init"
 
+import { authTokenFromRequest } from "./auth"
+
 type AppContext =
   Parameters<typeof AppRuntime.runPromise>[0] extends Effect.Effect<unknown, unknown, infer R>
     ? R
@@ -23,12 +25,11 @@ export async function runAuthedJson<A>(
   request: Request,
   effect: Effect.Effect<A, DomainError | SqlError, AppContext>,
 ): Promise<Response> {
-  const authHeader = request.headers.get("authorization")
-  if (!authHeader?.startsWith("Bearer ")) {
+  const token = authTokenFromRequest(request)
+  if (!token) {
     return Response.json({ error: "missing" }, { status: 401 })
   }
 
-  const token = authHeader.slice(7)
   try {
     const data = await AppRuntime.runPromise(
       Effect.gen(function* () {
@@ -53,12 +54,11 @@ export async function runAuthedResponse(
   request: Request,
   effect: Effect.Effect<Response, DomainError | SqlError, AppContext>,
 ): Promise<Response> {
-  const authHeader = request.headers.get("authorization")
-  if (!authHeader?.startsWith("Bearer ")) {
+  const token = authTokenFromRequest(request)
+  if (!token) {
     return Response.json({ error: "missing" }, { status: 401 })
   }
 
-  const token = authHeader.slice(7)
   try {
     return await AppRuntime.runPromise(
       Effect.gen(function* () {

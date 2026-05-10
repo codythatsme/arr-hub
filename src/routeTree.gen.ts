@@ -43,12 +43,16 @@ import { Route as ApiSystemTasksRouteImport } from './routes/api.system.tasks'
 import { Route as ApiSystemStatusRouteImport } from './routes/api.system.status'
 import { Route as ApiSystemLogsRouteImport } from './routes/api.system.logs'
 import { Route as ApiSystemHealthRouteImport } from './routes/api.system.health'
+import { Route as ApiVersionTagRouteImport } from './routes/api.$version.tag'
 import { Route as ApiQueueIdRetryRouteImport } from './routes/api.queue.$id.retry'
 import { Route as ApiQueueIdRemoveRouteImport } from './routes/api.queue.$id.remove'
 import { Route as ApiQueueIdBlocklistRouteImport } from './routes/api.queue.$id.blocklist'
 import { Route as ApiIndexersAggregateProtocolRouteImport } from './routes/api.indexers.aggregate.$protocol'
+import { Route as ApiVersionTagDetailRouteImport } from './routes/api.$version.tag.detail'
+import { Route as ApiVersionTagIdRouteImport } from './routes/api.$version.tag.$id'
 import { Route as ApiSystemBackupsIdDownloadRouteImport } from './routes/api.system.backups.$id.download'
 import { Route as ApiIndexersAggregateProtocolApiRouteImport } from './routes/api.indexers.aggregate.$protocol.api'
+import { Route as ApiVersionTagDetailIdRouteImport } from './routes/api.$version.tag.detail.$id'
 
 const SystemRoute = SystemRouteImport.update({
   id: '/system',
@@ -220,6 +224,11 @@ const ApiSystemHealthRoute = ApiSystemHealthRouteImport.update({
   path: '/api/system/health',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiVersionTagRoute = ApiVersionTagRouteImport.update({
+  id: '/api/$version/tag',
+  path: '/api/$version/tag',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiQueueIdRetryRoute = ApiQueueIdRetryRouteImport.update({
   id: '/$id/retry',
   path: '/$id/retry',
@@ -241,6 +250,16 @@ const ApiIndexersAggregateProtocolRoute =
     path: '/api/indexers/aggregate/$protocol',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiVersionTagDetailRoute = ApiVersionTagDetailRouteImport.update({
+  id: '/detail',
+  path: '/detail',
+  getParentRoute: () => ApiVersionTagRoute,
+} as any)
+const ApiVersionTagIdRoute = ApiVersionTagIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ApiVersionTagRoute,
+} as any)
 const ApiSystemBackupsIdDownloadRoute =
   ApiSystemBackupsIdDownloadRouteImport.update({
     id: '/api/system/backups/$id/download',
@@ -253,6 +272,11 @@ const ApiIndexersAggregateProtocolApiRoute =
     path: '/api',
     getParentRoute: () => ApiIndexersAggregateProtocolRoute,
   } as any)
+const ApiVersionTagDetailIdRoute = ApiVersionTagDetailIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ApiVersionTagDetailRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -284,15 +308,19 @@ export interface FileRoutesByFullPath {
   '/onboarding/': typeof OnboardingIndexRoute
   '/settings/': typeof SettingsIndexRoute
   '/tv/': typeof TvIndexRoute
+  '/api/$version/tag': typeof ApiVersionTagRouteWithChildren
   '/api/system/health': typeof ApiSystemHealthRoute
   '/api/system/logs': typeof ApiSystemLogsRoute
   '/api/system/status': typeof ApiSystemStatusRoute
   '/api/system/tasks': typeof ApiSystemTasksRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
+  '/api/$version/tag/$id': typeof ApiVersionTagIdRoute
+  '/api/$version/tag/detail': typeof ApiVersionTagDetailRouteWithChildren
   '/api/indexers/aggregate/$protocol': typeof ApiIndexersAggregateProtocolRouteWithChildren
   '/api/queue/$id/blocklist': typeof ApiQueueIdBlocklistRoute
   '/api/queue/$id/remove': typeof ApiQueueIdRemoveRoute
   '/api/queue/$id/retry': typeof ApiQueueIdRetryRoute
+  '/api/$version/tag/detail/$id': typeof ApiVersionTagDetailIdRoute
   '/api/indexers/aggregate/$protocol/api': typeof ApiIndexersAggregateProtocolApiRoute
   '/api/system/backups/$id/download': typeof ApiSystemBackupsIdDownloadRoute
 }
@@ -326,15 +354,19 @@ export interface FileRoutesByTo {
   '/onboarding': typeof OnboardingIndexRoute
   '/settings': typeof SettingsIndexRoute
   '/tv': typeof TvIndexRoute
+  '/api/$version/tag': typeof ApiVersionTagRouteWithChildren
   '/api/system/health': typeof ApiSystemHealthRoute
   '/api/system/logs': typeof ApiSystemLogsRoute
   '/api/system/status': typeof ApiSystemStatusRoute
   '/api/system/tasks': typeof ApiSystemTasksRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
+  '/api/$version/tag/$id': typeof ApiVersionTagIdRoute
+  '/api/$version/tag/detail': typeof ApiVersionTagDetailRouteWithChildren
   '/api/indexers/aggregate/$protocol': typeof ApiIndexersAggregateProtocolRouteWithChildren
   '/api/queue/$id/blocklist': typeof ApiQueueIdBlocklistRoute
   '/api/queue/$id/remove': typeof ApiQueueIdRemoveRoute
   '/api/queue/$id/retry': typeof ApiQueueIdRetryRoute
+  '/api/$version/tag/detail/$id': typeof ApiVersionTagDetailIdRoute
   '/api/indexers/aggregate/$protocol/api': typeof ApiIndexersAggregateProtocolApiRoute
   '/api/system/backups/$id/download': typeof ApiSystemBackupsIdDownloadRoute
 }
@@ -369,15 +401,19 @@ export interface FileRoutesById {
   '/onboarding/': typeof OnboardingIndexRoute
   '/settings/': typeof SettingsIndexRoute
   '/tv/': typeof TvIndexRoute
+  '/api/$version/tag': typeof ApiVersionTagRouteWithChildren
   '/api/system/health': typeof ApiSystemHealthRoute
   '/api/system/logs': typeof ApiSystemLogsRoute
   '/api/system/status': typeof ApiSystemStatusRoute
   '/api/system/tasks': typeof ApiSystemTasksRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
+  '/api/$version/tag/$id': typeof ApiVersionTagIdRoute
+  '/api/$version/tag/detail': typeof ApiVersionTagDetailRouteWithChildren
   '/api/indexers/aggregate/$protocol': typeof ApiIndexersAggregateProtocolRouteWithChildren
   '/api/queue/$id/blocklist': typeof ApiQueueIdBlocklistRoute
   '/api/queue/$id/remove': typeof ApiQueueIdRemoveRoute
   '/api/queue/$id/retry': typeof ApiQueueIdRetryRoute
+  '/api/$version/tag/detail/$id': typeof ApiVersionTagDetailIdRoute
   '/api/indexers/aggregate/$protocol/api': typeof ApiIndexersAggregateProtocolApiRoute
   '/api/system/backups/$id/download': typeof ApiSystemBackupsIdDownloadRoute
 }
@@ -413,15 +449,19 @@ export interface FileRouteTypes {
     | '/onboarding/'
     | '/settings/'
     | '/tv/'
+    | '/api/$version/tag'
     | '/api/system/health'
     | '/api/system/logs'
     | '/api/system/status'
     | '/api/system/tasks'
     | '/api/trpc/$'
+    | '/api/$version/tag/$id'
+    | '/api/$version/tag/detail'
     | '/api/indexers/aggregate/$protocol'
     | '/api/queue/$id/blocklist'
     | '/api/queue/$id/remove'
     | '/api/queue/$id/retry'
+    | '/api/$version/tag/detail/$id'
     | '/api/indexers/aggregate/$protocol/api'
     | '/api/system/backups/$id/download'
   fileRoutesByTo: FileRoutesByTo
@@ -455,15 +495,19 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/settings'
     | '/tv'
+    | '/api/$version/tag'
     | '/api/system/health'
     | '/api/system/logs'
     | '/api/system/status'
     | '/api/system/tasks'
     | '/api/trpc/$'
+    | '/api/$version/tag/$id'
+    | '/api/$version/tag/detail'
     | '/api/indexers/aggregate/$protocol'
     | '/api/queue/$id/blocklist'
     | '/api/queue/$id/remove'
     | '/api/queue/$id/retry'
+    | '/api/$version/tag/detail/$id'
     | '/api/indexers/aggregate/$protocol/api'
     | '/api/system/backups/$id/download'
   id:
@@ -497,15 +541,19 @@ export interface FileRouteTypes {
     | '/onboarding/'
     | '/settings/'
     | '/tv/'
+    | '/api/$version/tag'
     | '/api/system/health'
     | '/api/system/logs'
     | '/api/system/status'
     | '/api/system/tasks'
     | '/api/trpc/$'
+    | '/api/$version/tag/$id'
+    | '/api/$version/tag/detail'
     | '/api/indexers/aggregate/$protocol'
     | '/api/queue/$id/blocklist'
     | '/api/queue/$id/remove'
     | '/api/queue/$id/retry'
+    | '/api/$version/tag/detail/$id'
     | '/api/indexers/aggregate/$protocol/api'
     | '/api/system/backups/$id/download'
   fileRoutesById: FileRoutesById
@@ -540,6 +588,7 @@ export interface RootRouteChildren {
   OnboardingIndexRoute: typeof OnboardingIndexRoute
   SettingsIndexRoute: typeof SettingsIndexRoute
   TvIndexRoute: typeof TvIndexRoute
+  ApiVersionTagRoute: typeof ApiVersionTagRouteWithChildren
   ApiSystemHealthRoute: typeof ApiSystemHealthRoute
   ApiSystemLogsRoute: typeof ApiSystemLogsRoute
   ApiSystemStatusRoute: typeof ApiSystemStatusRoute
@@ -789,6 +838,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiSystemHealthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/$version/tag': {
+      id: '/api/$version/tag'
+      path: '/api/$version/tag'
+      fullPath: '/api/$version/tag'
+      preLoaderRoute: typeof ApiVersionTagRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/queue/$id/retry': {
       id: '/api/queue/$id/retry'
       path: '/$id/retry'
@@ -817,6 +873,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiIndexersAggregateProtocolRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/$version/tag/detail': {
+      id: '/api/$version/tag/detail'
+      path: '/detail'
+      fullPath: '/api/$version/tag/detail'
+      preLoaderRoute: typeof ApiVersionTagDetailRouteImport
+      parentRoute: typeof ApiVersionTagRoute
+    }
+    '/api/$version/tag/$id': {
+      id: '/api/$version/tag/$id'
+      path: '/$id'
+      fullPath: '/api/$version/tag/$id'
+      preLoaderRoute: typeof ApiVersionTagIdRouteImport
+      parentRoute: typeof ApiVersionTagRoute
+    }
     '/api/system/backups/$id/download': {
       id: '/api/system/backups/$id/download'
       path: '/api/system/backups/$id/download'
@@ -830,6 +900,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/indexers/aggregate/$protocol/api'
       preLoaderRoute: typeof ApiIndexersAggregateProtocolApiRouteImport
       parentRoute: typeof ApiIndexersAggregateProtocolRoute
+    }
+    '/api/$version/tag/detail/$id': {
+      id: '/api/$version/tag/detail/$id'
+      path: '/$id'
+      fullPath: '/api/$version/tag/detail/$id'
+      preLoaderRoute: typeof ApiVersionTagDetailIdRouteImport
+      parentRoute: typeof ApiVersionTagDetailRoute
     }
   }
 }
@@ -848,6 +925,31 @@ const ApiQueueRouteChildren: ApiQueueRouteChildren = {
 
 const ApiQueueRouteWithChildren = ApiQueueRoute._addFileChildren(
   ApiQueueRouteChildren,
+)
+
+interface ApiVersionTagDetailRouteChildren {
+  ApiVersionTagDetailIdRoute: typeof ApiVersionTagDetailIdRoute
+}
+
+const ApiVersionTagDetailRouteChildren: ApiVersionTagDetailRouteChildren = {
+  ApiVersionTagDetailIdRoute: ApiVersionTagDetailIdRoute,
+}
+
+const ApiVersionTagDetailRouteWithChildren =
+  ApiVersionTagDetailRoute._addFileChildren(ApiVersionTagDetailRouteChildren)
+
+interface ApiVersionTagRouteChildren {
+  ApiVersionTagIdRoute: typeof ApiVersionTagIdRoute
+  ApiVersionTagDetailRoute: typeof ApiVersionTagDetailRouteWithChildren
+}
+
+const ApiVersionTagRouteChildren: ApiVersionTagRouteChildren = {
+  ApiVersionTagIdRoute: ApiVersionTagIdRoute,
+  ApiVersionTagDetailRoute: ApiVersionTagDetailRouteWithChildren,
+}
+
+const ApiVersionTagRouteWithChildren = ApiVersionTagRoute._addFileChildren(
+  ApiVersionTagRouteChildren,
 )
 
 interface ApiIndexersAggregateProtocolRouteChildren {
@@ -894,6 +996,7 @@ const rootRouteChildren: RootRouteChildren = {
   OnboardingIndexRoute: OnboardingIndexRoute,
   SettingsIndexRoute: SettingsIndexRoute,
   TvIndexRoute: TvIndexRoute,
+  ApiVersionTagRoute: ApiVersionTagRouteWithChildren,
   ApiSystemHealthRoute: ApiSystemHealthRoute,
   ApiSystemLogsRoute: ApiSystemLogsRoute,
   ApiSystemStatusRoute: ApiSystemStatusRoute,

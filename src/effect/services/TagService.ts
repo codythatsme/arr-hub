@@ -4,7 +4,7 @@ import { Context, Effect, Layer } from "effect"
 
 import { downloadClients, indexers, movies, notificationChannels, series, tags } from "#/db/schema"
 
-import { NotFoundError, ValidationError } from "../errors"
+import { ConflictError, NotFoundError, ValidationError } from "../errors"
 import { Db } from "./Db"
 
 type DbHandle = Context.Tag.Service<typeof Db>
@@ -13,6 +13,37 @@ type TagRow = typeof tags.$inferSelect
 export interface TagSummary {
   readonly tag: TagRow
   readonly usageCount: number
+}
+
+export interface TagDetails {
+  readonly id: number
+  readonly label: string
+  readonly delayProfileIds: ReadonlyArray<number>
+  readonly importListIds: ReadonlyArray<number>
+  readonly notificationIds: ReadonlyArray<number>
+  readonly restrictionIds: ReadonlyArray<number>
+  readonly releaseProfileIds: ReadonlyArray<number>
+  readonly excludedReleaseProfileIds: ReadonlyArray<number>
+  readonly indexerIds: ReadonlyArray<number>
+  readonly downloadClientIds: ReadonlyArray<number>
+  readonly autoTagIds: ReadonlyArray<number>
+  readonly seriesIds: ReadonlyArray<number>
+  readonly movieIds: ReadonlyArray<number>
+  readonly indexerProxyIds: ReadonlyArray<number>
+  readonly applicationIds: ReadonlyArray<number>
+}
+
+interface TaggedRow {
+  readonly id: number
+  readonly tags: ReadonlyArray<string>
+}
+
+interface TagReferenceRows {
+  readonly movieRows: ReadonlyArray<TaggedRow>
+  readonly seriesRows: ReadonlyArray<TaggedRow>
+  readonly indexerRows: ReadonlyArray<TaggedRow>
+  readonly downloadClientRows: ReadonlyArray<TaggedRow>
+  readonly notificationChannelRows: ReadonlyArray<TaggedRow>
 }
 
 export function normalizeTagLabels(values: ReadonlyArray<string>): ReadonlyArray<string> {
@@ -98,11 +129,138 @@ function summarize(row: TagRow, usage: ReadonlyMap<string, number>): TagSummary 
   }
 }
 
+function referenceIdsFor(label: string, rows: ReadonlyArray<TaggedRow>): ReadonlyArray<number> {
+  return rows.filter((row) => includesTag(row.tags, label)).map((row) => row.id)
+}
+
+function tagReferenceRows(db: DbHandle): Effect.Effect<TagReferenceRows, SqlError> {
+  return Effect.gen(function* () {
+    const [movieRows, seriesRows, indexerRows, downloadClientRows, notificationChannelRows] =
+      yield* Effect.all([
+        db.select({ id: movies.id, tags: movies.tags }).from(movies),
+        db.select({ id: series.id, tags: series.tags }).from(series),
+        db.select({ id: indexers.id, tags: indexers.tags }).from(indexers),
+        db.select({ id: downloadClients.id, tags: downloadClients.tags }).from(downloadClients),
+        db
+          .select({ id: notificationChannels.id, tags: notificationChannels.tags })
+          .from(notificationChannels),
+      ])
+
+    return {
+      movieRows,
+      seriesRows,
+      indexerRows,
+      downloadClientRows,
+      notificationChannelRows,
+    }
+  })
+}
+
+function detailsFor(row: TagRow, refs: TagReferenceRows): TagDetails {
+  return {
+    id: row.id,
+    label: row.label,
+    delayProfileIds: [],
+    importListIds: [],
+    notificationIds: referenceIdsFor(row.label, refs.notificationChannelRows),
+    restrictionIds: [],
+    releaseProfileIds: [],
+    excludedReleaseProfileIds: [],
+    indexerIds: referenceIdsFor(row.label, refs.indexerRows),
+    downloadClientIds: referenceIdsFor(row.label, refs.downloadClientRows),
+    autoTagIds: [],
+    seriesIds: referenceIdsFor(row.label, refs.seriesRows),
+    movieIds: referenceIdsFor(row.label, refs.movieRows),
+    indexerProxyIds: [],
+    applicationIds: [],
+  }
+}
+
+function replaceTagLabel(
+  values: ReadonlyArray<string>,
+  previousLabel: string,
+  nextLabel: string,
+): ReadonlyArray<string> {
+  return normalizeTagLabels(
+    values.map((value) =>
+      value.toLocaleLowerCase() === previousLabel.toLocaleLowerCase() ? nextLabel : value,
+    ),
+  )
+}
+
+function sameLabels(a: ReadonlyArray<string>, b: ReadonlyArray<string>): boolean {
+  return a.length === b.length && a.every((value, index) => value === b[index])
+}
+
+function propagateTagLabel(
+  db: DbHandle,
+  previousLabel: string,
+  nextLabel: string,
+): Effect.Effect<void, SqlError> {
+  return Effect.gen(function* () {
+    const [movieRows, seriesRows, indexerRows, downloadClientRows, notificationChannelRows] =
+      yield* Effect.all([
+        db.select({ id: movies.id, tags: movies.tags }).from(movies),
+        db.select({ id: series.id, tags: series.tags }).from(series),
+        db.select({ id: indexers.id, tags: indexers.tags }).from(indexers),
+        db.select({ id: downloadClients.id, tags: downloadClients.tags }).from(downloadClients),
+        db
+          .select({ id: notificationChannels.id, tags: notificationChannels.tags })
+          .from(notificationChannels),
+      ])
+
+    for (const row of movieRows) {
+      const next = replaceTagLabel(row.tags, previousLabel, nextLabel)
+      if (!sameLabels(row.tags, next)) {
+        yield* db.update(movies).set({ tags: next }).where(eq(movies.id, row.id))
+      }
+    }
+
+    for (const row of seriesRows) {
+      const next = replaceTagLabel(row.tags, previousLabel, nextLabel)
+      if (!sameLabels(row.tags, next)) {
+        yield* db.update(series).set({ tags: next }).where(eq(series.id, row.id))
+      }
+    }
+
+    for (const row of indexerRows) {
+      const next = replaceTagLabel(row.tags, previousLabel, nextLabel)
+      if (!sameLabels(row.tags, next)) {
+        yield* db.update(indexers).set({ tags: next }).where(eq(indexers.id, row.id))
+      }
+    }
+
+    for (const row of downloadClientRows) {
+      const next = replaceTagLabel(row.tags, previousLabel, nextLabel)
+      if (!sameLabels(row.tags, next)) {
+        yield* db.update(downloadClients).set({ tags: next }).where(eq(downloadClients.id, row.id))
+      }
+    }
+
+    for (const row of notificationChannelRows) {
+      const next = replaceTagLabel(row.tags, previousLabel, nextLabel)
+      if (!sameLabels(row.tags, next)) {
+        yield* db
+          .update(notificationChannels)
+          .set({ tags: next })
+          .where(eq(notificationChannels.id, row.id))
+      }
+    }
+  })
+}
+
 export class TagService extends Context.Tag("@arr-hub/TagService")<
   TagService,
   {
     readonly list: () => Effect.Effect<ReadonlyArray<TagSummary>, SqlError>
+    readonly get: (id: number) => Effect.Effect<TagSummary, NotFoundError | SqlError>
+    readonly details: (id: number) => Effect.Effect<TagDetails, NotFoundError | SqlError>
+    readonly detailsList: () => Effect.Effect<ReadonlyArray<TagDetails>, SqlError>
     readonly create: (label: string) => Effect.Effect<TagSummary, ValidationError | SqlError>
+    readonly update: (
+      id: number,
+      label: string,
+    ) => Effect.Effect<TagSummary, ConflictError | NotFoundError | ValidationError | SqlError>
     readonly remove: (id: number) => Effect.Effect<void, NotFoundError | ValidationError | SqlError>
   }
 >() {}
@@ -122,6 +280,33 @@ export const TagServiceLive = Layer.effect(
           return rows.map((row) => summarize(row, usage))
         }),
 
+      get: (id) =>
+        Effect.gen(function* () {
+          const rows = yield* db.select().from(tags).where(eq(tags.id, id))
+          const row = rows[0]
+          if (!row) return yield* new NotFoundError({ entity: "tag", id })
+          const usage = yield* tagUsageCounts(db)
+          return summarize(row, usage)
+        }),
+
+      details: (id) =>
+        Effect.gen(function* () {
+          const rows = yield* db.select().from(tags).where(eq(tags.id, id))
+          const row = rows[0]
+          if (!row) return yield* new NotFoundError({ entity: "tag", id })
+          const refs = yield* tagReferenceRows(db)
+          return detailsFor(row, refs)
+        }),
+
+      detailsList: () =>
+        Effect.gen(function* () {
+          const [rows, refs] = yield* Effect.all([
+            db.select().from(tags).orderBy(asc(tags.label)),
+            tagReferenceRows(db),
+          ])
+          return rows.map((row) => detailsFor(row, refs))
+        }),
+
       create: (label) =>
         Effect.gen(function* () {
           const normalized = normalizeTagLabels([label])[0]
@@ -129,9 +314,49 @@ export const TagServiceLive = Layer.effect(
             return yield* new ValidationError({ message: "tag label cannot be empty" })
           }
 
+          const existingRows = yield* db.select().from(tags)
+          const existing = existingRows.find(
+            (row) => row.label.toLocaleLowerCase() === normalized.toLocaleLowerCase(),
+          )
+          if (existing) {
+            return summarize(existing, yield* tagUsageCounts(db))
+          }
+
           yield* db.insert(tags).values({ label: normalized }).onConflictDoNothing()
           const rows = yield* db.select().from(tags).where(eq(tags.label, normalized))
-          return summarize(rows[0], new Map())
+          return summarize(rows[0], yield* tagUsageCounts(db))
+        }),
+
+      update: (id, label) =>
+        Effect.gen(function* () {
+          const normalized = normalizeTagLabels([label])[0]
+          if (!normalized) {
+            return yield* new ValidationError({ message: "tag label cannot be empty" })
+          }
+
+          const rows = yield* db.select().from(tags)
+          const row = rows.find((candidate) => candidate.id === id)
+          if (!row) return yield* new NotFoundError({ entity: "tag", id })
+
+          const conflict = rows.find(
+            (candidate) =>
+              candidate.id !== id &&
+              candidate.label.toLocaleLowerCase() === normalized.toLocaleLowerCase(),
+          )
+          if (conflict) {
+            return yield* new ConflictError({ entity: "tag", field: "label", value: normalized })
+          }
+
+          yield* db
+            .update(tags)
+            .set({ label: normalized, updatedAt: new Date() })
+            .where(eq(tags.id, id))
+
+          yield* propagateTagLabel(db, row.label, normalized)
+
+          const updatedRows = yield* db.select().from(tags).where(eq(tags.id, id))
+          const usage = yield* tagUsageCounts(db)
+          return summarize(updatedRows[0], usage)
         }),
 
       remove: (id) =>
