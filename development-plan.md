@@ -33,9 +33,9 @@ Primary blockers:
 Commands run from `/Users/codythatsme/Developer/arr-hub`:
 
 - `bun run typecheck`: passed.
-- `bun run test`: passed, 50 test files plus 1 skipped live suite, 500 passed and 4 skipped tests.
+- `bun run test`: passed, 51 test files plus 1 skipped live suite, 502 passed and 4 skipped tests.
 - `bun run test:e2e`: last recorded passing smoke coverage for onboarding, settings, add movie, add TV from metadata, manual search display, calendar population, and queue page.
-- `bun run lint`: passed with 19 warnings and 0 errors.
+- `bun run lint`: passed with 18 warnings and 0 errors.
 - `bun run fmt:check`: passed.
 - `bun run build`: passed with chunk-size and external dependency warnings.
 
@@ -121,6 +121,7 @@ Completed in atomic commits after this plan was written. Milestone 5 is summariz
 - `5b598b24c8` added a first-pass NZBGet download client adapter with JSON-RPC connectivity checks, NZB append support, queue/history normalization, remove support, onboarding type wiring, and deterministic adapter tests.
 - `38d5392995` added a first-pass Deluge download client adapter with web JSON-RPC authentication, daemon connection, label validation, magnet/torrent-file add support, queue normalization, remove support, onboarding type wiring, and deterministic adapter tests.
 - `c9b86a9bd9` added durable completed download history storage, terminal queue-event history writers, a queue history API, and a separate Queue history view.
+- `627da8c859` hardened qBittorrent torrent-URL hash recovery and removed the unsafe `"unknown"` external ID fallback.
 - Subsequent Milestone 5 commits hardened the generic Cardigann runtime, request templating, category mapping, auth controls, and aggregate app-sync behavior enough for representative built-ins and checksum-pinned remote definitions. These commits are runtime support, not a decision to ship the expanded tracker catalogue.
 - `5cbb9c9e90` removed the deferred expanded built-in tracker catalogue from `main`. The safety branch `backup/milestone5-expanded-catalog` preserves the catalogue spike at `ab9e42393b`; those tracker definitions, including long-tail and adult/XXX sources, are not current built-in support.
 
@@ -394,7 +395,7 @@ Acceptance criteria:
 
 Current state:
 
-- Built-in download clients are qBittorrent, SABnzbd, first-pass Transmission, first-pass Deluge, first-pass NZBGet, and first-pass torrent/usenet blackholes.
+- Built-in download clients are qBittorrent, SABnzbd, first-pass Transmission, first-pass Deluge, first-pass NZBGet, and first-pass torrent/usenet blackholes. qBittorrent URL grabs now either recover a concrete torrent hash from bounded queue diffs or fail instead of inserting an unsafe `"unknown"` external ID.
 - Transmission support covers RPC session negotiation, test connection, torrent-add with label/save path, queue listing with label filtering and output paths, and remove with optional data deletion.
 - Deluge support covers web JSON-RPC session authentication, daemon connection, label validation/creation, magnet and torrent-file add flows, queue listing with label filtering and output paths, and remove with optional data deletion.
 - NZBGet support covers JSON-RPC version/status/config checks, v16-style NZB append with `drone` parameters, queue/history normalization, category filtering, and queue/history removal.
@@ -419,7 +420,7 @@ Tasks:
 - Add remote path mappings with host/client/source/destination fields.
 - Add per-client categories/tags, priority, recent priority, add-paused, remove-completed, and remove-failed options where supported.
 - Add client-specific validation and UI fields.
-- Improve qBittorrent hash detection. Returning `"unknown"` as a fallback external ID is unsafe for repeated grabs.
+- [x] Improve qBittorrent hash detection. URL grabs now fail if qBittorrent accepts the add but never exposes a concrete hash.
 - [x] Track completed download history separately from active queue.
 
 Acceptance criteria:
