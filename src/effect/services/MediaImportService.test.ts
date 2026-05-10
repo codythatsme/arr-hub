@@ -79,6 +79,46 @@ function seedMovie(rootFolderPath: string, tmdbId = 10) {
   })
 }
 
+function seedEpisode(rootFolderPath: string, tvdbBase = 500) {
+  return Effect.gen(function* () {
+    const db = yield* Db
+    const profile = yield* db
+      .insert(qualityProfiles)
+      .values({ name: `TV Profile ${tvdbBase}` })
+      .returning({ id: qualityProfiles.id })
+    yield* db.insert(qualityItems).values({
+      profileId: profile[0].id,
+      qualityName: "HDTV720p",
+      weight: 20,
+      allowed: true,
+    })
+    const show = yield* db
+      .insert(series)
+      .values({
+        tvdbId: tvdbBase,
+        title: "Test Show",
+        qualityProfileId: profile[0].id,
+        rootFolderPath,
+        seasonFolder: true,
+      })
+      .returning({ id: series.id })
+    const season = yield* db
+      .insert(seasons)
+      .values({ seriesId: show[0].id, seasonNumber: 1 })
+      .returning({ id: seasons.id })
+    const episode = yield* db
+      .insert(episodes)
+      .values({
+        seasonId: season[0].id,
+        tvdbId: tvdbBase + 1,
+        title: "Pilot",
+        episodeNumber: 1,
+      })
+      .returning({ id: episodes.id })
+    return { showId: show[0].id, episodeId: episode[0].id, profileId: profile[0].id }
+  })
+}
+
 describe("MediaImportService", () => {
   it.scoped("copies the largest movie file into the movie folder and updates quality", () =>
     Effect.gen(function* () {
@@ -496,6 +536,121 @@ describe("MediaImportService", () => {
       expect(error._tag).toBe("MediaImportError")
       if (error._tag === "MediaImportError") {
         expect(error.reason).toBe("missing_output_path")
+      }
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.scoped("rejects a movie import whose release title does not match the target movie", () =>
+    Effect.gen(function* () {
+      const workspace = yield* withTempDir
+      const sourceFile = path.join(workspace, "downloads", "Wrong.Movie.2026.1080p.WEB-DL.mkv")
+      yield* writeMediaFile(sourceFile, "wrong movie")
+      const { movieId } = yield* seedMovie(path.join(workspace, "library"), 16)
+
+      const importer = yield* MediaImportService
+      const error = yield* Effect.flip(
+        importer.importMovie({
+          movieId,
+          sourcePath: sourceFile,
+          releaseTitle: "Wrong.Movie.2026.1080p.WEB-DL-GRP",
+        }),
+      )
+
+      expect(error._tag).toBe("MediaImportError")
+      if (error._tag === "MediaImportError") {
+        expect(error.reason).toBe("media_mismatch")
+      }
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.scoped("rejects import quality that is not allowed by the target profile", () =>
+    Effect.gen(function* () {
+      const workspace = yield* withTempDir
+      const sourceFile = path.join(workspace, "downloads", "Example.Movie.2026.720p.HDTV.mkv")
+      yield* writeMediaFile(sourceFile, "low quality")
+      const { movieId } = yield* seedMovie(path.join(workspace, "library"), 17)
+
+      const importer = yield* MediaImportService
+      const error = yield* Effect.flip(
+        importer.importMovie({
+          movieId,
+          sourcePath: sourceFile,
+          releaseTitle: "Example.Movie.2026.720p.HDTV-GRP",
+        }),
+      )
+
+      expect(error._tag).toBe("MediaImportError")
+      if (error._tag === "MediaImportError") {
+        expect(error.reason).toBe("quality_not_allowed")
+      }
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.scoped("rejects completed episode files with wrong season or episode keys", () =>
+    Effect.gen(function* () {
+      const workspace = yield* withTempDir
+      const sourceFile = path.join(workspace, "downloads", "Test.Show.S01E02.720p.HDTV-GRP.mkv")
+      yield* writeMediaFile(sourceFile, "wrong episode")
+      const { showId, episodeId } = yield* seedEpisode(path.join(workspace, "tv"), 600)
+
+      const importer = yield* MediaImportService
+      const error = yield* Effect.flip(
+        importer.importEpisodes({
+          seriesId: showId,
+          episodeIds: [episodeId],
+          sourcePath: sourceFile,
+          releaseTitle: "Test.Show.S01E01.720p.HDTV-GRP",
+        }),
+      )
+
+      expect(error._tag).toBe("MediaImportError")
+      if (error._tag === "MediaImportError") {
+        expect(error.reason).toBe("episode_match_failed")
+      }
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.scoped("rejects completed imports that would downgrade an existing file", () =>
+    Effect.gen(function* () {
+      const workspace = yield* withTempDir
+      const sourceFile = path.join(workspace, "downloads", "Example.Movie.2026.720p.HDTV.mkv")
+      yield* writeMediaFile(sourceFile, "downgrade")
+      const { movieId, profileId } = yield* seedMovie(path.join(workspace, "library"), 18)
+
+      const db = yield* Db
+      yield* db
+        .update(qualityProfiles)
+        .set({ upgradeAllowed: true })
+        .where(eq(qualityProfiles.id, profileId))
+      yield* db.insert(qualityItems).values({
+        profileId,
+        qualityName: "HDTV720p",
+        weight: 20,
+        allowed: true,
+      })
+      yield* db
+        .update(movies)
+        .set({
+          status: "available",
+          hasFile: true,
+          existingQualityName: "WEBDL1080p",
+          existingQualityRank: 40,
+          existingFormatScore: 0,
+        })
+        .where(eq(movies.id, movieId))
+
+      const importer = yield* MediaImportService
+      const error = yield* Effect.flip(
+        importer.importMovie({
+          movieId,
+          sourcePath: sourceFile,
+          releaseTitle: "Example.Movie.2026.720p.HDTV-GRP",
+        }),
+      )
+
+      expect(error._tag).toBe("MediaImportError")
+      if (error._tag === "MediaImportError") {
+        expect(error.reason).toBe("upgrade_rejected")
       }
     }).pipe(Effect.provide(TestLayer)),
   )

@@ -141,6 +141,9 @@ export type MediaImportErrorReason =
   | "source_not_found"
   | "no_media_files"
   | "root_folder_missing"
+  | "media_mismatch"
+  | "quality_not_allowed"
+  | "upgrade_rejected"
   | "file_operation_failed"
   | "episode_match_failed"
 

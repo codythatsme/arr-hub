@@ -11,12 +11,14 @@ import {
   mediaFiles,
   movies,
   qualityItems,
+  qualityProfiles,
   releaseDecisions,
   remotePathMappings,
   seasons,
   series,
 } from "#/db/schema"
 import { parseQualityName, type QualityName } from "#/effect/domain/quality"
+import type { ParsedTitle } from "#/effect/domain/release"
 import {
   MediaImportError,
   type MediaImportErrorReason,
@@ -41,6 +43,13 @@ interface MediaFileCandidate {
 interface DecisionQuality {
   readonly qualityRank: number | null
   readonly formatScore: number | null
+}
+
+interface ImportQualityState {
+  readonly qualityRank: number | null
+  readonly upgradeAllowed: boolean
+  readonly cutoffFormatScore: number
+  readonly minUpgradeFormatScore: number
 }
 
 interface EpisodeImportTarget {
@@ -159,6 +168,10 @@ const VIDEO_EXTENSIONS = new Set([".mkv", ".mp4", ".avi", ".mov", ".m4v", ".ts",
 const SAMPLE_TOKEN = /(?:^|[.\-_\s])sample(?:[.\-_\s]|$)/i
 const SEASON_EPISODE = /S(\d{1,2})E(\d{1,3})/i
 const SEASON_EPISODE_ALT = /(\d{1,2})x(\d{2,3})/i
+const MULTI_SEASON_RE =
+  /(?:^|[.\-_\s])S(\d{1,2})(?:[.\-_\s]*(?:-|to)[.\-_\s]*S?(\d{1,2}))(?:[.\-_\s]|$)/i
+const MULTI_EPISODE_RE = /S\d{1,2}E\d{1,3}(?:[.\-_\s]?E\d{1,3})+/i
+const SPLIT_EPISODE_RE = /(?:^|[.\-_\s])(?:part|pt)[.\-_\s]*\d+(?:[.\-_\s]|$)/i
 
 function mediaImportError(
   reason: MediaImportErrorReason,
@@ -190,6 +203,33 @@ function compareBySizeDesc(a: MediaFileCandidate, b: MediaFileCandidate): number
 
 function pad2(value: number): string {
   return String(value).padStart(2, "0")
+}
+
+function normalizeTitle(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9]+/g, "")
+}
+
+function titleMatches(parsedTitle: string, targetTitle: string): boolean {
+  const parsed = normalizeTitle(parsedTitle)
+  const target = normalizeTitle(targetTitle)
+  if (parsed.length < 3 || target.length < 3) return true
+  return parsed === target || parsed.includes(target) || target.includes(parsed)
+}
+
+function extractMultiEpisodeNumbers(releaseTitle: string): ReadonlyArray<number> {
+  if (!MULTI_EPISODE_RE.test(releaseTitle)) return []
+  return [...releaseTitle.matchAll(/E(\d{1,3})/gi)].map((match) => Number(match[1]))
+}
+
+function sameNumberSet(a: ReadonlyArray<number>, b: ReadonlyArray<number>): boolean {
+  if (a.length !== b.length) return false
+  const aSet = new Set(a)
+  const bSet = new Set(b)
+  if (aSet.size !== bSet.size) return false
+  return [...aSet].every((value) => bSet.has(value))
 }
 
 function isInvalidPathChar(char: string): boolean {
@@ -336,6 +376,314 @@ function qualityRankFallback(
       .limit(1)
     return rows[0]?.weight ?? null
   })
+}
+
+function loadImportQualityState(
+  db: Context.Tag.Service<typeof Db>,
+  profileId: number | null,
+  qualityName: QualityName,
+): Effect.Effect<ImportQualityState, MediaImportError | SqlError> {
+  if (profileId === null) {
+    return Effect.fail(
+      mediaImportError("quality_not_allowed", "import target has no quality profile", false),
+    )
+  }
+
+  return Effect.gen(function* () {
+    const profileRows = yield* db
+      .select({
+        upgradeAllowed: qualityProfiles.upgradeAllowed,
+        cutoffFormatScore: qualityProfiles.cutoffFormatScore,
+        minUpgradeFormatScore: qualityProfiles.minUpgradeFormatScore,
+      })
+      .from(qualityProfiles)
+      .where(eq(qualityProfiles.id, profileId))
+      .limit(1)
+    const profile = profileRows[0]
+    if (!profile) {
+      return yield* mediaImportError(
+        "quality_not_allowed",
+        `quality profile ${profileId} was not found`,
+        false,
+      )
+    }
+
+    const itemRows = yield* db
+      .select({ weight: qualityItems.weight, allowed: qualityItems.allowed })
+      .from(qualityItems)
+      .where(and(eq(qualityItems.profileId, profileId), eq(qualityItems.qualityName, qualityName)))
+      .limit(1)
+    const item = itemRows[0]
+    if (!item || !item.allowed) {
+      return yield* mediaImportError(
+        "quality_not_allowed",
+        `${qualityName} is not allowed by the target quality profile`,
+        false,
+      )
+    }
+
+    return {
+      qualityRank: item.weight,
+      upgradeAllowed: profile.upgradeAllowed,
+      cutoffFormatScore: profile.cutoffFormatScore,
+      minUpgradeFormatScore: profile.minUpgradeFormatScore,
+    }
+  })
+}
+
+function validateMovieRelease(
+  movie: typeof movies.$inferSelect,
+  parsed: ParsedTitle,
+): Effect.Effect<void, MediaImportError> {
+  if (!titleMatches(parsed.title, movie.title)) {
+    return Effect.fail(
+      mediaImportError(
+        "media_mismatch",
+        `release title "${parsed.title}" does not match movie "${movie.title}"`,
+        false,
+      ),
+    )
+  }
+
+  if (movie.year !== null && parsed.year !== null && parsed.year !== movie.year) {
+    return Effect.fail(
+      mediaImportError(
+        "media_mismatch",
+        `release year ${parsed.year} does not match movie year ${movie.year}`,
+        false,
+      ),
+    )
+  }
+
+  return Effect.void
+}
+
+function validateEpisodeRelease(
+  releaseTitle: string,
+  parsed: ParsedTitle,
+  targets: ReadonlyArray<{
+    readonly episode: typeof episodes.$inferSelect
+    readonly season: typeof seasons.$inferSelect
+    readonly series: typeof series.$inferSelect
+  }>,
+): Effect.Effect<void, MediaImportError> {
+  const first = targets[0]
+  if (!first) return Effect.void
+
+  if (!titleMatches(parsed.title, first.series.title)) {
+    return Effect.fail(
+      mediaImportError(
+        "media_mismatch",
+        `release title "${parsed.title}" does not match series "${first.series.title}"`,
+        false,
+      ),
+    )
+  }
+
+  if (MULTI_SEASON_RE.test(releaseTitle)) {
+    return Effect.fail(
+      mediaImportError(
+        "episode_match_failed",
+        "multi-season releases are not supported for completed episode imports",
+        false,
+      ),
+    )
+  }
+
+  const seasonNumbers = [...new Set(targets.map((target) => target.season.seasonNumber))]
+  if (seasonNumbers.length !== 1) {
+    return Effect.fail(
+      mediaImportError(
+        "episode_match_failed",
+        "completed episode imports must target one season at a time",
+        false,
+      ),
+    )
+  }
+
+  const targetSeason = seasonNumbers[0]
+  if (parsed.season !== null && parsed.season !== targetSeason) {
+    return Effect.fail(
+      mediaImportError(
+        "episode_match_failed",
+        `release season ${parsed.season} does not match requested season ${targetSeason}`,
+        false,
+      ),
+    )
+  }
+
+  if (targets.length === 1) {
+    const target = targets[0]
+    if (MULTI_EPISODE_RE.test(releaseTitle)) {
+      return Effect.fail(
+        mediaImportError(
+          "episode_match_failed",
+          "single-episode import release title contains multiple episodes",
+          false,
+        ),
+      )
+    }
+    if (SPLIT_EPISODE_RE.test(releaseTitle)) {
+      return Effect.fail(
+        mediaImportError(
+          "episode_match_failed",
+          "split-episode release titles require explicit manual handling",
+          false,
+        ),
+      )
+    }
+
+    const absoluteMatches =
+      target.episode.absoluteEpisodeNumber !== null &&
+      parsed.absoluteEpisode !== null &&
+      parsed.absoluteEpisode === target.episode.absoluteEpisodeNumber
+
+    if (parsed.episode === null) {
+      if (absoluteMatches) return Effect.void
+      return Effect.fail(
+        mediaImportError(
+          "episode_match_failed",
+          "single-episode import release title did not identify the requested episode",
+          false,
+        ),
+      )
+    }
+
+    if (parsed.episode !== target.episode.episodeNumber) {
+      return Effect.fail(
+        mediaImportError(
+          "episode_match_failed",
+          `release episode ${parsed.episode} does not match requested episode ${target.episode.episodeNumber}`,
+          false,
+        ),
+      )
+    }
+
+    if (
+      target.episode.absoluteEpisodeNumber !== null &&
+      parsed.absoluteEpisode !== null &&
+      parsed.absoluteEpisode !== target.episode.absoluteEpisodeNumber
+    ) {
+      return Effect.fail(
+        mediaImportError(
+          "episode_match_failed",
+          `release absolute episode ${parsed.absoluteEpisode} does not match requested absolute episode ${target.episode.absoluteEpisodeNumber}`,
+          false,
+        ),
+      )
+    }
+
+    return Effect.void
+  }
+
+  if (SPLIT_EPISODE_RE.test(releaseTitle)) {
+    return Effect.fail(
+      mediaImportError(
+        "episode_match_failed",
+        "split-episode release titles require explicit manual handling",
+        false,
+      ),
+    )
+  }
+
+  if (parsed.season === null) {
+    return Effect.fail(
+      mediaImportError(
+        "episode_match_failed",
+        "multi-episode import release title did not identify a season",
+        false,
+      ),
+    )
+  }
+
+  const requestedEpisodes = targets.map((target) => target.episode.episodeNumber)
+  const releaseEpisodes = extractMultiEpisodeNumbers(releaseTitle)
+  if (releaseEpisodes.length > 0) {
+    if (sameNumberSet(releaseEpisodes, requestedEpisodes)) return Effect.void
+    return Effect.fail(
+      mediaImportError(
+        "episode_match_failed",
+        `release episodes ${releaseEpisodes.join(", ")} do not match requested episodes ${requestedEpisodes.join(", ")}`,
+        false,
+      ),
+    )
+  }
+
+  if (parsed.episode === null) return Effect.void
+
+  return Effect.fail(
+    mediaImportError(
+      "episode_match_failed",
+      "single-episode release title cannot satisfy a multi-episode import",
+      false,
+    ),
+  )
+}
+
+function validateImportUpgrade(input: {
+  readonly hasFile: boolean
+  readonly existingQualityRank: number | null
+  readonly existingFormatScore: number | null
+  readonly qualityRank: number | null
+  readonly formatScore: number
+  readonly quality: ImportQualityState
+}): Effect.Effect<void, MediaImportError> {
+  if (!input.hasFile) return Effect.void
+
+  if (!input.quality.upgradeAllowed) {
+    return Effect.fail(
+      mediaImportError("upgrade_rejected", "target quality profile does not allow upgrades", false),
+    )
+  }
+
+  if (input.qualityRank !== null && input.existingQualityRank !== null) {
+    if (input.qualityRank < input.existingQualityRank) {
+      return Effect.fail(
+        mediaImportError(
+          "upgrade_rejected",
+          `import quality rank ${input.qualityRank} is lower than existing rank ${input.existingQualityRank}`,
+          false,
+        ),
+      )
+    }
+    if (input.qualityRank > input.existingQualityRank) return Effect.void
+  }
+
+  const existingFormatScore = input.existingFormatScore ?? 0
+  if (input.formatScore <= existingFormatScore) {
+    return Effect.fail(
+      mediaImportError(
+        "upgrade_rejected",
+        `import format score ${input.formatScore} does not improve existing score ${existingFormatScore}`,
+        false,
+      ),
+    )
+  }
+
+  if (
+    input.quality.cutoffFormatScore > 0 &&
+    existingFormatScore >= input.quality.cutoffFormatScore
+  ) {
+    return Effect.fail(
+      mediaImportError(
+        "upgrade_rejected",
+        `existing format score ${existingFormatScore} already meets cutoff ${input.quality.cutoffFormatScore}`,
+        false,
+      ),
+    )
+  }
+
+  if (input.formatScore < existingFormatScore + input.quality.minUpgradeFormatScore) {
+    return Effect.fail(
+      mediaImportError(
+        "upgrade_rejected",
+        `import format score ${input.formatScore} does not meet minimum upgrade score ${existingFormatScore + input.quality.minUpgradeFormatScore}`,
+        false,
+      ),
+    )
+  }
+
+  return Effect.void
 }
 
 function movieDecision(
@@ -677,24 +1025,56 @@ function selectEpisodeFiles(
   const sortedCandidates = candidates.toSorted((a, b) => a.path.localeCompare(b.path))
   const used = new Set<string>()
   const matched: Array<EpisodeImportTarget> = []
+  const targetKeys = new Set(
+    sortedTargets.map((target) => `${target.season.seasonNumber}:${target.episode.episodeNumber}`),
+  )
+  const keyedCandidates = sortedCandidates.map((candidate) => ({
+    candidate,
+    key: episodeKeyFromPath(candidate.path),
+  }))
 
   for (const target of sortedTargets) {
-    const candidate = sortedCandidates.find((item) => {
-      if (used.has(item.path)) return false
-      const key = episodeKeyFromPath(item.path)
+    const match = keyedCandidates.find((item) => {
+      if (used.has(item.candidate.path)) return false
+      const key = item.key
       return (
         key !== null &&
         key.season === target.season.seasonNumber &&
         key.episode === target.episode.episodeNumber
       )
     })
-    if (candidate) {
-      used.add(candidate.path)
-      matched.push({ ...target, candidate })
+    if (match) {
+      used.add(match.candidate.path)
+      matched.push({ ...target, candidate: match.candidate })
     }
   }
 
   if (matched.length === sortedTargets.length) return Effect.succeed(matched)
+
+  const unmatchedKnownKey = keyedCandidates.find((item) => {
+    if (item.key === null) return false
+    return !targetKeys.has(`${item.key.season}:${item.key.episode}`)
+  })
+  const knownMismatch = unmatchedKnownKey?.key
+  if (knownMismatch) {
+    return Effect.fail(
+      mediaImportError(
+        "episode_match_failed",
+        `download file episode S${pad2(knownMismatch.season)}E${pad2(knownMismatch.episode)} does not match requested episodes`,
+        false,
+      ),
+    )
+  }
+
+  if (keyedCandidates.some((item) => item.key !== null)) {
+    return Effect.fail(
+      mediaImportError(
+        "episode_match_failed",
+        "could not match every keyed download file to the requested episodes",
+        false,
+      ),
+    )
+  }
 
   if (sortedTargets.length === 1) {
     return Effect.succeed([{ ...sortedTargets[0], candidate: candidates[0] }])
@@ -789,6 +1169,18 @@ export const MediaImportServiceLive = Layer.effect(
         Effect.map((parsed) => parsed.qualityName ?? "Unknown"),
         Effect.catchAll(() => Effect.succeed("Unknown" as const)),
       )
+    const parseImportReleaseTitle = (releaseTitle: string) =>
+      titleParser
+        .parse(releaseTitle)
+        .pipe(
+          Effect.mapError((error) =>
+            mediaImportError(
+              "media_mismatch",
+              `could not parse import release title "${releaseTitle}": ${error.message}`,
+              false,
+            ),
+          ),
+        )
 
     const loadHandling = () =>
       settings
@@ -809,10 +1201,37 @@ export const MediaImportServiceLive = Layer.effect(
           input.sourcePath,
           input.downloadClientId ?? null,
         )
-        const [handling, namingConvention, qualityName, candidates] = yield* Effect.all([
+        const parsed = yield* parseImportReleaseTitle(input.releaseTitle)
+        yield* validateMovieRelease(movie, parsed)
+        if (parsed.qualityName === null) {
+          return yield* mediaImportError(
+            "quality_not_allowed",
+            `could not determine import quality for "${input.releaseTitle}"`,
+            false,
+          )
+        }
+
+        const decision = yield* movieDecision(db, movie.id, input.releaseTitle)
+        const quality = yield* loadImportQualityState(
+          db,
+          movie.qualityProfileId,
+          parsed.qualityName,
+        )
+        const qualityName = parsed.qualityName
+        const qualityRank = decision?.qualityRank ?? quality.qualityRank
+        const formatScore = decision?.formatScore ?? 0
+        yield* validateImportUpgrade({
+          hasFile: movie.hasFile,
+          existingQualityRank: movie.existingQualityRank,
+          existingFormatScore: movie.existingFormatScore,
+          qualityRank,
+          formatScore,
+          quality,
+        })
+
+        const [handling, namingConvention, candidates] = yield* Effect.all([
           loadHandling(),
           loadNaming(),
-          parseQuality(input.releaseTitle),
           collectMediaFiles(resolvedSourcePath),
         ])
         const candidate = candidates.toSorted(compareBySizeDesc)[0]
@@ -823,12 +1242,6 @@ export const MediaImportServiceLive = Layer.effect(
           qualityName,
           candidate,
         )
-
-        const decision = yield* movieDecision(db, movie.id, input.releaseTitle)
-        const qualityRank =
-          decision?.qualityRank ??
-          (yield* qualityRankFallback(db, movie.qualityProfileId, qualityName))
-        const formatScore = decision?.formatScore ?? 0
 
         yield* transferFile(candidate.path, targetPath, handling)
 
@@ -895,18 +1308,39 @@ export const MediaImportServiceLive = Layer.effect(
           input.sourcePath,
           input.downloadClientId ?? null,
         )
-        const [handling, qualityName, candidates] = yield* Effect.all([
+        const parsed = yield* parseImportReleaseTitle(input.releaseTitle)
+        yield* validateEpisodeRelease(input.releaseTitle, parsed, episodeRows)
+        if (parsed.qualityName === null) {
+          return yield* mediaImportError(
+            "quality_not_allowed",
+            `could not determine import quality for "${input.releaseTitle}"`,
+            false,
+          )
+        }
+
+        const [handling, candidates] = yield* Effect.all([
           loadHandling(),
-          parseQuality(input.releaseTitle),
           collectMediaFiles(resolvedSourcePath),
         ])
         const targets = yield* selectEpisodeFiles(episodeRows, candidates)
         const decision = yield* tvDecision(db, input.releaseTitle)
         const profileId = episodeRows[0]?.series.qualityProfileId ?? null
-        const qualityRank =
-          decision?.qualityRank ?? (yield* qualityRankFallback(db, profileId, qualityName))
+        const quality = yield* loadImportQualityState(db, profileId, parsed.qualityName)
+        const qualityName = parsed.qualityName
+        const qualityRank = decision?.qualityRank ?? quality.qualityRank
         const formatScore = decision?.formatScore ?? 0
         const results: Array<MediaImportResult> = []
+
+        for (const target of targets) {
+          yield* validateImportUpgrade({
+            hasFile: target.episode.hasFile,
+            existingQualityRank: target.episode.existingQualityRank,
+            existingFormatScore: target.episode.existingFormatScore,
+            qualityRank,
+            formatScore,
+            quality,
+          })
+        }
 
         for (const target of targets) {
           const targetPath = yield* targetEpisodePath(target, qualityName, target.candidate)

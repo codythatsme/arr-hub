@@ -261,6 +261,9 @@ export function domainToTRPC(error: DomainError): TRPCError {
         source_not_found: "NOT_FOUND",
         no_media_files: "BAD_REQUEST",
         root_folder_missing: "PRECONDITION_FAILED",
+        media_mismatch: "BAD_REQUEST",
+        quality_not_allowed: "BAD_REQUEST",
+        upgrade_rejected: "CONFLICT",
         file_operation_failed: "INTERNAL_SERVER_ERROR",
         episode_match_failed: "BAD_REQUEST",
       }
