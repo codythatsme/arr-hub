@@ -514,6 +514,7 @@ Current state:
 - Compose mounts `/data`, `/downloads`, `/movies`, and `/tv`.
 - `.env.example` covers required production secrets and host media/download paths.
 - README documents the current root container runtime behavior, media/download volume setup, backup/restore flow, and scheduled database backup path.
+- Startup preflight checks validate the database path, app data directory permissions, migration metadata when present, and current schema shape before background jobs seed.
 - System diagnostics report root folders that are missing, not directories, or not readable and writable by ARR Hub.
 
 Gap:
@@ -526,7 +527,7 @@ Tasks:
 - [x] Add UID/GID/PUID/PGID or documented runtime user behavior.
 - [x] Add backup/restore docs.
 - [x] Add scheduled backup jobs.
-- [ ] Add data migration checks and startup failure messages.
+- [x] Add data migration checks and startup failure messages.
 - [x] Add health checks for root folder accessibility and write permissions.
 - [x] Add `.env.example`.
 
