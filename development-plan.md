@@ -11,7 +11,7 @@ ARR Hub has a credible foundation, but it is not yet a viable Sonarr/Radarr/Prow
 What exists today:
 
 - TanStack Start + tRPC + Effect service architecture.
-- SQLite/Drizzle schema for users, API keys, movies, series/seasons/episodes, quality profiles, custom formats, indexers, download clients, media servers, queue, notifications, plugins, release decisions, scheduler, onboarding, and Plex playback history.
+- SQLite/Drizzle schema for users, API keys, movies, series/seasons/episodes, quality profiles, custom formats, tags, indexers, download clients, media servers, queue, notifications, plugins, release decisions, scheduler, onboarding, and Plex playback history.
 - Built-in adapters for qBittorrent, SABnzbd, first-pass Transmission, first-pass Deluge, first-pass NZBGet, first-pass torrent/usenet blackholes, Torznab/Newznab, Plex, and experimental Jellyfin.
 - Basic release parsing, quality/profile scoring, search/grab pipeline, queue polling, and scheduler loop.
 - TMDB-backed movie/TV metadata lookup, metadata-backed add flows, series episode hydration, Sonarr episode import, metadata refresh jobs, and a TV episode calendar.
@@ -45,6 +45,7 @@ Commands run from `/Users/codythatsme/Developer/arr-hub`:
 - Focused auth/startup tests passed for persistent login lockout, failed-attempt cleanup after successful login, TRPC 429 mapping, and startup schema validation.
 - Focused auth tests passed for authenticated admin password change, active-session revocation, current-password rejection, and new-password validation.
 - Focused diagnostics tests passed for indexer search/RSS failure rollups, unavailable download clients, stale download-client health checks, clock/update metadata checks, and import-mechanism failure checks.
+- Focused tag tests passed for label normalization, automatic tag row creation, usage counts, deletion guards, movie/series/indexer service integration, and startup schema validation.
 - Settings diagnostics UI wiring passed format, lint, typecheck, and build verification.
 - `bun run test:e2e`: last recorded passing smoke coverage for onboarding, settings, add movie, add TV from metadata, manual search display, calendar population, and queue page.
 - `bun run lint`: passed with 18 warnings and 0 errors.
@@ -162,6 +163,7 @@ Completed in atomic commits after this plan was written. Milestone 5 is summariz
 - `7c499328d0` redacted notification channel response settings for webhook URLs, provider tokens/user keys, headers, script arguments, and SMTP passwords.
 - `413824fa91` added filtered diagnostics panels to Indexer, Download Client, Media Server, and Media Management settings pages.
 - `ba3c529215` added proactive diagnostics for local clock jumps, deployment-supplied update availability metadata, disabled scheduler/import monitoring, and completed downloads missing output paths, plus System/Settings surfacing.
+- `7597ba4648` added the first-pass tag table, media tag fields, canonical tag creation for movies/series/indexers, tRPC tag management, Settings tag library UI, and movie/TV tag editing.
 - Subsequent Milestone 5 commits hardened the generic Cardigann runtime, request templating, category mapping, auth controls, and aggregate app-sync behavior enough for representative built-ins and checksum-pinned remote definitions. These commits are runtime support, not a decision to ship the expanded tracker catalogue.
 - `5cbb9c9e90` removed the deferred expanded built-in tracker catalogue from `main`. The safety branch `backup/milestone5-expanded-catalog` preserves the catalogue spike at `ab9e42393b`; those tracker definitions, including long-tail and adult/XXX sources, are not current built-in support.
 
@@ -176,6 +178,7 @@ Backend/service surfaces:
 - `src/effect/services/SeriesService.ts`: CRUD/list/local lookup, season/episode monitor toggles, and monitored episode calendar queries.
 - `src/effect/services/TmdbClient.ts`: movie TMDB search/details/popular/trending plus TV search/details/season hydration.
 - `src/effect/services/IndexerService.ts`, `src/effect/services/CardigannDefinitionLoader.ts`, `src/effect/services/CardigannAdapter.ts`, `src/effect/services/TorznabAdapter.ts`, `src/effect/services/IndexerDefinitionSourceService.ts`, and `src/effect/services/IndexerApplicationService.ts`: Torznab/Newznab connection testing and search, generic definitions, core Newznab presets, representative Cardigann/YAML definitions, encrypted definition-specific config/auth values, definition source refresh with checksum pinning and catalog manifest import, aggregate Torznab/Newznab feeds, proxy application, search stats, health/backoff state, per-indexer category and policy controls, and first-pass Radarr/Sonarr aggregate app sync. Broad built-in tracker breadth is intentionally deferred.
+- `src/effect/services/TagService.ts`: canonical tag row creation, tag listing with first-pass media/indexer usage counts, unused-tag deletion, and guards against deleting used tags.
 - `src/effect/services/DownloadClientService.ts`, `QBittorrentAdapter.ts`, `SABnzbdAdapter.ts`, `TransmissionAdapter.ts`, `DelugeAdapter.ts`, `NZBGetAdapter.ts`, and `BlackholeAdapter.ts`: add/list/test/grab/queue/remove downloads for qBittorrent, SABnzbd, first-pass Transmission, first-pass Deluge, first-pass NZBGet, and first-pass torrent/usenet blackholes, including persisted completed output paths where the client reports them.
 - `src/effect/services/DiagnosticsService.ts`: aggregates integration health, root-folder accessibility/write-permission, app data, clock, update metadata, import mechanism, and queue-output checks for the System view and container health endpoint.
 - `src/effect/services/ReleasePolicyEngine.ts`: parses titles, checks allowed quality, custom format score, and basic upgrade scoring.
@@ -196,7 +199,7 @@ UI surfaces:
 - Movies: TMDB search/add, edit/delete, monitor toggle, profile/root assignment, manual release evaluate/grab, manual file import, and rename preview/action.
 - TV: TMDB metadata search/add with season/episode hydration, manual series add with season/episode scaffolding, edit/delete, show/season/episode monitor toggles, series/season search, episode evaluate/grab, manual episode file import, and series rename preview/action.
 - Activity queue/history/users/stats. Queue supports retry, remove with delete-files option, clear error, and blocklist.
-- Settings: indexers, download clients, media servers, scheduler, general, media management/root folders/remote path mappings/library scan, notifications, profiles, security, and plugins now have operational UI. Relevant settings pages surface filtered diagnostics health/failure panels. Plugin settings show contract health status and lifecycle logs. Indexer settings also include first-pass Cardigann definition selection, definition-specific config/auth field inputs including select options/defaults, checkbox controls, informational auth notes, and manual CAPTCHA fields without exposing stored secret values, tags, search/RSS toggles, proxy management/assignment controls, stats readouts, built-in definition refresh controls, definition source/catalog management controls with required catalog manifest pins, and Radarr/Sonarr app-sync controls including Sonarr anime category filters.
+- Settings: indexers, download clients, media servers, scheduler, general, media management/root folders/remote path mappings/library scan, notifications, profiles, security, tags, and plugins now have operational UI. Relevant settings pages surface filtered diagnostics health/failure panels. Plugin settings show contract health status and lifecycle logs. Indexer settings also include first-pass Cardigann definition selection, definition-specific config/auth field inputs including select options/defaults, checkbox controls, informational auth notes, and manual CAPTCHA fields without exposing stored secret values, tags, search/RSS toggles, proxy management/assignment controls, stats readouts, built-in definition refresh controls, definition source/catalog management controls with required catalog manifest pins, and Radarr/Sonarr app-sync controls including Sonarr anime category filters.
 - Onboarding quickstart and advanced wizard.
 - System diagnostics view.
 
@@ -642,17 +645,19 @@ Tasks:
 
 Current state:
 
-- No tags table or auto-tagging behavior was found.
+- First-pass tag persistence exists. Movies, series, and indexers can store normalized tag labels; creating or editing those records ensures canonical tag rows exist.
+- Settings includes a tag library that can create tags, show first-pass usage counts, and delete unused tags.
 
 Gap:
 
-- Tags drive restrictions, indexer/client assignment, import lists, notifications, custom filters, and automation.
+- Tags still do not drive restrictions, download-client assignment, notifications, import lists, release profiles, delay profiles, custom filters, or automation.
 
 Tasks:
 
-- Add tags schema and UI.
-- Attach tags to movies, series, indexers, download clients, notifications, import lists, release profiles, and delay profiles.
-- Add custom filters and auto-tagging rules modeled after Sonarr/Radarr `AutoTagging` and `CustomFilters`.
+- [x] Add tags schema and UI. Current coverage includes the `tags` table, movie/series tag fields, indexer tag canonicalization, Settings tag management, and movie/TV tag editing.
+- [x] Attach tags to movies, series, and indexers as first-pass normalized label arrays.
+- [ ] Attach tags to download clients, notifications, import lists, release profiles, and delay profiles.
+- [ ] Add custom filters and auto-tagging rules modeled after Sonarr/Radarr `AutoTagging` and `CustomFilters`.
 
 ### Health Checks
 
@@ -747,7 +752,7 @@ Likely new tables or table expansions:
 - `blocklist` with media linkage, source title, protocol, indexer, infohash, reason.
 - `history` for grab/import/rename/delete/fail/metadata events.
 - `remote_path_mappings`.
-- `tags` and join tables.
+- Tag join tables and tag-scoped policy tables. The first-pass `tags` table exists, while current media/indexer assignments use JSON label arrays.
 - `delay_profiles`, `release_profiles`, `quality_definitions`.
 - `import_lists`, `import_list_items`, `import_exclusions`.
 - `indexer_definitions`, `indexer_categories`, `indexer_stats`, `indexer_proxy`, `indexer_definition_versions`.
