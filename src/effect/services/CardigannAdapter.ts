@@ -5,6 +5,7 @@ import type {
   IndexerAuthField,
   IndexerConfig,
   ReleaseCandidate,
+  RssQuery,
   SearchQuery,
 } from "../domain/indexer"
 import { IndexerError } from "../errors"
@@ -3923,6 +3924,106 @@ function resolveSearchRequests(
   return Array.from(requests.values())
 }
 
+function executeSearchRequests(
+  config: IndexerConfig,
+  definition: CardigannRuntimeDefinition,
+  baseUrl: string,
+  requests: ReadonlyArray<CardigannSearchRequest>,
+): Effect.Effect<ReadonlyArray<ReleaseCandidate>, IndexerError> {
+  return Effect.gen(function* () {
+    if (requests.length === 0) return []
+    const loginCookies = yield* executeLoginRequests(config, definition, baseUrl)
+    const authenticatedRequests =
+      loginCookies.length > 0
+        ? requests.map((request) => ({
+            ...request,
+            init: withCookieHeader(request.init, loginCookies),
+          }))
+        : requests
+
+    const results = yield* Effect.forEach(
+      authenticatedRequests,
+      (request) =>
+        Effect.gen(function* () {
+          const usesSelectorParser =
+            request.responseType === "html" ||
+            request.responseType === "json" ||
+            (request.responseType === "xml" && definition.search.rows !== null)
+
+          if (usesSelectorParser) {
+            const response = yield* fetchIndexerResponseText(request.url, config, request.init)
+            const responseText = applyCardigannPreprocessingFilters(
+              response.text,
+              definition,
+              request.variables,
+            )
+            if (matchesNoResultsMessage(responseText, request.noResultsMessage)) return []
+            const loginTestMessage =
+              request.responseType === "html"
+                ? loginTestFailureMessage(responseText, definition.login)
+                : null
+            if (loginTestMessage !== null) {
+              return yield* Effect.fail(
+                new IndexerError({
+                  indexerId: config.id,
+                  indexerName: config.name,
+                  reason: "auth_failed",
+                  message: loginTestMessage,
+                  retryable: false,
+                }),
+              )
+            }
+
+            return yield* Effect.try({
+              try: () =>
+                request.responseType === "json"
+                  ? parseJsonReleases(responseText, request, definition, config)
+                  : parseHtmlReleases(responseText, request, definition, config),
+              catch: (error) =>
+                new IndexerError({
+                  indexerId: config.id,
+                  indexerName: config.name,
+                  reason: "invalid_response",
+                  message:
+                    error instanceof Error
+                      ? error.message
+                      : `invalid Cardigann ${request.responseType.toUpperCase()} response`,
+                  retryable: true,
+                }),
+            })
+          }
+
+          const response = yield* fetchIndexerResponseText(request.url, config, request.init)
+          const responseText = applyCardigannPreprocessingFilters(
+            response.text,
+            definition,
+            request.variables,
+          )
+          if (matchesNoResultsMessage(responseText, request.noResultsMessage)) return []
+          const parsed = yield* parseIndexerXmlText(responseText, config)
+          yield* checkTorznabError(parsed, config)
+          return parseTorznabReleases(parsed, {
+            ...config,
+            protocol: definition.protocol,
+          })
+        }),
+      { concurrency: "unbounded" },
+    )
+
+    return results.flat() satisfies ReadonlyArray<ReleaseCandidate>
+  })
+}
+
+function rssSearchQuery(query: RssQuery = {}): SearchQuery {
+  return {
+    term: "",
+    type: "general",
+    categories: query.categories,
+    limit: query.limit,
+    protocol: query.protocol,
+  }
+}
+
 export function createCardigannYamlAdapter(config: IndexerConfig): IndexerAdapter {
   return {
     testConnection: () =>
@@ -3938,86 +4039,17 @@ export function createCardigannYamlAdapter(config: IndexerConfig): IndexerAdapte
         if (!baseUrl) return []
 
         const requests = resolveSearchRequests(config, definition, query)
-        if (requests.length === 0) return []
-        const loginCookies = yield* executeLoginRequests(config, definition, baseUrl)
-        const authenticatedRequests =
-          loginCookies.length > 0
-            ? requests.map((request) => ({
-                ...request,
-                init: withCookieHeader(request.init, loginCookies),
-              }))
-            : requests
+        return yield* executeSearchRequests(config, definition, baseUrl, requests)
+      }),
 
-        const results = yield* Effect.forEach(
-          authenticatedRequests,
-          (request) =>
-            Effect.gen(function* () {
-              const usesSelectorParser =
-                request.responseType === "html" ||
-                request.responseType === "json" ||
-                (request.responseType === "xml" && definition.search.rows !== null)
+    rss: (query = {}) =>
+      Effect.gen(function* () {
+        const definition = yield* loadRuntimeDefinition(config)
+        const baseUrl = config.baseUrl || definition.baseUrl
+        if (!baseUrl) return []
 
-              if (usesSelectorParser) {
-                const response = yield* fetchIndexerResponseText(request.url, config, request.init)
-                const responseText = applyCardigannPreprocessingFilters(
-                  response.text,
-                  definition,
-                  request.variables,
-                )
-                if (matchesNoResultsMessage(responseText, request.noResultsMessage)) return []
-                const loginTestMessage =
-                  request.responseType === "html"
-                    ? loginTestFailureMessage(responseText, definition.login)
-                    : null
-                if (loginTestMessage !== null) {
-                  return yield* Effect.fail(
-                    new IndexerError({
-                      indexerId: config.id,
-                      indexerName: config.name,
-                      reason: "auth_failed",
-                      message: loginTestMessage,
-                      retryable: false,
-                    }),
-                  )
-                }
-
-                return yield* Effect.try({
-                  try: () =>
-                    request.responseType === "json"
-                      ? parseJsonReleases(responseText, request, definition, config)
-                      : parseHtmlReleases(responseText, request, definition, config),
-                  catch: (error) =>
-                    new IndexerError({
-                      indexerId: config.id,
-                      indexerName: config.name,
-                      reason: "invalid_response",
-                      message:
-                        error instanceof Error
-                          ? error.message
-                          : `invalid Cardigann ${request.responseType.toUpperCase()} response`,
-                      retryable: true,
-                    }),
-                })
-              }
-
-              const response = yield* fetchIndexerResponseText(request.url, config, request.init)
-              const responseText = applyCardigannPreprocessingFilters(
-                response.text,
-                definition,
-                request.variables,
-              )
-              if (matchesNoResultsMessage(responseText, request.noResultsMessage)) return []
-              const parsed = yield* parseIndexerXmlText(responseText, config)
-              yield* checkTorznabError(parsed, config)
-              return parseTorznabReleases(parsed, {
-                ...config,
-                protocol: definition.protocol,
-              })
-            }),
-          { concurrency: "unbounded" },
-        )
-
-        return results.flat() satisfies ReadonlyArray<ReleaseCandidate>
+        const requests = resolveSearchRequests(config, definition, rssSearchQuery(query))
+        return yield* executeSearchRequests(config, definition, baseUrl, requests)
       }),
   }
 }

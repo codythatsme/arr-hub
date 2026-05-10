@@ -28,6 +28,7 @@ export const STARTUP_REQUIRED_TABLES = [
   "indexer_definition_sources",
   "indexer_stats",
   "indexer_health",
+  "recent_releases",
   "indexer_applications",
   "indexer_application_mappings",
   "download_clients",
@@ -74,6 +75,8 @@ export const STARTUP_REQUIRED_COLUMNS = [
   { table: "plugins", column: "manifest_json" },
   { table: "release_decisions", column: "decision" },
   { table: "release_blocklist", column: "candidate_title" },
+  { table: "recent_releases", column: "release_key" },
+  { table: "recent_releases", column: "last_seen_at" },
 ] as const
 
 interface MigrationJournal {

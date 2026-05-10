@@ -1930,6 +1930,37 @@ search:
     })
   })
 
+  it("builds Nyaa RSS feed requests without keywords", async () => {
+    let requestUrl: string | undefined
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      requestUrl = String(input)
+      return new Response(RSS_XML, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 12,
+      name: "Nyaa",
+      type: "cardigann_yaml",
+      definitionKey: "nyaa",
+      baseUrl: "https://nyaa.si",
+      apiKey: "",
+      priority: 20,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    if (!adapter.rss) throw new Error("expected RSS support")
+    const releases = await Effect.runPromise(adapter.rss({ categories: [5070] }))
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const url = new URL(requestUrl ?? "")
+    expect(url.pathname).toBe("/")
+    expect(url.searchParams.get("page")).toBe("rss")
+    expect(url.searchParams.get("q")).toBeNull()
+    expect(releases[0].title).toBe("Example Movie 2026 1080p WEB-DL")
+  })
+
   it("parses first-pass Cardigann HTML selector results", async () => {
     let requestUrl: string | undefined
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {

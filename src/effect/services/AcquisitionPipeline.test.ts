@@ -53,6 +53,7 @@ const mockIndexerCatalogMethods = {
   listDefinitions: () => Effect.succeed([]),
   listStats: () => Effect.succeed([]),
   aggregateCapabilities: () => Effect.succeed({ searchTypes: [], categories: [] }),
+  rss: () => Effect.succeed({ releases: [], errors: [] }),
   canGrab: () => Effect.succeed(true),
   recordGrab: () => Effect.void,
   addProxy: () => Effect.die("not implemented"),
@@ -314,6 +315,16 @@ describe("AcquisitionPipeline", () => {
       const decisions = yield* pipeline.searchAndEvaluate(movie.id)
       expect(decisions).toHaveLength(1)
       expect(decisions[0].decision).toBe("accepted")
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("grabBestRecentMovieRelease evaluates provided RSS candidates", () =>
+    Effect.gen(function* () {
+      const movie = yield* addTestMovie(1)
+      const pipeline = yield* AcquisitionPipeline
+      const result = yield* pipeline.grabBestRecentMovieRelease(movie.id, [mockCandidate])
+      expect(result).not.toBeNull()
+      expect(result?.candidateTitle).toBe(mockCandidate.title)
     }).pipe(Effect.provide(TestLayer)),
   )
 
@@ -774,6 +785,26 @@ describe("AcquisitionPipeline TV", () => {
 
       const db = yield* Db
       const rows = yield* db.select().from(downloadQueue)
+      expect(rows).toHaveLength(1)
+      expect(rows[0].seriesId).toBe(series.series.id)
+      expect(rows[0].episodeIds).toEqual([epId])
+    }).pipe(Effect.provide(TvPackLayer)),
+  )
+
+  it.effect("grabBestRecentEpisodeRelease evaluates provided RSS candidates", () =>
+    Effect.gen(function* () {
+      const series = yield* addTestSeries({ profileId: 1 })
+      const epId = series.seasons[0].episodes[0].id
+      const pipeline = yield* AcquisitionPipeline
+      const result = yield* pipeline.grabBestRecentEpisodeRelease(epId, [episodeCandidate])
+      if (result === null) throw new Error("expected grab result, got null")
+      expect(result.candidateTitle).toBe(episodeCandidate.title)
+
+      const db = yield* Db
+      const rows = yield* db
+        .select()
+        .from(downloadQueue)
+        .where(eq(downloadQueue.externalId, result.hash))
       expect(rows).toHaveLength(1)
       expect(rows[0].seriesId).toBe(series.series.id)
       expect(rows[0].episodeIds).toEqual([epId])

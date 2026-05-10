@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm"
 import { Context, Effect, Layer } from "effect"
 
 import { downloadQueue, episodes as episodesTable, seasons as seasonsTable } from "#/db/schema"
-import type { IndexerProtocol } from "#/effect/domain/indexer"
+import type { IndexerProtocol, ReleaseCandidate } from "#/effect/domain/indexer"
 import { parseQualityName } from "#/effect/domain/quality"
 import {
   type EvaluationContext,
@@ -74,6 +74,11 @@ export class AcquisitionPipeline extends Context.Tag("@arr-hub/AcquisitionPipeli
       downloadUrl: string,
       candidateTitle: string,
     ) => Effect.Effect<GrabResult, PipelineError>
+    /** Evaluate already-fetched RSS/recent releases and grab the best movie match. */
+    readonly grabBestRecentMovieRelease: (
+      movieId: number,
+      releases: ReadonlyArray<ReleaseCandidate>,
+    ) => Effect.Effect<GrabResult | null, PipelineError>
 
     // ── TV ──
 
@@ -91,6 +96,11 @@ export class AcquisitionPipeline extends Context.Tag("@arr-hub/AcquisitionPipeli
       downloadUrl: string,
       candidateTitle: string,
     ) => Effect.Effect<GrabResult, PipelineError>
+    /** Evaluate already-fetched RSS/recent releases and grab the best episode match. */
+    readonly grabBestRecentEpisodeRelease: (
+      episodeId: number,
+      releases: ReadonlyArray<ReleaseCandidate>,
+    ) => Effect.Effect<GrabResult | null, PipelineError>
     /** Search a season — pack-first, falls back to per-episode if no pack accepted. */
     readonly searchAndGrabSeason: (
       seasonId: number,
@@ -341,6 +351,60 @@ export const AcquisitionPipelineLive = Layer.effect(
         return null
       })
 
+    const grabBestMovieFromReleases = (
+      movieId: number,
+      releases: ReadonlyArray<ReleaseCandidate>,
+    ): Effect.Effect<GrabResult | null, PipelineError> =>
+      Effect.gen(function* () {
+        const movie = yield* loadMovie(movieId)
+        if (releases.length === 0) return null
+
+        const evalCtx: EvaluationContext = {
+          mediaId: movie.id,
+          mediaType: "movie",
+          existingFile: existingFileFromRow(movie),
+        }
+        const decisions = yield* policyEngine.evaluate(releases, movie.qualityProfileId, evalCtx)
+        yield* policyEngine.recordDecisions(decisions, evalCtx)
+
+        const best = yield* firstGrabbableDecision(decisions)
+        if (!best) return null
+
+        const client = yield* pickClient(best.candidate.protocol)
+        const hash = yield* downloadClientService.addDownload(client.id, best.candidate.downloadUrl)
+        yield* indexerService.recordGrab(best.candidate.indexerId)
+        yield* linkQueueToMovie(hash, movie.id)
+
+        return { hash, candidateTitle: best.candidate.title }
+      })
+
+    const grabBestEpisodeFromReleases = (
+      episodeId: number,
+      releases: ReadonlyArray<ReleaseCandidate>,
+    ): Effect.Effect<GrabResult | null, PipelineError> =>
+      Effect.gen(function* () {
+        const ctx = yield* loadEpisodeContext(episodeId)
+        if (releases.length === 0) return null
+
+        const evalCtx: EvaluationContext = {
+          mediaId: ctx.episode.id,
+          mediaType: "episode",
+          existingFile: existingFileFromRow(ctx.episode),
+        }
+        const decisions = yield* policyEngine.evaluate(releases, ctx.qualityProfileId, evalCtx)
+        yield* policyEngine.recordDecisions(decisions, evalCtx)
+
+        const best = yield* firstGrabbableDecision(decisions)
+        if (!best) return null
+
+        const client = yield* pickClient(best.candidate.protocol)
+        const hash = yield* downloadClientService.addDownload(client.id, best.candidate.downloadUrl)
+        yield* indexerService.recordGrab(best.candidate.indexerId)
+        yield* linkQueueToTv(hash, ctx.series.id, [ctx.episode.id])
+
+        return { hash, candidateTitle: best.candidate.title }
+      })
+
     const grabSeason = (
       seasonId: number,
     ): Effect.Effect<ReadonlyArray<GrabResult>, PipelineError> =>
@@ -437,46 +501,13 @@ export const AcquisitionPipelineLive = Layer.effect(
         Effect.gen(function* () {
           const movie = yield* loadMovie(movieId)
 
-          // Search
           const { releases } = yield* indexerService.search({
             type: "movie",
             term: movie.title,
             tmdbId: movie.tmdbId,
           })
 
-          if (releases.length === 0) return null
-
-          // Evaluate
-          const decisions = yield* policyEngine.evaluate(releases, movie.qualityProfileId, {
-            mediaId: movie.id,
-            mediaType: "movie",
-            existingFile: existingFileFromRow(movie),
-          })
-
-          // Record decisions
-          yield* policyEngine.recordDecisions(decisions, {
-            mediaId: movie.id,
-            mediaType: "movie",
-          })
-
-          // Find first accepted/upgrade
-          const best = yield* firstGrabbableDecision(decisions)
-          if (!best) return null
-
-          // Pick client matching the release protocol
-          const client = yield* pickClient(best.candidate.protocol)
-
-          // Grab
-          const hash = yield* downloadClientService.addDownload(
-            client.id,
-            best.candidate.downloadUrl,
-          )
-          yield* indexerService.recordGrab(best.candidate.indexerId)
-
-          // Link queue → movie
-          yield* linkQueueToMovie(hash, movie.id)
-
-          return { hash, candidateTitle: best.candidate.title }
+          return yield* grabBestMovieFromReleases(movie.id, releases)
         }),
 
       searchAndEvaluate: (movieId) =>
@@ -516,6 +547,8 @@ export const AcquisitionPipelineLive = Layer.effect(
           return { hash, candidateTitle }
         }),
 
+      grabBestRecentMovieRelease: grabBestMovieFromReleases,
+
       // ── TV: single episode ──
 
       searchAndGrabEpisode: (episodeId) =>
@@ -530,31 +563,7 @@ export const AcquisitionPipelineLive = Layer.effect(
             episode: ctx.episode.episodeNumber,
           })
 
-          if (releases.length === 0) return null
-
-          const evalCtx: EvaluationContext = {
-            mediaId: ctx.episode.id,
-            mediaType: "episode",
-            existingFile: existingFileFromRow(ctx.episode),
-          }
-
-          const decisions = yield* policyEngine.evaluate(releases, ctx.qualityProfileId, evalCtx)
-
-          yield* policyEngine.recordDecisions(decisions, evalCtx)
-
-          const best = yield* firstGrabbableDecision(decisions)
-          if (!best) return null
-
-          const client = yield* pickClient(best.candidate.protocol)
-          const hash = yield* downloadClientService.addDownload(
-            client.id,
-            best.candidate.downloadUrl,
-          )
-          yield* indexerService.recordGrab(best.candidate.indexerId)
-
-          yield* linkQueueToTv(hash, ctx.series.id, [ctx.episode.id])
-
-          return { hash, candidateTitle: best.candidate.title }
+          return yield* grabBestEpisodeFromReleases(ctx.episode.id, releases)
         }),
 
       searchAndEvaluateEpisode: (episodeId) =>
@@ -588,6 +597,8 @@ export const AcquisitionPipelineLive = Layer.effect(
           yield* linkQueueToTv(hash, ctx.series.id, [ctx.episode.id])
           return { hash, candidateTitle }
         }),
+
+      grabBestRecentEpisodeRelease: grabBestEpisodeFromReleases,
 
       // ── TV: season ──
 

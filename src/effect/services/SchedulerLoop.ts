@@ -14,6 +14,7 @@ import { Db } from "./Db"
 import { DownloadMonitor } from "./DownloadMonitor"
 import { IndexerApplicationService } from "./IndexerApplicationService"
 import { IndexerDefinitionSourceService } from "./IndexerDefinitionSourceService"
+import { IndexerService } from "./IndexerService"
 import { MaintenanceService } from "./MaintenanceService"
 import { MetadataRefreshService } from "./MetadataRefreshService"
 import { MovieService } from "./MovieService"
@@ -27,6 +28,7 @@ const tick = Effect.gen(function* () {
   const pipeline = yield* AcquisitionPipeline
   const backups = yield* BackupService
   const monitor = yield* DownloadMonitor
+  const indexers = yield* IndexerService
   const indexerApplications = yield* IndexerApplicationService
   const definitionSources = yield* IndexerDefinitionSourceService
   const maintenance = yield* MaintenanceService
@@ -69,11 +71,12 @@ const tick = Effect.gen(function* () {
 
     switch (payload._tag) {
       case "rss_sync": {
+        const { releases } = yield* indexers.rss()
         const wantedMovies = yield* movieService.list({ status: "wanted", monitored: true })
         for (const movie of wantedMovies) {
           if (movie.qualityProfileId === null) continue
           yield* pipeline
-            .searchAndGrab(movie.id)
+            .grabBestRecentMovieRelease(movie.id, releases)
             .pipe(
               Effect.catchAll((e) =>
                 Effect.logWarning(`rss_sync movie ${movie.id} failed: ${e._tag}`),
@@ -145,12 +148,13 @@ const tick = Effect.gen(function* () {
       case "housekeeping": {
         const summary = yield* maintenance.runHousekeeping()
         yield* Effect.log(
-          `housekeeping: ${summary.schedulerJobsDeleted} jobs, ${summary.notificationDeliveriesDeleted} notifications, ${summary.releaseDecisionsDeleted} decisions, ${summary.releaseBlocklistDeleted} blocklist, ${summary.queueRowsDeleted} queue, ${summary.expiredSessionsDeleted} sessions deleted`,
+          `housekeeping: ${summary.schedulerJobsDeleted} jobs, ${summary.notificationDeliveriesDeleted} notifications, ${summary.releaseDecisionsDeleted} decisions, ${summary.releaseBlocklistDeleted} blocklist, ${summary.recentReleasesDeleted} recent releases, ${summary.queueRowsDeleted} queue, ${summary.expiredSessionsDeleted} sessions deleted`,
         )
         break
       }
       case "tv_rss_sync": {
-        // For each monitored, wanted episode whose air_date is sufficiently past, search.
+        const { releases } = yield* indexers.rss()
+        // For each monitored, wanted episode whose air_date is sufficiently past, evaluate RSS.
         const airCutoff = new Date(Date.now() - DEFAULT_AIR_DATE_DELAY_MINUTES * 60_000)
         const wantedEpisodes = yield* db
           .select({ id: episodes.id })
@@ -169,7 +173,7 @@ const tick = Effect.gen(function* () {
           )
         for (const row of wantedEpisodes) {
           yield* pipeline
-            .searchAndGrabEpisode(row.id)
+            .grabBestRecentEpisodeRelease(row.id, releases)
             .pipe(
               Effect.catchAll((e) =>
                 Effect.logWarning(`tv_rss_sync episode ${row.id} failed: ${e._tag}`),

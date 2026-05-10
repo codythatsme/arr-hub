@@ -8,6 +8,7 @@ import {
   notificationDeliveries,
   releaseBlocklist,
   releaseDecisions,
+  recentReleases,
   schedulerJobs,
 } from "#/db/schema"
 
@@ -20,6 +21,7 @@ const RETENTION = {
   notificationDeliveriesDays: 30,
   releaseDecisionsDays: 30,
   releaseBlocklistDays: 180,
+  recentReleasesDays: 14,
   staleQueueDays: 14,
   expiredSessionsDays: 7,
 } as const
@@ -29,6 +31,7 @@ export interface HousekeepingSummary {
   readonly notificationDeliveriesDeleted: number
   readonly releaseDecisionsDeleted: number
   readonly releaseBlocklistDeleted: number
+  readonly recentReleasesDeleted: number
   readonly queueRowsDeleted: number
   readonly expiredSessionsDeleted: number
 }
@@ -79,6 +82,11 @@ export const MaintenanceServiceLive = Layer.effect(
             .where(lt(releaseBlocklist.createdAt, daysAgo(RETENTION.releaseBlocklistDays)))
             .returning({ id: releaseBlocklist.id })
 
+          const oldRecentReleases = yield* db
+            .delete(recentReleases)
+            .where(lt(recentReleases.lastSeenAt, daysAgo(RETENTION.recentReleasesDays)))
+            .returning({ id: recentReleases.id })
+
           const oldQueueRows = yield* db
             .delete(downloadQueue)
             .where(
@@ -113,6 +121,7 @@ export const MaintenanceServiceLive = Layer.effect(
             notificationDeliveriesDeleted: oldNotifications.length,
             releaseDecisionsDeleted: oldReleaseDecisions.length,
             releaseBlocklistDeleted: oldBlocklistRows.length,
+            recentReleasesDeleted: oldRecentReleases.length,
             queueRowsDeleted: oldQueueRows.length,
             expiredSessionsDeleted: expiredSessions.length,
           }

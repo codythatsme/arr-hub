@@ -25,6 +25,7 @@ const mockIndexerCatalogMethods = {
   listDefinitions: () => Effect.succeed([]),
   listStats: () => Effect.succeed([]),
   aggregateCapabilities: () => Effect.succeed({ searchTypes: [], categories: [] }),
+  rss: () => Effect.succeed({ releases: [], errors: [] }),
   canGrab: () => Effect.succeed(true),
   recordGrab: () => Effect.void,
   addProxy: () => Effect.die("not implemented"),

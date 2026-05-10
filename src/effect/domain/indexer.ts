@@ -177,6 +177,12 @@ export interface SearchQuery {
   readonly protocol?: IndexerProtocol
 }
 
+export interface RssQuery {
+  readonly categories?: ReadonlyArray<number>
+  readonly limit?: number
+  readonly protocol?: IndexerProtocol
+}
+
 export interface SearchResult {
   readonly releases: ReadonlyArray<ReleaseCandidate>
   readonly errors: ReadonlyArray<IndexerError>

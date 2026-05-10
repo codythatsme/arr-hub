@@ -278,6 +278,30 @@ const runDdl = Effect.gen(function* () {
     response_time_ms INTEGER
   )`
 
+  yield* sql`CREATE TABLE recent_releases (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    indexer_id INTEGER NOT NULL REFERENCES indexers(id) ON DELETE CASCADE,
+    release_key TEXT NOT NULL,
+    title TEXT NOT NULL,
+    indexer_name TEXT NOT NULL,
+    indexer_priority INTEGER NOT NULL,
+    size INTEGER NOT NULL,
+    seeders INTEGER,
+    leechers INTEGER,
+    age INTEGER NOT NULL,
+    download_url TEXT NOT NULL,
+    info_url TEXT,
+    category TEXT NOT NULL,
+    protocol TEXT NOT NULL,
+    published_at INTEGER NOT NULL,
+    infohash TEXT,
+    download_factor REAL NOT NULL DEFAULT 1,
+    upload_factor REAL NOT NULL DEFAULT 1,
+    first_seen_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    last_seen_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    UNIQUE(indexer_id, release_key)
+  )`
+
   yield* sql`CREATE TABLE indexer_applications (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,

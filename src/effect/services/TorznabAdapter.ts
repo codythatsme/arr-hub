@@ -499,5 +499,24 @@ export function createTorznabAdapter(config: IndexerConfig): IndexerAdapter {
         yield* checkTorznabError(parsed, config)
         return parseTorznabReleases(parsed, config)
       }),
+
+    rss: (query = {}) =>
+      Effect.gen(function* () {
+        const categories =
+          query.categories && query.categories.length > 0
+            ? query.categories
+            : config.categories.length > 0
+              ? config.categories
+              : undefined
+        const params: Record<string, string | number | undefined> = {
+          t: "search",
+          limit: query.limit,
+          cat: categories?.join(","),
+        }
+        const url = buildUrl(config.baseUrl, config.apiKey, params)
+        const parsed = yield* fetchIndexerXml(url, config)
+        yield* checkTorznabError(parsed, config)
+        return parseTorznabReleases(parsed, config)
+      }),
   }
 }

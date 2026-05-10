@@ -155,4 +155,34 @@ describe("TorznabAdapter proxy transport", () => {
     expect(url.searchParams.get("extended")).toBe("1")
     expect(url.searchParams.get("cat")).toBe("5000")
   })
+
+  it("builds RSS feed requests without a search term", async () => {
+    let requestUrl: string | undefined
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      requestUrl = String(input)
+      return new Response(RSS_XML, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createTorznabAdapter({
+      id: 3,
+      name: "RSS Test",
+      type: "torznab",
+      baseUrl: "https://tracker.example",
+      apiKey: "api-key",
+      priority: 25,
+      categories: [2000],
+      protocol: "torrent",
+    })
+
+    if (!adapter.rss) throw new Error("expected RSS support")
+    const releases = await Effect.runPromise(adapter.rss({ limit: 100 }))
+
+    const url = new URL(requestUrl ?? "")
+    expect(url.searchParams.get("t")).toBe("search")
+    expect(url.searchParams.get("q")).toBeNull()
+    expect(url.searchParams.get("cat")).toBe("2000")
+    expect(url.searchParams.get("limit")).toBe("100")
+    expect(releases[0].title).toBe("Example Movie 2026 1080p WEB-DL")
+  })
 })

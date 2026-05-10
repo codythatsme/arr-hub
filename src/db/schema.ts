@@ -404,6 +404,39 @@ export const indexerHealth = sqliteTable("indexer_health", {
   responseTimeMs: integer("response_time_ms"),
 })
 
+export const recentReleases = sqliteTable(
+  "recent_releases",
+  {
+    id: integer().primaryKey({ autoIncrement: true }),
+    indexerId: integer("indexer_id")
+      .notNull()
+      .references(() => indexers.id, { onDelete: "cascade" }),
+    releaseKey: text("release_key").notNull(),
+    title: text().notNull(),
+    indexerName: text("indexer_name").notNull(),
+    indexerPriority: integer("indexer_priority").notNull(),
+    size: integer().notNull(),
+    seeders: integer(),
+    leechers: integer(),
+    age: integer().notNull(),
+    downloadUrl: text("download_url").notNull(),
+    infoUrl: text("info_url"),
+    category: text().notNull(),
+    protocol: text().$type<IndexerProtocol>().notNull(),
+    publishedAt: integer("published_at", { mode: "timestamp" }).notNull(),
+    infohash: text(),
+    downloadFactor: real("download_factor").notNull().default(1),
+    uploadFactor: real("upload_factor").notNull().default(1),
+    firstSeenAt: integer("first_seen_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+    lastSeenAt: integer("last_seen_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (t) => [unique().on(t.indexerId, t.releaseKey)],
+)
+
 export const indexerApplications = sqliteTable("indexer_applications", {
   id: integer().primaryKey({ autoIncrement: true }),
   name: text().notNull(),

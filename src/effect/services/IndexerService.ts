@@ -8,6 +8,7 @@ import {
   indexerHealth,
   indexerProxies,
   indexerStats,
+  recentReleases,
 } from "#/db/schema"
 
 import type {
@@ -28,6 +29,7 @@ import type {
   IndexerWithHealth,
   IndexerHealthStatus,
   ReleaseCandidate,
+  RssQuery,
   SearchQuery,
   SearchResult,
   IndexerType,
@@ -132,6 +134,9 @@ export class IndexerService extends Context.Tag("@arr-hub/IndexerService")<
     >
     readonly search: (
       query: SearchQuery,
+    ) => Effect.Effect<SearchResult, ValidationError | EncryptionError | SqlError>
+    readonly rss: (
+      query?: RssQuery,
     ) => Effect.Effect<SearchResult, ValidationError | EncryptionError | SqlError>
     readonly canGrab: (indexerId: number) => Effect.Effect<boolean, SqlError>
     readonly recordGrab: (indexerId: number) => Effect.Effect<void, NotFoundError | SqlError>
@@ -562,6 +567,37 @@ function searchQueryForIndexer(
   return { ...query, categories: indexer.categories }
 }
 
+function rssQueryForIndexer(
+  indexer: typeof indexers.$inferSelect,
+  query: RssQuery | undefined,
+): RssQuery | null {
+  if (indexer.categories.length === 0) return query ?? {}
+
+  if (query?.categories && query.categories.length > 0) {
+    const allowed = query.categories.filter((category) => indexer.categories.includes(category))
+    return allowed.length > 0 ? { ...query, categories: allowed } : null
+  }
+
+  return { ...query, categories: indexer.categories }
+}
+
+function normalizeReleaseKeyPart(value: string): string {
+  return value.trim().toLowerCase()
+}
+
+function releaseCacheKey(candidate: ReleaseCandidate): string {
+  if (candidate.infohash !== null && candidate.infohash.trim().length > 0) {
+    return `infohash:${normalizeReleaseKeyPart(candidate.infohash)}`
+  }
+  if (candidate.downloadUrl.trim().length > 0) {
+    return `download:${normalizeReleaseKeyPart(candidate.downloadUrl)}`
+  }
+  if (candidate.infoUrl !== null && candidate.infoUrl.trim().length > 0) {
+    return `info:${normalizeReleaseKeyPart(candidate.infoUrl)}`
+  }
+  return `title:${normalizeReleaseKeyPart(candidate.title)}:${candidate.size}`
+}
+
 function sameJson(left: unknown, right: unknown): boolean {
   return JSON.stringify(left) === JSON.stringify(right)
 }
@@ -862,6 +898,56 @@ export const IndexerServiceLive = Layer.effect(
             updatedAt: now,
           })
           .where(eq(indexerStats.indexerId, indexerId))
+      })
+
+    const storeRecentReleases = (releases: ReadonlyArray<ReleaseCandidate>) =>
+      Effect.gen(function* () {
+        const now = new Date()
+        for (const release of releases) {
+          yield* db
+            .insert(recentReleases)
+            .values({
+              indexerId: release.indexerId,
+              releaseKey: releaseCacheKey(release),
+              title: release.title,
+              indexerName: release.indexerName,
+              indexerPriority: release.indexerPriority,
+              size: release.size,
+              seeders: release.seeders,
+              leechers: release.leechers,
+              age: release.age,
+              downloadUrl: release.downloadUrl,
+              infoUrl: release.infoUrl,
+              category: release.category,
+              protocol: release.protocol,
+              publishedAt: release.publishedAt,
+              infohash: release.infohash,
+              downloadFactor: release.downloadFactor,
+              uploadFactor: release.uploadFactor,
+              lastSeenAt: now,
+            })
+            .onConflictDoUpdate({
+              target: [recentReleases.indexerId, recentReleases.releaseKey],
+              set: {
+                title: release.title,
+                indexerName: release.indexerName,
+                indexerPriority: release.indexerPriority,
+                size: release.size,
+                seeders: release.seeders,
+                leechers: release.leechers,
+                age: release.age,
+                downloadUrl: release.downloadUrl,
+                infoUrl: release.infoUrl,
+                category: release.category,
+                protocol: release.protocol,
+                publishedAt: release.publishedAt,
+                infohash: release.infohash,
+                downloadFactor: release.downloadFactor,
+                uploadFactor: release.uploadFactor,
+                lastSeenAt: now,
+              },
+            })
+        }
       })
 
     const markIndexerSearchHealthy = (indexerId: number, responseTimeMs: number) =>
@@ -1241,6 +1327,113 @@ export const IndexerServiceLive = Layer.effect(
             const aSeeders = a.seeders ?? 0
             const bSeeders = b.seeders ?? 0
             return bSeeders - aSeeders
+          })
+
+          return { releases, errors } satisfies SearchResult
+        }),
+
+      rss: (query = {}) =>
+        Effect.gen(function* () {
+          const rows = yield* db
+            .select({
+              indexer: indexers,
+              health: indexerHealth,
+              stats: indexerStats,
+              definition: indexerDefinitions,
+            })
+            .from(indexers)
+            .leftJoin(indexerHealth, eq(indexers.id, indexerHealth.indexerId))
+            .leftJoin(indexerStats, eq(indexers.id, indexerStats.indexerId))
+            .leftJoin(
+              indexerDefinitions,
+              eq(indexers.definitionKey, indexerDefinitions.definitionKey),
+            )
+            .where(and(eq(indexers.enabled, true), eq(indexers.rssEnabled, true)))
+            .orderBy(indexers.priority)
+
+          const eligibleRows = rows.filter((row) => {
+            const protocol = lookupProtocol(row.indexer.type)
+            const supportsRss = row.definition?.supportsRss ?? true
+            return supportsRss && (query.protocol === undefined || protocol === query.protocol)
+          })
+
+          const results = yield* Effect.forEach(
+            eligibleRows.filter(
+              (row) =>
+                rssQueryForIndexer(row.indexer, query) !== null && !isBackoffActive(row.health),
+            ),
+            (row) =>
+              Effect.gen(function* () {
+                const indexer = row.indexer
+                const start = Date.now()
+                return yield* Effect.gen(function* () {
+                  const apiKey = yield* crypto.decrypt(indexer.apiKeyEncrypted)
+                  const configValues = yield* decryptConfigValues(indexer.configValuesEncrypted)
+                  const proxy = yield* resolveOutboundProxy(indexer.proxyId)
+                  const definitionYaml = yield* loadDefinitionYaml(indexer.definitionKey)
+                  const factory = yield* registry.getIndexerFactory(indexer.type)
+                  const config: IndexerConfig = {
+                    id: indexer.id,
+                    name: indexer.name,
+                    type: indexer.type,
+                    definitionKey: indexer.definitionKey,
+                    definitionYaml,
+                    baseUrl: indexer.baseUrl,
+                    apiKey,
+                    configValues,
+                    priority: indexer.priority,
+                    categories: indexer.categories,
+                    protocol: lookupProtocol(indexer.type),
+                    proxy,
+                  }
+                  const adapter = factory(config)
+                  if (!adapter.rss) return []
+                  const indexerQuery = rssQueryForIndexer(indexer, query)
+                  if (indexerQuery === null) return []
+                  const releases = yield* adapter.rss(indexerQuery)
+                  const filtered = releases.filter((release) =>
+                    releasePassesIndexerPolicy(indexer, release),
+                  )
+                  yield* storeRecentReleases(filtered)
+                  return filtered
+                }).pipe(
+                  Effect.tap(() =>
+                    Effect.all([
+                      recordIndexerActivity(indexer, "rss", true, Date.now() - start),
+                      markIndexerSearchHealthy(indexer.id, Date.now() - start),
+                    ]).pipe(Effect.ignore),
+                  ),
+                  Effect.tapError((err) =>
+                    Effect.gen(function* () {
+                      yield* recordIndexerActivity(indexer, "rss", false, Date.now() - start)
+                      if (err._tag === "IndexerError") {
+                        yield* markIndexerSearchUnhealthy(indexer.id, err, Date.now() - start)
+                      }
+                    }).pipe(Effect.ignore),
+                  ),
+                )
+              }).pipe(Effect.either),
+            { concurrency: "unbounded" },
+          )
+
+          const releases: Array<ReleaseCandidate> = []
+          const errors: Array<IndexerError> = []
+
+          for (const either of results) {
+            if (Either.isRight(either)) {
+              releases.push(...either.right)
+            } else {
+              const err = either.left
+              if (err._tag === "IndexerError") {
+                errors.push(err)
+              }
+            }
+          }
+
+          releases.sort((a, b) => {
+            if (a.indexerPriority !== b.indexerPriority)
+              return a.indexerPriority - b.indexerPriority
+            return b.publishedAt.getTime() - a.publishedAt.getTime()
           })
 
           return { releases, errors } satisfies SearchResult

@@ -5,9 +5,11 @@ import {
   apiKeys,
   downloadClients,
   downloadQueue,
+  indexers,
   notificationDeliveries,
   releaseBlocklist,
   releaseDecisions,
+  recentReleases,
   schedulerJobs,
   users,
 } from "#/db/schema"
@@ -136,6 +138,48 @@ describe("MaintenanceService", () => {
         },
       ])
 
+      const indexerRows = yield* db
+        .insert(indexers)
+        .values({
+          name: "Indexer",
+          type: "torznab",
+          baseUrl: "https://indexer.example",
+          apiKeyEncrypted: "secret",
+        })
+        .returning({ id: indexers.id })
+      const indexerId = indexerRows[0].id
+
+      yield* db.insert(recentReleases).values([
+        {
+          indexerId,
+          releaseKey: "old",
+          title: "Old Recent",
+          indexerName: "Indexer",
+          indexerPriority: 50,
+          size: 1_000,
+          age: 20,
+          downloadUrl: "https://indexer.example/old",
+          category: "2000",
+          protocol: "torrent",
+          publishedAt: daysAgo(20),
+          lastSeenAt: daysAgo(20),
+        },
+        {
+          indexerId,
+          releaseKey: "fresh",
+          title: "Fresh Recent",
+          indexerName: "Indexer",
+          indexerPriority: 50,
+          size: 1_000,
+          age: 1,
+          downloadUrl: "https://indexer.example/fresh",
+          category: "2000",
+          protocol: "torrent",
+          publishedAt: daysAgo(1),
+          lastSeenAt: daysAgo(1),
+        },
+      ])
+
       const clientRows = yield* db
         .insert(downloadClients)
         .values({
@@ -181,6 +225,7 @@ describe("MaintenanceService", () => {
       const remainingNotifications = yield* db.select().from(notificationDeliveries)
       const remainingDecisions = yield* db.select().from(releaseDecisions)
       const remainingBlocklist = yield* db.select().from(releaseBlocklist)
+      const remainingRecentReleases = yield* db.select().from(recentReleases)
       const remainingQueue = yield* db.select().from(downloadQueue)
 
       expect(summary).toEqual({
@@ -188,6 +233,7 @@ describe("MaintenanceService", () => {
         notificationDeliveriesDeleted: 1,
         releaseDecisionsDeleted: 1,
         releaseBlocklistDeleted: 1,
+        recentReleasesDeleted: 1,
         queueRowsDeleted: 1,
         expiredSessionsDeleted: 1,
       })
@@ -202,6 +248,7 @@ describe("MaintenanceService", () => {
       expect(remainingNotifications.map((row) => row.title)).toEqual(["recent"])
       expect(remainingDecisions.map((row) => row.candidateTitle)).toEqual(["Recent.Release"])
       expect(remainingBlocklist.map((row) => row.candidateTitle)).toEqual(["Recent.Blocklist"])
+      expect(remainingRecentReleases.map((row) => row.releaseKey)).toEqual(["fresh"])
       expect(remainingQueue.map((row) => row.externalId).toSorted()).toEqual([
         "old-active",
         "recent-completed",

@@ -1,12 +1,14 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Layer } from "effect"
 
+import { recentReleases } from "#/db/schema"
 import { TestDbLive } from "#/effect/test/TestDb"
 
 import type { IndexerConfig } from "../domain/indexer"
 import { IndexerError } from "../errors"
 import { AdapterRegistry, AdapterRegistryLive } from "./AdapterRegistry"
 import { CryptoServiceLive } from "./CryptoService"
+import { Db } from "./Db"
 import { IndexerService, IndexerServiceLive } from "./IndexerService"
 
 const TestLayer = IndexerServiceLive.pipe(
@@ -390,6 +392,79 @@ describe("IndexerService", () => {
         { name: "TV Only", categories: [5000] },
         { name: "Unrestricted", categories: undefined },
       ])
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("rss fetches enabled feeds, records RSS stats, and caches recent releases", () =>
+    Effect.gen(function* () {
+      const registry = yield* AdapterRegistry
+      let capturedCategories: ReadonlyArray<number> | undefined
+      registry.registerIndexer(
+        "mock-rss",
+        { displayName: "Mock RSS", protocolAffinity: "torrent", authModel: "none" },
+        (config) => ({
+          testConnection: () => Effect.succeed({ searchTypes: ["search"], categories: [] }),
+          search: () => Effect.succeed([]),
+          rss: (query) => {
+            capturedCategories = query?.categories
+            return Effect.succeed([
+              {
+                title: "RSS Movie 2026 1080p WEB-DL",
+                indexerId: config.id,
+                indexerName: config.name,
+                indexerPriority: config.priority,
+                size: 1_500_000_000,
+                seeders: 20,
+                leechers: 1,
+                age: 1,
+                downloadUrl: "https://example.com/rss/1",
+                infoUrl: "https://example.com/info/1",
+                category: "2000",
+                protocol: "torrent" as const,
+                publishedAt: new Date("2026-05-01T00:00:00Z"),
+                infohash: "rss-hash",
+                downloadFactor: 1,
+                uploadFactor: 1,
+              },
+            ])
+          },
+        }),
+      )
+
+      const svc = yield* IndexerService
+      const indexer = yield* svc.add({
+        ...VALID_INPUT,
+        type: "mock-rss",
+        apiKey: "unused",
+        searchEnabled: false,
+        rssEnabled: true,
+        categories: [2000],
+      })
+
+      const result = yield* svc.rss({ limit: 50 })
+
+      expect(capturedCategories).toEqual([2000])
+      expect(result.errors).toHaveLength(0)
+      expect(result.releases.map((release) => release.title)).toEqual([
+        "RSS Movie 2026 1080p WEB-DL",
+      ])
+
+      const stats = yield* svc.listStats()
+      expect(stats.find((item) => item.indexerId === indexer.id)).toMatchObject({
+        totalRss: 1,
+        successfulRss: 1,
+        failedRss: 0,
+      })
+
+      const db = yield* Db
+      const cached = yield* db.select().from(recentReleases)
+      expect(cached).toHaveLength(1)
+      expect(cached[0]).toMatchObject({
+        indexerId: indexer.id,
+        releaseKey: "infohash:rss-hash",
+        title: "RSS Movie 2026 1080p WEB-DL",
+        downloadUrl: "https://example.com/rss/1",
+      })
     }).pipe(Effect.provide(TestLayer)),
   )
 
