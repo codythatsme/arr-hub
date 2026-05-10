@@ -801,6 +801,7 @@ export const notificationChannelTypes = [
   "gotify",
   "telegram",
   "pushover",
+  "apprise",
 ] as const
 export type NotificationChannelType = (typeof notificationChannelTypes)[number]
 

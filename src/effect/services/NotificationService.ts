@@ -27,6 +27,7 @@ const URL_CHANNEL_TYPES = new Set<NotificationChannelType>([
   "ntfy",
   "gotify",
   "telegram",
+  "apprise",
 ])
 const OUTBOUND_CHANNEL_TYPES = new Set<NotificationChannelType>([...URL_CHANNEL_TYPES, "pushover"])
 
@@ -63,6 +64,8 @@ function channelTypeLabel(type: NotificationChannelType): string {
       return "Telegram sendMessage endpoint"
     case "pushover":
       return "Pushover"
+    case "apprise":
+      return "Apprise API endpoint"
   }
 }
 
@@ -122,6 +125,13 @@ function formatOutboundPayload(
         text: `<b>${escapeTelegramHtml(title)}</b>\n${escapeTelegramHtml(message)}`,
         parse_mode: "HTML",
         disable_web_page_preview: true,
+      }
+    case "apprise":
+      return {
+        title,
+        body: message,
+        type: event.includes("failed") || event.includes("down") ? "failure" : "info",
+        format: "text",
       }
     case "webhook":
     case "ntfy":

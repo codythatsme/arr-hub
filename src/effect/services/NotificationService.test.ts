@@ -422,6 +422,36 @@ describe("NotificationService", () => {
     }).pipe(Effect.provide(TestLayer))
   })
 
+  it.effect("formats Apprise API deliveries", () => {
+    const fetchSpy = stubSuccessfulFetch()
+
+    return Effect.gen(function* () {
+      const service = yield* NotificationService
+      const channel = yield* service.createChannel({
+        name: "Apprise",
+        type: "apprise",
+        enabled: true,
+        events: ["server_down"],
+        settings: { url: "https://apprise.example/notify/team-alerts" },
+      })
+
+      const delivery = yield* service.testChannel(channel.id, "server_down")
+      const body = getFetchBody(fetchSpy)
+
+      expect(delivery.status).toBe("sent")
+      expect(fetchSpy).toHaveBeenCalledWith(
+        "https://apprise.example/notify/team-alerts",
+        expect.objectContaining({ method: "POST" }),
+      )
+      expect(body).toMatchObject({
+        title: "Test media server offline",
+        body: "Example Server is not responding",
+        type: "failure",
+        format: "text",
+      })
+    }).pipe(Effect.provide(TestLayer))
+  })
+
   it.effect("requires Pushover credentials", () =>
     Effect.gen(function* () {
       const service = yield* NotificationService

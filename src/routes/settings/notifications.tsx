@@ -95,6 +95,14 @@ const CHANNEL_TYPES = [
     urlLabel: "",
     placeholder: "",
   },
+  {
+    value: "apprise",
+    label: "Apprise",
+    defaultName: "Apprise alerts",
+    destination: "",
+    urlLabel: "Apprise notify URL",
+    placeholder: "http://apprise.example/notify/team-alerts",
+  },
 ] as const
 
 type ChannelType = (typeof CHANNEL_TYPES)[number]["value"]
