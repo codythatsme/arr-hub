@@ -20,6 +20,7 @@ import { recordDomainHistory } from "./OperationalHistoryService"
 
 const ALL_EVENTS: ReadonlyArray<NotificationEvent> = notificationEvents
 const ALL_CHANNEL_TYPES: ReadonlyArray<NotificationChannelType> = notificationChannelTypes
+const NOTIFIARR_CHANNEL_ID_PLACEHOLDER = "__ARR_HUB_NOTIFIARR_CHANNEL_ID__"
 const URL_CHANNEL_TYPES = new Set<NotificationChannelType>([
   "webhook",
   "discord",
@@ -29,7 +30,11 @@ const URL_CHANNEL_TYPES = new Set<NotificationChannelType>([
   "telegram",
   "apprise",
 ])
-const OUTBOUND_CHANNEL_TYPES = new Set<NotificationChannelType>([...URL_CHANNEL_TYPES, "pushover"])
+const OUTBOUND_CHANNEL_TYPES = new Set<NotificationChannelType>([
+  ...URL_CHANNEL_TYPES,
+  "pushover",
+  "notifiarr",
+])
 
 interface FormattedNotification {
   readonly event: NotificationEvent
@@ -66,6 +71,8 @@ function channelTypeLabel(type: NotificationChannelType): string {
       return "Pushover"
     case "apprise":
       return "Apprise API endpoint"
+    case "notifiarr":
+      return "Notifiarr"
   }
 }
 
@@ -75,6 +82,10 @@ function escapeSlackText(value: string): string {
 
 function escapeTelegramHtml(value: string): string {
   return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
+}
+
+function isFailureEvent(event: NotificationEvent): boolean {
+  return event.includes("failed") || event.includes("down")
 }
 
 function formatOutboundPayload(
@@ -92,7 +103,7 @@ function formatOutboundPayload(
           {
             title,
             description: message,
-            color: event.includes("failed") || event.includes("down") ? 13_626_624 : 3_443_003,
+            color: isFailureEvent(event) ? 13_626_624 : 3_443_003,
             fields: [{ name: "Event", value: event.replaceAll("_", " "), inline: true }],
           },
         ],
@@ -118,7 +129,7 @@ function formatOutboundPayload(
       return {
         title,
         message,
-        priority: event.includes("failed") || event.includes("down") ? 8 : 4,
+        priority: isFailureEvent(event) ? 8 : 4,
       }
     case "telegram":
       return {
@@ -130,8 +141,38 @@ function formatOutboundPayload(
       return {
         title,
         body: message,
-        type: event.includes("failed") || event.includes("down") ? "failure" : "info",
+        type: isFailureEvent(event) ? "failure" : "info",
         format: "text",
+      }
+    case "notifiarr":
+      return {
+        notification: {
+          update: false,
+          name: "ARR Hub",
+          event,
+        },
+        discord: {
+          color: isFailureEvent(event) ? "CF222E" : "348FEB",
+          ping: {
+            pingUser: 0,
+            pingRole: 0,
+          },
+          images: {
+            thumbnail: "",
+            image: "",
+          },
+          text: {
+            title,
+            icon: "",
+            content: title,
+            description: message,
+            fields: [{ title: "Event", text: event.replaceAll("_", " "), inline: true }],
+            footer: "ARR Hub",
+          },
+          ids: {
+            channel: NOTIFIARR_CHANNEL_ID_PLACEHOLDER,
+          },
+        },
       }
     case "webhook":
     case "ntfy":
@@ -139,6 +180,10 @@ function formatOutboundPayload(
     case "in_app":
       return { event, title, message, payload }
   }
+}
+
+function stringifyNotifiarrPayload(payload: Record<string, unknown>, channelId: string): string {
+  return JSON.stringify(payload).replace(`"${NOTIFIARR_CHANNEL_ID_PLACEHOLDER}"`, channelId)
 }
 
 function formatTrigger(trigger: MonitoringTrigger): FormattedNotification {
@@ -326,13 +371,34 @@ export const NotificationServiceLive = Layer.effect(
             new ValidationError({ message: "Pushover token and user key are required" }),
           )
         }
+        if (
+          input.type === "notifiarr" &&
+          (!settings.token?.trim() || !settings.channelId?.trim())
+        ) {
+          return yield* Effect.fail(
+            new ValidationError({
+              message: "Notifiarr API key and Discord channel ID are required",
+            }),
+          )
+        }
+        if (input.type === "notifiarr" && !/^\d+$/.test(settings.channelId?.trim() ?? "")) {
+          return yield* Effect.fail(
+            new ValidationError({ message: "Notifiarr Discord channel ID must be numeric" }),
+          )
+        }
 
         const normalizedSettings =
           input.type === "pushover"
             ? { ...settings, token: settings.token?.trim(), user: settings.user?.trim() }
-            : isUrlChannelType(input.type)
-              ? { ...settings, url: settings.url?.trim() }
-              : settings
+            : input.type === "notifiarr"
+              ? {
+                  ...settings,
+                  token: settings.token?.trim(),
+                  channelId: settings.channelId?.trim(),
+                }
+              : isUrlChannelType(input.type)
+                ? { ...settings, url: settings.url?.trim() }
+                : settings
 
         return {
           name,
@@ -365,32 +431,49 @@ export const NotificationServiceLive = Layer.effect(
                     user: channel.settings.user ?? "",
                     title,
                     message,
-                    priority: event.includes("failed") || event.includes("down") ? "1" : "0",
+                    priority: isFailureEvent(event) ? "1" : "0",
                   }).toString(),
                 })
-              : await fetch(channel.settings.url ?? "", {
-                  method: "POST",
-                  headers:
-                    channel.type === "ntfy"
-                      ? {
-                          "content-type": "text/plain; charset=utf-8",
-                          title,
-                          tags:
-                            event.includes("failed") || event.includes("down") ? "warning" : "bell",
-                          priority: event.includes("failed") || event.includes("down") ? "4" : "3",
-                          ...channel.settings.headers,
-                        }
-                      : {
-                          "content-type": "application/json",
-                          ...channel.settings.headers,
-                        },
-                  body:
-                    channel.type === "ntfy"
-                      ? message
-                      : JSON.stringify(
-                          formatOutboundPayload(channel, event, title, message, payload),
-                        ),
-                })
+              : channel.type === "notifiarr"
+                ? await fetch(
+                    `https://notifiarr.com/api/v1/notification/passthrough/${encodeURIComponent(
+                      channel.settings.token ?? "",
+                    )}`,
+                    {
+                      method: "POST",
+                      headers: {
+                        accept: "text/plain",
+                        "content-type": "application/json",
+                        ...channel.settings.headers,
+                      },
+                      body: stringifyNotifiarrPayload(
+                        formatOutboundPayload(channel, event, title, message, payload),
+                        channel.settings.channelId ?? "",
+                      ),
+                    },
+                  )
+                : await fetch(channel.settings.url ?? "", {
+                    method: "POST",
+                    headers:
+                      channel.type === "ntfy"
+                        ? {
+                            "content-type": "text/plain; charset=utf-8",
+                            title,
+                            tags: isFailureEvent(event) ? "warning" : "bell",
+                            priority: isFailureEvent(event) ? "4" : "3",
+                            ...channel.settings.headers,
+                          }
+                        : {
+                            "content-type": "application/json",
+                            ...channel.settings.headers,
+                          },
+                    body:
+                      channel.type === "ntfy"
+                        ? message
+                        : JSON.stringify(
+                            formatOutboundPayload(channel, event, title, message, payload),
+                          ),
+                  })
           if (!response.ok) {
             throw new Error(`${channelTypeLabel(channel.type)} returned ${response.status}`)
           }

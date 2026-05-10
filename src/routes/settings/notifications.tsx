@@ -103,6 +103,14 @@ const CHANNEL_TYPES = [
     urlLabel: "Apprise notify URL",
     placeholder: "http://apprise.example/notify/team-alerts",
   },
+  {
+    value: "notifiarr",
+    label: "Notifiarr",
+    defaultName: "Notifiarr alerts",
+    destination: "Notifiarr passthrough",
+    urlLabel: "",
+    placeholder: "",
+  },
 ] as const
 
 type ChannelType = (typeof CHANNEL_TYPES)[number]["value"]
@@ -121,11 +129,16 @@ function requiresUrl(type: ChannelType): boolean {
 
 function channelDestination(channel: {
   readonly type: ChannelType
-  readonly settings: { readonly url?: string; readonly user?: string }
+  readonly settings: { readonly url?: string; readonly user?: string; readonly channelId?: string }
 }): string {
   const config = channelTypeConfig(channel.type)
   if (channel.type === "pushover") {
     return channel.settings.user ? "Pushover user key configured" : "Pushover credentials missing"
+  }
+  if (channel.type === "notifiarr") {
+    return channel.settings.channelId
+      ? "Notifiarr channel configured"
+      : "Notifiarr settings missing"
   }
   if (!requiresUrl(channel.type)) return config.destination
   return channel.settings.url ?? `${config.label} URL not configured`
@@ -139,6 +152,8 @@ function Notifications() {
   const [url, setUrl] = useState("")
   const [pushoverToken, setPushoverToken] = useState("")
   const [pushoverUser, setPushoverUser] = useState("")
+  const [notifiarrApiKey, setNotifiarrApiKey] = useState("")
+  const [notifiarrChannelId, setNotifiarrChannelId] = useState("")
   const [events, setEvents] = useState<ReadonlyArray<NotificationEvent>>(
     EVENTS.map((event) => event.value),
   )
@@ -155,6 +170,8 @@ function Notifications() {
         setUrl("")
         setPushoverToken("")
         setPushoverUser("")
+        setNotifiarrApiKey("")
+        setNotifiarrChannelId("")
       },
     }),
   )
@@ -181,7 +198,8 @@ function Notifications() {
   const pending = create.isPending || update.isPending || remove.isPending || test.isPending
   const missingSettings =
     (requiresUrl(type) && url.length === 0) ||
-    (type === "pushover" && (pushoverToken.length === 0 || pushoverUser.length === 0))
+    (type === "pushover" && (pushoverToken.length === 0 || pushoverUser.length === 0)) ||
+    (type === "notifiarr" && (notifiarrApiKey.length === 0 || notifiarrChannelId.length === 0))
 
   return (
     <div className="space-y-6 p-6">
@@ -299,9 +317,11 @@ function Notifications() {
               settings:
                 type === "pushover"
                   ? { token: pushoverToken, user: pushoverUser }
-                  : requiresUrl(type)
-                    ? { url }
-                    : {},
+                  : type === "notifiarr"
+                    ? { token: notifiarrApiKey, channelId: notifiarrChannelId }
+                    : requiresUrl(type)
+                      ? { url }
+                      : {},
             })
           }}
         >
@@ -361,6 +381,29 @@ function Notifications() {
                     value={pushoverUser}
                     onChange={(event) => setPushoverUser(event.target.value)}
                     placeholder="USER_KEY"
+                  />
+                </label>
+              </>
+            )}
+
+            {type === "notifiarr" && (
+              <>
+                <label className="block text-sm">
+                  <span className="font-medium">Notifiarr API key</span>
+                  <input
+                    className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                    value={notifiarrApiKey}
+                    onChange={(event) => setNotifiarrApiKey(event.target.value)}
+                    placeholder="API_KEY"
+                  />
+                </label>
+                <label className="block text-sm">
+                  <span className="font-medium">Discord channel ID</span>
+                  <input
+                    className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                    value={notifiarrChannelId}
+                    onChange={(event) => setNotifiarrChannelId(event.target.value)}
+                    placeholder="735481457153277994"
                   />
                 </label>
               </>

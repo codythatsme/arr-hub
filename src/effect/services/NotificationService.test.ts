@@ -452,6 +452,56 @@ describe("NotificationService", () => {
     }).pipe(Effect.provide(TestLayer))
   })
 
+  it.effect("formats Notifiarr passthrough deliveries", () => {
+    const fetchSpy = stubSuccessfulFetch()
+
+    return Effect.gen(function* () {
+      const service = yield* NotificationService
+      const channel = yield* service.createChannel({
+        name: "Notifiarr",
+        type: "notifiarr",
+        enabled: true,
+        events: ["server_down"],
+        settings: { token: "notifiarr-key", channelId: "735481457153277994" },
+      })
+
+      const delivery = yield* service.testChannel(channel.id, "server_down")
+      const init = getFetchInit(fetchSpy)
+      const rawBody = String(init.body)
+      const body = JSON.parse(rawBody) as {
+        notification: { name: string; event: string; update: boolean }
+        discord: {
+          color: string
+          text: { title: string; description: string; footer: string }
+        }
+      }
+
+      expect(delivery.status).toBe("sent")
+      expect(fetchSpy).toHaveBeenCalledWith(
+        "https://notifiarr.com/api/v1/notification/passthrough/notifiarr-key",
+        expect.objectContaining({ method: "POST" }),
+      )
+      expect(init.headers).toMatchObject({
+        accept: "text/plain",
+        "content-type": "application/json",
+      })
+      expect(rawBody).toContain('"channel":735481457153277994')
+      expect(body.notification).toMatchObject({
+        update: false,
+        name: "ARR Hub",
+        event: "server_down",
+      })
+      expect(body.discord).toMatchObject({
+        color: "CF222E",
+        text: {
+          title: "Test media server offline",
+          description: "Example Server is not responding",
+          footer: "ARR Hub",
+        },
+      })
+    }).pipe(Effect.provide(TestLayer))
+  })
+
   it.effect("requires Pushover credentials", () =>
     Effect.gen(function* () {
       const service = yield* NotificationService
@@ -468,6 +518,39 @@ describe("NotificationService", () => {
       expect(result._tag).toBe("Left")
       if (result._tag === "Left") {
         expect(result.left.message).toBe("Pushover token and user key are required")
+      }
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("requires Notifiarr credentials and a numeric Discord channel ID", () =>
+    Effect.gen(function* () {
+      const service = yield* NotificationService
+      const missing = yield* Effect.either(
+        service.createChannel({
+          name: "Notifiarr",
+          type: "notifiarr",
+          enabled: true,
+          events: ["server_down"],
+          settings: { token: "api-key" },
+        }),
+      )
+      const invalid = yield* Effect.either(
+        service.createChannel({
+          name: "Notifiarr",
+          type: "notifiarr",
+          enabled: true,
+          events: ["server_down"],
+          settings: { token: "api-key", channelId: "not-a-channel" },
+        }),
+      )
+
+      expect(missing._tag).toBe("Left")
+      if (missing._tag === "Left") {
+        expect(missing.left.message).toBe("Notifiarr API key and Discord channel ID are required")
+      }
+      expect(invalid._tag).toBe("Left")
+      if (invalid._tag === "Left") {
+        expect(invalid.left.message).toBe("Notifiarr Discord channel ID must be numeric")
       }
     }).pipe(Effect.provide(TestLayer)),
   )

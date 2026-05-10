@@ -802,6 +802,7 @@ export const notificationChannelTypes = [
   "telegram",
   "pushover",
   "apprise",
+  "notifiarr",
 ] as const
 export type NotificationChannelType = (typeof notificationChannelTypes)[number]
 
@@ -809,6 +810,7 @@ export interface NotificationChannelSettings {
   readonly url?: string
   readonly token?: string
   readonly user?: string
+  readonly channelId?: string
   readonly headers?: Record<string, string>
 }
 
