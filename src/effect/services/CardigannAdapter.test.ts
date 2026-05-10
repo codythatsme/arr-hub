@@ -335,6 +335,41 @@ const ANIME_BYTES_JSON_RESULTS = JSON.stringify({
   ],
 })
 
+const RUTRACKER_HTML_RESULTS = `
+<html>
+  <body>
+    <span id="logged-in-username">demo</span>
+    <table id="tor-tbl">
+      <tbody>
+        <tr>
+          <td class="f-name-col"><div class="f-name"><a href="viewforum.php?f=2366">Foreign series HD</a></div></td>
+          <td class="t-title-col"><div class="t-title"><a class="tLink" href="viewtopic.php?t=1001">RuTracker Show S02 1080p WEB-DL</a></div></td>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td class="tor-size" data-ts_text="3221225472"><a class="tr-dl" href="dl.php?t=1001">DL</a> 3 GB</td>
+          <td><b>27</b></td>
+          <td>4</td>
+          <td>101</td>
+          <td data-ts_text="1778400900"></td>
+        </tr>
+        <tr>
+          <td class="f-name-col"><div class="f-name"><a href="viewforum.php?f=416">Soundtracks</a></div></td>
+          <td class="t-title-col"><div class="t-title"><a class="tLink" href="viewtopic.php?t=1002">RuTracker OST 2026 FLAC</a></div></td>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td class="tor-size" data-ts_text="734003200"><a class="tr-dl" href="dl.php?t=1002">DL</a> 700 MB</td>
+          <td><b>5</b></td>
+          <td>1</td>
+          <td>34</td>
+          <td data-ts_text="1778312700"></td>
+        </tr>
+      </tbody>
+    </table>
+  </body>
+</html>`
+
 const ANIME_TORRENTS_HTML_RESULTS = `
 <html><body>
   <table>
@@ -4409,6 +4444,97 @@ search:
     expect(musicUrl.searchParams.get("type")).toBe("music")
     expect(musicUrl.searchParams.get("audio")).toBe("1")
     expect(musicUrl.searchParams.get("anime[tv_series]")).toBeNull()
+  })
+
+  it("parses RuTracker HTML results with POST login and Unix timestamps", async () => {
+    const requests: Array<{ url: string; init: RequestInit | undefined }> = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(String(input))
+      requests.push({ url: String(input), init })
+      if (url.pathname === "/forum/login.php") {
+        return new Response('<span id="logged-in-username">demo</span>', {
+          headers: { "set-cookie": "bb_session=rutracker-session; Path=/; HttpOnly" },
+          status: 200,
+        })
+      }
+
+      return new Response(RUTRACKER_HTML_RESULTS, {
+        headers: { "content-type": "text/html" },
+        status: 200,
+      })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 126,
+      name: "RuTracker.org",
+      type: "cardigann_yaml",
+      definitionKey: "rutracker",
+      baseUrl: "https://rutracker.org/",
+      apiKey: "",
+      configValues: {
+        username: "rt-user",
+        password: "rt-pass",
+      },
+      priority: 66,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({
+        term: "Ru Tracker",
+        type: "tv",
+        categories: [5040],
+        season: 2,
+      }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    const loginRequest = requests[0]
+    expect(loginRequest?.url).toBe("https://rutracker.org/forum/login.php")
+    expect(loginRequest?.init?.method).toBe("POST")
+    const loginBody = loginRequest?.init?.body as URLSearchParams
+    expect(loginBody.get("login_username")).toBe("rt-user")
+    expect(loginBody.get("login_password")).toBe("rt-pass")
+    expect(loginBody.get("login")).toBe("Login")
+    expect(loginBody.get("redirect")).toBe("index.php")
+
+    const searchRequest = requests[1]
+    const url = new URL(searchRequest?.url ?? "")
+    expect(url.origin + url.pathname).toBe("https://rutracker.org/forum/tracker.php")
+    expect(url.searchParams.get("nm")).toBe("Ru Tracker ТВ | Сезон: 2")
+    expect(url.searchParams.get("f")).toBe("2366")
+    expect(new Headers(searchRequest?.init?.headers).get("cookie")).toBe(
+      "bb_session=rutracker-session",
+    )
+
+    expect(releases).toHaveLength(2)
+    expect(releases[0]).toMatchObject({
+      title: "RuTracker Show S02 1080p WEB-DL",
+      downloadUrl: "https://rutracker.org/forum/dl.php?t=1001",
+      infoUrl: "https://rutracker.org/forum/viewtopic.php?t=1001",
+      category: "5040",
+      size: 3_221_225_472,
+      seeders: 27,
+      leechers: 4,
+      indexerId: 126,
+      indexerName: "RuTracker.org",
+      indexerPriority: 66,
+      downloadFactor: 1,
+      uploadFactor: 1,
+    })
+    expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-10T08:15:00.000Z")
+    expect(releases[1]).toMatchObject({
+      title: "RuTracker OST 2026 FLAC",
+      downloadUrl: "https://rutracker.org/forum/dl.php?t=1002",
+      infoUrl: "https://rutracker.org/forum/viewtopic.php?t=1002",
+      category: "3000",
+      size: 734_003_200,
+      seeders: 5,
+      leechers: 1,
+    })
+    expect(releases[1]?.publishedAt.toISOString()).toBe("2026-05-09T07:45:00.000Z")
   })
 
   it("parses AnimeTorrents AJAX HTML results with cookie auth and freeleech filtering", async () => {

@@ -1518,6 +1518,223 @@ search:
       text: "1"
 `
 
+const RUTRACKER = `
+id: rutracker
+name: RuTracker.org
+description: Semi-private Russian general tracker exposed through a first-pass POST-login HTML Cardigann definition.
+type: semi-private
+links:
+  - https://rutracker.org/
+version: builtin-cardigann-1
+tags:
+  - semi-private
+  - movies
+  - tv
+  - anime
+  - audio
+  - books
+  - pc
+  - games
+  - html
+  - post-login
+settings:
+  - name: username
+    label: Username
+    type: text
+    required: true
+  - name: password
+    label: Password
+    type: password
+    required: true
+caps:
+  categorymappings:
+    - id: "22"
+      cat: Movies
+      desc: Russian cinema
+      newznab: 2000
+    - id: "7"
+      cat: Movies/Foreign
+      desc: Foreign cinema
+      newznab: 2010
+    - id: "93"
+      cat: Movies/DVD
+      desc: DVD Video
+      newznab: 2030
+    - id: "2198"
+      cat: Movies/HD
+      desc: HD Video
+      newznab: 2040
+    - id: "718"
+      cat: Movies/UHD
+      desc: UHD Video
+      newznab: 2045
+    - id: "4"
+      cat: Movies
+      desc: Animation
+      newznab: 2000
+    - id: "921"
+      cat: TV
+      desc: Animated series
+      newznab: 5000
+    - id: "33"
+      cat: TV/Anime
+      desc: Anime
+      newznab: 5070
+    - id: "9"
+      cat: TV
+      desc: Russian series
+      newznab: 5000
+    - id: "189"
+      cat: TV/Foreign
+      desc: Foreign series
+      newznab: 5020
+    - id: "2366"
+      cat: TV/HD
+      desc: Foreign series HD
+      newznab: 5040
+    - id: "119"
+      cat: TV/UHD
+      desc: Foreign series UHD
+      newznab: 5045
+    - id: "46"
+      cat: TV/Documentary
+      desc: Documentary films and TV
+      newznab: 5080
+    - id: "24"
+      cat: TV/Other
+      desc: Entertainment TV
+      newznab: 5050
+    - id: "185"
+      cat: Audio
+      desc: Movie soundtracks and translations
+      newznab: 3000
+    - id: "809"
+      cat: Audio
+      desc: Anime soundtracks
+      newznab: 3000
+    - id: "409"
+      cat: Audio
+      desc: Classical and academic music
+      newznab: 3000
+    - id: "416"
+      cat: Audio
+      desc: Soundtracks, karaoke, and musicals
+      newznab: 3000
+    - id: "2497"
+      cat: Audio/Foreign
+      desc: Foreign pop music
+      newznab: 3040
+    - id: "2413"
+      cat: Audio/Audiobook
+      desc: Foreign-language audiobooks
+      newznab: 3030
+    - id: "2327"
+      cat: Audio/Audiobook
+      desc: Audiobook fiction
+      newznab: 3030
+    - id: "21"
+      cat: Books
+      desc: Books and magazines
+      newznab: 7000
+    - id: "31"
+      cat: Books/Mags
+      desc: Magazines and newspapers
+      newznab: 7010
+    - id: "2038"
+      cat: Books/EBook
+      desc: Fiction ebooks
+      newznab: 7020
+    - id: "2023"
+      cat: Books/Technical
+      desc: Technical and science books
+      newznab: 7040
+    - id: "1418"
+      cat: Books/Technical
+      desc: Computer literature
+      newznab: 7040
+    - id: "5"
+      cat: PC/Games
+      desc: Windows games
+      newznab: 4050
+    - id: "548"
+      cat: Console
+      desc: Console games
+      newznab: 1000
+    - id: "1012"
+      cat: PC
+      desc: Microsoft operating systems
+      newznab: 4000
+    - id: "1376"
+      cat: PC
+      desc: Linux, Unix, and other operating systems
+      newznab: 4000
+    - id: "1013"
+      cat: PC
+      desc: System utilities
+      newznab: 4000
+  modes:
+    search: [q]
+    movie-search: [q]
+    tv-search: [q, season, ep]
+    music-search: [q]
+    book-search: [q]
+login:
+  method: post
+  path: forum/login.php
+  inputs:
+    login_username: "{{ .Config.Username }}"
+    login_password: "{{ .Config.Password }}"
+    login: Login
+    redirect: index.php
+  headers:
+    referer: "{{ .Config.sitelink }}forum/login.php"
+  error:
+    - selector: h4.warnColor1.tCenter.mrg_16, div.msg-main
+  test:
+    selector: 'span[id="logged-in-username"]'
+search:
+  paths:
+    - path: 'forum/tracker.php?nm={{ .Keywords | urlencode }}{{ if .Query.Season }}%20%D0%A2%D0%92%20%7C%20%D0%A1%D0%B5%D0%B7%D0%BE%D0%BD%3A%20{{ .Query.Season }}{{ end }}{{ if .Categories }}&f={{ .Categories | join "," }}{{ end }}'
+      response:
+        type: html
+  rows:
+    selector: 'table#tor-tbl > tbody > tr:has(td.tor-size > a.tr-dl)'
+  fields:
+    title:
+      selector: td.t-title-col > div.t-title > a.tLink
+    details:
+      selector: td.t-title-col > div.t-title > a.tLink
+      attribute: href
+    download:
+      selector: td.tor-size > a.tr-dl
+      attribute: href
+    category:
+      selector: td.f-name-col > div.f-name > a
+      attribute: href
+      filters:
+        - name: querystring
+          args: f
+    size:
+      selector: td.tor-size
+      attribute: data-ts_text
+    grabs:
+      selector: td:nth-child(9)
+      optional: true
+    seeders:
+      selector: td:nth-child(7) b
+    leechers:
+      selector: td:nth-child(8)
+    date:
+      selector: td:nth-child(10)
+      attribute: data-ts_text
+      filters:
+        - name: unixtime
+    downloadvolumefactor:
+      text: "1"
+    uploadvolumefactor:
+      text: "1"
+`
+
 const MYANONAMOUSE = `
 id: myanonamouse
 name: MyAnonamouse
@@ -9083,6 +9300,7 @@ const BUILT_IN_CARDIGANN_SOURCES = [
   SHAZBAT,
   NORBITS,
   TOLOKA,
+  RUTRACKER,
   MYANONAMOUSE,
   GAZELLE_GAMES,
   ANIDEX,

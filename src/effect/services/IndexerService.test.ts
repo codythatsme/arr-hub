@@ -119,19 +119,19 @@ describe("IndexerService", () => {
       const second = yield* svc.refreshDefinitions()
 
       expect(first).toMatchObject({
-        total: 55,
-        created: 55,
+        total: 56,
+        created: 56,
         updated: 0,
         unchanged: 0,
       })
       expect(first.definitions.map((definition) => definition.action)).toEqual(
-        Array(55).fill("created"),
+        Array(56).fill("created"),
       )
       expect(second).toMatchObject({
-        total: 55,
+        total: 56,
         created: 0,
         updated: 0,
-        unchanged: 55,
+        unchanged: 56,
       })
       expect(second.definitions.every((definition) => definition.previousVersion !== null)).toBe(
         true,
@@ -440,6 +440,7 @@ describe("IndexerService", () => {
         "redacted",
         "retroflix",
         "revolutiontt",
+        "rutracker",
         "scenehd",
         "scenetime",
         "secret-cinema",
@@ -572,6 +573,28 @@ describe("IndexerService", () => {
           ],
         },
       )
+      expect(
+        definitions.find((definition) => definition.definitionKey === "rutracker"),
+      ).toMatchObject({
+        displayName: "RuTracker.org",
+        protocol: "torrent",
+        implementation: "cardigann_yaml",
+        baseUrl: "https://rutracker.org/",
+        privacy: "semi_private",
+        supportsRss: true,
+        tags: [
+          "semi-private",
+          "movies",
+          "tv",
+          "anime",
+          "audio",
+          "books",
+          "pc",
+          "games",
+          "html",
+          "post-login",
+        ],
+      })
       expect(
         definitions.find((definition) => definition.definitionKey === "myanonamouse"),
       ).toMatchObject({

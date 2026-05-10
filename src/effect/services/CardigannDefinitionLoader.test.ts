@@ -87,6 +87,7 @@ caps:
       "shazbat",
       "norbits",
       "toloka",
+      "rutracker",
       "myanonamouse",
       "gazellegames",
       "anidex",
@@ -386,6 +387,42 @@ caps:
           { id: 3040, name: "Українська музика (lossless)" },
           { id: 3030, name: "Аудіокниги українською" },
           { id: 4050, name: "Ігри українською" },
+        ]),
+      },
+    })
+    expect(
+      BUILT_IN_CARDIGANN_DEFINITIONS.find((definition) => definition.definitionKey === "rutracker"),
+    ).toMatchObject({
+      displayName: "RuTracker.org",
+      baseUrl: "https://rutracker.org/",
+      privacy: "semi_private",
+      supportsRss: true,
+      supportsSearch: true,
+      tags: [
+        "semi-private",
+        "movies",
+        "tv",
+        "anime",
+        "audio",
+        "books",
+        "pc",
+        "games",
+        "html",
+        "post-login",
+      ],
+      authFields: expect.arrayContaining([
+        expect.objectContaining({ name: "username", type: "text", required: true }),
+        expect.objectContaining({ name: "password", type: "password", required: true }),
+      ]),
+      capabilities: {
+        searchTypes: ["search", "movie", "tvsearch"],
+        categories: expect.arrayContaining([
+          { id: 2000, name: "Russian cinema" },
+          { id: 5040, name: "Foreign series HD" },
+          { id: 5070, name: "Anime" },
+          { id: 3000, name: "Soundtracks, karaoke, and musicals" },
+          { id: 7020, name: "Fiction ebooks" },
+          { id: 4050, name: "Windows games" },
         ]),
       },
     })
