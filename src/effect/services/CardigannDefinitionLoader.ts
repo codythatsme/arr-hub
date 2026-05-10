@@ -797,6 +797,131 @@ search:
       text: "1"
 `
 
+const SHAZBAT = `
+id: shazbat
+name: Shazbat
+description: Private curated TV tracker exposed through a first-pass form-login HTML Cardigann definition.
+type: private
+links:
+  - https://www.shazbat.tube/
+legacylinks:
+  - https://www.shazbat.tv/
+version: builtin-cardigann-1
+tags:
+  - private
+  - tv
+  - scene
+  - html
+  - form-login
+settings:
+  - name: username
+    label: Username
+    type: text
+    required: true
+  - name: password
+    label: Password
+    type: password
+    required: true
+caps:
+  categorymappings:
+    - id: "1"
+      cat: TV
+      desc: TV
+      newznab: 5000
+    - id: "2"
+      cat: TV/SD
+      desc: TV SD
+      newznab: 5030
+    - id: "3"
+      cat: TV/HD
+      desc: TV HD
+      newznab: 5040
+    - id: "4"
+      cat: TV/UHD
+      desc: TV UHD
+      newznab: 5045
+  modes:
+    search: [q]
+    tv-search: [q, season, ep]
+login:
+  method: post
+  path: login
+  inputs:
+    referer: ""
+    query: ""
+    tv_timezone: "0"
+    username: "{{ .Config.Username }}"
+    password: "{{ .Config.Password }}"
+  headers:
+    referer: "{{ .Config.sitelink }}login"
+    content-type: application/x-www-form-urlencoded
+  error:
+    - selector: "div#fail .modal-body"
+search:
+  allowEmptyInputs: true
+  keywordsfilters:
+    - name: re_replace
+      args: ["\\\\b[SsEe]\\\\d+\\\\b", ""]
+    - name: re_replace
+      args: ["(.+)\\\\b\\\\d{4}(\\\\.\\\\d{2}\\\\.\\\\d{2})?\\\\b", "$1"]
+    - name: re_replace
+      args: ["[\\\\.\\\\s\\\\(\\\\)\\\\[\\\\]]+", " "]
+    - name: lower
+    - name: trim
+  paths:
+    - path: '{{ if .Keywords }}search?search={{ .Keywords | urlencode }}&portlet=true{{ else }}torrents{{ end }}'
+      response:
+        type: html
+      headers:
+        x-requested-with: XMLHttpRequest
+        referer: "{{ .Config.sitelink }}"
+  rows:
+    selector: "#torrent-table tr.eprow, table tr.eprow"
+    missingAttributeEqualsNoResults: true
+  fields:
+    title:
+      selector: td:nth-of-type(3)
+      remove: "label, span, a"
+    details:
+      selector: 'td:nth-of-type(5) [href^="torrent_info?"]'
+      attribute: href
+    download:
+      selector: 'td:nth-of-type(5) a[href^="load_torrent?"]'
+      attribute: href
+    category:
+      case:
+        'tr:contains("2160p")': "4"
+        'tr:contains("1080p")': "3"
+        'tr:contains("1080i")': "3"
+        'tr:contains("720p")': "3"
+        tr: "2"
+    size:
+      selector: td:nth-of-type(4)
+      filters:
+        - name: regexp
+          args: "\\\\((\\\\d+)\\\\)\\\\s*:"
+    seeders:
+      selector: td:nth-of-type(4)
+      filters:
+        - name: regexp
+          args: "\\\\(\\\\d+\\\\)\\\\s*:(\\\\d+)"
+    leechers:
+      selector: td:nth-of-type(4)
+      filters:
+        - name: regexp
+          args: "\\\\(\\\\d+\\\\)\\\\s*:\\\\d+\\\\s*/\\\\s*:(\\\\d+)"
+    date:
+      selector: "span.datetime"
+      attribute: data-timestamp
+      optional: true
+      filters:
+        - name: unixtime
+    downloadvolumefactor:
+      text: "1"
+    uploadvolumefactor:
+      text: "1"
+`
+
 const ANIDEX = `
 id: anidex
 name: Anidex
@@ -7816,6 +7941,7 @@ const BUILT_IN_CARDIGANN_SOURCES = [
   BAKABT,
   NEBULANCE,
   BROADCASTHE_NET,
+  SHAZBAT,
   ANIDEX,
   SHIZA_PROJECT,
   SUBSPLEASE,

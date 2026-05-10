@@ -332,6 +332,42 @@ const BROADCASTHE_NET_JSON_RESULTS = JSON.stringify({
   id: 1,
 })
 
+const SHAZBAT_HTML_RESULTS = `
+<html><body>
+  <table id="torrent-table">
+    <tbody>
+      <tr class="eprow">
+        <td>1</td>
+        <td>Show</td>
+        <td>
+          Shazbat.Show.S01E03.1080p.HDTV.x264-SCENE
+          <label class="label-tag">Scripted</label>
+        </td>
+        <td>(2345678901):41 / :3</td>
+        <td>
+          <a href="torrent_info?id=701">Info</a>
+          <a href="load_torrent?id=701">Download</a>
+          <span class="datetime" data-timestamp="1778409000"></span>
+        </td>
+      </tr>
+      <tr class="eprow">
+        <td>2</td>
+        <td>Show</td>
+        <td>
+          Shazbat.Show.S01E04.2160p.WEB.H265-SCENE
+          <label class="label-tag">UHD</label>
+        </td>
+        <td>(3456789012):12 / :1</td>
+        <td>
+          <a href="torrent_info?id=702">Info</a>
+          <a href="load_torrent?id=702">Download</a>
+          <span class="datetime" data-timestamp="1778322600"></span>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</body></html>`
+
 const IPTORRENTS_HTML_RESULTS = `
 <html><body>
   <table id="torrents">
@@ -4151,6 +4187,90 @@ search:
       category: "5045",
       downloadFactor: 0,
       uploadFactor: 1,
+    })
+  })
+
+  it("parses Shazbat HTML results after POST login", async () => {
+    const requests: Array<{ url: string; init: RequestInit | undefined }> = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(String(input))
+      requests.push({ url: String(input), init })
+      if (url.pathname === "/login") {
+        return new Response('<html><body><a href="/logout">Logout</a></body></html>', {
+          status: 200,
+          headers: { "set-cookie": "shazbat_session=abc; Path=/" },
+        })
+      }
+      return new Response(SHAZBAT_HTML_RESULTS, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 120,
+      name: "Shazbat",
+      type: "cardigann_yaml",
+      definitionKey: "shazbat",
+      baseUrl: "https://www.shazbat.tube/",
+      apiKey: "",
+      configValues: {
+        username: "alice",
+        password: "secret",
+      },
+      priority: 56,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({
+        term: "Shazbat Show S01E03",
+        type: "tv",
+        categories: [5040],
+        season: 1,
+        episode: 3,
+      }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    const loginRequest = requests[0]
+    expect(loginRequest?.url).toBe("https://www.shazbat.tube/login")
+    expect(loginRequest?.init?.method).toBe("POST")
+    expect(new Headers(loginRequest?.init?.headers).get("referer")).toBe(
+      "https://www.shazbat.tube/login",
+    )
+    const loginBody = new URLSearchParams(String(loginRequest?.init?.body ?? ""))
+    expect(loginBody.get("tv_timezone")).toBe("0")
+    expect(loginBody.get("username")).toBe("alice")
+    expect(loginBody.get("password")).toBe("secret")
+
+    const searchRequest = requests[1]
+    expect(searchRequest?.url).toBe(
+      "https://www.shazbat.tube/search?search=shazbat%20show%20s01e03&portlet=true",
+    )
+    expect(new Headers(searchRequest?.init?.headers).get("x-requested-with")).toBe("XMLHttpRequest")
+    expect(new Headers(searchRequest?.init?.headers).get("cookie")).toBe("shazbat_session=abc")
+    expect(releases).toHaveLength(2)
+    expect(releases[0]).toMatchObject({
+      title: "Shazbat.Show.S01E03.1080p.HDTV.x264-SCENE",
+      downloadUrl: "https://www.shazbat.tube/load_torrent?id=701",
+      infoUrl: "https://www.shazbat.tube/torrent_info?id=701",
+      category: "5040",
+      size: 2_345_678_901,
+      seeders: 41,
+      leechers: 3,
+      indexerId: 120,
+      indexerName: "Shazbat",
+      indexerPriority: 56,
+      downloadFactor: 1,
+      uploadFactor: 1,
+    })
+    expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-10T10:30:00.000Z")
+    expect(releases[1]).toMatchObject({
+      title: "Shazbat.Show.S01E04.2160p.WEB.H265-SCENE",
+      category: "5045",
+      size: 3_456_789_012,
+      seeders: 12,
+      leechers: 1,
     })
   })
 

@@ -119,19 +119,19 @@ describe("IndexerService", () => {
       const second = yield* svc.refreshDefinitions()
 
       expect(first).toMatchObject({
-        total: 49,
-        created: 49,
+        total: 50,
+        created: 50,
         updated: 0,
         unchanged: 0,
       })
       expect(first.definitions.map((definition) => definition.action)).toEqual(
-        Array(49).fill("created"),
+        Array(50).fill("created"),
       )
       expect(second).toMatchObject({
-        total: 49,
+        total: 50,
         created: 0,
         updated: 0,
-        unchanged: 49,
+        unchanged: 50,
       })
       expect(second.definitions.every((definition) => definition.previousVersion !== null)).toBe(
         true,
@@ -439,6 +439,7 @@ describe("IndexerService", () => {
         "scenehd",
         "scenetime",
         "secret-cinema",
+        "shazbat",
         "shizaproject",
         "speedapp",
         "speedcd",
@@ -511,6 +512,17 @@ describe("IndexerService", () => {
         privacy: "private",
         supportsRss: true,
         tags: ["private", "tv", "json", "json-rpc", "api-key"],
+      })
+      expect(
+        definitions.find((definition) => definition.definitionKey === "shazbat"),
+      ).toMatchObject({
+        displayName: "Shazbat",
+        protocol: "torrent",
+        implementation: "cardigann_yaml",
+        baseUrl: "https://www.shazbat.tube/",
+        privacy: "private",
+        supportsRss: true,
+        tags: ["private", "tv", "scene", "html", "form-login"],
       })
       expect(definitions.find((definition) => definition.definitionKey === "anidex")).toMatchObject(
         {

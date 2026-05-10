@@ -83,6 +83,7 @@ caps:
       "bakabt",
       "nebulance",
       "broadcasthe-net",
+      "shazbat",
       "anidex",
       "shizaproject",
       "subsplease",
@@ -256,6 +257,29 @@ caps:
           { id: 5040, name: "720p" },
           { id: 5040, name: "1080p" },
           { id: 5045, name: "2160p" },
+        ]),
+      },
+    })
+    expect(
+      BUILT_IN_CARDIGANN_DEFINITIONS.find((definition) => definition.definitionKey === "shazbat"),
+    ).toMatchObject({
+      displayName: "Shazbat",
+      baseUrl: "https://www.shazbat.tube/",
+      privacy: "private",
+      supportsRss: true,
+      supportsSearch: true,
+      tags: ["private", "tv", "scene", "html", "form-login"],
+      authFields: expect.arrayContaining([
+        expect.objectContaining({ name: "username", type: "text", required: true }),
+        expect.objectContaining({ name: "password", type: "password", required: true }),
+      ]),
+      capabilities: {
+        searchTypes: ["search", "tvsearch"],
+        categories: expect.arrayContaining([
+          { id: 5000, name: "TV" },
+          { id: 5030, name: "TV SD" },
+          { id: 5040, name: "TV HD" },
+          { id: 5045, name: "TV UHD" },
         ]),
       },
     })
