@@ -33,11 +33,11 @@ Primary blockers:
 Commands run from `/Users/codythatsme/Developer/arr-hub`:
 
 - `bun run typecheck`: passed.
-- `bun run test`: last full run passed, 51 test files plus 1 skipped live suite, 502 passed and 4 skipped tests.
+- `bun run test`: passed, 52 test files plus 1 skipped live suite, 509 passed and 4 skipped tests.
 - Focused add-paused adapter tests passed for qBittorrent, Transmission, Deluge, NZBGet, and built-in adapter interop.
 - Focused download-client remove-policy tests passed for completed-import cleanup and failed-download cleanup.
 - Focused import free-space tests passed for settings validation and copy-import reserve rejection.
-- Focused notification tests passed for channel event subscription edits and direct test-send deliveries.
+- Focused notification/history tests passed for channel event subscription edits, direct test-send deliveries, and operational event notification triggers.
 - `bun run test:e2e`: last recorded passing smoke coverage for onboarding, settings, add movie, add TV from metadata, manual search display, calendar population, and queue page.
 - `bun run lint`: passed with 18 warnings and 0 errors.
 - `bun run fmt:check`: passed.
@@ -130,6 +130,7 @@ Completed in atomic commits after this plan was written. Milestone 5 is summariz
 - `d99b2ef9fd` added opt-in remove-completed and remove-failed download-client policies, fixed download-client settings schema persistence for add-paused, and added deterministic service/monitor coverage.
 - `b5dc0e4401` added import-time target free-space checks for copy, move, hardlink, and EXDEV fallback transfers, plus Media Management reserve settings UI.
 - `112d1162f7` added editable notification event subscriptions, direct channel test-send delivery, and Settings UI controls for both.
+- `7b847c2a4a` bridged operational history rows into notification events for grabs, downloads, imports, renames, deletes, blocklists, metadata refreshes, health changes, and settings changes.
 - Subsequent Milestone 5 commits hardened the generic Cardigann runtime, request templating, category mapping, auth controls, and aggregate app-sync behavior enough for representative built-ins and checksum-pinned remote definitions. These commits are runtime support, not a decision to ship the expanded tracker catalogue.
 - `5cbb9c9e90` removed the deferred expanded built-in tracker catalogue from `main`. The safety branch `backup/milestone5-expanded-catalog` preserves the catalogue spike at `ab9e42393b`; those tracker definitions, including long-tail and adult/XXX sources, are not current built-in support.
 
@@ -590,7 +591,7 @@ Current state:
 
 - In-app and webhook channels exist.
 - Settings exposes editable per-channel event subscriptions and direct test-send controls.
-- Event coverage is mostly Plex monitoring and notification delivery records.
+- Event coverage now includes Plex monitoring plus operational history events for grabs, download failures, imports, import failures, renames, deletes, blocklists, metadata refreshes, indexer/download-client health changes, and settings changes.
 
 Gap:
 
@@ -598,7 +599,7 @@ Gap:
 
 Tasks:
 
-- Add event emissions for grab/import/upgrade/fail/blocklist/health/update.
+- [x] Add event emissions for grab/import/upgrade/fail/blocklist/health/update. Implemented through operational history events for current grab, import, fail, blocklist, health, metadata, and settings workflows; explicit version-upgrade and application-update events remain future work.
 - Add provider adapters for Discord, Slack, Telegram, email/SMTP, Notifiarr, Ntfy, Pushover, Gotify, Apprise, and custom scripts.
 - [x] Add per-event notification settings and test-send UI.
 
