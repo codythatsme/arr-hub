@@ -39,6 +39,7 @@ Commands run from `/Users/codythatsme/Developer/arr-hub`:
 - Focused import free-space tests passed for settings validation and copy-import reserve rejection.
 - Focused notification/history tests passed for channel event subscription edits, direct test-send deliveries, and operational event notification triggers.
 - Focused diagnostics tests passed for proactive health checks covering app data, missing root folders, remote path mappings, and completed-download cleanup warnings.
+- Focused plugin-loader tests passed for plugin contract status reporting and unsupported capability-version rejection.
 - `bun run test:e2e`: last recorded passing smoke coverage for onboarding, settings, add movie, add TV from metadata, manual search display, calendar population, and queue page.
 - `bun run lint`: passed with 18 warnings and 0 errors.
 - `bun run fmt:check`: passed.
@@ -133,6 +134,7 @@ Completed in atomic commits after this plan was written. Milestone 5 is summariz
 - `112d1162f7` added editable notification event subscriptions, direct channel test-send delivery, and Settings UI controls for both.
 - `7b847c2a4a` bridged operational history rows into notification events for grabs, downloads, imports, renames, deletes, blocklists, metadata refreshes, health changes, and settings changes.
 - `4deb114e6b` added proactive diagnostics health checks for app data access, missing root folders, inaccessible remote path mappings, all-disabled integrations, and completed-download cleanup policy warnings.
+- `d978dc6518` added plugin author documentation, V1 API/capability version checks, and Settings contract health display.
 - Subsequent Milestone 5 commits hardened the generic Cardigann runtime, request templating, category mapping, auth controls, and aggregate app-sync behavior enough for representative built-ins and checksum-pinned remote definitions. These commits are runtime support, not a decision to ship the expanded tracker catalogue.
 - `5cbb9c9e90` removed the deferred expanded built-in tracker catalogue from `main`. The safety branch `backup/milestone5-expanded-catalog` preserves the catalogue spike at `ab9e42393b`; those tracker definitions, including long-tail and adult/XXX sources, are not current built-in support.
 
@@ -159,7 +161,7 @@ Backend/service surfaces:
 - `src/effect/services/SchedulerService.ts` and `SchedulerLoop.ts`: recurring true RSS/cutoff/download monitor jobs, TV job types, and metadata refresh jobs.
 - `src/effect/services/MetadataRefreshService.ts`: refreshes movie and series metadata from TMDB and upserts season/episode data.
 - `src/effect/services/ImportService.ts`: one-time setup import from Radarr movies and Sonarr series, including Sonarr seasons, episodes, file paths, monitored state, and existing quality.
-- `src/effect/services/PluginLoader.ts`: trusted local plugin loading.
+- `src/effect/services/PluginLoader.ts`: trusted local plugin loading with V1 manifest/capability version checks and contract health reporting.
 
 UI surfaces:
 
@@ -167,7 +169,7 @@ UI surfaces:
 - Movies: TMDB search/add, edit/delete, monitor toggle, profile/root assignment, manual release evaluate/grab, manual file import, and rename preview/action.
 - TV: TMDB metadata search/add with season/episode hydration, manual series add with season/episode scaffolding, edit/delete, show/season/episode monitor toggles, series/season search, episode evaluate/grab, manual episode file import, and series rename preview/action.
 - Activity queue/history/users/stats. Queue supports retry, remove with delete-files option, clear error, and blocklist.
-- Settings: indexers, download clients, media servers, scheduler, general, media management/root folders/remote path mappings/library scan, notifications, profiles, security, and plugins now have operational UI. Indexer settings also include first-pass Cardigann definition selection, definition-specific config/auth field inputs including select options/defaults, checkbox controls, informational auth notes, and manual CAPTCHA fields without exposing stored secret values, tags, search/RSS toggles, proxy management/assignment controls, stats readouts, built-in definition refresh controls, definition source/catalog management controls with required catalog manifest pins, and Radarr/Sonarr app-sync controls including Sonarr anime category filters.
+- Settings: indexers, download clients, media servers, scheduler, general, media management/root folders/remote path mappings/library scan, notifications, profiles, security, and plugins now have operational UI. Plugin settings show contract health status. Indexer settings also include first-pass Cardigann definition selection, definition-specific config/auth field inputs including select options/defaults, checkbox controls, informational auth notes, and manual CAPTCHA fields without exposing stored secret values, tags, search/RSS toggles, proxy management/assignment controls, stats readouts, built-in definition refresh controls, definition source/catalog management controls with required catalog manifest pins, and Radarr/Sonarr app-sync controls including Sonarr anime category filters.
 - Onboarding quickstart and advanced wizard.
 - System diagnostics view.
 
@@ -677,18 +679,19 @@ Recommended minimum:
 
 Current state:
 
-- Trusted local in-process plugins exist.
+- Trusted local in-process plugins exist, with author documentation, V1 API/capability version checks, and Settings contract health display.
 
 Gaps:
 
-- No sandboxing, no author docs, no compatibility versioning, no marketplace/distribution flow.
+- No sandboxing, no marketplace/distribution flow, no plugin logs UI, and no decision on whether plugins can cover indexer definitions or only adapters.
 
 Tasks:
 
-- Add plugin author documentation.
-- Add capability version negotiation.
-- Add plugin log/health UI.
-- Decide whether plugins can cover indexer definitions or only adapters.
+- [x] Add plugin author documentation.
+- [x] Add capability version negotiation.
+- [x] Add plugin health UI.
+- [ ] Add plugin logs UI.
+- [ ] Decide whether plugins can cover indexer definitions or only adapters.
 
 ### Plex/Tautulli Scope
 
