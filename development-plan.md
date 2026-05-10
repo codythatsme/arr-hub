@@ -33,7 +33,7 @@ Primary blockers:
 Commands run from `/Users/codythatsme/Developer/arr-hub`:
 
 - `bun run typecheck`: passed.
-- `bun run test`: passed, 49 test files plus 1 skipped live suite, 497 passed and 4 skipped tests.
+- `bun run test`: passed, 50 test files plus 1 skipped live suite, 500 passed and 4 skipped tests.
 - `bun run test:e2e`: last recorded passing smoke coverage for onboarding, settings, add movie, add TV from metadata, manual search display, calendar population, and queue page.
 - `bun run lint`: passed with 19 warnings and 0 errors.
 - `bun run fmt:check`: passed.
@@ -120,10 +120,11 @@ Completed in atomic commits after this plan was written. Milestone 5 is summariz
 - `cbe6a792d5` added first-pass torrent and usenet blackhole adapters with folder validation, submission-file writing, watch-folder scanning, delete-only removal, Settings fields, and deterministic adapter tests.
 - `5b598b24c8` added a first-pass NZBGet download client adapter with JSON-RPC connectivity checks, NZB append support, queue/history normalization, remove support, onboarding type wiring, and deterministic adapter tests.
 - `38d5392995` added a first-pass Deluge download client adapter with web JSON-RPC authentication, daemon connection, label validation, magnet/torrent-file add support, queue normalization, remove support, onboarding type wiring, and deterministic adapter tests.
+- `c9b86a9bd9` added durable completed download history storage, terminal queue-event history writers, a queue history API, and a separate Queue history view.
 - Subsequent Milestone 5 commits hardened the generic Cardigann runtime, request templating, category mapping, auth controls, and aggregate app-sync behavior enough for representative built-ins and checksum-pinned remote definitions. These commits are runtime support, not a decision to ship the expanded tracker catalogue.
 - `5cbb9c9e90` removed the deferred expanded built-in tracker catalogue from `main`. The safety branch `backup/milestone5-expanded-catalog` preserves the catalogue spike at `ab9e42393b`; those tracker definitions, including long-tail and adult/XXX sources, are not current built-in support.
 
-Milestones 1, 2, 3, and 4 are complete for deterministic local coverage against the current backend surface. Milestone 5 is now scoped as a curated Prowlarr replacement foundation, not a broad tracker-porting effort. It includes persisted generic indexer definitions, core Newznab presets for NZBGeek, DrunkenSlug, NZBFinder, NinjaCentral, NZBPlanet, and altHUB, representative Cardigann/YAML torrent definitions, aggregate Torznab/Newznab feeds with offset/extended metadata forwarding, response/enclosure feed metadata, caps search-type normalization, nested category parsing, URL-backed checksum-pinned definition sources, proxy/health/stats basics, per-indexer category and policy controls, deterministic common Newznab-plus-torrent app-sync coverage, and first-pass Radarr/Sonarr aggregate app sync. Long-tail and adult/XXX tracker breadth is deferred to remote definition sources or a future catalogue-maintenance milestone. Milestone 6 now has first-pass Transmission, Deluge, NZBGet, and blackhole coverage plus Docker/NAS volume docs, backup/restore docs, and root-folder permission diagnostics; live multi-container validation remains. Milestone 3 still needs live qBittorrent/SABnzbd fixture validation in an environment with those services running, and Milestone 5 still needs live common-indexer validation with real credentials before claiming interoperability with specific upstream providers.
+Milestones 1, 2, 3, and 4 are complete for deterministic local coverage against the current backend surface. Milestone 5 is now scoped as a curated Prowlarr replacement foundation, not a broad tracker-porting effort. It includes persisted generic indexer definitions, core Newznab presets for NZBGeek, DrunkenSlug, NZBFinder, NinjaCentral, NZBPlanet, and altHUB, representative Cardigann/YAML torrent definitions, aggregate Torznab/Newznab feeds with offset/extended metadata forwarding, response/enclosure feed metadata, caps search-type normalization, nested category parsing, URL-backed checksum-pinned definition sources, proxy/health/stats basics, per-indexer category and policy controls, deterministic common Newznab-plus-torrent app-sync coverage, and first-pass Radarr/Sonarr aggregate app sync. Long-tail and adult/XXX tracker breadth is deferred to remote definition sources or a future catalogue-maintenance milestone. Milestone 6 now has first-pass Transmission, Deluge, NZBGet, and blackhole coverage plus Docker/NAS volume docs, backup/restore docs, root-folder permission diagnostics, and completed download history separate from active queue state; live multi-container validation remains. Milestone 3 still needs live qBittorrent/SABnzbd fixture validation in an environment with those services running, and Milestone 5 still needs live common-indexer validation with real credentials before claiming interoperability with specific upstream providers.
 
 ## Current Functionality Inventory
 
@@ -399,6 +400,7 @@ Current state:
 - NZBGet support covers JSON-RPC version/status/config checks, v16-style NZB append with `drone` parameters, queue/history normalization, category filtering, and queue/history removal.
 - Blackhole support covers torrent/NZB submission folder writes, optional magnet-file saving for torrent blackholes, watch-folder scanning for completed media files/folders, stable title-derived external IDs, delete-only removal, and Settings fields for submission/watch folders and watch grace period.
 - Client settings are minimal.
+- Completed, failed, and removed download terminal events are persisted to `download_history` and exposed in a separate Queue history view.
 - Remote path mappings exist and are used by media import.
 - Docker/NAS volume docs and root-folder health checks exist, but live multi-container validation remains shallow.
 
@@ -418,7 +420,7 @@ Tasks:
 - Add per-client categories/tags, priority, recent priority, add-paused, remove-completed, and remove-failed options where supported.
 - Add client-specific validation and UI fields.
 - Improve qBittorrent hash detection. Returning `"unknown"` as a fallback external ID is unsafe for repeated grabs.
-- Track completed download history separately from active queue.
+- [x] Track completed download history separately from active queue.
 
 Acceptance criteria:
 
