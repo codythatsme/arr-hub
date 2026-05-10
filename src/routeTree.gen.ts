@@ -45,6 +45,7 @@ import { Route as ApiSystemLogsRouteImport } from './routes/api.system.logs'
 import { Route as ApiSystemHealthRouteImport } from './routes/api.system.health'
 import { Route as ApiVersionTagRouteImport } from './routes/api.$version.tag'
 import { Route as ApiVersionRootfolderRouteImport } from './routes/api.$version.rootfolder'
+import { Route as ApiVersionQueueRouteImport } from './routes/api.$version.queue'
 import { Route as ApiVersionQualityprofileRouteImport } from './routes/api.$version.qualityprofile'
 import { Route as ApiVersionHealthRouteImport } from './routes/api.$version.health'
 import { Route as ApiVersionCustomformatRouteImport } from './routes/api.$version.customformat'
@@ -57,6 +58,9 @@ import { Route as ApiVersionTagDetailRouteImport } from './routes/api.$version.t
 import { Route as ApiVersionTagIdRouteImport } from './routes/api.$version.tag.$id'
 import { Route as ApiVersionSystemStatusRouteImport } from './routes/api.$version.system.status'
 import { Route as ApiVersionRootfolderIdRouteImport } from './routes/api.$version.rootfolder.$id'
+import { Route as ApiVersionQueueStatusRouteImport } from './routes/api.$version.queue.status'
+import { Route as ApiVersionQueueDetailsRouteImport } from './routes/api.$version.queue.details'
+import { Route as ApiVersionQueueIdRouteImport } from './routes/api.$version.queue.$id'
 import { Route as ApiVersionQualityprofileIdRouteImport } from './routes/api.$version.qualityprofile.$id'
 import { Route as ApiVersionCustomformatIdRouteImport } from './routes/api.$version.customformat.$id'
 import { Route as ApiVersionCalendarIdRouteImport } from './routes/api.$version.calendar.$id'
@@ -244,6 +248,11 @@ const ApiVersionRootfolderRoute = ApiVersionRootfolderRouteImport.update({
   path: '/api/$version/rootfolder',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiVersionQueueRoute = ApiVersionQueueRouteImport.update({
+  id: '/api/$version/queue',
+  path: '/api/$version/queue',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiVersionQualityprofileRoute =
   ApiVersionQualityprofileRouteImport.update({
     id: '/api/$version/qualityprofile',
@@ -305,6 +314,21 @@ const ApiVersionRootfolderIdRoute = ApiVersionRootfolderIdRouteImport.update({
   id: '/$id',
   path: '/$id',
   getParentRoute: () => ApiVersionRootfolderRoute,
+} as any)
+const ApiVersionQueueStatusRoute = ApiVersionQueueStatusRouteImport.update({
+  id: '/status',
+  path: '/status',
+  getParentRoute: () => ApiVersionQueueRoute,
+} as any)
+const ApiVersionQueueDetailsRoute = ApiVersionQueueDetailsRouteImport.update({
+  id: '/details',
+  path: '/details',
+  getParentRoute: () => ApiVersionQueueRoute,
+} as any)
+const ApiVersionQueueIdRoute = ApiVersionQueueIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ApiVersionQueueRoute,
 } as any)
 const ApiVersionQualityprofileIdRoute =
   ApiVersionQualityprofileIdRouteImport.update({
@@ -375,6 +399,7 @@ export interface FileRoutesByFullPath {
   '/api/$version/customformat': typeof ApiVersionCustomformatRouteWithChildren
   '/api/$version/health': typeof ApiVersionHealthRoute
   '/api/$version/qualityprofile': typeof ApiVersionQualityprofileRouteWithChildren
+  '/api/$version/queue': typeof ApiVersionQueueRouteWithChildren
   '/api/$version/rootfolder': typeof ApiVersionRootfolderRouteWithChildren
   '/api/$version/tag': typeof ApiVersionTagRouteWithChildren
   '/api/system/health': typeof ApiSystemHealthRoute
@@ -385,6 +410,9 @@ export interface FileRoutesByFullPath {
   '/api/$version/calendar/$id': typeof ApiVersionCalendarIdRoute
   '/api/$version/customformat/$id': typeof ApiVersionCustomformatIdRoute
   '/api/$version/qualityprofile/$id': typeof ApiVersionQualityprofileIdRoute
+  '/api/$version/queue/$id': typeof ApiVersionQueueIdRoute
+  '/api/$version/queue/details': typeof ApiVersionQueueDetailsRoute
+  '/api/$version/queue/status': typeof ApiVersionQueueStatusRoute
   '/api/$version/rootfolder/$id': typeof ApiVersionRootfolderIdRoute
   '/api/$version/system/status': typeof ApiVersionSystemStatusRoute
   '/api/$version/tag/$id': typeof ApiVersionTagIdRoute
@@ -431,6 +459,7 @@ export interface FileRoutesByTo {
   '/api/$version/customformat': typeof ApiVersionCustomformatRouteWithChildren
   '/api/$version/health': typeof ApiVersionHealthRoute
   '/api/$version/qualityprofile': typeof ApiVersionQualityprofileRouteWithChildren
+  '/api/$version/queue': typeof ApiVersionQueueRouteWithChildren
   '/api/$version/rootfolder': typeof ApiVersionRootfolderRouteWithChildren
   '/api/$version/tag': typeof ApiVersionTagRouteWithChildren
   '/api/system/health': typeof ApiSystemHealthRoute
@@ -441,6 +470,9 @@ export interface FileRoutesByTo {
   '/api/$version/calendar/$id': typeof ApiVersionCalendarIdRoute
   '/api/$version/customformat/$id': typeof ApiVersionCustomformatIdRoute
   '/api/$version/qualityprofile/$id': typeof ApiVersionQualityprofileIdRoute
+  '/api/$version/queue/$id': typeof ApiVersionQueueIdRoute
+  '/api/$version/queue/details': typeof ApiVersionQueueDetailsRoute
+  '/api/$version/queue/status': typeof ApiVersionQueueStatusRoute
   '/api/$version/rootfolder/$id': typeof ApiVersionRootfolderIdRoute
   '/api/$version/system/status': typeof ApiVersionSystemStatusRoute
   '/api/$version/tag/$id': typeof ApiVersionTagIdRoute
@@ -488,6 +520,7 @@ export interface FileRoutesById {
   '/api/$version/customformat': typeof ApiVersionCustomformatRouteWithChildren
   '/api/$version/health': typeof ApiVersionHealthRoute
   '/api/$version/qualityprofile': typeof ApiVersionQualityprofileRouteWithChildren
+  '/api/$version/queue': typeof ApiVersionQueueRouteWithChildren
   '/api/$version/rootfolder': typeof ApiVersionRootfolderRouteWithChildren
   '/api/$version/tag': typeof ApiVersionTagRouteWithChildren
   '/api/system/health': typeof ApiSystemHealthRoute
@@ -498,6 +531,9 @@ export interface FileRoutesById {
   '/api/$version/calendar/$id': typeof ApiVersionCalendarIdRoute
   '/api/$version/customformat/$id': typeof ApiVersionCustomformatIdRoute
   '/api/$version/qualityprofile/$id': typeof ApiVersionQualityprofileIdRoute
+  '/api/$version/queue/$id': typeof ApiVersionQueueIdRoute
+  '/api/$version/queue/details': typeof ApiVersionQueueDetailsRoute
+  '/api/$version/queue/status': typeof ApiVersionQueueStatusRoute
   '/api/$version/rootfolder/$id': typeof ApiVersionRootfolderIdRoute
   '/api/$version/system/status': typeof ApiVersionSystemStatusRoute
   '/api/$version/tag/$id': typeof ApiVersionTagIdRoute
@@ -546,6 +582,7 @@ export interface FileRouteTypes {
     | '/api/$version/customformat'
     | '/api/$version/health'
     | '/api/$version/qualityprofile'
+    | '/api/$version/queue'
     | '/api/$version/rootfolder'
     | '/api/$version/tag'
     | '/api/system/health'
@@ -556,6 +593,9 @@ export interface FileRouteTypes {
     | '/api/$version/calendar/$id'
     | '/api/$version/customformat/$id'
     | '/api/$version/qualityprofile/$id'
+    | '/api/$version/queue/$id'
+    | '/api/$version/queue/details'
+    | '/api/$version/queue/status'
     | '/api/$version/rootfolder/$id'
     | '/api/$version/system/status'
     | '/api/$version/tag/$id'
@@ -602,6 +642,7 @@ export interface FileRouteTypes {
     | '/api/$version/customformat'
     | '/api/$version/health'
     | '/api/$version/qualityprofile'
+    | '/api/$version/queue'
     | '/api/$version/rootfolder'
     | '/api/$version/tag'
     | '/api/system/health'
@@ -612,6 +653,9 @@ export interface FileRouteTypes {
     | '/api/$version/calendar/$id'
     | '/api/$version/customformat/$id'
     | '/api/$version/qualityprofile/$id'
+    | '/api/$version/queue/$id'
+    | '/api/$version/queue/details'
+    | '/api/$version/queue/status'
     | '/api/$version/rootfolder/$id'
     | '/api/$version/system/status'
     | '/api/$version/tag/$id'
@@ -658,6 +702,7 @@ export interface FileRouteTypes {
     | '/api/$version/customformat'
     | '/api/$version/health'
     | '/api/$version/qualityprofile'
+    | '/api/$version/queue'
     | '/api/$version/rootfolder'
     | '/api/$version/tag'
     | '/api/system/health'
@@ -668,6 +713,9 @@ export interface FileRouteTypes {
     | '/api/$version/calendar/$id'
     | '/api/$version/customformat/$id'
     | '/api/$version/qualityprofile/$id'
+    | '/api/$version/queue/$id'
+    | '/api/$version/queue/details'
+    | '/api/$version/queue/status'
     | '/api/$version/rootfolder/$id'
     | '/api/$version/system/status'
     | '/api/$version/tag/$id'
@@ -715,6 +763,7 @@ export interface RootRouteChildren {
   ApiVersionCustomformatRoute: typeof ApiVersionCustomformatRouteWithChildren
   ApiVersionHealthRoute: typeof ApiVersionHealthRoute
   ApiVersionQualityprofileRoute: typeof ApiVersionQualityprofileRouteWithChildren
+  ApiVersionQueueRoute: typeof ApiVersionQueueRouteWithChildren
   ApiVersionRootfolderRoute: typeof ApiVersionRootfolderRouteWithChildren
   ApiVersionTagRoute: typeof ApiVersionTagRouteWithChildren
   ApiSystemHealthRoute: typeof ApiSystemHealthRoute
@@ -981,6 +1030,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiVersionRootfolderRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/$version/queue': {
+      id: '/api/$version/queue'
+      path: '/api/$version/queue'
+      fullPath: '/api/$version/queue'
+      preLoaderRoute: typeof ApiVersionQueueRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/$version/qualityprofile': {
       id: '/api/$version/qualityprofile'
       path: '/api/$version/qualityprofile'
@@ -1064,6 +1120,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/$version/rootfolder/$id'
       preLoaderRoute: typeof ApiVersionRootfolderIdRouteImport
       parentRoute: typeof ApiVersionRootfolderRoute
+    }
+    '/api/$version/queue/status': {
+      id: '/api/$version/queue/status'
+      path: '/status'
+      fullPath: '/api/$version/queue/status'
+      preLoaderRoute: typeof ApiVersionQueueStatusRouteImport
+      parentRoute: typeof ApiVersionQueueRoute
+    }
+    '/api/$version/queue/details': {
+      id: '/api/$version/queue/details'
+      path: '/details'
+      fullPath: '/api/$version/queue/details'
+      preLoaderRoute: typeof ApiVersionQueueDetailsRouteImport
+      parentRoute: typeof ApiVersionQueueRoute
+    }
+    '/api/$version/queue/$id': {
+      id: '/api/$version/queue/$id'
+      path: '/$id'
+      fullPath: '/api/$version/queue/$id'
+      preLoaderRoute: typeof ApiVersionQueueIdRouteImport
+      parentRoute: typeof ApiVersionQueueRoute
     }
     '/api/$version/qualityprofile/$id': {
       id: '/api/$version/qualityprofile/$id'
@@ -1165,6 +1242,22 @@ const ApiVersionQualityprofileRouteWithChildren =
     ApiVersionQualityprofileRouteChildren,
   )
 
+interface ApiVersionQueueRouteChildren {
+  ApiVersionQueueIdRoute: typeof ApiVersionQueueIdRoute
+  ApiVersionQueueDetailsRoute: typeof ApiVersionQueueDetailsRoute
+  ApiVersionQueueStatusRoute: typeof ApiVersionQueueStatusRoute
+}
+
+const ApiVersionQueueRouteChildren: ApiVersionQueueRouteChildren = {
+  ApiVersionQueueIdRoute: ApiVersionQueueIdRoute,
+  ApiVersionQueueDetailsRoute: ApiVersionQueueDetailsRoute,
+  ApiVersionQueueStatusRoute: ApiVersionQueueStatusRoute,
+}
+
+const ApiVersionQueueRouteWithChildren = ApiVersionQueueRoute._addFileChildren(
+  ApiVersionQueueRouteChildren,
+)
+
 interface ApiVersionRootfolderRouteChildren {
   ApiVersionRootfolderIdRoute: typeof ApiVersionRootfolderIdRoute
 }
@@ -1249,6 +1342,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiVersionCustomformatRoute: ApiVersionCustomformatRouteWithChildren,
   ApiVersionHealthRoute: ApiVersionHealthRoute,
   ApiVersionQualityprofileRoute: ApiVersionQualityprofileRouteWithChildren,
+  ApiVersionQueueRoute: ApiVersionQueueRouteWithChildren,
   ApiVersionRootfolderRoute: ApiVersionRootfolderRouteWithChildren,
   ApiVersionTagRoute: ApiVersionTagRouteWithChildren,
   ApiSystemHealthRoute: ApiSystemHealthRoute,
