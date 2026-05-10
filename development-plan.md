@@ -106,10 +106,11 @@ Completed in atomic commits after this plan was written. Milestone 5 is summariz
 - `beab879376` preserved app-side remote settings during aggregate Radarr/Sonarr app sync updates.
 - `904f5f2301` separated Sonarr standard and anime category filters for aggregate app sync.
 - `461f775f84` required catalog manifest SHA-256 pins before importing remote definition sources.
+- `cac603865f` hardened aggregate Torznab/Newznab compatibility with normalized caps search types, nested category parsing, response/enclosure feed metadata, and deterministic common Newznab-plus-torrent app-sync coverage.
 - Subsequent Milestone 5 commits hardened the generic Cardigann runtime, request templating, category mapping, auth controls, and aggregate app-sync behavior enough for representative built-ins and checksum-pinned remote definitions. These commits are runtime support, not a decision to ship the expanded tracker catalogue.
 - `5cbb9c9e90` removed the deferred expanded built-in tracker catalogue from `main`. The safety branch `backup/milestone5-expanded-catalog` preserves the catalogue spike at `ab9e42393b`; those tracker definitions, including long-tail and adult/XXX sources, are not current built-in support.
 
-Milestones 1, 2, 3, and 4 are complete for deterministic local coverage against the current backend surface. Milestone 5 is now scoped as a curated Prowlarr replacement foundation, not a broad tracker-porting effort. It includes persisted generic indexer definitions, core Newznab presets for NZBGeek, DrunkenSlug, NZBFinder, NinjaCentral, NZBPlanet, and altHUB, representative Cardigann/YAML torrent definitions, aggregate Torznab/Newznab feeds with offset/extended metadata forwarding, URL-backed checksum-pinned definition sources, proxy/health/stats basics, per-indexer category and policy controls, and first-pass Radarr/Sonarr aggregate app sync. Long-tail and adult/XXX tracker breadth is deferred to remote definition sources or a future catalogue-maintenance milestone. Milestone 3 still needs live qBittorrent/SABnzbd fixture validation in an environment with those services running.
+Milestones 1, 2, 3, and 4 are complete for deterministic local coverage against the current backend surface. Milestone 5 is now scoped as a curated Prowlarr replacement foundation, not a broad tracker-porting effort. It includes persisted generic indexer definitions, core Newznab presets for NZBGeek, DrunkenSlug, NZBFinder, NinjaCentral, NZBPlanet, and altHUB, representative Cardigann/YAML torrent definitions, aggregate Torznab/Newznab feeds with offset/extended metadata forwarding, response/enclosure feed metadata, caps search-type normalization, nested category parsing, URL-backed checksum-pinned definition sources, proxy/health/stats basics, per-indexer category and policy controls, deterministic common Newznab-plus-torrent app-sync coverage, and first-pass Radarr/Sonarr aggregate app sync. Long-tail and adult/XXX tracker breadth is deferred to remote definition sources or a future catalogue-maintenance milestone. Milestone 3 still needs live qBittorrent/SABnzbd fixture validation in an environment with those services running, and Milestone 5 still needs live common-indexer validation with real credentials before claiming interoperability with specific upstream providers.
 
 ## Current Functionality Inventory
 
@@ -361,8 +362,8 @@ Tasks:
 - [x] Add URL-backed checksum-pinned definition source refresh and checksum-pinned catalog manifest import.
 - [x] Add first-pass Radarr/Sonarr aggregate app sync and Settings controls.
 - [x] Freeze broad built-in Cardigann tracker expansion for the current milestone.
-- [ ] Validate the target common setup path: NZBGeek, DrunkenSlug, NZBFinder, one optional Newznab preset, and one practical torrent path.
-- [ ] Harden generic Torznab/Newznab configuration, aggregate feed behavior, and app sync around that target path.
+- [ ] Validate the target common setup path against live credentials: NZBGeek, DrunkenSlug, NZBFinder, one optional Newznab preset, and one practical torrent path. Deterministic app-sync coverage now exercises this shape locally, but live provider credentials have not been run in this workspace.
+- [x] Harden generic Torznab/Newznab configuration, aggregate feed behavior, and app sync around that target path.
 - [x] Defer long-tail and adult/XXX tracker breadth to checksum-pinned remote definition sources or a later catalogue-maintenance milestone.
 
 Acceptance criteria:
@@ -795,7 +796,6 @@ Stabilize Milestone 5 around the curated replacement path. Do not continue broad
 
 Recommended order:
 
-1. Validate the common setup path: NZBGeek, DrunkenSlug, NZBFinder, one optional Newznab preset, and at least one Torznab or representative torrent source.
-2. Harden generic Newznab/Torznab configuration, aggregate feed behavior, and Radarr/Sonarr app sync for that setup.
-3. Use URL-backed checksum-pinned definition sources for long-tail and adult/XXX trackers instead of adding more built-ins.
-4. Move to Milestone 6 once the common indexer path is verified.
+1. Live-validate the common setup path with real credentials: NZBGeek, DrunkenSlug, NZBFinder, one optional Newznab preset, and at least one Torznab or representative torrent source.
+2. Use URL-backed checksum-pinned definition sources for long-tail and adult/XXX trackers instead of adding more built-ins.
+3. Move to Milestone 6 once the common indexer path is verified, or explicitly document that live provider validation remains an environment-gated release task.
