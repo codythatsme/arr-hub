@@ -26,7 +26,7 @@ Primary blockers:
 - The release decision engine now has persistent blocklist enforcement, focused specification modules, target title/year/episode/season checks, size/free-space/queue/protocol/client availability checks, minimum age/retention/seeder gates, required/ignored/preferred release terms, sample/hardcoded subtitle/raw-disk rejection, first-pass proper/repack/version revision ranking/upgrades with imported-media revision persistence, and first-pass TV/anime edge checks. It still lacks full Sonarr/Radarr parity for language profiles, tagged release profiles, deep media inspection, replacement-grade revision policy controls, scene/XEM mapping, and exhaustive parser coverage.
 - Prowlarr replacement now has a first-pass foundation for common setups: generic Newznab and Torznab support, curated Newznab presets for NZBGeek, DrunkenSlug, NZBFinder, NinjaCentral, NZBPlanet, and altHUB, aggregate Torznab/Newznab feeds, persisted definitions, representative Cardigann/YAML torrent coverage, URL-backed checksum-pinned definition sources, proxy/health/stats basics, per-indexer category and policy controls, and first-pass Radarr/Sonarr app sync. The bundled catalogue is now intentionally curated; broad Prowlarr/Jackett-scale tracker breadth is deferred to remote definition sources or a later catalogue-maintenance milestone.
 - Download client coverage is still narrow: qBittorrent, SABnzbd, first-pass Transmission, first-pass Deluge, first-pass NZBGet, and first-pass torrent/usenet blackholes only.
-- The Radarr/Sonarr/Prowlarr REST API compatibility layer has only started: movies, tags, root folders, quality profiles, custom formats, commands, queue, history, wanted, calendar, system status, and health now have first-pass compatible endpoints, but the broader API surface is still missing.
+- The Radarr/Sonarr/Prowlarr REST API compatibility layer has only started: movies, series, tags, root folders, quality profiles, custom formats, commands, queue, history, wanted, calendar, system status, and health now have first-pass compatible endpoints, but the broader API surface is still missing.
 
 ## Verification Snapshot
 
@@ -46,7 +46,7 @@ Commands run from `/Users/codythatsme/Developer/arr-hub`:
 - Focused auth tests passed for authenticated admin password change, active-session revocation, current-password rejection, and new-password validation.
 - Focused diagnostics tests passed for indexer search/RSS failure rollups, unavailable download clients, stale download-client health checks, clock/update metadata checks, and import-mechanism failure checks.
 - Focused tag tests passed for label normalization, automatic tag row creation, usage counts, deletion guards, movie/series/indexer/download-client/notification service integration, compatible tag detail IDs, tag label rename propagation, compatible API-key auth extraction, and startup schema validation.
-- Focused compatible API tests passed for system status, health, root folder, quality profile, custom format, movie, command, queue, history, wanted, and calendar resource mapping/input parsing.
+- Focused compatible API tests passed for system status, health, root folder, quality profile, custom format, movie, series, command, queue, history, wanted, and calendar resource mapping/input parsing.
 - Settings diagnostics UI wiring passed format, lint, typecheck, and build verification.
 - `bun run test:e2e`: last recorded passing smoke coverage for onboarding, settings, add movie, add TV from metadata, manual search display, calendar population, and queue page.
 - `bun run lint`: passed with 18 warnings and 0 errors.
@@ -177,6 +177,7 @@ Completed in atomic commits after this plan was written. Milestone 5 is summariz
 - `4f68696463` added first-pass compatible `/api/v1|v3/command` list/create and `/api/v1|v3/command/{id}` read/delete routes backed by scheduler jobs and common Radarr/Sonarr/Prowlarr command-name adapters.
 - `c9ca497ed6` added first-pass compatible `/api/v1|v3/wanted/missing` and `/api/v1|v3/wanted/cutoff` routes with Radarr-style movie paging and Sonarr-style episode paging selected by query shape.
 - `ba90f9935f` added first-pass compatible `/api/v1|v3/movie` list/create and `/api/v1|v3/movie/{id}` read/update/delete routes with Radarr-style movie resource input/output mapping.
+- `96eac41f71` added first-pass compatible `/api/v1|v3/series` list/create and `/api/v1|v3/series/{id}` read/update/delete routes with Sonarr-style series resource input/output mapping.
 - Subsequent Milestone 5 commits hardened the generic Cardigann runtime, request templating, category mapping, auth controls, and aggregate app-sync behavior enough for representative built-ins and checksum-pinned remote definitions. These commits are runtime support, not a decision to ship the expanded tracker catalogue.
 - `5cbb9c9e90` removed the deferred expanded built-in tracker catalogue from `main`. The safety branch `backup/milestone5-expanded-catalog` preserves the catalogue spike at `ab9e42393b`; those tracker definitions, including long-tail and adult/XXX sources, are not current built-in support.
 
@@ -192,7 +193,7 @@ Backend/service surfaces:
 - `src/effect/services/TmdbClient.ts`: movie TMDB search/details/popular/trending plus TV search/details/season hydration.
 - `src/effect/services/IndexerService.ts`, `src/effect/services/CardigannDefinitionLoader.ts`, `src/effect/services/CardigannAdapter.ts`, `src/effect/services/TorznabAdapter.ts`, `src/effect/services/IndexerDefinitionSourceService.ts`, and `src/effect/services/IndexerApplicationService.ts`: Torznab/Newznab connection testing and search, generic definitions, core Newznab presets, representative Cardigann/YAML definitions, encrypted definition-specific config/auth values, definition source refresh with checksum pinning and catalog manifest import, aggregate Torznab/Newznab feeds, proxy application, search stats, health/backoff state, per-indexer category and policy controls, and first-pass Radarr/Sonarr aggregate app sync. Broad built-in tracker breadth is intentionally deferred.
 - `src/effect/services/TagService.ts`: canonical tag row creation, tag listing with first-pass media/indexer/download-client/notification usage counts, compatibility detail IDs, tag label rename propagation, unused-tag deletion, and guards against deleting used tags.
-- `src/integrations/http/compatTags.ts`, `src/integrations/http/compatSystem.ts`, `src/integrations/http/compatQualityProfiles.ts`, `src/integrations/http/compatRootFolders.ts`, `src/integrations/http/compatCustomFormats.ts`, `src/integrations/http/compatCalendar.ts`, `src/integrations/http/compatQueue.ts`, `src/integrations/http/compatHistory.ts`, `src/integrations/http/compatCommands.ts`, `src/integrations/http/compatWanted.ts`, and `src/integrations/http/compatMovies.ts`: first-pass authenticated Arr-compatible movie, tag, root folder, quality profile, custom format, calendar, queue, history, command, wanted, system status, and health REST routes for `/api/v1` and `/api/v3`.
+- `src/integrations/http/compatTags.ts`, `src/integrations/http/compatSystem.ts`, `src/integrations/http/compatQualityProfiles.ts`, `src/integrations/http/compatRootFolders.ts`, `src/integrations/http/compatCustomFormats.ts`, `src/integrations/http/compatCalendar.ts`, `src/integrations/http/compatQueue.ts`, `src/integrations/http/compatHistory.ts`, `src/integrations/http/compatCommands.ts`, `src/integrations/http/compatWanted.ts`, `src/integrations/http/compatMovies.ts`, and `src/integrations/http/compatSeries.ts`: first-pass authenticated Arr-compatible movie, series, tag, root folder, quality profile, custom format, calendar, queue, history, command, wanted, system status, and health REST routes for `/api/v1` and `/api/v3`.
 - `src/effect/services/DownloadClientService.ts`, `QBittorrentAdapter.ts`, `SABnzbdAdapter.ts`, `TransmissionAdapter.ts`, `DelugeAdapter.ts`, `NZBGetAdapter.ts`, and `BlackholeAdapter.ts`: add/list/test/grab/queue/remove downloads for qBittorrent, SABnzbd, first-pass Transmission, first-pass Deluge, first-pass NZBGet, and first-pass torrent/usenet blackholes, including persisted completed output paths where the client reports them.
 - `src/effect/services/DiagnosticsService.ts`: aggregates integration health, root-folder accessibility/write-permission, app data, clock, update metadata, import mechanism, and queue-output checks for the System view and container health endpoint.
 - `src/effect/services/ReleasePolicyEngine.ts`: parses titles, checks allowed quality, custom format score, and basic upgrade scoring.
@@ -564,7 +565,7 @@ Current state:
 - tRPC app procedures are authenticated after onboarding.
 - Onboarding and import routers are public because they are setup flows; onboarding mutations, import execution, and import connection tests now reject after setup completion.
 - Normal service/UI responses omit encrypted indexer, download-client, media-server, and indexer-application credentials, and notification channels now redact webhook/provider/script/SMTP secret settings before returning channels.
-- The Sonarr/Radarr/Prowlarr-compatible REST API has first-pass movie, tag, root folder, quality profile, custom format, calendar, queue, history, command, wanted, system status, and health coverage. `/api/v1|v3/movie`, `/api/v1|v3/tag`, `/api/v1|v3/tag/detail`, `/api/v1|v3/rootfolder`, `/api/v1|v3/qualityprofile`, `/api/v1|v3/customformat`, `/api/v1|v3/calendar`, `/api/v1|v3/queue`, `/api/v1|v3/history`, `/api/v1|v3/command`, `/api/v1|v3/wanted/missing`, `/api/v1|v3/wanted/cutoff`, `/api/v1|v3/system/status`, and `/api/v1|v3/health` accept Bearer, `X-Api-Key`, or `apikey` authentication and expose movie CRUD, tag CRUD/detail, root folder CRUD, quality profile CRUD, custom format CRUD, calendar reads, queue reads/status/delete, history reads, scheduler-backed command list/create/read/delete, wanted missing/cutoff reads, system status, and health responses.
+- The Sonarr/Radarr/Prowlarr-compatible REST API has first-pass movie, series, tag, root folder, quality profile, custom format, calendar, queue, history, command, wanted, system status, and health coverage. `/api/v1|v3/movie`, `/api/v1|v3/series`, `/api/v1|v3/tag`, `/api/v1|v3/tag/detail`, `/api/v1|v3/rootfolder`, `/api/v1|v3/qualityprofile`, `/api/v1|v3/customformat`, `/api/v1|v3/calendar`, `/api/v1|v3/queue`, `/api/v1|v3/history`, `/api/v1|v3/command`, `/api/v1|v3/wanted/missing`, `/api/v1|v3/wanted/cutoff`, `/api/v1|v3/system/status`, and `/api/v1|v3/health` accept Bearer, `X-Api-Key`, or `apikey` authentication and expose movie CRUD, series CRUD, tag CRUD/detail, root folder CRUD, quality profile CRUD, custom format CRUD, calendar reads, queue reads/status/delete, history reads, scheduler-backed command list/create/read/delete, wanted missing/cutoff reads, system status, and health responses.
 
 Gap:
 
@@ -577,8 +578,9 @@ Tasks:
 - [x] Add authenticated password change flow.
 - Add password reset/recovery flow.
 - Add API key scoping if external API compatibility is implemented.
-- [x] Decide whether to implement compatible `/api/v3` Sonarr/Radarr-style endpoints and Prowlarr-style `/api/v1`/Torznab endpoints. Current decision is incremental compatibility, starting with movies, tags, root folders, quality profiles, custom formats, calendar, queue, history, commands, wanted, system status, health, and the existing aggregate Torznab/Newznab endpoints.
+- [x] Decide whether to implement compatible `/api/v3` Sonarr/Radarr-style endpoints and Prowlarr-style `/api/v1`/Torznab endpoints. Current decision is incremental compatibility, starting with movies, series, tags, root folders, quality profiles, custom formats, calendar, queue, history, commands, wanted, system status, health, and the existing aggregate Torznab/Newznab endpoints.
 - [x] Add first compatible movie CRUD endpoints for `/api/v1|v3/movie`.
+- [x] Add first compatible series CRUD endpoints for `/api/v1|v3/series`.
 - [x] Add first compatible tag REST endpoints for `/api/v1|v3/tag` and `/api/v1|v3/tag/detail`.
 - [x] Add first compatible root folder REST endpoints for `/api/v1|v3/rootfolder`.
 - [x] Add first compatible quality profile REST endpoints for `/api/v1|v3/qualityprofile`.
@@ -736,6 +738,7 @@ Current state:
 
 - ARR Hub is taking the incremental compatibility path. First-pass authenticated tag CRUD/detail endpoints exist for Sonarr/Radarr-style `/api/v3/tag` and `/api/v3/tag/detail` plus Prowlarr-style `/api/v1/tag` and `/api/v1/tag/detail`.
 - First-pass authenticated movie CRUD endpoints exist for `/api/v1|v3/movie`.
+- First-pass authenticated series CRUD endpoints exist for `/api/v1|v3/series`.
 - First-pass authenticated root folder CRUD endpoints exist for `/api/v1|v3/rootfolder`.
 - First-pass authenticated quality profile CRUD endpoints exist for `/api/v1|v3/qualityprofile`.
 - First-pass authenticated custom format CRUD endpoints exist for `/api/v1|v3/customformat`.
@@ -753,7 +756,7 @@ Gap:
 
 Recommended minimum:
 
-- Compatible read/write endpoints for movies, series, episodes, queue, history, wanted, calendar, commands, indexers, download clients, root folders, quality profiles, custom formats, tags, system status, and health. Current REST compatibility coverage is movies, tags, root folders, quality profiles, custom formats, commands, queue, history, wanted, calendar, system status, and health only.
+- Compatible read/write endpoints for movies, series, episodes, queue, history, wanted, calendar, commands, indexers, download clients, root folders, quality profiles, custom formats, tags, system status, and health. Current REST compatibility coverage is movies, series, tags, root folders, quality profiles, custom formats, commands, queue, history, wanted, calendar, system status, and health only.
 - Prowlarr aggregate Torznab/Newznab endpoints.
 
 ### Plugin System
