@@ -26,7 +26,7 @@ Primary blockers:
 - The release decision engine now has persistent blocklist enforcement, focused specification modules, target title/year/episode/season checks, size/free-space/queue/protocol/client availability checks, minimum age/retention/seeder gates, required/ignored/preferred release terms, sample/hardcoded subtitle/raw-disk rejection, first-pass proper/repack/version revision ranking/upgrades with imported-media revision persistence, and first-pass TV/anime edge checks. It still lacks full Sonarr/Radarr parity for language profiles, tagged release profiles, deep media inspection, replacement-grade revision policy controls, scene/XEM mapping, and exhaustive parser coverage.
 - Prowlarr replacement now has a first-pass foundation for common setups: generic Newznab and Torznab support, curated Newznab presets for NZBGeek, DrunkenSlug, NZBFinder, NinjaCentral, NZBPlanet, and altHUB, aggregate Torznab/Newznab feeds, persisted definitions, representative Cardigann/YAML torrent coverage, URL-backed checksum-pinned definition sources, proxy/health/stats basics, per-indexer category and policy controls, and first-pass Radarr/Sonarr app sync. The bundled catalogue is now intentionally curated; broad Prowlarr/Jackett-scale tracker breadth is deferred to remote definition sources or a later catalogue-maintenance milestone.
 - Download client coverage is still narrow: qBittorrent, SABnzbd, first-pass Transmission, first-pass Deluge, first-pass NZBGet, and first-pass torrent/usenet blackholes only.
-- The Radarr/Sonarr/Prowlarr REST API compatibility layer has only started: tags, system status, and health now have first-pass compatible endpoints, but the broader API surface is still missing.
+- The Radarr/Sonarr/Prowlarr REST API compatibility layer has only started: tags, quality profiles, system status, and health now have first-pass compatible endpoints, but the broader API surface is still missing.
 
 ## Verification Snapshot
 
@@ -46,7 +46,7 @@ Commands run from `/Users/codythatsme/Developer/arr-hub`:
 - Focused auth tests passed for authenticated admin password change, active-session revocation, current-password rejection, and new-password validation.
 - Focused diagnostics tests passed for indexer search/RSS failure rollups, unavailable download clients, stale download-client health checks, clock/update metadata checks, and import-mechanism failure checks.
 - Focused tag tests passed for label normalization, automatic tag row creation, usage counts, deletion guards, movie/series/indexer/download-client/notification service integration, compatible tag detail IDs, tag label rename propagation, compatible API-key auth extraction, and startup schema validation.
-- Focused compatible API tests passed for system status and health resource mapping.
+- Focused compatible API tests passed for system status, health, and quality profile resource mapping.
 - Settings diagnostics UI wiring passed format, lint, typecheck, and build verification.
 - `bun run test:e2e`: last recorded passing smoke coverage for onboarding, settings, add movie, add TV from metadata, manual search display, calendar population, and queue page.
 - `bun run lint`: passed with 18 warnings and 0 errors.
@@ -168,6 +168,7 @@ Completed in atomic commits after this plan was written. Milestone 5 is summariz
 - `298aa6688d` extended first-pass tag attachment to download clients and notification channels, including migrations, Settings UI fields, tag usage counts, and service coverage.
 - `88f5658388` added first-pass compatible `/api/v1|v3/tag` and `/api/v1|v3/tag/detail` routes with tag CRUD/detail responses and API-key/Bearer auth extraction.
 - `d4cb915274` added first-pass compatible `/api/v1|v3/system/status` and `/api/v1|v3/health` routes backed by diagnostics status/health mapping.
+- `660debdc8e` added first-pass compatible `/api/v1|v3/qualityprofile` routes with list/get/create/update/delete handlers and Arr-style resource mapping.
 - Subsequent Milestone 5 commits hardened the generic Cardigann runtime, request templating, category mapping, auth controls, and aggregate app-sync behavior enough for representative built-ins and checksum-pinned remote definitions. These commits are runtime support, not a decision to ship the expanded tracker catalogue.
 - `5cbb9c9e90` removed the deferred expanded built-in tracker catalogue from `main`. The safety branch `backup/milestone5-expanded-catalog` preserves the catalogue spike at `ab9e42393b`; those tracker definitions, including long-tail and adult/XXX sources, are not current built-in support.
 
@@ -183,7 +184,7 @@ Backend/service surfaces:
 - `src/effect/services/TmdbClient.ts`: movie TMDB search/details/popular/trending plus TV search/details/season hydration.
 - `src/effect/services/IndexerService.ts`, `src/effect/services/CardigannDefinitionLoader.ts`, `src/effect/services/CardigannAdapter.ts`, `src/effect/services/TorznabAdapter.ts`, `src/effect/services/IndexerDefinitionSourceService.ts`, and `src/effect/services/IndexerApplicationService.ts`: Torznab/Newznab connection testing and search, generic definitions, core Newznab presets, representative Cardigann/YAML definitions, encrypted definition-specific config/auth values, definition source refresh with checksum pinning and catalog manifest import, aggregate Torznab/Newznab feeds, proxy application, search stats, health/backoff state, per-indexer category and policy controls, and first-pass Radarr/Sonarr aggregate app sync. Broad built-in tracker breadth is intentionally deferred.
 - `src/effect/services/TagService.ts`: canonical tag row creation, tag listing with first-pass media/indexer/download-client/notification usage counts, compatibility detail IDs, tag label rename propagation, unused-tag deletion, and guards against deleting used tags.
-- `src/integrations/http/compatTags.ts` and `src/integrations/http/compatSystem.ts`: first-pass authenticated Arr-compatible tag, system status, and health REST routes for `/api/v1` and `/api/v3`.
+- `src/integrations/http/compatTags.ts`, `src/integrations/http/compatSystem.ts`, and `src/integrations/http/compatQualityProfiles.ts`: first-pass authenticated Arr-compatible tag, quality profile, system status, and health REST routes for `/api/v1` and `/api/v3`.
 - `src/effect/services/DownloadClientService.ts`, `QBittorrentAdapter.ts`, `SABnzbdAdapter.ts`, `TransmissionAdapter.ts`, `DelugeAdapter.ts`, `NZBGetAdapter.ts`, and `BlackholeAdapter.ts`: add/list/test/grab/queue/remove downloads for qBittorrent, SABnzbd, first-pass Transmission, first-pass Deluge, first-pass NZBGet, and first-pass torrent/usenet blackholes, including persisted completed output paths where the client reports them.
 - `src/effect/services/DiagnosticsService.ts`: aggregates integration health, root-folder accessibility/write-permission, app data, clock, update metadata, import mechanism, and queue-output checks for the System view and container health endpoint.
 - `src/effect/services/ReleasePolicyEngine.ts`: parses titles, checks allowed quality, custom format score, and basic upgrade scoring.
@@ -555,7 +556,7 @@ Current state:
 - tRPC app procedures are authenticated after onboarding.
 - Onboarding and import routers are public because they are setup flows; onboarding mutations, import execution, and import connection tests now reject after setup completion.
 - Normal service/UI responses omit encrypted indexer, download-client, media-server, and indexer-application credentials, and notification channels now redact webhook/provider/script/SMTP secret settings before returning channels.
-- The Sonarr/Radarr/Prowlarr-compatible REST API has first-pass tag, system status, and health coverage. `/api/v1|v3/tag`, `/api/v1|v3/tag/detail`, `/api/v1|v3/system/status`, and `/api/v1|v3/health` accept Bearer, `X-Api-Key`, or `apikey` authentication and expose tag CRUD/detail, system status, and health responses.
+- The Sonarr/Radarr/Prowlarr-compatible REST API has first-pass tag, quality profile, system status, and health coverage. `/api/v1|v3/tag`, `/api/v1|v3/tag/detail`, `/api/v1|v3/qualityprofile`, `/api/v1|v3/system/status`, and `/api/v1|v3/health` accept Bearer, `X-Api-Key`, or `apikey` authentication and expose tag CRUD/detail, quality profile CRUD, system status, and health responses.
 
 Gap:
 
@@ -568,8 +569,9 @@ Tasks:
 - [x] Add authenticated password change flow.
 - Add password reset/recovery flow.
 - Add API key scoping if external API compatibility is implemented.
-- [x] Decide whether to implement compatible `/api/v3` Sonarr/Radarr-style endpoints and Prowlarr-style `/api/v1`/Torznab endpoints. Current decision is incremental compatibility, starting with tags, system status, health, and the existing aggregate Torznab/Newznab endpoints.
+- [x] Decide whether to implement compatible `/api/v3` Sonarr/Radarr-style endpoints and Prowlarr-style `/api/v1`/Torznab endpoints. Current decision is incremental compatibility, starting with tags, quality profiles, system status, health, and the existing aggregate Torznab/Newznab endpoints.
 - [x] Add first compatible tag REST endpoints for `/api/v1|v3/tag` and `/api/v1|v3/tag/detail`.
+- [x] Add first compatible quality profile REST endpoints for `/api/v1|v3/qualityprofile`.
 - [x] Add first compatible system status and health endpoints for `/api/v1|v3/system/status` and `/api/v1|v3/health`.
 - Add OpenAPI or equivalent docs for public APIs.
 - [x] Audit secret redaction in errors, logs, diagnostics, and UI. Current coverage redacts normal service/UI credential responses for integration and notification-channel secrets; broader API compatibility secret scoping remains tied to any future compatible REST API.
@@ -717,6 +719,7 @@ Tasks:
 Current state:
 
 - ARR Hub is taking the incremental compatibility path. First-pass authenticated tag CRUD/detail endpoints exist for Sonarr/Radarr-style `/api/v3/tag` and `/api/v3/tag/detail` plus Prowlarr-style `/api/v1/tag` and `/api/v1/tag/detail`.
+- First-pass authenticated quality profile CRUD endpoints exist for `/api/v1|v3/qualityprofile`.
 - First-pass authenticated system status and health endpoints exist for `/api/v1|v3/system/status` and `/api/v1|v3/health`.
 - The aggregate Torznab/Newznab endpoints exist for Prowlarr-style indexer consumption.
 
@@ -726,7 +729,7 @@ Gap:
 
 Recommended minimum:
 
-- Compatible read/write endpoints for movies, series, episodes, queue, history, wanted, calendar, commands, indexers, download clients, root folders, quality profiles, custom formats, tags, system status, and health. Current REST compatibility coverage is tags, system status, and health only.
+- Compatible read/write endpoints for movies, series, episodes, queue, history, wanted, calendar, commands, indexers, download clients, root folders, quality profiles, custom formats, tags, system status, and health. Current REST compatibility coverage is tags, quality profiles, system status, and health only.
 - Prowlarr aggregate Torznab/Newznab endpoints.
 
 ### Plugin System
