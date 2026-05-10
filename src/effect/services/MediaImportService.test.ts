@@ -171,6 +171,57 @@ describe("MediaImportService", () => {
     }).pipe(Effect.provide(TestLayer)),
   )
 
+  it.scoped("persists proper revision state during same-quality movie upgrades", () =>
+    Effect.gen(function* () {
+      const workspace = yield* withTempDir
+      const sourceFile = path.join(
+        workspace,
+        "downloads",
+        "Example.Movie.2026.PROPER.1080p.WEB-DL-GRP.mkv",
+      )
+      const rootFolder = path.join(workspace, "library")
+      const releaseTitle = "Example.Movie.2026.PROPER.1080p.WEB-DL-GRP"
+      yield* writeMediaFile(sourceFile, "proper media")
+
+      const { movieId, profileId } = yield* seedMovie(rootFolder, 101)
+      const db = yield* Db
+      yield* db
+        .update(qualityProfiles)
+        .set({ upgradeAllowed: true })
+        .where(eq(qualityProfiles.id, profileId))
+      yield* db
+        .update(movies)
+        .set({
+          status: "available",
+          hasFile: true,
+          existingQualityName: "WEBDL1080p",
+          existingQualityRank: 40,
+          existingFormatScore: 0,
+          existingRevisionVersion: 1,
+          existingRevisionReal: 0,
+          existingReleaseGroup: "GRP",
+        })
+        .where(eq(movies.id, movieId))
+
+      const importer = yield* MediaImportService
+      const result = yield* importer.importMovie({
+        movieId,
+        sourcePath: sourceFile,
+        releaseTitle,
+      })
+
+      expect(result.revisionVersion).toBe(2)
+      expect(result.releaseGroup).toBe("GRP")
+      const movieRows = yield* db.select().from(movies).where(eq(movies.id, movieId))
+      expect(movieRows[0].existingRevisionVersion).toBe(2)
+      expect(movieRows[0].existingRevisionReal).toBe(0)
+      expect(movieRows[0].existingReleaseGroup).toBe("GRP")
+      const fileRows = yield* db.select().from(mediaFiles).where(eq(mediaFiles.mediaId, movieId))
+      expect(fileRows[0].revisionVersion).toBe(2)
+      expect(fileRows[0].releaseGroup).toBe("GRP")
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
   it.scoped("maps remote download paths before importing", () =>
     Effect.gen(function* () {
       const workspace = yield* withTempDir

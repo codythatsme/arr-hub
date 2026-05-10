@@ -209,6 +209,9 @@ export const AcquisitionPipelineLive = Layer.effect(
       existingQualityName: string | null
       existingQualityRank: number | null
       existingFormatScore: number | null
+      existingRevisionVersion: number | null
+      existingRevisionReal: number | null
+      existingReleaseGroup: string | null
     }): ExistingFile | undefined => {
       if (!row.hasFile || row.existingQualityName === null || row.existingQualityRank === null)
         return undefined
@@ -218,6 +221,9 @@ export const AcquisitionPipelineLive = Layer.effect(
         qualityName,
         qualityRank: row.existingQualityRank,
         formatScore: row.existingFormatScore ?? 0,
+        revisionVersion: row.existingRevisionVersion ?? 1,
+        revisionReal: row.existingRevisionReal ?? 0,
+        releaseGroup: row.existingReleaseGroup,
       }
     }
 

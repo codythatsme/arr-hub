@@ -76,6 +76,9 @@ const runDdl = Effect.gen(function* () {
     existing_quality_name TEXT,
     existing_quality_rank INTEGER,
     existing_format_score INTEGER,
+    existing_revision_version INTEGER NOT NULL DEFAULT 1,
+    existing_revision_real INTEGER NOT NULL DEFAULT 0,
+    existing_release_group TEXT,
     metadata_refreshed_at INTEGER,
     added_at INTEGER NOT NULL DEFAULT (unixepoch())
   )`
@@ -164,6 +167,9 @@ const runDdl = Effect.gen(function* () {
     existing_quality_name TEXT,
     existing_quality_rank INTEGER,
     existing_format_score INTEGER,
+    existing_revision_version INTEGER NOT NULL DEFAULT 1,
+    existing_revision_real INTEGER NOT NULL DEFAULT 0,
+    existing_release_group TEXT,
     UNIQUE(season_id, episode_number)
   )`
 
@@ -423,6 +429,10 @@ const runDdl = Effect.gen(function* () {
     quality_name TEXT,
     quality_rank INTEGER,
     format_score INTEGER NOT NULL DEFAULT 0,
+    revision_version INTEGER NOT NULL DEFAULT 1,
+    revision_real INTEGER NOT NULL DEFAULT 0,
+    release_group TEXT,
+    repack INTEGER NOT NULL DEFAULT 0,
     imported_at INTEGER NOT NULL DEFAULT (unixepoch()),
     created_at INTEGER NOT NULL DEFAULT (unixepoch()),
     updated_at INTEGER NOT NULL DEFAULT (unixepoch()),

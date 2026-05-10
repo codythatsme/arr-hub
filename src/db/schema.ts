@@ -185,6 +185,9 @@ export const movies = sqliteTable("movies", {
   existingQualityName: text("existing_quality_name"),
   existingQualityRank: integer("existing_quality_rank"),
   existingFormatScore: integer("existing_format_score"),
+  existingRevisionVersion: integer("existing_revision_version").notNull().default(1),
+  existingRevisionReal: integer("existing_revision_real").notNull().default(0),
+  existingReleaseGroup: text("existing_release_group"),
   metadataRefreshedAt: integer("metadata_refreshed_at", { mode: "timestamp" }),
   addedAt: integer("added_at", { mode: "timestamp" })
     .notNull()
@@ -257,6 +260,9 @@ export const episodes = sqliteTable(
     existingQualityName: text("existing_quality_name"),
     existingQualityRank: integer("existing_quality_rank"),
     existingFormatScore: integer("existing_format_score"),
+    existingRevisionVersion: integer("existing_revision_version").notNull().default(1),
+    existingRevisionReal: integer("existing_revision_real").notNull().default(0),
+    existingReleaseGroup: text("existing_release_group"),
   },
   (t) => [unique().on(t.seasonId, t.episodeNumber)],
 )
@@ -640,6 +646,10 @@ export const mediaFiles = sqliteTable(
     qualityName: text("quality_name"),
     qualityRank: integer("quality_rank"),
     formatScore: integer("format_score").notNull().default(0),
+    revisionVersion: integer("revision_version").notNull().default(1),
+    revisionReal: integer("revision_real").notNull().default(0),
+    releaseGroup: text("release_group"),
+    repack: integer({ mode: "boolean" }).notNull().default(false),
     importedAt: integer("imported_at", { mode: "timestamp" })
       .notNull()
       .default(sql`(unixepoch())`),

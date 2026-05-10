@@ -169,6 +169,13 @@
       "when": 1778393338052,
       "tag": "0023_little_vin_gonzales",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1778398820210,
+      "tag": "0024_watery_albert_cleary",
+      "breakpoints": true
     }
   ]
 }

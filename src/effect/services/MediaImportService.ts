@@ -63,6 +63,13 @@ interface ImportQualityState {
   readonly minUpgradeFormatScore: number
 }
 
+interface ReleaseRevisionState {
+  readonly revisionVersion: number
+  readonly revisionReal: number
+  readonly releaseGroup: string | null
+  readonly repack: boolean
+}
+
 interface EpisodeImportTarget {
   readonly episode: typeof episodes.$inferSelect
   readonly season: typeof seasons.$inferSelect
@@ -79,6 +86,10 @@ export interface MediaImportResult {
   readonly qualityName: QualityName
   readonly qualityRank: number | null
   readonly formatScore: number
+  readonly revisionVersion: number
+  readonly revisionReal: number
+  readonly releaseGroup: string | null
+  readonly repack: boolean
 }
 
 export interface MovieImportInput {
@@ -396,6 +407,42 @@ function qualityRankFallback(
   })
 }
 
+const DEFAULT_REVISION_STATE: ReleaseRevisionState = {
+  revisionVersion: 1,
+  revisionReal: 0,
+  releaseGroup: null,
+  repack: false,
+}
+
+function releaseRevisionState(parsed: ParsedTitle): ReleaseRevisionState {
+  return {
+    revisionVersion: parsed.revisionVersion,
+    revisionReal: parsed.revisionReal,
+    releaseGroup: parsed.releaseGroup,
+    repack: parsed.repack,
+  }
+}
+
+function releaseRevisionRank(input: {
+  readonly revisionVersion: number | null | undefined
+  readonly revisionReal: number | null | undefined
+}): number {
+  const version =
+    Number.isInteger(input.revisionVersion) && (input.revisionVersion ?? 0) > 0
+      ? (input.revisionVersion ?? 1)
+      : 1
+  const real =
+    Number.isInteger(input.revisionReal) && (input.revisionReal ?? 0) > 0
+      ? (input.revisionReal ?? 0)
+      : 0
+  return real * 100 + version
+}
+
+function normalizedReleaseGroup(value: string | null | undefined): string | null {
+  const normalized = value?.trim().toLowerCase()
+  return normalized && normalized.length > 0 ? normalized : null
+}
+
 function loadImportQualityState(
   db: Context.Tag.Service<typeof Db>,
   profileId: number | null,
@@ -642,8 +689,15 @@ function validateImportUpgrade(input: {
   readonly hasFile: boolean
   readonly existingQualityRank: number | null
   readonly existingFormatScore: number | null
+  readonly existingRevisionVersion: number | null
+  readonly existingRevisionReal: number | null
+  readonly existingReleaseGroup: string | null
   readonly qualityRank: number | null
   readonly formatScore: number
+  readonly revisionVersion: number
+  readonly revisionReal: number
+  readonly releaseGroup: string | null
+  readonly repack: boolean
   readonly quality: ImportQualityState
 }): Effect.Effect<void, MediaImportError> {
   if (!input.hasFile) return Effect.void
@@ -665,6 +719,41 @@ function validateImportUpgrade(input: {
       )
     }
     if (input.qualityRank > input.existingQualityRank) return Effect.void
+  }
+
+  const revisionRank = releaseRevisionRank(input)
+  const existingRevisionRank = releaseRevisionRank({
+    revisionVersion: input.existingRevisionVersion,
+    revisionReal: input.existingRevisionReal,
+  })
+  if (revisionRank < existingRevisionRank) {
+    return Effect.fail(
+      mediaImportError(
+        "upgrade_rejected",
+        `import revision ${revisionRank} is lower than existing revision ${existingRevisionRank}`,
+        false,
+      ),
+    )
+  }
+
+  if (revisionRank > existingRevisionRank) {
+    const existingGroup = normalizedReleaseGroup(input.existingReleaseGroup)
+    const importGroup = normalizedReleaseGroup(input.releaseGroup)
+    if (
+      input.repack &&
+      existingGroup !== null &&
+      importGroup !== null &&
+      existingGroup !== importGroup
+    ) {
+      return Effect.fail(
+        mediaImportError(
+          "upgrade_rejected",
+          `import repack group ${importGroup} does not match existing group ${existingGroup}`,
+          false,
+        ),
+      )
+    }
+    return Effect.void
   }
 
   const existingFormatScore = input.existingFormatScore ?? 0
@@ -756,6 +845,10 @@ function upsertMediaFile(
     readonly qualityName: QualityName
     readonly qualityRank: number | null
     readonly formatScore: number
+    readonly revisionVersion: number
+    readonly revisionReal: number
+    readonly releaseGroup: string | null
+    readonly repack: boolean
   },
 ): Effect.Effect<void, SqlError> {
   const now = new Date()
@@ -770,6 +863,10 @@ function upsertMediaFile(
       qualityName: input.qualityName,
       qualityRank: input.qualityRank,
       formatScore: input.formatScore,
+      revisionVersion: input.revisionVersion,
+      revisionReal: input.revisionReal,
+      releaseGroup: input.releaseGroup,
+      repack: input.repack,
       importedAt: now,
       updatedAt: now,
     })
@@ -782,6 +879,10 @@ function upsertMediaFile(
         qualityName: input.qualityName,
         qualityRank: input.qualityRank,
         formatScore: input.formatScore,
+        revisionVersion: input.revisionVersion,
+        revisionReal: input.revisionReal,
+        releaseGroup: input.releaseGroup,
+        repack: input.repack,
         importedAt: now,
         updatedAt: now,
       },
@@ -1051,15 +1152,29 @@ function recordRenamedMediaFile(
     readonly qualityName: QualityName
     readonly qualityRank: number | null
     readonly formatScore: number
+    readonly revisionVersion?: number
+    readonly revisionReal?: number
+    readonly releaseGroup?: string | null
+    readonly repack?: boolean
   },
 ): Effect.Effect<void, SqlError> {
   return Effect.gen(function* () {
     const now = new Date()
     const rows = yield* db
-      .select({ id: mediaFiles.id })
+      .select({
+        id: mediaFiles.id,
+        revisionVersion: mediaFiles.revisionVersion,
+        revisionReal: mediaFiles.revisionReal,
+        releaseGroup: mediaFiles.releaseGroup,
+        repack: mediaFiles.repack,
+      })
       .from(mediaFiles)
       .where(and(eq(mediaFiles.mediaKind, input.mediaKind), eq(mediaFiles.mediaId, input.mediaId)))
       .limit(1)
+    const revisionVersion = input.revisionVersion ?? rows[0]?.revisionVersion ?? 1
+    const revisionReal = input.revisionReal ?? rows[0]?.revisionReal ?? 0
+    const releaseGroup = input.releaseGroup ?? rows[0]?.releaseGroup ?? null
+    const repack = input.repack ?? rows[0]?.repack ?? false
 
     if (rows[0]) {
       yield* db
@@ -1070,6 +1185,10 @@ function recordRenamedMediaFile(
           qualityName: input.qualityName,
           qualityRank: input.qualityRank,
           formatScore: input.formatScore,
+          revisionVersion,
+          revisionReal,
+          releaseGroup,
+          repack,
           updatedAt: now,
         })
         .where(eq(mediaFiles.id, rows[0].id))
@@ -1085,6 +1204,10 @@ function recordRenamedMediaFile(
       qualityName: input.qualityName,
       qualityRank: input.qualityRank,
       formatScore: input.formatScore,
+      revisionVersion,
+      revisionReal,
+      releaseGroup,
+      repack,
       importedAt: now,
       updatedAt: now,
     })
@@ -1289,6 +1412,7 @@ export const MediaImportServiceLive = Layer.effect(
           input.downloadClientId ?? null,
         )
         const parsed = yield* parseImportReleaseTitle(input.releaseTitle)
+        const revision = releaseRevisionState(parsed)
         yield* validateMovieRelease(movie, parsed)
         if (parsed.qualityName === null) {
           return yield* mediaImportError(
@@ -1311,8 +1435,12 @@ export const MediaImportServiceLive = Layer.effect(
           hasFile: movie.hasFile,
           existingQualityRank: movie.existingQualityRank,
           existingFormatScore: movie.existingFormatScore,
+          existingRevisionVersion: movie.existingRevisionVersion,
+          existingRevisionReal: movie.existingRevisionReal,
+          existingReleaseGroup: movie.existingReleaseGroup,
           qualityRank,
           formatScore,
+          ...revision,
           quality,
         })
 
@@ -1348,6 +1476,9 @@ export const MediaImportServiceLive = Layer.effect(
             existingQualityName: qualityName,
             existingQualityRank: qualityRank,
             existingFormatScore: formatScore,
+            existingRevisionVersion: revision.revisionVersion,
+            existingRevisionReal: revision.revisionReal,
+            existingReleaseGroup: revision.releaseGroup,
           })
           .where(eq(movies.id, movie.id))
         yield* upsertMediaFile(db, {
@@ -1359,6 +1490,7 @@ export const MediaImportServiceLive = Layer.effect(
           qualityName,
           qualityRank,
           formatScore,
+          ...revision,
         })
         yield* recordDomainHistory(db, {
           eventType: "imported",
@@ -1375,6 +1507,7 @@ export const MediaImportServiceLive = Layer.effect(
             qualityName,
             qualityRank,
             formatScore,
+            ...revision,
           },
         })
 
@@ -1387,6 +1520,7 @@ export const MediaImportServiceLive = Layer.effect(
           qualityName,
           qualityRank,
           formatScore,
+          ...revision,
         }
       })
 
@@ -1420,6 +1554,7 @@ export const MediaImportServiceLive = Layer.effect(
           input.downloadClientId ?? null,
         )
         const parsed = yield* parseImportReleaseTitle(input.releaseTitle)
+        const revision = releaseRevisionState(parsed)
         yield* validateEpisodeRelease(input.releaseTitle, parsed, episodeRows)
         if (parsed.qualityName === null) {
           return yield* mediaImportError(
@@ -1448,8 +1583,12 @@ export const MediaImportServiceLive = Layer.effect(
             hasFile: target.episode.hasFile,
             existingQualityRank: target.episode.existingQualityRank,
             existingFormatScore: target.episode.existingFormatScore,
+            existingRevisionVersion: target.episode.existingRevisionVersion,
+            existingRevisionReal: target.episode.existingRevisionReal,
+            existingReleaseGroup: target.episode.existingReleaseGroup,
             qualityRank,
             formatScore,
+            ...revision,
             quality,
           })
         }
@@ -1471,6 +1610,9 @@ export const MediaImportServiceLive = Layer.effect(
               existingQualityName: qualityName,
               existingQualityRank: qualityRank,
               existingFormatScore: formatScore,
+              existingRevisionVersion: revision.revisionVersion,
+              existingRevisionReal: revision.revisionReal,
+              existingReleaseGroup: revision.releaseGroup,
             })
             .where(eq(episodes.id, target.episode.id))
           yield* upsertMediaFile(db, {
@@ -1482,6 +1624,7 @@ export const MediaImportServiceLive = Layer.effect(
             qualityName,
             qualityRank,
             formatScore,
+            ...revision,
           })
           yield* recordDomainHistory(db, {
             eventType: "imported",
@@ -1500,6 +1643,7 @@ export const MediaImportServiceLive = Layer.effect(
               qualityName,
               qualityRank,
               formatScore,
+              ...revision,
             },
           })
 
@@ -1512,6 +1656,7 @@ export const MediaImportServiceLive = Layer.effect(
             qualityName,
             qualityRank,
             formatScore,
+            ...revision,
           })
         }
 
@@ -1606,7 +1751,12 @@ export const MediaImportServiceLive = Layer.effect(
           const candidate = candidates.toSorted(compareBySizeDesc)[0]
           if (!candidate) continue
           const releaseTitle = path.basename(candidate.path)
-          const qualityName = yield* parseQuality(releaseTitle)
+          const parsed = yield* titleParser.parse(releaseTitle).pipe(
+            Effect.map((value): ParsedTitle | null => value),
+            Effect.catchAll(() => Effect.succeed(null)),
+          )
+          const qualityName = parsed?.qualityName ?? (yield* parseQuality(releaseTitle))
+          const revision = parsed ? releaseRevisionState(parsed) : DEFAULT_REVISION_STATE
           const qualityRank = yield* qualityRankFallback(db, movie.qualityProfileId, qualityName)
           yield* db
             .update(movies)
@@ -1617,6 +1767,9 @@ export const MediaImportServiceLive = Layer.effect(
               existingQualityName: qualityName,
               existingQualityRank: qualityRank,
               existingFormatScore: 0,
+              existingRevisionVersion: revision.revisionVersion,
+              existingRevisionReal: revision.revisionReal,
+              existingReleaseGroup: revision.releaseGroup,
             })
             .where(eq(movies.id, movie.id))
           yield* upsertMediaFile(db, {
@@ -1628,6 +1781,7 @@ export const MediaImportServiceLive = Layer.effect(
             qualityName,
             qualityRank,
             formatScore: 0,
+            ...revision,
           })
           yield* recordDomainHistory(db, {
             eventType: "imported",
@@ -1643,6 +1797,7 @@ export const MediaImportServiceLive = Layer.effect(
               qualityName,
               qualityRank,
               formatScore: 0,
+              ...revision,
               source: "library_scan",
             },
           })
@@ -1680,7 +1835,12 @@ export const MediaImportServiceLive = Layer.effect(
             const row = episodeByKey.get(`${key.season}:${key.episode}`)
             if (!row || importedEpisodeIds.has(row.episode.id)) continue
             const releaseTitle = path.basename(candidate.path)
-            const qualityName = yield* parseQuality(releaseTitle)
+            const parsed = yield* titleParser.parse(releaseTitle).pipe(
+              Effect.map((value): ParsedTitle | null => value),
+              Effect.catchAll(() => Effect.succeed(null)),
+            )
+            const qualityName = parsed?.qualityName ?? (yield* parseQuality(releaseTitle))
+            const revision = parsed ? releaseRevisionState(parsed) : DEFAULT_REVISION_STATE
             const qualityRank = yield* qualityRankFallback(db, show.qualityProfileId, qualityName)
             yield* db
               .update(episodes)
@@ -1690,6 +1850,9 @@ export const MediaImportServiceLive = Layer.effect(
                 existingQualityName: qualityName,
                 existingQualityRank: qualityRank,
                 existingFormatScore: 0,
+                existingRevisionVersion: revision.revisionVersion,
+                existingRevisionReal: revision.revisionReal,
+                existingReleaseGroup: revision.releaseGroup,
               })
               .where(eq(episodes.id, row.episode.id))
             yield* upsertMediaFile(db, {
@@ -1701,6 +1864,7 @@ export const MediaImportServiceLive = Layer.effect(
               qualityName,
               qualityRank,
               formatScore: 0,
+              ...revision,
             })
             yield* recordDomainHistory(db, {
               eventType: "imported",
@@ -1718,6 +1882,7 @@ export const MediaImportServiceLive = Layer.effect(
                 qualityName,
                 qualityRank,
                 formatScore: 0,
+                ...revision,
                 source: "library_scan",
               },
             })
@@ -1789,6 +1954,9 @@ export const MediaImportServiceLive = Layer.effect(
             qualityName,
             qualityRank: movie.existingQualityRank,
             formatScore: movie.existingFormatScore ?? 0,
+            revisionVersion: movie.existingRevisionVersion,
+            revisionReal: movie.existingRevisionReal,
+            releaseGroup: movie.existingReleaseGroup,
           })
           yield* recordDomainHistory(db, {
             eventType: "renamed",
@@ -1803,6 +1971,9 @@ export const MediaImportServiceLive = Layer.effect(
               qualityName,
               qualityRank: movie.existingQualityRank,
               formatScore: movie.existingFormatScore ?? 0,
+              revisionVersion: movie.existingRevisionVersion,
+              revisionReal: movie.existingRevisionReal,
+              releaseGroup: movie.existingReleaseGroup,
             },
           })
         }
@@ -1878,6 +2049,9 @@ export const MediaImportServiceLive = Layer.effect(
             qualityName,
             qualityRank: episode.existingQualityRank,
             formatScore: episode.existingFormatScore ?? 0,
+            revisionVersion: episode.existingRevisionVersion,
+            revisionReal: episode.existingRevisionReal,
+            releaseGroup: episode.existingReleaseGroup,
           })
           const contextRows = yield* db
             .select({ episode: episodes, season: seasons, series })
@@ -1904,6 +2078,9 @@ export const MediaImportServiceLive = Layer.effect(
               qualityName,
               qualityRank: episode.existingQualityRank,
               formatScore: episode.existingFormatScore ?? 0,
+              revisionVersion: episode.existingRevisionVersion,
+              revisionReal: episode.existingRevisionReal,
+              releaseGroup: episode.existingReleaseGroup,
             },
           })
         }

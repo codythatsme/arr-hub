@@ -121,6 +121,9 @@ const MockMediaImportService = Layer.effect(
               existingQualityName: "WEBDL1080p",
               existingQualityRank: decision?.qualityRank ?? null,
               existingFormatScore: decision?.formatScore ?? 0,
+              existingRevisionVersion: 1,
+              existingRevisionReal: 0,
+              existingReleaseGroup: "GRP",
             })
             .where(eq(movies.id, movieId))
 
@@ -133,6 +136,10 @@ const MockMediaImportService = Layer.effect(
             qualityName: "WEBDL1080p" as const,
             qualityRank: decision?.qualityRank ?? null,
             formatScore: decision?.formatScore ?? 0,
+            revisionVersion: 1,
+            revisionReal: 0,
+            releaseGroup: "GRP",
+            repack: false,
           }
         }),
 
@@ -150,6 +157,9 @@ const MockMediaImportService = Layer.effect(
                 existingQualityName: "WEBDL1080p",
                 existingQualityRank: decision?.qualityRank ?? null,
                 existingFormatScore: decision?.formatScore ?? 0,
+                existingRevisionVersion: 1,
+                existingRevisionReal: 0,
+                existingReleaseGroup: "GRP",
               })
               .where(eq(episodes.id, episodeId))
             results.push({
@@ -161,6 +171,10 @@ const MockMediaImportService = Layer.effect(
               qualityName: "WEBDL1080p" as const,
               qualityRank: decision?.qualityRank ?? null,
               formatScore: decision?.formatScore ?? 0,
+              revisionVersion: 1,
+              revisionReal: 0,
+              releaseGroup: "GRP",
+              repack: false,
             })
           }
           return results
