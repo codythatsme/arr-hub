@@ -103,6 +103,7 @@ Completed in atomic commits after this plan was written. Milestone 5 is summariz
 - `0186ed7e03` exposed first-pass Radarr/Sonarr indexer application sync controls in Settings.
 - `fc4d30ab51` exposed first-pass built-in definition refresh controls in Settings.
 - `ec7b6f3776` added true RSS/recent-feed sync, cached recent releases, and switched RSS scheduler jobs away from repeated active searches.
+- `63f57c0174` constrained movie and episode cutoff search jobs to files below their profile cutoff state.
 - `ca8703c1bf` updated deterministic indexer definition tests for the curated built-in catalogue.
 - `beab879376` preserved app-side remote settings during aggregate Radarr/Sonarr app sync updates.
 - `904f5f2301` separated Sonarr standard and anime category filters for aggregate app sync.
@@ -424,10 +425,11 @@ Current state:
 - `IndexerService.rss` fetches RSS/recent feeds from RSS-enabled indexers through Torznab/Newznab and Cardigann adapters, records RSS stats/health, and caches candidates in `recent_releases`.
 - `SchedulerLoop` job `rss_sync` fetches recent releases once and evaluates them against monitored wanted movies without active-searching every title.
 - `tv_rss_sync` fetches recent releases once and evaluates them against monitored wanted aired episodes without active-searching every episode.
+- `search_cutoff` and `tv_search_cutoff` now query only monitored files whose current format score is unknown or below an upgrade-enabled profile cutoff.
 
 Gap:
 
-- Cutoff-unmet search still uses active search. Broader parity still needs richer cutoff scheduling and any future season-pack RSS matching behavior beyond single-episode RSS evaluation.
+- Broader parity still needs richer cutoff scheduling history/observability and any future season-pack RSS matching behavior beyond single-episode RSS evaluation.
 
 Tasks:
 
@@ -436,7 +438,7 @@ Tasks:
 - [x] Match recent releases to movies/episodes before decision evaluation.
 - [x] Add per-indexer RSS/search enable flags.
 - [x] Add backoff and health checks for failing RSS endpoints.
-- [ ] Add cutoff unmet queries for movies and episodes based on profile cutoff state.
+- [x] Add cutoff unmet queries for movies and episodes based on profile cutoff state.
 
 Acceptance criteria:
 
