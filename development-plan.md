@@ -82,7 +82,7 @@ Completed in atomic commits after this plan was written. Milestone 5 is summariz
 - `566abf0e25` added a persistent release blocklist table and blocks matching future release candidates.
 - `4df7222527` split high-impact release decisions into specification modules with target title/year/episode/season, size, and torrent seeder checks.
 - `fcb481448b` added release free-space and active queue conflict guardrails.
-- `1a2d1e0eec` added configurable release guardrails for protocol availability, minimum age, retention, seeders, and required/ignored/preferred release terms.
+- `1a2d1e0eec` added configurable release guardrails for protocol availability, minimum age, retention, seeders, required/ignored/preferred release terms, and unsafe artifact rejection for sample, hardcoded-subtitle, and raw-disk releases.
 - `6af5da144a` added TV release edge checks for unaired episodes, multi-episode releases, multi-season packs, and anime absolute episode numbering.
 - `0ab6b74069` expanded the title parser test corpus with vendor-inspired release fixtures.
 - `b6864bf5f3` added first-pass indexer definition, proxy, and statistics persistence for the selected Prowlarr replacement path.
@@ -366,7 +366,7 @@ Tasks:
 - Add torrent seed/leech/ratio/time constraints. Implemented configurable minimum seeders; ratio/time constraints remain future work.
 - Add release restrictions: required, ignored, preferred terms, tags. Implemented global required/ignored/preferred terms; tag-scoped profiles remain future work.
 - Add language support if replacement scope includes non-English libraries.
-- Add hardcoded subtitle/sample/raw disk checks.
+- Add hardcoded subtitle/sample/raw disk checks. Implemented through unsafe artifact release specifications and deterministic decision-engine coverage.
 - Add repack/proper handling.
 - Add TV-specific checks:
   - air date gating,
