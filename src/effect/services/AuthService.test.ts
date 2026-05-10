@@ -165,6 +165,61 @@ describe("AuthService", () => {
     }).pipe(Effect.provide(TestLayer)),
   )
 
+  it.effect("changePassword updates credentials and revokes active sessions", () =>
+    Effect.gen(function* () {
+      const userId = yield* seedUser("change-me", "old-password")
+      const auth = yield* AuthService
+      const session = yield* auth.login("change-me", "old-password")
+
+      yield* auth.changePassword(userId, "old-password", "new-password")
+
+      const oldSessionError = yield* Effect.flip(auth.validateToken(session.token))
+      expect(oldSessionError._tag).toBe("AuthError")
+      if (oldSessionError._tag === "AuthError") expect(oldSessionError.reason).toBe("missing")
+
+      const oldPasswordError = yield* Effect.flip(auth.login("change-me", "old-password"))
+      expect(oldPasswordError._tag).toBe("AuthError")
+      if (oldPasswordError._tag === "AuthError") {
+        expect(oldPasswordError.reason).toBe("invalid_credentials")
+      }
+
+      const nextSession = yield* auth.login("change-me", "new-password")
+      expect(nextSession.token).toHaveLength(64)
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("changePassword rejects wrong current password", () =>
+    Effect.gen(function* () {
+      const userId = yield* seedUser("reject-change", "old-password")
+      const auth = yield* AuthService
+
+      const error = yield* Effect.flip(
+        auth.changePassword(userId, "wrong-password", "new-password"),
+      )
+      expect(error._tag).toBe("AuthError")
+      if (error._tag === "AuthError") expect(error.reason).toBe("invalid_credentials")
+
+      const session = yield* auth.login("reject-change", "old-password")
+      expect(session.token).toHaveLength(64)
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("changePassword validates the new password length", () =>
+    Effect.gen(function* () {
+      const userId = yield* seedUser("short-change", "old-password")
+      const auth = yield* AuthService
+
+      const error = yield* Effect.flip(auth.changePassword(userId, "old-password", "short"))
+      expect(error._tag).toBe("ValidationError")
+      if (error._tag === "ValidationError") {
+        expect(error.message).toBe("password must be at least 8 characters")
+      }
+
+      const session = yield* auth.login("short-change", "old-password")
+      expect(session.token).toHaveLength(64)
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
   it.effect("createApiKey returns raw token + id", () =>
     Effect.gen(function* () {
       const userId = yield* seedUser("frank", "pass")

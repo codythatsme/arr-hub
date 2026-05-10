@@ -1,16 +1,22 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { useState } from "react"
 
 import { useTRPC } from "#/integrations/trpc/react"
+import { setAuthToken } from "#/lib/auth-token"
 
 export const Route = createFileRoute("/settings/security")({ component: Security })
 
 function Security() {
   const trpc = useTRPC()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [name, setName] = useState("")
   const [createdToken, setCreatedToken] = useState<string | null>(null)
+  const [currentPassword, setCurrentPassword] = useState("")
+  const [newPassword, setNewPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [passwordError, setPasswordError] = useState<string | null>(null)
   const keysKey = trpc.auth.listApiKeys.queryKey()
   const keys = useQuery(trpc.auth.listApiKeys.queryOptions())
   const createKey = useMutation(
@@ -27,6 +33,19 @@ function Security() {
       onSuccess: () => queryClient.invalidateQueries({ queryKey: keysKey }),
     }),
   )
+  const changePassword = useMutation(
+    trpc.auth.changePassword.mutationOptions({
+      onSuccess: async () => {
+        setCurrentPassword("")
+        setNewPassword("")
+        setConfirmPassword("")
+        setAuthToken(null)
+        await queryClient.invalidateQueries()
+        void navigate({ to: "/login" })
+      },
+      onError: (error) => setPasswordError(error.message),
+    }),
+  )
 
   return (
     <div className="space-y-6 p-6">
@@ -34,6 +53,66 @@ function Security() {
         <h1 className="text-2xl font-bold">Security</h1>
         <p className="text-muted-foreground mt-1">Authentication and access control</p>
       </header>
+
+      <section className="rounded-md border p-4">
+        <h2 className="font-semibold">Admin Password</h2>
+        <form
+          className="mt-3 grid max-w-xl gap-3"
+          onSubmit={(event) => {
+            event.preventDefault()
+            setPasswordError(null)
+            if (newPassword !== confirmPassword) {
+              setPasswordError("new passwords do not match")
+              return
+            }
+            changePassword.mutate({ currentPassword, newPassword })
+          }}
+        >
+          <label className="grid gap-1 text-sm">
+            <span className="font-medium">Current password</span>
+            <input
+              className="bg-background rounded border px-3 py-2"
+              type="password"
+              value={currentPassword}
+              onChange={(event) => setCurrentPassword(event.target.value)}
+              autoComplete="current-password"
+            />
+          </label>
+          <label className="grid gap-1 text-sm">
+            <span className="font-medium">New password</span>
+            <input
+              className="bg-background rounded border px-3 py-2"
+              type="password"
+              value={newPassword}
+              onChange={(event) => setNewPassword(event.target.value)}
+              autoComplete="new-password"
+            />
+          </label>
+          <label className="grid gap-1 text-sm">
+            <span className="font-medium">Confirm new password</span>
+            <input
+              className="bg-background rounded border px-3 py-2"
+              type="password"
+              value={confirmPassword}
+              onChange={(event) => setConfirmPassword(event.target.value)}
+              autoComplete="new-password"
+            />
+          </label>
+          {passwordError && <p className="text-destructive text-sm">{passwordError}</p>}
+          <button
+            type="submit"
+            className="w-fit rounded border px-3 py-2 text-sm disabled:opacity-50"
+            disabled={
+              changePassword.isPending ||
+              currentPassword.length === 0 ||
+              newPassword.length < 8 ||
+              confirmPassword.length < 8
+            }
+          >
+            {changePassword.isPending ? "Changing..." : "Change password"}
+          </button>
+        </form>
+      </section>
 
       <section className="rounded-md border p-4">
         <h2 className="font-semibold">API Keys</h2>

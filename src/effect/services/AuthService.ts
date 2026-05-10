@@ -4,7 +4,7 @@ import { Context, Effect, Layer } from "effect"
 
 import { users, apiKeys, loginAttempts } from "#/db/schema"
 
-import { AuthError } from "../errors"
+import { AuthError, ValidationError } from "../errors"
 import { CryptoService } from "./CryptoService"
 import { Db } from "./Db"
 
@@ -41,6 +41,11 @@ export class AuthService extends Context.Tag("AuthService")<
       username: string,
       password: string,
     ) => Effect.Effect<SessionResult, AuthError | SqlError>
+    readonly changePassword: (
+      userId: number,
+      currentPassword: string,
+      newPassword: string,
+    ) => Effect.Effect<void, AuthError | ValidationError | SqlError>
     readonly validateToken: (token: string) => Effect.Effect<ValidatedUser, AuthError | SqlError>
     readonly createApiKey: (userId: number, name: string) => Effect.Effect<ApiKeyResult, SqlError>
     readonly revokeApiKey: (id: number) => Effect.Effect<void, SqlError>
@@ -174,6 +179,42 @@ export const AuthServiceLive = Layer.effect(
           yield* db.update(apiKeys).set({ lastUsedAt: new Date() }).where(eq(apiKeys.id, key.id))
 
           return { userId: key.userId, keyId: key.id, kind: key.kind }
+        }),
+
+      changePassword: (userId, currentPassword, newPassword) =>
+        Effect.gen(function* () {
+          if (newPassword.length < 8) {
+            return yield* new ValidationError({ message: "password must be at least 8 characters" })
+          }
+
+          const rows = yield* db.select().from(users).where(eq(users.id, userId))
+          const user = rows[0]
+          if (!user) {
+            return yield* new AuthError({ reason: "missing" })
+          }
+
+          const valid = yield* crypto.verifyPassword(currentPassword, user.passwordHash)
+          if (!valid) {
+            return yield* new AuthError({ reason: "invalid_credentials" })
+          }
+
+          const passwordHash = yield* crypto.hashPassword(newPassword)
+          const now = new Date()
+
+          yield* db.update(users).set({ passwordHash, updatedAt: now }).where(eq(users.id, userId))
+
+          yield* db
+            .update(apiKeys)
+            .set({ revokedAt: now })
+            .where(
+              and(
+                eq(apiKeys.userId, userId),
+                eq(apiKeys.kind, "session"),
+                isNull(apiKeys.revokedAt),
+              ),
+            )
+
+          yield* clearLoginFailures(loginKey(user.username))
         }),
 
       createApiKey: (userId, name) =>

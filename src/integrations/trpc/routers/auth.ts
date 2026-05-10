@@ -27,6 +27,17 @@ export const authRouter = {
     ),
   ),
 
+  changePassword: authedProcedure
+    .input(z.object({ currentPassword: z.string(), newPassword: z.string() }))
+    .mutation(({ ctx, input }) =>
+      runEffect(
+        Effect.gen(function* () {
+          const auth = yield* AuthService
+          yield* auth.changePassword(ctx.userId, input.currentPassword, input.newPassword)
+        }),
+      ),
+    ),
+
   revokeApiKey: authedProcedure.input(z.object({ id: z.number() })).mutation(({ input }) =>
     runEffect(
       Effect.gen(function* () {
