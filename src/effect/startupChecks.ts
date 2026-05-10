@@ -66,7 +66,7 @@ export const STARTUP_REQUIRED_COLUMNS = [
   { table: "download_queue", column: "episode_ids" },
   { table: "remote_path_mappings", column: "remote_path" },
   { table: "remote_path_mappings", column: "local_path" },
-  { table: "media_files", column: "media_type" },
+  { table: "media_files", column: "media_kind" },
   { table: "media_files", column: "path" },
   { table: "media_servers", column: "monitoring_enabled" },
   { table: "session_history", column: "platform" },
