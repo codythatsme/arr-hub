@@ -6,6 +6,15 @@ import { DownloadClientService } from "#/effect/services/DownloadClientService"
 
 import { authedProcedure, runEffect } from "../init"
 
+const downloadClientSettingsSchema = z.object({
+  pollIntervalMs: z.number().int().min(1000),
+  blackholeFolder: z.string().optional(),
+  watchFolder: z.string().optional(),
+  saveMagnetFiles: z.boolean().optional(),
+  magnetFileExtension: z.string().optional(),
+  watchGracePeriodSeconds: z.number().int().min(0).optional(),
+})
+
 const downloadClientInputSchema = z.object({
   name: z.string(),
   type: z.string().min(1),
@@ -17,7 +26,7 @@ const downloadClientInputSchema = z.object({
   category: z.string().optional(),
   enabled: z.boolean().optional(),
   priority: z.number().int().min(1).max(100).optional(),
-  settings: z.object({ pollIntervalMs: z.number().int().min(1000) }).optional(),
+  settings: downloadClientSettingsSchema.optional(),
 })
 
 const downloadClientUpdateSchema = z.object({
@@ -31,7 +40,7 @@ const downloadClientUpdateSchema = z.object({
   category: z.string().nullable().optional(),
   enabled: z.boolean().optional(),
   priority: z.number().int().min(1).max(100).optional(),
-  settings: z.object({ pollIntervalMs: z.number().int().min(1000) }).optional(),
+  settings: downloadClientSettingsSchema.optional(),
 })
 
 export const downloadClientsRouter = {

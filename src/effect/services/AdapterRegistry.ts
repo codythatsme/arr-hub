@@ -12,6 +12,12 @@ import type {
   MediaServerType,
 } from "../domain/mediaServer"
 import { ValidationError } from "../errors"
+import {
+  createTorrentBlackholeAdapter,
+  createUsenetBlackholeAdapter,
+  torrentBlackholeMetadata,
+  usenetBlackholeMetadata,
+} from "./BlackholeAdapter"
 import { cardigannYamlMetadata, createCardigannYamlAdapter } from "./CardigannAdapter"
 import type { DownloadClientAdapter } from "./DownloadClientAdapter"
 import type { IndexerAdapter } from "./IndexerAdapter"
@@ -168,6 +174,16 @@ export const AdapterRegistryLive = Layer.sync(AdapterRegistry, () => {
   registry.registerDownloadClient("qbittorrent", qbittorrentMetadata, createQBittorrentAdapter)
   registry.registerDownloadClient("sabnzbd", sabnzbdMetadata, createSABnzbdAdapter)
   registry.registerDownloadClient("transmission", transmissionMetadata, createTransmissionAdapter)
+  registry.registerDownloadClient(
+    "torrent_blackhole",
+    torrentBlackholeMetadata,
+    createTorrentBlackholeAdapter,
+  )
+  registry.registerDownloadClient(
+    "usenet_blackhole",
+    usenetBlackholeMetadata,
+    createUsenetBlackholeAdapter,
+  )
   registry.registerIndexer("cardigann_yaml", cardigannYamlMetadata, createCardigannYamlAdapter)
   registry.registerIndexer("torznab", torznabMetadata, createTorznabAdapter)
   registry.registerIndexer("newznab", newznabMetadata, createTorznabAdapter)

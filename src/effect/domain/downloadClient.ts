@@ -16,6 +16,11 @@ export type DownloadClientHealthStatus = "healthy" | "unhealthy" | "unknown"
 
 export interface DownloadClientSettings {
   readonly pollIntervalMs: number
+  readonly blackholeFolder?: string
+  readonly watchFolder?: string
+  readonly saveMagnetFiles?: boolean
+  readonly magnetFileExtension?: string
+  readonly watchGracePeriodSeconds?: number
 }
 
 /** Config shape used by the adapter factory — no DB concerns. */

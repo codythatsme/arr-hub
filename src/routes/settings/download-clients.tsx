@@ -21,6 +21,11 @@ interface DownloadClientFormState {
   readonly category: string
   readonly priority: string
   readonly pollIntervalMs: string
+  readonly blackholeFolder: string
+  readonly watchFolder: string
+  readonly saveMagnetFiles: boolean
+  readonly magnetFileExtension: string
+  readonly watchGracePeriodSeconds: string
   readonly enabled: boolean
 }
 
@@ -36,7 +41,31 @@ const emptyForm: DownloadClientFormState = {
   category: "",
   priority: "50",
   pollIntervalMs: "5000",
+  blackholeFolder: "/downloads/blackhole",
+  watchFolder: "/downloads",
+  saveMagnetFiles: false,
+  magnetFileExtension: ".magnet",
+  watchGracePeriodSeconds: "30",
   enabled: true,
+}
+
+function isBlackholeType(type: string): boolean {
+  return type === "torrent_blackhole" || type === "usenet_blackhole"
+}
+
+function blackholeDefaults(
+  type: string,
+): Pick<
+  DownloadClientFormState,
+  "blackholeFolder" | "watchFolder" | "saveMagnetFiles" | "magnetFileExtension"
+> {
+  return {
+    blackholeFolder:
+      type === "usenet_blackhole" ? "/downloads/blackhole/nzbs" : "/downloads/blackhole/torrents",
+    watchFolder: "/downloads",
+    saveMagnetFiles: false,
+    magnetFileExtension: ".magnet",
+  }
 }
 
 function DownloadClients() {
@@ -87,6 +116,7 @@ function DownloadClients() {
 
   const typeOptions = types.data ?? []
   const selectedType = typeOptions.find((item) => item.type === form.type)
+  const isBlackhole = isBlackholeType(form.type)
   const pending = add.isPending || update.isPending || remove.isPending || test.isPending
   const error =
     add.error?.message ?? update.error?.message ?? remove.error?.message ?? test.error?.message
@@ -94,21 +124,33 @@ function DownloadClients() {
   const onSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setMessage(null)
+    const settings = {
+      pollIntervalMs: Number(form.pollIntervalMs),
+      ...(isBlackhole
+        ? {
+            blackholeFolder: form.blackholeFolder.trim(),
+            watchFolder: form.watchFolder.trim(),
+            saveMagnetFiles: form.saveMagnetFiles,
+            magnetFileExtension: form.magnetFileExtension.trim() || ".magnet",
+            watchGracePeriodSeconds: Number(form.watchGracePeriodSeconds),
+          }
+        : {}),
+    }
     const payload = {
       name: form.name.trim(),
       type: form.type,
-      host: form.host.trim(),
-      port: Number(form.port),
-      username: form.username.trim(),
-      useSsl: form.useSsl,
-      category: form.category.trim() || undefined,
+      host: isBlackhole ? "localhost" : form.host.trim(),
+      port: isBlackhole ? 1 : Number(form.port),
+      username: isBlackhole ? "" : form.username.trim(),
+      useSsl: isBlackhole ? false : form.useSsl,
+      category: isBlackhole ? undefined : form.category.trim() || undefined,
       enabled: form.enabled,
       priority: Number(form.priority),
-      settings: { pollIntervalMs: Number(form.pollIntervalMs) },
+      settings,
     }
 
     if (form.id === null) {
-      add.mutate({ ...payload, password: form.password })
+      add.mutate({ ...payload, password: isBlackhole ? "" : form.password })
       return
     }
 
@@ -149,7 +191,9 @@ function DownloadClients() {
                     <StatusBadge enabled={client.enabled} status={client.health?.status} />
                   </div>
                   <p className="text-muted-foreground mt-1 text-sm break-all">
-                    {client.useSsl ? "https" : "http"}://{client.host}:{client.port}
+                    {isBlackholeType(client.type)
+                      ? `${client.settings.blackholeFolder ?? client.host} -> ${client.settings.watchFolder ?? client.host}`
+                      : `${client.useSsl ? "https" : "http"}://${client.host}:${client.port}`}
                   </p>
                   <p className="text-muted-foreground mt-1 text-xs">
                     {client.type} · priority {client.priority} · {client.category ?? "no category"}{" "}
@@ -177,6 +221,16 @@ function DownloadClients() {
                         category: client.category ?? "",
                         priority: String(client.priority),
                         pollIntervalMs: String(client.settings.pollIntervalMs),
+                        blackholeFolder:
+                          client.settings.blackholeFolder ??
+                          blackholeDefaults(client.type).blackholeFolder,
+                        watchFolder:
+                          client.settings.watchFolder ?? blackholeDefaults(client.type).watchFolder,
+                        saveMagnetFiles: client.settings.saveMagnetFiles ?? false,
+                        magnetFileExtension: client.settings.magnetFileExtension ?? ".magnet",
+                        watchGracePeriodSeconds: String(
+                          client.settings.watchGracePeriodSeconds ?? 30,
+                        ),
                         enabled: client.enabled,
                       })
                     }
@@ -258,11 +312,13 @@ function DownloadClients() {
                 className="mt-1 w-full rounded border bg-transparent px-3 py-2"
                 value={form.type}
                 onChange={(event) => {
-                  const option = typeOptions.find((item) => item.type === event.target.value)
+                  const type = event.target.value
+                  const option = typeOptions.find((item) => item.type === type)
                   setForm({
                     ...form,
-                    type: event.target.value,
+                    type,
                     port: option ? String(option.metadata.defaultPort) : form.port,
+                    ...(isBlackholeType(type) ? blackholeDefaults(type) : {}),
                   })
                 }}
               >
@@ -275,60 +331,119 @@ function DownloadClients() {
               </select>
             </Field>
 
-            <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_7rem]">
-              <Field label="Host">
-                <input
-                  className="mt-1 w-full rounded border bg-transparent px-3 py-2"
-                  value={form.host}
-                  onChange={(event) => setForm({ ...form, host: event.target.value })}
-                  required
-                />
-              </Field>
-              <Field label="Port">
-                <input
-                  className="mt-1 w-full rounded border bg-transparent px-3 py-2"
-                  value={form.port}
-                  onChange={(event) => setForm({ ...form, port: event.target.value })}
-                  type="number"
-                  min={1}
-                  max={65535}
-                  required
-                />
-              </Field>
-            </div>
+            {isBlackhole ? (
+              <div className="space-y-4">
+                <Field label={form.type === "usenet_blackhole" ? "NZB folder" : "Torrent folder"}>
+                  <input
+                    className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                    value={form.blackholeFolder}
+                    onChange={(event) => setForm({ ...form, blackholeFolder: event.target.value })}
+                    required
+                  />
+                </Field>
+                <Field label="Watch folder">
+                  <input
+                    className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                    value={form.watchFolder}
+                    onChange={(event) => setForm({ ...form, watchFolder: event.target.value })}
+                    required
+                  />
+                </Field>
+                <Field label="Watch grace period" hint="Seconds before a watched item is complete.">
+                  <input
+                    className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                    value={form.watchGracePeriodSeconds}
+                    onChange={(event) =>
+                      setForm({ ...form, watchGracePeriodSeconds: event.target.value })
+                    }
+                    type="number"
+                    min={0}
+                    required
+                  />
+                </Field>
+                {form.type === "torrent_blackhole" && (
+                  <div className="grid gap-4 sm:grid-cols-[1fr_12rem]">
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={form.saveMagnetFiles}
+                        onChange={(event) =>
+                          setForm({ ...form, saveMagnetFiles: event.target.checked })
+                        }
+                      />
+                      Save magnet files
+                    </label>
+                    <Field label="Magnet extension">
+                      <input
+                        className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                        value={form.magnetFileExtension}
+                        onChange={(event) =>
+                          setForm({ ...form, magnetFileExtension: event.target.value })
+                        }
+                      />
+                    </Field>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
+                <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_7rem]">
+                  <Field label="Host">
+                    <input
+                      className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                      value={form.host}
+                      onChange={(event) => setForm({ ...form, host: event.target.value })}
+                      required
+                    />
+                  </Field>
+                  <Field label="Port">
+                    <input
+                      className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                      value={form.port}
+                      onChange={(event) => setForm({ ...form, port: event.target.value })}
+                      type="number"
+                      min={1}
+                      max={65535}
+                      required
+                    />
+                  </Field>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="Username">
+                    <input
+                      className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                      value={form.username}
+                      onChange={(event) => setForm({ ...form, username: event.target.value })}
+                    />
+                  </Field>
+                  <Field
+                    label="Password"
+                    hint={form.id === null ? undefined : "Leave blank to keep the existing secret."}
+                  >
+                    <input
+                      className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                      value={form.password}
+                      onChange={(event) => setForm({ ...form, password: event.target.value })}
+                      autoComplete="off"
+                      required={form.id === null}
+                      type="password"
+                    />
+                  </Field>
+                </div>
+
+                <Field label="Category">
+                  <input
+                    className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                    value={form.category}
+                    onChange={(event) => setForm({ ...form, category: event.target.value })}
+                    placeholder="arr-hub"
+                  />
+                </Field>
+              </>
+            )}
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Username">
-                <input
-                  className="mt-1 w-full rounded border bg-transparent px-3 py-2"
-                  value={form.username}
-                  onChange={(event) => setForm({ ...form, username: event.target.value })}
-                />
-              </Field>
-              <Field
-                label="Password"
-                hint={form.id === null ? undefined : "Leave blank to keep the existing secret."}
-              >
-                <input
-                  className="mt-1 w-full rounded border bg-transparent px-3 py-2"
-                  value={form.password}
-                  onChange={(event) => setForm({ ...form, password: event.target.value })}
-                  autoComplete="off"
-                  required={form.id === null}
-                  type="password"
-                />
-              </Field>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Category">
-                <input
-                  className="mt-1 w-full rounded border bg-transparent px-3 py-2"
-                  value={form.category}
-                  onChange={(event) => setForm({ ...form, category: event.target.value })}
-                  placeholder="arr-hub"
-                />
-              </Field>
               <Field label="Priority">
                 <input
                   className="mt-1 w-full rounded border bg-transparent px-3 py-2"
@@ -355,14 +470,16 @@ function DownloadClients() {
             </Field>
 
             <div className="flex flex-wrap gap-4">
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={form.useSsl}
-                  onChange={(event) => setForm({ ...form, useSsl: event.target.checked })}
-                />
-                Use SSL
-              </label>
+              {!isBlackhole && (
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={form.useSsl}
+                    onChange={(event) => setForm({ ...form, useSsl: event.target.checked })}
+                  />
+                  Use SSL
+                </label>
+              )}
               <label className="flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"

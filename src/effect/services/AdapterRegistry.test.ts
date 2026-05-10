@@ -21,7 +21,13 @@ describe("AdapterRegistry", () => {
         .map((x) => x.type)
         .toSorted()
 
-      expect(downloadTypes).toEqual(["qbittorrent", "sabnzbd", "transmission"])
+      expect(downloadTypes).toEqual([
+        "qbittorrent",
+        "sabnzbd",
+        "torrent_blackhole",
+        "transmission",
+        "usenet_blackhole",
+      ])
       expect(indexerTypes).toEqual(["cardigann_yaml", "newznab", "torznab"])
       expect(mediaServerTypes).toEqual(["jellyfin", "plex"])
     }).pipe(Effect.provide(AdapterRegistryLive)),
