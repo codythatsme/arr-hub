@@ -5,6 +5,7 @@ import { Context, Effect, Layer } from "effect"
 import {
   notificationChannels,
   notificationDeliveries,
+  notificationEvents,
   type NotificationChannelSettings,
   type NotificationChannelType,
   type NotificationEvent,
@@ -16,16 +17,16 @@ import type { MonitoringTrigger } from "./MonitoringTriggerBus"
 import { MonitoringTriggerBus } from "./MonitoringTriggerBus"
 import { recordDomainHistory } from "./OperationalHistoryService"
 
-const ALL_EVENTS: ReadonlyArray<NotificationEvent> = [
-  "session_start",
-  "session_stop",
-  "media_watched",
-  "server_down",
-  "server_up",
-  "new_content",
-]
+const ALL_EVENTS: ReadonlyArray<NotificationEvent> = notificationEvents
 
-function formatTrigger(trigger: MonitoringTrigger) {
+interface FormattedNotification {
+  readonly event: NotificationEvent
+  readonly title: string
+  readonly message: string
+  readonly payload: Record<string, unknown>
+}
+
+function formatTrigger(trigger: MonitoringTrigger): FormattedNotification {
   switch (trigger.kind) {
     case "session_start":
       return {
@@ -76,6 +77,53 @@ function formatTrigger(trigger: MonitoringTrigger) {
   }
 }
 
+function formatTestNotification(event: NotificationEvent): FormattedNotification {
+  switch (event) {
+    case "session_start":
+      return {
+        event,
+        title: "Test stream started",
+        message: "ARR Hub test user started Example Movie",
+        payload: { test: true, mediaType: "movie", title: "Example Movie" },
+      }
+    case "session_stop":
+      return {
+        event,
+        title: "Test stream stopped",
+        message: "ARR Hub test user stopped Example Movie at 92%",
+        payload: { test: true, mediaType: "movie", title: "Example Movie", watchedPercent: 92 },
+      }
+    case "media_watched":
+      return {
+        event,
+        title: "Test media watched",
+        message: "ARR Hub test user watched Example Movie",
+        payload: { test: true, mediaType: "movie", title: "Example Movie" },
+      }
+    case "server_down":
+      return {
+        event,
+        title: "Test media server offline",
+        message: "Example Server is not responding",
+        payload: { test: true, serverId: 1, serverName: "Example Server" },
+      }
+    case "server_up":
+      return {
+        event,
+        title: "Test media server online",
+        message: "Example Server is reachable again",
+        payload: { test: true, serverId: 1, serverName: "Example Server" },
+      }
+    case "new_content":
+      return {
+        event,
+        title: "Test new content added",
+        message: "Example Movie was added to Movies",
+        payload: { test: true, mediaType: "movie", title: "Example Movie", libraryName: "Movies" },
+      }
+  }
+}
+
 export interface NotificationChannelInput {
   readonly name: string
   readonly type: NotificationChannelType
@@ -102,6 +150,10 @@ export class NotificationService extends Context.Tag("@arr-hub/NotificationServi
     readonly listDeliveries: (
       limit?: number,
     ) => Effect.Effect<ReadonlyArray<NotificationDelivery>, SqlError>
+    readonly testChannel: (
+      id: number,
+      event?: NotificationEvent,
+    ) => Effect.Effect<NotificationDelivery, ValidationError | SqlError>
     readonly deliverTrigger: (trigger: MonitoringTrigger) => Effect.Effect<void, SqlError>
     readonly runWorker: () => Effect.Effect<never, SqlError>
   }
@@ -212,6 +264,44 @@ export const NotificationServiceLive = Layer.effect(
         return delivery
       })
 
+    const deliverFormattedToChannel = (
+      channel: NotificationChannel,
+      formatted: FormattedNotification,
+    ) =>
+      Effect.gen(function* () {
+        if (channel.type === "webhook") {
+          const result = yield* Effect.either(
+            sendWebhook(
+              channel,
+              formatted.event,
+              formatted.title,
+              formatted.message,
+              formatted.payload,
+            ),
+          )
+          if (result._tag === "Left") {
+            return yield* recordDelivery(
+              channel.id,
+              formatted.event,
+              formatted.title,
+              formatted.message,
+              formatted.payload,
+              "failed",
+              String(result.left),
+            )
+          }
+        }
+
+        return yield* recordDelivery(
+          channel.id,
+          formatted.event,
+          formatted.title,
+          formatted.message,
+          formatted.payload,
+          "sent",
+        )
+      })
+
     const deliverTrigger = (trigger: MonitoringTrigger) =>
       Effect.gen(function* () {
         const formatted = formatTrigger(trigger)
@@ -235,38 +325,7 @@ export const NotificationServiceLive = Layer.effect(
         }
 
         for (const channel of subscribed) {
-          if (channel.type === "webhook") {
-            const result = yield* Effect.either(
-              sendWebhook(
-                channel,
-                formatted.event,
-                formatted.title,
-                formatted.message,
-                formatted.payload,
-              ),
-            )
-            if (result._tag === "Left") {
-              yield* recordDelivery(
-                channel.id,
-                formatted.event,
-                formatted.title,
-                formatted.message,
-                formatted.payload,
-                "failed",
-                String(result.left),
-              )
-              continue
-            }
-          }
-
-          yield* recordDelivery(
-            channel.id,
-            formatted.event,
-            formatted.title,
-            formatted.message,
-            formatted.payload,
-            "sent",
-          )
+          yield* deliverFormattedToChannel(channel, formatted)
         }
       })
 
@@ -315,6 +374,26 @@ export const NotificationServiceLive = Layer.effect(
           .from(notificationDeliveries)
           .orderBy(desc(notificationDeliveries.deliveredAt))
           .limit(limit),
+
+      testChannel: (id, event = "server_up") =>
+        Effect.gen(function* () {
+          if (!ALL_EVENTS.includes(event)) {
+            return yield* Effect.fail(
+              new ValidationError({ message: `unsupported notification event: ${event}` }),
+            )
+          }
+
+          const rows = yield* db
+            .select()
+            .from(notificationChannels)
+            .where(eq(notificationChannels.id, id))
+          const channel = rows[0]
+          if (!channel) {
+            return yield* Effect.fail(new ValidationError({ message: "channel not found" }))
+          }
+
+          return yield* deliverFormattedToChannel(channel, formatTestNotification(event))
+        }),
 
       deliverTrigger,
 

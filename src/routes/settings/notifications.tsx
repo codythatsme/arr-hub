@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { Bell, BellOff, Trash2 } from "lucide-react"
+import { Bell, BellOff, Send, Trash2 } from "lucide-react"
 import { useMemo, useState } from "react"
 
 import { useTRPC } from "#/integrations/trpc/react"
@@ -20,6 +20,10 @@ const EVENTS = [
 
 type NotificationEvent = (typeof EVENTS)[number]["value"]
 type ChannelType = "in_app" | "webhook"
+
+function eventLabel(value: string): string {
+  return EVENTS.find((event) => event.value === value)?.label ?? value
+}
 
 function Notifications() {
   const trpc = useTRPC()
@@ -57,9 +61,14 @@ function Notifications() {
       onSuccess: () => queryClient.invalidateQueries({ queryKey: channelsKey }),
     }),
   )
+  const test = useMutation(
+    trpc.notifications.testChannel.mutationOptions({
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: deliveriesKey }),
+    }),
+  )
 
   const selectedEvents = useMemo(() => new Set(events), [events])
-  const pending = create.isPending || update.isPending || remove.isPending
+  const pending = create.isPending || update.isPending || remove.isPending || test.isPending
 
   return (
     <div className="space-y-6 p-6">
@@ -75,6 +84,8 @@ function Notifications() {
           <h2 className="text-lg font-semibold">Channels</h2>
           {channels.isLoading && <p className="text-muted-foreground text-sm">Loading...</p>}
           {channels.error && <p className="text-destructive text-sm">{channels.error.message}</p>}
+          {update.error && <p className="text-destructive text-sm">{update.error.message}</p>}
+          {test.error && <p className="text-destructive text-sm">{test.error.message}</p>}
           {channels.data?.length === 0 && (
             <p className="text-muted-foreground text-sm">No notification channels configured.</p>
           )}
@@ -92,6 +103,20 @@ function Notifications() {
                   </p>
                 </div>
                 <div className="flex gap-2">
+                  <button
+                    type="button"
+                    className="flex items-center gap-1 rounded border px-2 py-1 text-xs disabled:opacity-50"
+                    disabled={pending}
+                    onClick={() =>
+                      test.mutate({
+                        id: channel.id,
+                        event: channel.events[0] ?? "server_up",
+                      })
+                    }
+                  >
+                    <Send className="size-3.5" />
+                    Test
+                  </button>
                   <button
                     type="button"
                     className="rounded border px-2 py-1 text-xs disabled:opacity-50"
@@ -116,13 +141,36 @@ function Notifications() {
                   </button>
                 </div>
               </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {channel.events.map((event) => (
-                  <span key={event} className="bg-muted rounded px-2 py-1 text-xs">
-                    {EVENTS.find((item) => item.value === event)?.label ?? event}
-                  </span>
-                ))}
-              </div>
+              <fieldset className="mt-3 space-y-2">
+                <legend className="text-muted-foreground text-xs font-medium">
+                  Event subscriptions
+                </legend>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {EVENTS.map((event) => {
+                    const checked = channel.events.includes(event.value)
+                    return (
+                      <label key={event.value} className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          disabled={pending || (checked && channel.events.length === 1)}
+                          onChange={(change) => {
+                            const nextEvents = change.target.checked
+                              ? [...new Set([...channel.events, event.value])]
+                              : channel.events.filter((value) => value !== event.value)
+                            if (nextEvents.length === 0) return
+                            update.mutate({
+                              id: channel.id,
+                              data: { events: nextEvents },
+                            })
+                          }}
+                        />
+                        {event.label}
+                      </label>
+                    )
+                  })}
+                </div>
+              </fieldset>
             </article>
           ))}
         </div>
@@ -228,7 +276,7 @@ function Notifications() {
               <tbody>
                 {deliveries.data.map((delivery) => (
                   <tr key={delivery.id} className="border-t">
-                    <td className="px-3 py-2">{delivery.event}</td>
+                    <td className="px-3 py-2">{eventLabel(delivery.event)}</td>
                     <td className="px-3 py-2">
                       <p>{delivery.title}</p>
                       <p className="text-muted-foreground text-xs">{delivery.message}</p>

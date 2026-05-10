@@ -99,4 +99,43 @@ describe("NotificationService", () => {
       expect(deliveries[0].status).toBe("skipped")
     }).pipe(Effect.provide(TestLayer)),
   )
+
+  it.effect("updates channel event subscriptions", () =>
+    Effect.gen(function* () {
+      const service = yield* NotificationService
+      const channel = yield* service.createChannel({
+        name: "Scoped alerts",
+        type: "in_app",
+        enabled: true,
+        events: ["session_start", "server_down"],
+        settings: {},
+      })
+
+      const updated = yield* service.updateChannel(channel.id, {
+        events: ["media_watched"],
+      })
+
+      expect(updated.events).toEqual(["media_watched"])
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("sends test deliveries directly to a channel", () =>
+    Effect.gen(function* () {
+      const service = yield* NotificationService
+      const channel = yield* service.createChannel({
+        name: "Disabled alerts",
+        type: "in_app",
+        enabled: false,
+        events: ["session_start"],
+        settings: {},
+      })
+
+      const delivery = yield* service.testChannel(channel.id, "server_down")
+
+      expect(delivery.channelId).toBe(channel.id)
+      expect(delivery.event).toBe("server_down")
+      expect(delivery.status).toBe("sent")
+      expect(delivery.payload.test).toBe(true)
+    }).pipe(Effect.provide(TestLayer)),
+  )
 })

@@ -762,13 +762,15 @@ export const sessionHistory = sqliteTable("session_history", {
 
 // ── Notifications ──
 
-export type NotificationEvent =
-  | "session_start"
-  | "session_stop"
-  | "media_watched"
-  | "server_down"
-  | "server_up"
-  | "new_content"
+export const notificationEvents = [
+  "session_start",
+  "session_stop",
+  "media_watched",
+  "server_down",
+  "server_up",
+  "new_content",
+] as const
+export type NotificationEvent = (typeof notificationEvents)[number]
 
 export type NotificationChannelType = "in_app" | "webhook"
 
