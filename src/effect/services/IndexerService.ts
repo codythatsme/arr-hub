@@ -173,6 +173,54 @@ const GENERIC_CAPABILITIES = {
   })),
 }
 
+const NEWZNAB_CORE_CATEGORIES = [
+  { trackerCategory: "Console", trackerCategoryDesc: "Console", newznabCategory: 1000 },
+  { trackerCategory: "Movies", trackerCategoryDesc: "Movies", newznabCategory: 2000 },
+  { trackerCategory: "Audio", trackerCategoryDesc: "Audio", newznabCategory: 3000 },
+  { trackerCategory: "PC", trackerCategoryDesc: "PC", newznabCategory: 4000 },
+  { trackerCategory: "TV", trackerCategoryDesc: "TV", newznabCategory: 5000 },
+  { trackerCategory: "XXX", trackerCategoryDesc: "XXX", newznabCategory: 6000 },
+  { trackerCategory: "Books", trackerCategoryDesc: "Books", newznabCategory: 7000 },
+  { trackerCategory: "Other", trackerCategoryDesc: "Other", newznabCategory: 8000 },
+]
+
+const USENET_API_KEY_FIELD = {
+  name: "apiKey",
+  label: "API key",
+  type: "password",
+  required: true,
+  helpText: "Newznab-compatible API key.",
+} as const
+
+function newznabPreset(
+  definitionKey: string,
+  displayName: string,
+  baseUrl: string,
+  categories = NEWZNAB_CORE_CATEGORIES,
+): IndexerDefinitionSeed {
+  return {
+    definitionKey,
+    displayName,
+    protocol: "usenet",
+    implementation: "newznab",
+    baseUrl,
+    privacy: "private",
+    supportsRss: true,
+    supportsSearch: true,
+    authFields: [USENET_API_KEY_FIELD],
+    categories,
+    capabilities: {
+      searchTypes: ["search", "movie", "tvsearch"],
+      categories: categories.map((category) => ({
+        id: category.newznabCategory,
+        name: category.trackerCategoryDesc,
+      })),
+    },
+    tags: ["newznab", "usenet", "preset", "core-curated"],
+    version: "builtin-newznab-preset-1",
+  }
+}
+
 const GENERIC_INDEXER_DEFINITIONS: ReadonlyArray<IndexerDefinitionSeed> = [
   {
     definitionKey: "generic-torznab",
@@ -206,20 +254,37 @@ const GENERIC_INDEXER_DEFINITIONS: ReadonlyArray<IndexerDefinitionSeed> = [
     privacy: "private",
     supportsRss: true,
     supportsSearch: true,
-    authFields: [
-      {
-        name: "apiKey",
-        label: "API key",
-        type: "password",
-        required: true,
-        helpText: "Newznab-compatible API key.",
-      },
-    ],
+    authFields: [USENET_API_KEY_FIELD],
     categories: COMMON_CATEGORIES,
     capabilities: GENERIC_CAPABILITIES,
     tags: ["newznab", "usenet", "generic"],
     version: "builtin-1",
   },
+  newznabPreset("nzbgeek", "NZBGeek", "https://api.nzbgeek.info"),
+  newznabPreset(
+    "drunkenslug",
+    "DrunkenSlug",
+    "https://drunkenslug.com",
+    NEWZNAB_CORE_CATEGORIES.filter((category) => category.newznabCategory !== 8000),
+  ),
+  newznabPreset(
+    "nzbfinder",
+    "NZBFinder",
+    "https://nzbfinder.ws",
+    NEWZNAB_CORE_CATEGORIES.filter(
+      (category) => category.newznabCategory !== 1000 && category.newznabCategory !== 4000,
+    ),
+  ),
+  newznabPreset("ninjacentral", "NinjaCentral", "https://ninjacentral.co.za"),
+  newznabPreset("nzbplanet", "NZBPlanet", "https://api.nzbplanet.net"),
+  newznabPreset(
+    "althub",
+    "altHUB",
+    "https://api.althub.co.za",
+    NEWZNAB_CORE_CATEGORIES.filter(
+      (category) => category.newznabCategory !== 1000 && category.newznabCategory !== 6000,
+    ),
+  ),
 ]
 
 const BUILT_IN_DEFINITIONS: ReadonlyArray<IndexerDefinitionSeed> = [

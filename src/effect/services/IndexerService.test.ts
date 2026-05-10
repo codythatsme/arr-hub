@@ -119,19 +119,19 @@ describe("IndexerService", () => {
       const second = yield* svc.refreshDefinitions()
 
       expect(first).toMatchObject({
-        total: 57,
-        created: 57,
+        total: 63,
+        created: 63,
         updated: 0,
         unchanged: 0,
       })
       expect(first.definitions.map((definition) => definition.action)).toEqual(
-        Array(57).fill("created"),
+        Array(63).fill("created"),
       )
       expect(second).toMatchObject({
-        total: 57,
+        total: 63,
         created: 0,
         updated: 0,
-        unchanged: 57,
+        unchanged: 63,
       })
       expect(second.definitions.every((definition) => definition.previousVersion !== null)).toBe(
         true,
@@ -402,6 +402,7 @@ describe("IndexerService", () => {
       const definitions = yield* svc.listDefinitions()
       expect(definitions.map((definition) => definition.definitionKey).toSorted()).toEqual([
         "alpharatio",
+        "althub",
         "anidex",
         "animebytes",
         "animetorrents",
@@ -413,6 +414,7 @@ describe("IndexerService", () => {
         "brokenstones",
         "cgpeers",
         "dicmusic",
+        "drunkenslug",
         "filelist",
         "funfile",
         "gazellegames",
@@ -429,8 +431,12 @@ describe("IndexerService", () => {
         "morethantv",
         "myanonamouse",
         "nebulance",
+        "ninjacentral",
         "norbits",
         "nyaa",
+        "nzbfinder",
+        "nzbgeek",
+        "nzbplanet",
         "open-tv-torrents",
         "orpheus",
         "passthepopcorn",
@@ -467,6 +473,41 @@ describe("IndexerService", () => {
         implementation: "torznab",
         supportsRss: true,
         supportsSearch: true,
+      })
+      expect(
+        definitions.find((definition) => definition.definitionKey === "nzbgeek"),
+      ).toMatchObject({
+        displayName: "NZBGeek",
+        protocol: "usenet",
+        implementation: "newznab",
+        baseUrl: "https://api.nzbgeek.info",
+        privacy: "private",
+        tags: ["newznab", "usenet", "preset", "core-curated"],
+      })
+      expect(
+        definitions.find((definition) => definition.definitionKey === "drunkenslug"),
+      ).toMatchObject({
+        displayName: "DrunkenSlug",
+        protocol: "usenet",
+        implementation: "newznab",
+        baseUrl: "https://drunkenslug.com",
+        privacy: "private",
+        capabilities: {
+          searchTypes: ["search", "movie", "tvsearch"],
+          categories: expect.arrayContaining([
+            { id: 2000, name: "Movies" },
+            { id: 5000, name: "TV" },
+          ]),
+        },
+      })
+      expect(
+        definitions.find((definition) => definition.definitionKey === "nzbfinder"),
+      ).toMatchObject({
+        displayName: "NZBFinder",
+        protocol: "usenet",
+        implementation: "newznab",
+        baseUrl: "https://nzbfinder.ws",
+        privacy: "private",
       })
       expect(definitions.find((definition) => definition.definitionKey === "nyaa")).toMatchObject({
         displayName: "Nyaa",
