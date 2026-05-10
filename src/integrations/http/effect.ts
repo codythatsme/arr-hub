@@ -49,6 +49,35 @@ export async function runAuthedJson<A>(
   }
 }
 
+export async function runAuthedResponse(
+  request: Request,
+  effect: Effect.Effect<Response, DomainError | SqlError, AppContext>,
+): Promise<Response> {
+  const authHeader = request.headers.get("authorization")
+  if (!authHeader?.startsWith("Bearer ")) {
+    return Response.json({ error: "missing" }, { status: 401 })
+  }
+
+  const token = authHeader.slice(7)
+  try {
+    return await AppRuntime.runPromise(
+      Effect.gen(function* () {
+        const auth = yield* AuthService
+        yield* auth.validateToken(token)
+        return yield* effect
+      }),
+    )
+  } catch (error) {
+    if (typeof error === "object" && error !== null && "_tag" in error) {
+      if (error._tag === "SqlError") {
+        return Response.json({ error: "database error" }, { status: 500 })
+      }
+      return errorResponse(domainToTRPC(error as DomainError))
+    }
+    return errorResponse(error)
+  }
+}
+
 export async function runJson<A>(
   effect: Effect.Effect<A, DomainError | SqlError, AppContext>,
 ): Promise<Response> {

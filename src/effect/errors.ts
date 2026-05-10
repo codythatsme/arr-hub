@@ -107,7 +107,11 @@ export class DiagnosticsError extends Data.TaggedError("DiagnosticsError")<{
   readonly message: string
 }> {}
 
-export type BackupErrorReason = "database_missing" | "backup_failed"
+export type BackupErrorReason =
+  | "database_missing"
+  | "backup_failed"
+  | "backup_not_found"
+  | "restore_failed"
 
 export class BackupError extends Data.TaggedError("BackupError")<{
   readonly reason: BackupErrorReason

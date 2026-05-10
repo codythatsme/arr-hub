@@ -1,5 +1,6 @@
 import { createTRPCRouter } from "./init"
 import { authRouter } from "./routers/auth"
+import { backupsRouter } from "./routers/backups"
 import { diagnosticsRouter } from "./routers/diagnostics"
 import { downloadClientsRouter } from "./routers/downloadClients"
 import { formatsRouter } from "./routers/formats"
@@ -27,6 +28,7 @@ import { tmdbRouter } from "./routers/tmdb"
 
 export const trpcRouter = createTRPCRouter({
   auth: authRouter,
+  backups: backupsRouter,
   onboarding: onboardingRouter,
   movies: moviesRouter,
   notifications: notificationsRouter,

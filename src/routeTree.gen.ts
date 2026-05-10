@@ -46,6 +46,7 @@ import { Route as ApiQueueIdRetryRouteImport } from './routes/api.queue.$id.retr
 import { Route as ApiQueueIdRemoveRouteImport } from './routes/api.queue.$id.remove'
 import { Route as ApiQueueIdBlocklistRouteImport } from './routes/api.queue.$id.blocklist'
 import { Route as ApiIndexersAggregateProtocolRouteImport } from './routes/api.indexers.aggregate.$protocol'
+import { Route as ApiSystemBackupsIdDownloadRouteImport } from './routes/api.system.backups.$id.download'
 import { Route as ApiIndexersAggregateProtocolApiRouteImport } from './routes/api.indexers.aggregate.$protocol.api'
 
 const SystemRoute = SystemRouteImport.update({
@@ -234,6 +235,12 @@ const ApiIndexersAggregateProtocolRoute =
     path: '/api/indexers/aggregate/$protocol',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiSystemBackupsIdDownloadRoute =
+  ApiSystemBackupsIdDownloadRouteImport.update({
+    id: '/api/system/backups/$id/download',
+    path: '/api/system/backups/$id/download',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiIndexersAggregateProtocolApiRoute =
   ApiIndexersAggregateProtocolApiRouteImport.update({
     id: '/api',
@@ -280,6 +287,7 @@ export interface FileRoutesByFullPath {
   '/api/queue/$id/remove': typeof ApiQueueIdRemoveRoute
   '/api/queue/$id/retry': typeof ApiQueueIdRetryRoute
   '/api/indexers/aggregate/$protocol/api': typeof ApiIndexersAggregateProtocolApiRoute
+  '/api/system/backups/$id/download': typeof ApiSystemBackupsIdDownloadRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -320,6 +328,7 @@ export interface FileRoutesByTo {
   '/api/queue/$id/remove': typeof ApiQueueIdRemoveRoute
   '/api/queue/$id/retry': typeof ApiQueueIdRetryRoute
   '/api/indexers/aggregate/$protocol/api': typeof ApiIndexersAggregateProtocolApiRoute
+  '/api/system/backups/$id/download': typeof ApiSystemBackupsIdDownloadRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -361,6 +370,7 @@ export interface FileRoutesById {
   '/api/queue/$id/remove': typeof ApiQueueIdRemoveRoute
   '/api/queue/$id/retry': typeof ApiQueueIdRetryRoute
   '/api/indexers/aggregate/$protocol/api': typeof ApiIndexersAggregateProtocolApiRoute
+  '/api/system/backups/$id/download': typeof ApiSystemBackupsIdDownloadRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -403,6 +413,7 @@ export interface FileRouteTypes {
     | '/api/queue/$id/remove'
     | '/api/queue/$id/retry'
     | '/api/indexers/aggregate/$protocol/api'
+    | '/api/system/backups/$id/download'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -443,6 +454,7 @@ export interface FileRouteTypes {
     | '/api/queue/$id/remove'
     | '/api/queue/$id/retry'
     | '/api/indexers/aggregate/$protocol/api'
+    | '/api/system/backups/$id/download'
   id:
     | '__root__'
     | '/'
@@ -483,6 +495,7 @@ export interface FileRouteTypes {
     | '/api/queue/$id/remove'
     | '/api/queue/$id/retry'
     | '/api/indexers/aggregate/$protocol/api'
+    | '/api/system/backups/$id/download'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -520,6 +533,7 @@ export interface RootRouteChildren {
   ApiSystemTasksRoute: typeof ApiSystemTasksRoute
   ApiTrpcSplatRoute: typeof ApiTrpcSplatRoute
   ApiIndexersAggregateProtocolRoute: typeof ApiIndexersAggregateProtocolRouteWithChildren
+  ApiSystemBackupsIdDownloadRoute: typeof ApiSystemBackupsIdDownloadRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -783,6 +797,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiIndexersAggregateProtocolRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/system/backups/$id/download': {
+      id: '/api/system/backups/$id/download'
+      path: '/api/system/backups/$id/download'
+      fullPath: '/api/system/backups/$id/download'
+      preLoaderRoute: typeof ApiSystemBackupsIdDownloadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/indexers/aggregate/$protocol/api': {
       id: '/api/indexers/aggregate/$protocol/api'
       path: '/api'
@@ -859,6 +880,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiTrpcSplatRoute: ApiTrpcSplatRoute,
   ApiIndexersAggregateProtocolRoute:
     ApiIndexersAggregateProtocolRouteWithChildren,
+  ApiSystemBackupsIdDownloadRoute: ApiSystemBackupsIdDownloadRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

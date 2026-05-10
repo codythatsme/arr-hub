@@ -6,6 +6,7 @@ import superjson from "superjson"
 import type {
   AcquisitionError,
   AuthError,
+  BackupError,
   BundleNotFoundError,
   BundleVersionConflictError,
   ConflictError,
@@ -56,6 +57,7 @@ export type DomainError =
   | ValidationError
   | ConflictError
   | AuthError
+  | BackupError
   | ProfileInUseError
   | BundleNotFoundError
   | BundleVersionConflictError
@@ -89,6 +91,18 @@ export function domainToTRPC(error: DomainError): TRPCError {
       })
     case "AuthError":
       return new TRPCError({ code: "UNAUTHORIZED", message: error.reason })
+    case "BackupError": {
+      const codeMap: Record<string, TRPCError["code"]> = {
+        backup_not_found: "NOT_FOUND",
+        database_missing: "PRECONDITION_FAILED",
+        backup_failed: "INTERNAL_SERVER_ERROR",
+        restore_failed: "INTERNAL_SERVER_ERROR",
+      }
+      return new TRPCError({
+        code: codeMap[error.reason] ?? "INTERNAL_SERVER_ERROR",
+        message: error.message,
+      })
+    }
     case "ProfileInUseError":
       return new TRPCError({
         code: "CONFLICT",

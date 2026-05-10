@@ -1,16 +1,63 @@
-import { useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
+import { DatabaseBackup, Download, RotateCcw } from "lucide-react"
+import { useState } from "react"
 
 import { useTRPC } from "#/integrations/trpc/react"
+import { getAuthToken } from "#/lib/auth-token"
 
 export const Route = createFileRoute("/system")({ component: System })
 
+interface BackupRow {
+  readonly id: string
+  readonly filename: string
+  readonly createdAt: Date | string
+  readonly backupPath: string
+  readonly sizeBytes: number
+  readonly reason: "scheduled" | "pre_restore"
+}
+
 function System() {
   const trpc = useTRPC()
+  const queryClient = useQueryClient()
+  const [message, setMessage] = useState<string | null>(null)
   const status = useQuery(trpc.diagnostics.status.queryOptions())
   const health = useQuery(trpc.diagnostics.health.queryOptions())
   const tasks = useQuery(trpc.diagnostics.tasks.queryOptions())
   const logs = useQuery(trpc.diagnostics.logs.queryOptions({ count: 50 }))
+  const backupsKey = trpc.backups.list.queryKey()
+  const backups = useQuery(trpc.backups.list.queryOptions())
+  const createBackup = useMutation(
+    trpc.backups.create.mutationOptions({
+      onSuccess: async (result) => {
+        await queryClient.invalidateQueries({ queryKey: backupsKey })
+        setMessage(`Backup ${result.filename} created.`)
+      },
+    }),
+  )
+  const restoreBackup = useMutation(
+    trpc.backups.restore.mutationOptions({
+      onSuccess: async (result) => {
+        await queryClient.invalidateQueries()
+        setMessage(`Database restored. Safety backup ${result.safetyBackup.filename} created.`)
+      },
+    }),
+  )
+  const downloadBackup = useMutation({
+    mutationFn: downloadBackupFile,
+    onSuccess: (filename) => setMessage(`Backup ${filename} downloaded.`),
+  })
+
+  const pending = createBackup.isPending || restoreBackup.isPending || downloadBackup.isPending
+  const error =
+    createBackup.error?.message ??
+    restoreBackup.error?.message ??
+    downloadBackup.error?.message ??
+    backups.error?.message ??
+    status.error?.message ??
+    health.error?.message ??
+    tasks.error?.message ??
+    logs.error?.message
 
   return (
     <div className="space-y-6 p-6">
@@ -18,6 +65,9 @@ function System() {
         <h1 className="text-2xl font-bold">System</h1>
         <p className="text-muted-foreground mt-1">System status, logs, and diagnostics</p>
       </header>
+
+      {message && <p className="text-sm text-emerald-600">{message}</p>}
+      {error && <p className="text-destructive text-sm">{error}</p>}
 
       <section className="grid gap-4 md:grid-cols-4">
         <Metric label="Version" value={status.data?.version ?? "unknown"} />
@@ -87,6 +137,94 @@ function System() {
       </section>
 
       <section className="rounded-md border">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
+          <h2 className="font-semibold">Database Backups</h2>
+          <button
+            type="button"
+            className="bg-primary text-primary-foreground inline-flex items-center gap-2 rounded px-3 py-2 text-sm disabled:opacity-50"
+            disabled={pending}
+            onClick={() => {
+              setMessage(null)
+              createBackup.mutate()
+            }}
+          >
+            <DatabaseBackup className="size-4" />
+            Create backup
+          </button>
+        </div>
+        {backups.isLoading && (
+          <p className="text-muted-foreground p-4 text-sm">Loading backups...</p>
+        )}
+        {backups.data?.length === 0 && (
+          <p className="text-muted-foreground p-4 text-sm">No database backups found.</p>
+        )}
+        {backups.data && backups.data.length > 0 && (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50 text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2 text-left font-medium">Created</th>
+                  <th className="px-3 py-2 text-left font-medium">File</th>
+                  <th className="px-3 py-2 text-right font-medium">Size</th>
+                  <th className="px-3 py-2 text-left font-medium">Type</th>
+                  <th className="px-3 py-2 text-right font-medium">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {backups.data.map((backup) => (
+                  <tr key={backup.id} className="border-t">
+                    <td className="px-3 py-2">{formatDate(backup.createdAt)}</td>
+                    <td className="px-3 py-2">
+                      <p className="font-mono">{backup.filename}</p>
+                      <p className="text-muted-foreground max-w-lg truncate text-xs">
+                        {backup.backupPath}
+                      </p>
+                    </td>
+                    <td className="px-3 py-2 text-right">{formatBytes(backup.sizeBytes)}</td>
+                    <td className="px-3 py-2">{labelBackupReason(backup.reason)}</td>
+                    <td className="px-3 py-2">
+                      <div className="flex justify-end gap-2">
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1 rounded border px-2 py-1 text-xs disabled:opacity-50"
+                          disabled={pending}
+                          onClick={() => {
+                            setMessage(null)
+                            downloadBackup.mutate(backup)
+                          }}
+                        >
+                          <Download className="size-3" />
+                          Download
+                        </button>
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1 rounded border px-2 py-1 text-xs disabled:opacity-50"
+                          disabled={pending}
+                          onClick={() => {
+                            setMessage(null)
+                            if (
+                              window.confirm(
+                                `Restore ${backup.filename}? A safety backup will be created first.`,
+                              )
+                            ) {
+                              restoreBackup.mutate({ id: backup.id })
+                            }
+                          }}
+                        >
+                          <RotateCcw className="size-3" />
+                          Restore
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      <section className="rounded-md border">
         <div className="border-b px-4 py-3">
           <h2 className="font-semibold">Structured Logs</h2>
         </div>
@@ -115,6 +253,31 @@ function System() {
   )
 }
 
+async function downloadBackupFile(backup: BackupRow) {
+  const token = getAuthToken()
+  if (!token) throw new Error("missing auth token")
+
+  const response = await fetch(`/api/system/backups/${encodeURIComponent(backup.id)}/download`, {
+    headers: { authorization: `Bearer ${token}` },
+  })
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as { readonly error?: string } | null
+    throw new Error(body?.error ?? `download failed with HTTP ${response.status}`)
+  }
+
+  const blob = await response.blob()
+  const href = URL.createObjectURL(blob)
+  const anchor = document.createElement("a")
+  anchor.href = href
+  anchor.download = backup.filename
+  document.body.append(anchor)
+  anchor.click()
+  anchor.remove()
+  window.setTimeout(() => URL.revokeObjectURL(href), 0)
+
+  return backup.filename
+}
+
 function Metric({
   label,
   value,
@@ -138,9 +301,18 @@ function formatBytes(bytes: number) {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
 
+function formatDate(value: Date | string | null) {
+  if (value === null) return "never"
+  return new Date(value).toLocaleString()
+}
+
 function formatDuration(seconds: number) {
   const hours = Math.floor(seconds / 3600)
   const minutes = Math.floor((seconds % 3600) / 60)
   if (hours > 0) return `${hours}h ${minutes}m`
   return `${minutes}m`
+}
+
+function labelBackupReason(reason: BackupRow["reason"]) {
+  return reason === "pre_restore" ? "Pre-restore" : "Scheduled"
 }

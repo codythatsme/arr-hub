@@ -237,6 +237,9 @@ variables because a claimed server token is required.
 - The scheduler runs daily housekeeping for old completed jobs, notification
   deliveries, release decisions/blocklist rows, stale completed queue rows, and
   expired local session tokens.
+- The System page lists database backups and can create, download, or restore a
+  snapshot. Restore creates a pre-restore safety backup before replacing the
+  active SQLite database.
 
 ## Upgrades
 
