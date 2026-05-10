@@ -1086,6 +1086,73 @@ const GREAT_POSTER_WALL_JSON_RESULTS = JSON.stringify({
   },
 })
 
+const REDACTED_JSON_RESULTS = JSON.stringify({
+  status: "success",
+  response: {
+    results: [
+      {
+        artist: "Red Artist",
+        groupId: "951",
+        groupName: "Redacted Album",
+        groupYear: "2026",
+        releaseType: "Album",
+        torrents: [
+          {
+            torrentId: 9511,
+            remasterTitle: "Deluxe Edition",
+            remasterYear: "2026",
+            format: "FLAC",
+            encoding: "Lossless",
+            media: "WEB",
+            hasLog: true,
+            logScore: 100,
+            hasCue: true,
+            time: "2026-05-10T09:45:00.000Z",
+            size: "812345600",
+            fileCount: 10,
+            snatches: 24,
+            seeders: "52",
+            leechers: "3",
+            category: "Music",
+            isFreeLeech: false,
+            isNeutralLeech: false,
+            isFreeload: true,
+            isPersonalFreeLeech: false,
+            canUseToken: true,
+          },
+        ],
+      },
+      {
+        groupId: "952",
+        groupName: "Redacted EBook",
+        groupYear: "2026",
+        torrents: [
+          {
+            torrentId: 9512,
+            format: "PDF",
+            encoding: "Retail",
+            media: "WEB",
+            hasLog: false,
+            hasCue: false,
+            time: "2026-05-09T08:10:00.000Z",
+            size: "12345600",
+            fileCount: 1,
+            snatches: 9,
+            seeders: "15",
+            leechers: "1",
+            category: "E-Books",
+            isFreeLeech: true,
+            isNeutralLeech: true,
+            isFreeload: false,
+            isPersonalFreeLeech: false,
+            canUseToken: false,
+          },
+        ],
+      },
+    ],
+  },
+})
+
 const REVOLUTIONTT_HTML_RESULTS = `
 <html><body>
   <table id="torrents-table">
@@ -5264,6 +5331,75 @@ search:
     expect(releases[1]).toMatchObject({
       title: "GreatPosterWall UHD Movie 2026 2160p WEB-DL HEVC-GPW",
       category: "2000",
+      downloadFactor: 0,
+      uploadFactor: 0,
+    })
+  })
+
+  it("parses Redacted API-key Gazelle JSON results", async () => {
+    const requests: Array<{ url: string; init: RequestInit | undefined }> = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      requests.push({ url: String(input), init })
+      return new Response(REDACTED_JSON_RESULTS, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 115,
+      name: "Redacted",
+      type: "cardigann_yaml",
+      definitionKey: "redacted",
+      baseUrl: "https://redacted.sh/",
+      apiKey: "red-api-key",
+      configValues: {
+        useFreeleechToken: "1",
+        freeloadOnly: "true",
+      },
+      priority: 51,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({
+        term: "Redacted Album",
+        type: "general",
+        categories: [3000],
+      }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const searchRequest = requests[0]
+    const searchUrl = new URL(searchRequest?.url ?? "")
+    expect(searchUrl.origin).toBe("https://redacted.sh")
+    expect(searchUrl.pathname).toBe("/ajax.php")
+    expect(searchUrl.searchParams.get("action")).toBe("browse")
+    expect(searchUrl.searchParams.get("order_by")).toBe("time")
+    expect(searchUrl.searchParams.get("order_way")).toBe("desc")
+    expect(searchUrl.searchParams.get("searchstr")).toBe("Redacted Album")
+    expect(searchUrl.searchParams.get("filter_cat[1]")).toBe("1")
+    expect(searchUrl.searchParams.get("freetorrent")).toBe("4")
+    expect(new Headers(searchRequest?.init?.headers).get("authorization")).toBe("red-api-key")
+    expect(releases).toHaveLength(2)
+    expect(releases[0]).toMatchObject({
+      title:
+        "Red Artist - Redacted Album (2026) [Album] [Deluxe Edition 2026] [FLAC Lossless] [WEB] [Log (100%)] [Cue]",
+      downloadUrl: "https://redacted.sh/ajax.php?action=download&id=9511&usetoken=1",
+      infoUrl: "https://redacted.sh/torrents.php?id=951&torrentid=9511",
+      category: "3000",
+      size: 812_345_600,
+      seeders: 52,
+      leechers: 3,
+      indexerId: 115,
+      indexerName: "Redacted",
+      indexerPriority: 51,
+      downloadFactor: 0,
+      uploadFactor: 0,
+    })
+    expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-10T09:45:00.000Z")
+    expect(releases[1]).toMatchObject({
+      title: "Redacted EBook (2026) [PDF Retail] [WEB]",
+      category: "7020",
       downloadFactor: 0,
       uploadFactor: 0,
     })

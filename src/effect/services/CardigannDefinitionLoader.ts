@@ -6504,6 +6504,190 @@ search:
       text: "{{ if .Result.neutralflag }}0{{ else }}1{{ end }}"
 `
 
+const REDACTED = `
+id: redacted
+name: Redacted
+description: Private music tracker exposed through a first-pass API-key Gazelle JSON Cardigann definition.
+type: private
+links:
+  - https://redacted.sh/
+legacylinks:
+  - https://redacted.ch/
+version: builtin-cardigann-1
+rss: false
+tags:
+  - private
+  - music
+  - books
+  - apps
+  - json
+  - gazelle
+  - api-key
+settings:
+  - name: apiKey
+    label: API key
+    type: password
+    required: true
+  - name: useFreeleechToken
+    label: Use Freeleech Tokens
+    type: select
+    default: "0"
+    required: false
+    options:
+      - value: "0"
+        label: Never
+      - value: "1"
+        label: Preferred
+      - value: "2"
+        label: Required
+  - name: freeloadOnly
+    label: Freeload Only
+    type: checkbox
+    default: false
+    required: false
+caps:
+  categorymappings:
+    - id: "1"
+      cat: Audio
+      desc: Music
+      newznab: 3000
+    - id: "2"
+      cat: PC
+      desc: Applications
+      newznab: 4000
+    - id: "3"
+      cat: Books/EBook
+      desc: E-Books
+      newznab: 7020
+    - id: "4"
+      cat: Audio/Audiobook
+      desc: Audiobooks
+      newznab: 3030
+    - id: "5"
+      cat: Other
+      desc: E-Learning Videos
+      newznab: 8000
+    - id: "6"
+      cat: Other
+      desc: Comedy
+      newznab: 8000
+    - id: "7"
+      cat: Books/Comics
+      desc: Comics
+      newznab: 7030
+  modes:
+    search: [q]
+    music-search: [q]
+    book-search: [q]
+search:
+  headers:
+    Authorization: "{{ .Config.APIKey }}"
+  paths:
+    - path: /ajax.php
+      response:
+        type: json
+      inputs:
+        action: browse
+        order_by: time
+        order_way: desc
+        searchstr: "{{ .Keywords }}"
+        freetorrent: "{{ if .Config.FreeloadOnly }}4{{ end }}"
+        $raw: '{{ range .Categories }}filter_cat[{{ . }}]=1&{{ end }}'
+  rows:
+    selector: $.response.results, $.Response.Results
+    attribute: torrents, Torrents
+    multiple: true
+    missingAttributeEqualsNoResults: true
+  fields:
+    id:
+      selector: torrentId, TorrentId
+    groupid:
+      selector: ..groupId
+    artist:
+      selector: ..artist, Artist
+      optional: true
+      filters:
+        - name: htmldecode
+    groupname:
+      selector: ..groupName
+      filters:
+        - name: htmldecode
+    groupyear:
+      selector: ..groupYear
+    releasetype:
+      selector: ..releaseType
+      optional: true
+    remastertitle:
+      selector: remasterTitle, RemasterTitle
+      optional: true
+    remasteryear:
+      selector: remasterYear, RemasterYear
+      optional: true
+    format:
+      selector: format, Format
+    encoding:
+      selector: encoding, Encoding
+    media:
+      selector: media, Media
+    haslog:
+      selector: hasLog, HasLog
+      filters:
+        - name: regexp
+          args: "true"
+    logscore:
+      selector: logScore, LogScore
+      optional: true
+    hascue:
+      selector: hasCue, HasCue
+      filters:
+        - name: regexp
+          args: "true"
+    title:
+      text: "{{ if .Result.artist }}{{ .Result.artist }} - {{ end }}{{ .Result.groupname }} ({{ .Result.groupyear }}){{ if .Result.releasetype }} [{{ .Result.releasetype }}]{{ end }}{{ if .Result.remastertitle }} [{{ .Result.remastertitle }} {{ .Result.remasteryear }}]{{ end }} [{{ .Result.format }} {{ .Result.encoding }}] [{{ .Result.media }}]{{ if .Result.haslog }} [Log ({{ .Result.logscore }}%)]{{ end }}{{ if .Result.hascue }} [Cue]{{ end }}"
+    details:
+      text: "/torrents.php?id={{ .Result.groupid }}&torrentid={{ .Result.id }}"
+    download:
+      text: '/ajax.php?action=download&id={{ .Result.id }}{{ if ne .Config.UseFreeleechToken "0" }}&usetoken=1{{ end }}'
+    category:
+      selector: category, Category
+      default: "1"
+      case:
+        "Music": "1"
+        "Applications": "2"
+        "E-Books": "3"
+        "Audiobooks": "4"
+        "E-Learning Videos": "5"
+        "Comedy": "6"
+        "Comics": "7"
+        "Select Category": "1"
+    date:
+      selector: time, Time
+    size:
+      selector: size, Size
+    files:
+      selector: fileCount, FileCount
+    grabs:
+      selector: snatches, Snatches
+    seeders:
+      selector: seeders, Seeders
+    leechers:
+      selector: leechers, Leechers
+    freeflags:
+      selector: isFreeLeech, IsFreeLeech, isNeutralLeech, IsNeutralLeech, isFreeload, IsFreeload, isPersonalFreeLeech, IsPersonalFreeLeech
+      filters:
+        - name: regexp
+          args: "true"
+    uploadzeroflag:
+      selector: isNeutralLeech, IsNeutralLeech, isFreeload, IsFreeload
+      filters:
+        - name: regexp
+          args: "true"
+    downloadvolumefactor:
+      text: "{{ if .Result.freeflags }}0{{ else }}1{{ end }}"
+    uploadvolumefactor:
+      text: "{{ if .Result.uploadzeroflag }}0{{ else }}1{{ end }}"
+`
+
 const REVOLUTION_TT = `
 id: revolutiontt
 name: RevolutionTT
@@ -7232,6 +7416,7 @@ const BUILT_IN_CARDIGANN_SOURCES = [
   CGPEERS,
   DICMUSIC,
   GREAT_POSTER_WALL,
+  REDACTED,
   REVOLUTION_TT,
   PRETOME,
   MORE_THAN_TV,

@@ -119,19 +119,19 @@ describe("IndexerService", () => {
       const second = yield* svc.refreshDefinitions()
 
       expect(first).toMatchObject({
-        total: 45,
-        created: 45,
+        total: 46,
+        created: 46,
         updated: 0,
         unchanged: 0,
       })
       expect(first.definitions.map((definition) => definition.action)).toEqual(
-        Array(45).fill("created"),
+        Array(46).fill("created"),
       )
       expect(second).toMatchObject({
-        total: 45,
+        total: 46,
         created: 0,
         updated: 0,
-        unchanged: 45,
+        unchanged: 46,
       })
       expect(second.definitions.every((definition) => definition.previousVersion !== null)).toBe(
         true,
@@ -430,6 +430,7 @@ describe("IndexerService", () => {
         "pixelhd",
         "pretome",
         "public-domain-movie-torrents",
+        "redacted",
         "retroflix",
         "revolutiontt",
         "scenehd",
@@ -843,6 +844,17 @@ describe("IndexerService", () => {
         privacy: "private",
         supportsRss: false,
         tags: ["private", "movies", "json", "gazelle"],
+      })
+      expect(
+        definitions.find((definition) => definition.definitionKey === "redacted"),
+      ).toMatchObject({
+        displayName: "Redacted",
+        protocol: "torrent",
+        implementation: "cardigann_yaml",
+        baseUrl: "https://redacted.sh/",
+        privacy: "private",
+        supportsRss: false,
+        tags: ["private", "music", "books", "apps", "json", "gazelle", "api-key"],
       })
       expect(
         definitions.find((definition) => definition.definitionKey === "revolutiontt"),
