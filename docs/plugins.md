@@ -8,6 +8,8 @@ Plugins can add adapter implementations for three capabilities:
 - `indexer`
 - `media_server`
 
+V1 plugins are adapter-only extension points. They do not install or override Cardigann indexer definitions; use the indexer definition source and catalog import workflow for definition-based tracker support.
+
 ## Manifest
 
 Each plugin folder must contain `plugin.json`.
