@@ -177,6 +177,11 @@ describe("PluginLoader", () => {
       const disabled = yield* loader.disable("mock-plugin")
       expect(disabled.status).toBe("disabled")
       expect(disabled.contractStatus).toBe("not_loaded")
+      const logs = yield* loader.logs("mock-plugin", 10)
+      expect(logs.map((entry) => entry.message)).toEqual(
+        expect.arrayContaining(["Plugin discovered", "Plugin enabled", "Plugin disabled"]),
+      )
+      expect(logs.every((entry) => entry.context?.pluginName === "mock-plugin")).toBe(true)
       const missing = yield* Effect.flip(registry.getDownloadClientFactory("mock-download"))
       expect(missing._tag).toBe("ValidationError")
       const missingIndexer = yield* Effect.flip(registry.getIndexerFactory("mock-indexer"))
@@ -240,6 +245,10 @@ describe("PluginLoader", () => {
       expect(plugin?.status).toBe("error")
       expect(plugin?.contractStatus).toBe("invalid")
       expect(plugin?.errorMessage).toContain("unsupported download_client capability version")
+
+      const logs = yield* loader.logs("future", 10)
+      expect(logs.some((entry) => entry.message === "Plugin manifest rejected")).toBe(true)
+      expect(logs.some((entry) => entry.level === "warn")).toBe(true)
     }).pipe(Effect.provide(TestLayer)),
   )
 })

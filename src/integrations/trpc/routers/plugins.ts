@@ -62,4 +62,17 @@ export const pluginsRouter = {
       }),
     ),
   ),
+
+  logs: authedProcedure
+    .input(
+      z.object({ name: z.string().min(1), count: z.number().int().min(1).max(200).optional() }),
+    )
+    .query(({ input }) =>
+      runEffect(
+        Effect.gen(function* () {
+          const loader = yield* PluginLoader
+          return yield* loader.logs(input.name, input.count)
+        }),
+      ),
+    ),
 } satisfies TRPCRouterRecord

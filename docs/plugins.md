@@ -108,4 +108,4 @@ export const mediaServer = {
 
 ## Operational Notes
 
-Plugins run with the same filesystem and network privileges as ARR Hub. Only install plugins from sources you trust. When a plugin fails manifest or contract validation, Settings > Plugins shows the contract state and stored error message.
+Plugins run with the same filesystem and network privileges as ARR Hub. Only install plugins from sources you trust. When a plugin fails manifest or contract validation, Settings > Plugins shows the contract state, stored error message, and recent plugin lifecycle log entries.

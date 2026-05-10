@@ -3,10 +3,10 @@ import path from "node:path"
 import { pathToFileURL } from "node:url"
 
 import { SqlError } from "@effect/sql/SqlError"
-import { eq } from "drizzle-orm"
+import { desc, eq, sql } from "drizzle-orm"
 import { Context, Effect, Layer } from "effect"
 
-import { plugins, type PluginCapability } from "#/db/schema"
+import { plugins, systemLogs, type PluginCapability, type SystemLogLevel } from "#/db/schema"
 
 import type { AdapterMetadata, DownloadClientConfig } from "../domain/downloadClient"
 import type { IndexerAdapterMetadata, IndexerConfig } from "../domain/indexer"
@@ -21,6 +21,7 @@ import {
 import { Db } from "./Db"
 
 export type PluginRow = typeof plugins.$inferSelect
+export type PluginLogEntry = typeof systemLogs.$inferSelect
 
 export interface PluginManifest {
   readonly name: string
@@ -82,6 +83,10 @@ export class PluginLoader extends Context.Tag("@arr-hub/PluginLoader")<
     readonly disable: (name: string) => Effect.Effect<PluginStatus, SqlError | PluginError>
     readonly remove: (name: string) => Effect.Effect<void, SqlError | PluginError>
     readonly health: (name: string) => Effect.Effect<PluginHealth, SqlError | PluginError>
+    readonly logs: (
+      name: string,
+      count?: number,
+    ) => Effect.Effect<ReadonlyArray<PluginLogEntry>, SqlError | PluginError>
   }
 >() {}
 
@@ -328,6 +333,25 @@ export const PluginLoaderLive = Layer.effect(
         return row
       })
 
+    const logPlugin = (
+      name: string,
+      level: SystemLogLevel,
+      message: string,
+      context: Record<string, unknown> = {},
+    ) =>
+      db
+        .insert(systemLogs)
+        .values({
+          level,
+          message,
+          context: { ...context, source: "plugin", pluginName: name },
+          timestamp: new Date(),
+        })
+        .pipe(
+          Effect.asVoid,
+          Effect.catchAll(() => Effect.void),
+        )
+
     const readManifest = (pluginPath: string, fallbackName: string) =>
       Effect.tryPromise({
         try: () => readFile(path.join(pluginPath, "plugin.json"), "utf8"),
@@ -504,6 +528,11 @@ export const PluginLoaderLive = Layer.effect(
                 capabilities: [],
                 errorMessage: result.left.message,
               })
+              yield* logPlugin(entry.name, "warn", "Plugin manifest rejected", {
+                path: pluginPath,
+                reason: result.left.reason,
+                error: result.left.message,
+              })
             } else {
               yield* upsertDiscovered({
                 name: result.right.name,
@@ -511,6 +540,11 @@ export const PluginLoaderLive = Layer.effect(
                 version: result.right.version,
                 capabilities: result.right.capabilities,
                 errorMessage: null,
+              })
+              yield* logPlugin(result.right.name, "info", "Plugin discovered", {
+                path: pluginPath,
+                version: result.right.version,
+                capabilities: result.right.capabilities,
               })
             }
           }
@@ -524,11 +558,18 @@ export const PluginLoaderLive = Layer.effect(
           const row = yield* getByName(name)
           const registrations = yield* load(row).pipe(
             Effect.catchAll((error) =>
-              db
-                .update(plugins)
-                .set({ enabled: false, errorMessage: error.message, updatedAt: new Date() })
-                .where(eq(plugins.name, name))
-                .pipe(Effect.zipRight(Effect.fail(error))),
+              logPlugin(name, "error", "Plugin enable failed", {
+                reason: error.reason,
+                error: error.message,
+              }).pipe(
+                Effect.zipRight(
+                  db
+                    .update(plugins)
+                    .set({ enabled: false, errorMessage: error.message, updatedAt: new Date() })
+                    .where(eq(plugins.name, name)),
+                ),
+                Effect.zipRight(Effect.fail(error)),
+              ),
             ),
           )
           const [updated] = yield* db
@@ -537,6 +578,7 @@ export const PluginLoaderLive = Layer.effect(
             .where(eq(plugins.name, name))
             .returning()
           registeredTypes.set(name, registrations)
+          yield* logPlugin(name, "info", "Plugin enabled", { registrations })
           return statusFor(updated, true)
         }),
 
@@ -549,6 +591,7 @@ export const PluginLoaderLive = Layer.effect(
             .set({ enabled: false, updatedAt: new Date() })
             .where(eq(plugins.name, name))
             .returning()
+          yield* logPlugin(name, "info", "Plugin disabled")
           return statusFor(updated)
         }),
 
@@ -557,6 +600,7 @@ export const PluginLoaderLive = Layer.effect(
           yield* getByName(name)
           unregister(name)
           yield* db.delete(plugins).where(eq(plugins.name, name))
+          yield* logPlugin(name, "info", "Plugin removed")
         }),
 
       health: (name) =>
@@ -571,6 +615,18 @@ export const PluginLoaderLive = Layer.effect(
             capabilities: row.capabilities,
             errorMessage: row.errorMessage,
           }
+        }),
+
+      logs: (name, count) =>
+        Effect.gen(function* () {
+          yield* getByName(name)
+          const requestedCount = Math.min(Math.max(count ?? 50, 1), 200)
+          return yield* db
+            .select()
+            .from(systemLogs)
+            .where(sql`json_extract(${systemLogs.context}, '$.pluginName') = ${name}`)
+            .orderBy(desc(systemLogs.timestamp), desc(systemLogs.id))
+            .limit(requestedCount)
         }),
     }
   }),
