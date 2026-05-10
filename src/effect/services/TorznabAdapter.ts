@@ -46,7 +46,7 @@ const ERROR_CODE_MAP: Record<number, { reason: IndexerErrorReason; retryable: bo
 const xmlParser = new XMLParser({
   ignoreAttributes: false,
   attributeNamePrefix: "@_",
-  isArray: (name) => name === "item" || name === "category" || name === "attr",
+  isArray: (name) => name === "item" || name === "category" || name === "subcat" || name === "attr",
 })
 
 type IndexerFetchInit = RequestInit & {
@@ -365,7 +365,7 @@ function parseCaps(parsed: unknown): IndexerCapabilities {
   if (searching) {
     for (const [key, val] of Object.entries(searching)) {
       const available = (val as Record<string, unknown>)?.["@_available"]
-      if (available === "yes") searchTypes.push(key)
+      if (available === "yes") searchTypes.push(normalizeCapsSearchType(key))
     }
   }
 
@@ -373,13 +373,36 @@ function parseCaps(parsed: unknown): IndexerCapabilities {
   const catList = categories?.category
   if (Array.isArray(catList)) {
     for (const cat of catList) {
-      const id = Number(cat?.["@_id"])
-      const name = String(cat?.["@_name"] ?? "")
-      if (!Number.isNaN(id)) cats.push({ id, name })
+      appendCapsCategory(cats, cat as Record<string, unknown>)
     }
   }
 
   return { searchTypes, categories: cats }
+}
+
+function normalizeCapsSearchType(key: string): string {
+  if (key === "movie-search") return "movie"
+  if (key === "tv-search") return "tvsearch"
+  return key
+}
+
+function appendCapsCategory(
+  categories: Array<{ id: number; name: string }>,
+  category: Record<string, unknown>,
+): void {
+  const id = Number(category["@_id"])
+  const name = String(category["@_name"] ?? "")
+  if (!Number.isNaN(id)) categories.push({ id, name })
+
+  const subcategories = category.subcat
+  if (!Array.isArray(subcategories)) return
+
+  for (const subcategory of subcategories) {
+    const subcat = subcategory as Record<string, unknown>
+    const subcatId = Number(subcat["@_id"])
+    const subcatName = String(subcat["@_name"] ?? "")
+    if (!Number.isNaN(subcatId)) categories.push({ id: subcatId, name: subcatName })
+  }
 }
 
 function getAttr(item: Record<string, unknown>, name: string): string | undefined {

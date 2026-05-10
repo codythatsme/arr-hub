@@ -53,7 +53,9 @@ export async function aggregateIndexerHandler({ request }: { request: Request })
         }
 
         const result = yield* indexers.search(parsed.request.query)
-        return buildReleaseFeedXml(result.releases, protocolPath)
+        return buildReleaseFeedXml(result.releases, protocolPath, {
+          offset: parsed.request.query.offset ?? 0,
+        })
       }),
     )
     return xmlResponse(body)

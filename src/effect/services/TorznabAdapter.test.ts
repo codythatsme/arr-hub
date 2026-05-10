@@ -7,9 +7,13 @@ const CAPS_XML = `<?xml version="1.0" encoding="UTF-8"?>
 <caps>
   <searching>
     <search available="yes" />
+    <tv-search available="yes" />
+    <movie-search available="yes" />
   </searching>
   <categories>
-    <category id="2000" name="Movies" />
+    <category id="2000" name="Movies">
+      <subcat id="2010" name="Movies HD" />
+    </category>
   </categories>
 </caps>`
 
@@ -58,7 +62,11 @@ describe("TorznabAdapter proxy transport", () => {
 
     const caps = await Effect.runPromise(adapter.testConnection())
 
-    expect(caps.searchTypes).toEqual(["search"])
+    expect(caps.searchTypes).toEqual(["search", "tvsearch", "movie"])
+    expect(caps.categories).toEqual([
+      { id: 2000, name: "Movies" },
+      { id: 2010, name: "Movies HD" },
+    ])
     expect(fetchMock).toHaveBeenCalledTimes(1)
     expect((requestInit as { readonly proxy?: string } | undefined)?.proxy).toBe(
       "http://proxy-user:proxy-pass@proxy.local:8080/",

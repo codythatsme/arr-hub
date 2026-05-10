@@ -88,11 +88,42 @@ describe("torznab aggregate helpers", () => {
       uploadFactor: 1,
     }
 
-    const xml = buildReleaseFeedXml([release], "torznab")
+    const xml = buildReleaseFeedXml([release], "torznab", { offset: 50 })
     expect(xml).toContain('xmlns:torznab="http://torznab.com/schemas/2015/feed"')
+    expect(xml).toContain('<torznab:response offset="50" total="51" />')
     expect(xml).toContain("A &amp; B &quot;Movie&quot; 2026")
     expect(xml).toContain("https://example.com/download?x=1&amp;y=2")
+    expect(xml).toContain(
+      '<enclosure url="https://example.com/download?x=1&amp;y=2" length="1234" type="application/x-bittorrent" />',
+    )
     expect(xml).toContain('<torznab:attr name="seeders" value="12" />')
+  })
+
+  it("renders Newznab feed metadata for usenet clients", () => {
+    const release: ReleaseCandidate = {
+      title: "Example Movie 2026 1080p",
+      indexerId: 1,
+      indexerName: "Indexer",
+      indexerPriority: 50,
+      size: 1234,
+      seeders: null,
+      leechers: null,
+      age: 0,
+      downloadUrl: "https://example.com/download/1.nzb",
+      infoUrl: null,
+      category: "2000",
+      protocol: "usenet",
+      publishedAt: new Date("2026-01-01T00:00:00Z"),
+      infohash: null,
+      downloadFactor: 1,
+      uploadFactor: 1,
+    }
+
+    const xml = buildReleaseFeedXml([release], "newznab")
+    expect(xml).toContain('xmlns:newznab="http://www.newznab.com/DTD/2010/feeds/attributes/"')
+    expect(xml).toContain('<newznab:response offset="0" total="1" />')
+    expect(xml).toContain('type="application/x-nzb"')
+    expect(xml).toContain('<newznab:attr name="category" value="2000" />')
   })
 
   it("renders Torznab-style error XML", () => {

@@ -94,19 +94,28 @@ function stubRemoteApplication(options?: { readonly failHosts?: ReadonlyArray<st
     }
 
     if (url.pathname === "/api/v3/indexer" && method === "POST" && body) {
-      const saved = { ...body, id: 321 }
+      const saved = { ...body, id: 321 + remoteIndexers.length }
       remoteIndexers.push(saved)
       return jsonResponse(saved)
     }
 
-    if (url.pathname === "/api/v3/indexer/321" && method === "PUT" && body) {
-      const saved = { ...body, id: 321 }
-      remoteIndexers[0] = saved
+    const indexerId = /^\/api\/v3\/indexer\/(\d+)$/.exec(url.pathname)?.[1]
+    if (indexerId && method === "PUT" && body) {
+      const id = Number(indexerId)
+      const saved = { ...body, id }
+      const existingIndex = remoteIndexers.findIndex((indexer) => indexer.id === id)
+      if (existingIndex >= 0) {
+        remoteIndexers[existingIndex] = saved
+      } else {
+        remoteIndexers.push(saved)
+      }
       return jsonResponse(saved)
     }
 
-    if (url.pathname === "/api/v3/indexer/321" && method === "DELETE") {
-      remoteIndexers.splice(0, remoteIndexers.length)
+    if (indexerId && method === "DELETE") {
+      const id = Number(indexerId)
+      const existingIndex = remoteIndexers.findIndex((indexer) => indexer.id === id)
+      if (existingIndex >= 0) remoteIndexers.splice(existingIndex, 1)
       return new Response(null, { status: 204 })
     }
 
@@ -209,6 +218,106 @@ describe("IndexerApplicationService", () => {
           remoteIndexerId: 321,
           remoteIndexerName: "ARR Hub Torznab (Aggregate)",
         })
+      }).pipe(Effect.provide(TestLayer)),
+    )
+  })
+
+  it("syncs the curated common Newznab plus torrent path into Radarr", async () => {
+    const requests = stubRemoteApplication()
+
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const indexers = yield* IndexerService
+        const apps = yield* IndexerApplicationService
+
+        yield* indexers.add({
+          name: "NZBGeek",
+          type: "newznab",
+          definitionKey: "nzbgeek",
+          baseUrl: "https://api.nzbgeek.info",
+          apiKey: "nzbgeek-key",
+        })
+        yield* indexers.add({
+          name: "DrunkenSlug",
+          type: "newznab",
+          definitionKey: "drunkenslug",
+          baseUrl: "https://drunkenslug.com",
+          apiKey: "slug-key",
+        })
+        yield* indexers.add({
+          name: "NZBFinder",
+          type: "newznab",
+          definitionKey: "nzbfinder",
+          baseUrl: "https://nzbfinder.ws",
+          apiKey: "finder-key",
+        })
+        yield* indexers.add({
+          name: "NinjaCentral",
+          type: "newznab",
+          definitionKey: "ninjacentral",
+          baseUrl: "https://ninjacentral.co.za",
+          apiKey: "ninja-key",
+        })
+        yield* indexers.add({
+          name: "Generic Torrent",
+          type: "torznab",
+          definitionKey: "generic-torznab",
+          baseUrl: "https://torrent.example",
+          apiKey: "torrent-key",
+          categories: [2000, 5000],
+        })
+        yield* indexers.add({
+          name: "Nyaa",
+          type: "cardigann_yaml",
+          definitionKey: "nyaa",
+          baseUrl: "https://nyaa.si/",
+          apiKey: "",
+        })
+
+        const app = yield* apps.add({
+          name: "Radarr",
+          type: "radarr",
+          baseUrl: "http://radarr.test",
+          apiKey: "remote-key",
+          syncBaseUrl: "http://arr-hub.test/",
+          syncApiKey: "arr-hub-key",
+          settings: {
+            syncCategories: [2000],
+          },
+        })
+
+        const result = yield* apps.sync(app.id)
+        expect(result).toMatchObject({
+          created: 2,
+          updated: 0,
+          removed: 0,
+          skipped: 0,
+        })
+
+        const posts = requests.filter((request) => request.method === "POST")
+        expect(posts.map((request) => request.body?.implementation).toSorted()).toEqual([
+          "Newznab",
+          "Torznab",
+        ])
+
+        const newznab = posts.find((request) => request.body?.implementation === "Newznab")
+        expect(remoteField(newznab?.body ?? {}, "baseUrl")).toBe(
+          "http://arr-hub.test/api/indexers/aggregate/newznab",
+        )
+        expect(remoteField(newznab?.body ?? {}, "categories")).toEqual([2000])
+        expect(remoteField(newznab?.body ?? {}, "apiKey")).toBe("arr-hub-key")
+
+        const torznab = posts.find((request) => request.body?.implementation === "Torznab")
+        expect(remoteField(torznab?.body ?? {}, "baseUrl")).toBe(
+          "http://arr-hub.test/api/indexers/aggregate/torznab",
+        )
+        expect(remoteField(torznab?.body ?? {}, "categories")).toEqual([2000])
+
+        const synced = yield* apps.getById(app.id)
+        expect(synced.mappings.map((mapping) => mapping.protocol).toSorted()).toEqual([
+          "torrent",
+          "usenet",
+        ])
       }).pipe(Effect.provide(TestLayer)),
     )
   })

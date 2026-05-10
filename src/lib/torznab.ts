@@ -87,6 +87,7 @@ ${categoryXml}
 export function buildReleaseFeedXml(
   releases: ReadonlyArray<ReleaseCandidate>,
   protocolPath: AggregateProtocolPath,
+  options: { readonly offset?: number; readonly total?: number } = {},
 ): string {
   const namespace =
     protocolPath === "torznab"
@@ -94,12 +95,15 @@ export function buildReleaseFeedXml(
       : 'xmlns:newznab="http://www.newznab.com/DTD/2010/feeds/attributes/"'
   const prefix = protocolPath === "torznab" ? "torznab" : "newznab"
   const items = releases.map((release) => releaseItemXml(release, prefix)).join("\n")
+  const offset = options.offset ?? 0
+  const total = options.total ?? offset + releases.length
 
   return `${XML_DECLARATION}
 <rss version="2.0" ${namespace}>
   <channel>
     <title>ARR Hub Aggregate ${protocolPath}</title>
     <description>Aggregated ARR Hub indexer results</description>
+    <${prefix}:response offset="${offset}" total="${total}" />
 ${items}
   </channel>
 </rss>`
@@ -142,6 +146,7 @@ function releaseItemXml(release: ReleaseCandidate, prefix: "torznab" | "newznab"
       <pubDate>${release.publishedAt.toUTCString()}</pubDate>
       <category>${escapeXml(release.category)}</category>
       <size>${release.size}</size>
+      <enclosure url="${escapeXml(release.downloadUrl)}" length="${release.size}" type="${release.protocol === "torrent" ? "application/x-bittorrent" : "application/x-nzb"}" />
 ${attrs}
     </item>`
 }
