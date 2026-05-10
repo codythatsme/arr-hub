@@ -63,6 +63,7 @@ Completed in atomic commits after this plan was written. Milestone 5 is summariz
 - `42142ccd4f` persisted completed download output paths from qBittorrent/SABnzbd into queue rows.
 - `a99bda9144` added `MediaImportService`, movie/episode import file operations, and monitor-driven completed download imports.
 - `41822717a6` added completed import rejection checks for wrong media, wrong episode files, disallowed quality, and bad upgrades.
+- `17b120494a` added a completed-output stability delay and post-processing marker checks before imports run.
 - `01dd5263dd` added dedicated `media_files` and `remote_path_mappings` persistence, plus remote path resolution during imports.
 - `5b249551de` added remote path mapping workflows, manual movie/episode import, library scanning, rename preview/action, and matching UI on settings/movie/TV pages.
 - `566abf0e25` added a persistent release blocklist table and blocks matching future release candidates.
@@ -254,12 +255,13 @@ Current state:
 - qBittorrent and SABnzbd adapters now persist completed output paths into `download_queue.output_path`.
 - `MediaImportService` inspects downloaded files, filters sample files, chooses the largest movie file, matches simple episode files by season/episode, copy/move/hardlinks into root folders, applies movie naming settings, writes real `filePath` values, and stores imported quality state.
 - Completed imports are rejected before file operations when release titles target the wrong movie/show/episode, keyed episode files point at the wrong season/episode, the parsed quality is not allowed by the profile, or the import would be a bad upgrade.
+- `DownloadMonitor` now defers completed imports while output paths are still within the configured stability delay or contain post-processing marker files/directories.
 - Failed imports are left in the queue with a visible error instead of being deleted.
 - `RootFolderService` records paths and best-effort disk space only.
 
 Gap:
 
-- This remains one of the largest gaps versus Sonarr/Radarr. ARR Hub now has a usable completed download import foundation with remote path mappings, manual import, media file records, library scan, rename workflows, and first-pass import rejection reasons, but it does not yet have free-space checks, unpack/repair state handling beyond downloader status, deeper edge-case import parity, or recycle-bin behavior.
+- This remains one of the largest gaps versus Sonarr/Radarr. ARR Hub now has a usable completed download import foundation with remote path mappings, manual import, media file records, library scan, rename workflows, completed-output readiness checks, and first-pass import rejection reasons, but it does not yet have free-space checks, deeper edge-case import parity, or recycle-bin behavior.
 
 Tasks:
 
@@ -272,7 +274,7 @@ Tasks:
 - Implement completed download import:
   - [x] Resolve download client output path.
   - [x] Apply remote path mappings.
-  - [ ] Wait for unpacking/repair/post-processing to finish beyond downloader status normalization.
+  - [x] Wait for unpacking/repair/post-processing to finish beyond downloader status normalization.
   - [x] Enumerate files and filter samples/extras.
   - [x] Parse title and match against grabbed media for basic movie and episode imports.
   - [x] Reject wrong movie/show/episode, wrong season, split/multi-episode mismatches, low quality, and bad upgrades with Sonarr/Radarr-grade reasons.
