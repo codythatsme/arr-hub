@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Layer } from "effect"
 
-import { rootFolders } from "#/db/schema"
+import { remotePathMappings, rootFolders } from "#/db/schema"
 import { Db } from "#/effect/services/Db"
 import { TestDbLive } from "#/effect/test/TestDb"
 
@@ -155,6 +155,23 @@ describe("DiagnosticsService", () => {
 
       expect(health.status).toBe("unhealthy")
       expect(health.integrations.some((item) => item.type === "download_client")).toBe(true)
+      expect(health.failures).toContainEqual(
+        expect.objectContaining({
+          type: "download_client_remove_completed",
+        }),
+      )
+      expect(health.failures).toContainEqual(
+        expect.objectContaining({
+          type: "root_folder",
+          message: "no root folders are configured for media imports",
+        }),
+      )
+      expect(health.integrations).toContainEqual(
+        expect.objectContaining({
+          type: "app_data",
+          status: "healthy",
+        }),
+      )
     }).pipe(Effect.provide(TestLayer)),
   )
 
@@ -173,6 +190,30 @@ describe("DiagnosticsService", () => {
         expect.objectContaining({
           type: "root_folder",
           name: missingPath,
+          status: "unhealthy",
+        }),
+      )
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("reports inaccessible remote path mapping targets as unhealthy", () =>
+    Effect.gen(function* () {
+      const db = yield* Db
+      const diagnostics = yield* DiagnosticsService
+      const missingPath = `${process.cwd()}/.tmp/missing-remote-path-target`
+
+      yield* db.insert(remotePathMappings).values({
+        remotePath: "/downloads",
+        localPath: missingPath,
+      })
+
+      const health = yield* diagnostics.health()
+
+      expect(health.status).toBe("unhealthy")
+      expect(health.integrations).toContainEqual(
+        expect.objectContaining({
+          type: "remote_path_mapping",
+          name: `/downloads -> ${missingPath}`,
           status: "unhealthy",
         }),
       )

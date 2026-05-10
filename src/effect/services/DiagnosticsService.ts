@@ -1,5 +1,6 @@
 import { constants, existsSync, statSync } from "node:fs"
 import { access, stat } from "node:fs/promises"
+import { dirname } from "node:path"
 
 import { SqlError } from "@effect/sql/SqlError"
 import { count, desc, eq } from "drizzle-orm"
@@ -12,6 +13,7 @@ import {
   indexers,
   mediaServers,
   movies,
+  remotePathMappings,
   rootFolders,
   schedulerJobs,
   series,
@@ -62,7 +64,13 @@ export interface SystemStatus {
 }
 
 export interface IntegrationHealthItem {
-  readonly type: "indexer" | "download_client" | "media_server" | "root_folder"
+  readonly type:
+    | "indexer"
+    | "download_client"
+    | "media_server"
+    | "root_folder"
+    | "remote_path_mapping"
+    | "app_data"
   readonly id: number
   readonly name: string
   readonly enabled: boolean
@@ -133,8 +141,9 @@ function worstStatus(
   return "healthy" as const
 }
 
-async function rootFolderHealth(
+async function directoryHealth(
   path: string,
+  inaccessibleMessage: string,
 ): Promise<Pick<IntegrationHealthItem, "status" | "message">> {
   try {
     const stats = await stat(path)
@@ -151,9 +160,15 @@ async function rootFolderHealth(
     const reason = error instanceof Error && error.message ? error.message : "unknown error"
     return {
       status: "unhealthy",
-      message: `path is not accessible for media imports: ${reason}`,
+      message: `${inaccessibleMessage}: ${reason}`,
     }
   }
+}
+
+async function rootFolderHealth(
+  path: string,
+): Promise<Pick<IntegrationHealthItem, "status" | "message">> {
+  return directoryHealth(path, "path is not accessible for media imports")
 }
 
 export const DiagnosticsServiceLive = Layer.effect(
@@ -227,12 +242,14 @@ export const DiagnosticsServiceLive = Layer.effect(
 
       health: () =>
         Effect.gen(function* () {
-          const [indexerResult, clientResult, serverResult, rootFolderResult] = yield* Effect.all([
-            Effect.either(indexerService.list()),
-            Effect.either(downloadClientService.list()),
-            Effect.either(mediaServerService.list()),
-            Effect.either(db.select().from(rootFolders)),
-          ])
+          const [indexerResult, clientResult, serverResult, rootFolderResult, mappingResult] =
+            yield* Effect.all([
+              Effect.either(indexerService.list()),
+              Effect.either(downloadClientService.list()),
+              Effect.either(mediaServerService.list()),
+              Effect.either(db.select().from(rootFolders)),
+              Effect.either(db.select().from(remotePathMappings)),
+            ])
 
           const failures: Array<{ type: string; message: string }> = []
           const integrations: Array<IntegrationHealthItem> = []
@@ -251,6 +268,12 @@ export const DiagnosticsServiceLive = Layer.effect(
                 message: item.health?.errorMessage ?? null,
               })
             }
+            if (
+              indexerResult.right.length > 0 &&
+              indexerResult.right.every((item) => !item.enabled)
+            ) {
+              failures.push({ type: "indexer", message: "all indexers are disabled" })
+            }
           }
 
           if (clientResult._tag === "Left") {
@@ -266,6 +289,23 @@ export const DiagnosticsServiceLive = Layer.effect(
                 lastCheck: item.health?.lastCheck ?? null,
                 message: item.health?.errorMessage ?? null,
               })
+            }
+            if (
+              clientResult.right.length > 0 &&
+              clientResult.right.every((item) => !item.enabled)
+            ) {
+              failures.push({
+                type: "download_client",
+                message: "all download clients are disabled",
+              })
+            }
+            for (const item of clientResult.right) {
+              if (item.enabled && item.settings.removeCompletedDownloads !== true) {
+                failures.push({
+                  type: "download_client_remove_completed",
+                  message: `${item.name} leaves completed downloads in the client after import`,
+                })
+              }
             }
           }
 
@@ -288,6 +328,12 @@ export const DiagnosticsServiceLive = Layer.effect(
           if (rootFolderResult._tag === "Left") {
             failures.push({ type: "root_folder", message: rootFolderResult.left.message })
           } else {
+            if (rootFolderResult.right.length === 0) {
+              failures.push({
+                type: "root_folder",
+                message: "no root folders are configured for media imports",
+              })
+            }
             const checked = yield* Effect.forEach(rootFolderResult.right, (folder) =>
               Effect.promise(() => rootFolderHealth(folder.path)).pipe(
                 Effect.map((health) => ({
@@ -303,6 +349,44 @@ export const DiagnosticsServiceLive = Layer.effect(
             )
             integrations.push(...checked)
           }
+
+          if (mappingResult._tag === "Left") {
+            failures.push({ type: "remote_path_mapping", message: mappingResult.left.message })
+          } else {
+            const checkedMappings = yield* Effect.forEach(mappingResult.right, (mapping) =>
+              Effect.promise(() =>
+                directoryHealth(
+                  mapping.localPath,
+                  "local remote path mapping target is not accessible",
+                ),
+              ).pipe(
+                Effect.map((health) => ({
+                  type: "remote_path_mapping" as const,
+                  id: mapping.id,
+                  name: `${mapping.remotePath} -> ${mapping.localPath}`,
+                  enabled: true,
+                  status: health.status,
+                  lastCheck: new Date(),
+                  message: health.message,
+                })),
+              ),
+            )
+            integrations.push(...checkedMappings)
+          }
+
+          const appDataPath = dirname(DB_PATH)
+          const appData = yield* Effect.promise(() =>
+            directoryHealth(appDataPath, "app data path is not accessible"),
+          )
+          integrations.push({
+            type: "app_data",
+            id: 0,
+            name: appDataPath,
+            enabled: true,
+            status: appData.status,
+            lastCheck: new Date(),
+            message: appData.message,
+          })
 
           return {
             status: worstStatus(integrations, failures),
