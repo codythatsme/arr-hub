@@ -5,7 +5,7 @@ ARR Hub is a unified, self-hosted media automation app inspired by the arr ecosy
 ## Current Focus
 
 - Adapter-driven integrations (download clients, indexers, media servers)
-- Download client adapters for qBittorrent, SABnzbd, first-pass Transmission, and first-pass torrent/usenet blackhole folders
+- Download client adapters for qBittorrent, SABnzbd, first-pass Transmission, first-pass NZBGet, and first-pass torrent/usenet blackhole folders
 - Shared release policy engine + scheduler pipelines
 - Operator UI for onboarding, settings, profiles, movies, TV, manual search, scheduler, and queue actions
 - Prowlarr replacement foundation for common setups: generic Torznab/Newznab, curated Newznab presets for NZBGeek, DrunkenSlug, NZBFinder, NinjaCentral, NZBPlanet, and altHUB, representative torrent/Cardigann definitions, aggregate Torznab/Newznab feeds, proxy/health/stats basics, checksum-pinned remote definition sources, and first-pass Radarr/Sonarr app sync.
@@ -161,8 +161,8 @@ ARR Hub is not yet a full Sonarr/Radarr/Prowlarr replacement. TV metadata,
 completed-download imports, release decisions, and operator workflows have
 working first-pass implementations, but they still lack the full depth of the
 mature Arr apps. Download client coverage is still limited to qBittorrent,
-SABnzbd, first-pass Transmission, and first-pass torrent/usenet blackholes;
-Deluge and NZBGet are not implemented yet. Prowlarr replacement is underway, but
+SABnzbd, first-pass Transmission, first-pass NZBGet, and first-pass
+torrent/usenet blackholes; Deluge is not implemented yet. Prowlarr replacement is underway, but
 ARR Hub still does not ship a broad tracker catalogue, full Cardigann selector/login runtime beyond first-pass HTML selector/case features and cookie/one-url/form login execution with multipart forms, selector-derived form values, and login test selectors, richer definition auth UX, or trusted
 remote definition catalogue pipeline beyond checksum-pinned sources and
 checksum-required catalog manifest import.
