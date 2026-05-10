@@ -513,7 +513,7 @@ Current state:
 - `Dockerfile` and `compose.yml` exist.
 - Compose mounts `/data`, `/downloads`, `/movies`, and `/tv`.
 - `.env.example` covers required production secrets and host media/download paths.
-- README documents the current root container runtime behavior, media/download volume setup, and backup/restore flow.
+- README documents the current root container runtime behavior, media/download volume setup, backup/restore flow, and scheduled database backup path.
 - System diagnostics report root folders that are missing, not directories, or not readable and writable by ARR Hub.
 
 Gap:
@@ -525,7 +525,7 @@ Tasks:
 - [x] Add compose examples for media and downloads volumes.
 - [x] Add UID/GID/PUID/PGID or documented runtime user behavior.
 - [x] Add backup/restore docs.
-- [ ] Add scheduled backup jobs.
+- [x] Add scheduled backup jobs.
 - [ ] Add data migration checks and startup failure messages.
 - [x] Add health checks for root folder accessibility and write permissions.
 - [x] Add `.env.example`.
@@ -607,7 +607,8 @@ Tasks:
 
 Current state:
 
-- No first-class backup/update workflow beyond Docker docs and Drizzle migrations.
+- Daily scheduler-backed SQLite database snapshots are written to `ARR_HUB_BACKUP_PATH` or a `backups` directory beside `DATABASE_PATH`.
+- No first-class update workflow beyond Docker docs and Drizzle migrations.
 
 Gap:
 
@@ -615,7 +616,7 @@ Gap:
 
 Tasks:
 
-- Add scheduled database backups.
+- [x] Add scheduled database backups.
 - Add backup download/restore UI.
 - Add housekeeping jobs for old jobs, old logs, old release decisions, stale queue, old notifications, and old sessions.
 - Add update status display or explicitly document container-only updates.
