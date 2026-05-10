@@ -1,7 +1,15 @@
-import { and, desc, eq, isNotNull, isNull, lte, or } from "drizzle-orm"
+import { and, desc, eq, gt, isNotNull, isNull, lt, lte, or } from "drizzle-orm"
 import { Effect, Schedule } from "effect"
 
-import { episodes, schedulerConfig, schedulerJobs, seasons, series } from "#/db/schema"
+import {
+  episodes,
+  movies,
+  qualityProfiles,
+  schedulerConfig,
+  schedulerJobs,
+  seasons,
+  series,
+} from "#/db/schema"
 import {
   DEFAULT_AIR_DATE_DELAY_MINUTES,
   type SchedulerJobPayload,
@@ -19,6 +27,51 @@ import { MaintenanceService } from "./MaintenanceService"
 import { MetadataRefreshService } from "./MetadataRefreshService"
 import { MovieService } from "./MovieService"
 import { SchedulerService } from "./SchedulerService"
+
+export const movieCutoffSearchCandidates = Effect.gen(function* () {
+  const db = yield* Db
+  return yield* db
+    .select({ id: movies.id })
+    .from(movies)
+    .innerJoin(qualityProfiles, eq(movies.qualityProfileId, qualityProfiles.id))
+    .where(
+      and(
+        eq(movies.status, "available"),
+        eq(movies.monitored, true),
+        eq(movies.hasFile, true),
+        eq(qualityProfiles.upgradeAllowed, true),
+        gt(qualityProfiles.cutoffFormatScore, 0),
+        or(
+          isNull(movies.existingFormatScore),
+          lt(movies.existingFormatScore, qualityProfiles.cutoffFormatScore),
+        ),
+      ),
+    )
+})
+
+export const episodeCutoffSearchCandidates = Effect.gen(function* () {
+  const db = yield* Db
+  return yield* db
+    .select({ id: episodes.id })
+    .from(episodes)
+    .innerJoin(seasons, eq(episodes.seasonId, seasons.id))
+    .innerJoin(series, eq(seasons.seriesId, series.id))
+    .innerJoin(qualityProfiles, eq(series.qualityProfileId, qualityProfiles.id))
+    .where(
+      and(
+        eq(episodes.hasFile, true),
+        eq(episodes.monitored, true),
+        eq(seasons.monitored, true),
+        eq(series.monitored, true),
+        eq(qualityProfiles.upgradeAllowed, true),
+        gt(qualityProfiles.cutoffFormatScore, 0),
+        or(
+          isNull(episodes.existingFormatScore),
+          lt(episodes.existingFormatScore, qualityProfiles.cutoffFormatScore),
+        ),
+      ),
+    )
+})
 
 // ── Tick: enqueue recurring + claim & dispatch ──
 
@@ -90,11 +143,10 @@ const tick = Effect.gen(function* () {
         break
       }
       case "search_cutoff": {
-        // Movies with file but quality below cutoff — handled by searchAndGrab's
-        // upgrade path (existing file context gets set from movie columns)
-        const availableMovies = yield* movieService.list({ status: "available", monitored: true })
-        for (const movie of availableMovies) {
-          if (!movie.hasFile || movie.qualityProfileId === null) continue
+        // Movies with file but format score below profile cutoff — handled by searchAndGrab's
+        // upgrade path.
+        const cutoffMovies = yield* movieCutoffSearchCandidates
+        for (const movie of cutoffMovies) {
           yield* pipeline
             .searchAndGrab(movie.id)
             .pipe(
@@ -183,20 +235,7 @@ const tick = Effect.gen(function* () {
         break
       }
       case "tv_search_cutoff": {
-        const availableEps = yield* db
-          .select({ id: episodes.id })
-          .from(episodes)
-          .innerJoin(seasons, eq(episodes.seasonId, seasons.id))
-          .innerJoin(series, eq(seasons.seriesId, series.id))
-          .where(
-            and(
-              eq(episodes.hasFile, true),
-              eq(episodes.monitored, true),
-              eq(seasons.monitored, true),
-              eq(series.monitored, true),
-              isNotNull(series.qualityProfileId),
-            ),
-          )
+        const availableEps = yield* episodeCutoffSearchCandidates
         for (const row of availableEps) {
           yield* pipeline
             .searchAndGrabEpisode(row.id)
