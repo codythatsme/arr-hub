@@ -23,6 +23,7 @@ import {
 import { AdapterRegistry } from "./AdapterRegistry"
 import { CryptoService } from "./CryptoService"
 import { Db } from "./Db"
+import { recordDownloadHistory } from "./DownloadHistoryService"
 import { recordDomainHistory } from "./OperationalHistoryService"
 
 // ── Input types ──
@@ -415,6 +416,7 @@ export const DownloadClientServiceLive = Layer.effect(
                 for (const status of statuses) {
                   const existingRows = yield* db
                     .select({
+                      id: downloadQueue.id,
                       status: downloadQueue.status,
                       movieId: downloadQueue.movieId,
                       seriesId: downloadQueue.seriesId,
@@ -463,6 +465,30 @@ export const DownloadClientServiceLive = Layer.effect(
                     })
 
                   if (status.status === "failed" && existing?.status !== "failed") {
+                    yield* recordDownloadHistory(db, {
+                      queueId: existing?.id ?? null,
+                      status: "failed",
+                      mediaKind:
+                        existing?.movieId !== null && existing?.movieId !== undefined
+                          ? "movie"
+                          : existing?.seriesId !== null && existing?.seriesId !== undefined
+                            ? "series"
+                            : null,
+                      movieId: existing?.movieId ?? null,
+                      seriesId: existing?.seriesId ?? null,
+                      episodeIds: existing?.episodeIds ?? null,
+                      downloadClientId: client.id,
+                      downloadClientName: client.name,
+                      externalId: status.externalId,
+                      title: status.title,
+                      sizeBytes: status.sizeBytes,
+                      progress: status.progressFraction,
+                      errorMessage: status.errorMessage,
+                      outputPath: status.outputPath,
+                      metadata: {
+                        etaSeconds: status.etaSeconds ?? null,
+                      },
+                    })
                     yield* recordDomainHistory(db, {
                       eventType: "download_failed",
                       mediaKind:

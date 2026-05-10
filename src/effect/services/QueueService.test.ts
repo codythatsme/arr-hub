@@ -5,6 +5,7 @@ import { Effect, Layer } from "effect"
 import {
   domainHistory,
   downloadClients,
+  downloadHistory,
   downloadQueue,
   movies,
   qualityProfiles,
@@ -115,6 +116,24 @@ describe("QueueService", () => {
 
       expect(cleared.status).toBe("failed")
       expect(cleared.errorMessage).toBeNull()
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("records removed queue items in download history", () =>
+    Effect.gen(function* () {
+      const seeded = yield* seedQueue("downloading")
+      const service = yield* QueueService
+      yield* service.remove(seeded.queueId, { deleteFiles: true })
+      const db = yield* Db
+      const rows = yield* db
+        .select()
+        .from(downloadHistory)
+        .where(eq(downloadHistory.status, "removed"))
+
+      expect(rows).toHaveLength(1)
+      expect(rows[0]?.movieId).toBe(seeded.movieId)
+      expect(rows[0]?.downloadClientName).toBe("qBit")
+      expect(rows[0]?.metadata).toEqual({ deleteFiles: true })
     }).pipe(Effect.provide(TestLayer)),
   )
 

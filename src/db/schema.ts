@@ -47,6 +47,12 @@ export type DomainHistoryEventType = (typeof domainHistoryEventTypes)[number]
 export const domainHistoryMediaKinds = ["movie", "series", "season", "episode"] as const
 export type DomainHistoryMediaKind = (typeof domainHistoryMediaKinds)[number]
 
+export const downloadHistoryStatuses = ["completed", "failed", "removed"] as const
+export type DownloadHistoryStatus = (typeof downloadHistoryStatuses)[number]
+
+export const downloadHistoryMediaKinds = ["movie", "series"] as const
+export type DownloadHistoryMediaKind = (typeof downloadHistoryMediaKinds)[number]
+
 export const users = sqliteTable("users", {
   id: integer().primaryKey({ autoIncrement: true }),
   username: text().notNull().unique(),
@@ -564,6 +570,32 @@ export const downloadQueue = sqliteTable("download_queue", {
     .notNull()
     .default(sql`(unixepoch())`),
   updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+})
+
+export const downloadHistory = sqliteTable("download_history", {
+  id: integer().primaryKey({ autoIncrement: true }),
+  queueId: integer("queue_id"),
+  downloadClientId: integer("download_client_id"),
+  downloadClientName: text("download_client_name"),
+  mediaKind: text("media_kind").$type<DownloadHistoryMediaKind>(),
+  movieId: integer("movie_id"),
+  seriesId: integer("series_id"),
+  episodeIds: text("episode_ids", { mode: "json" }).$type<ReadonlyArray<number> | null>(),
+  mediaTitle: text("media_title"),
+  externalId: text("external_id").notNull(),
+  title: text().notNull(),
+  status: text().$type<DownloadHistoryStatus>().notNull(),
+  sizeBytes: integer("size_bytes").notNull().default(0),
+  progress: real().notNull().default(0.0),
+  errorMessage: text("error_message"),
+  outputPath: text("output_path"),
+  metadata: text({ mode: "json" })
+    .$type<Record<string, unknown>>()
+    .notNull()
+    .default(sql`'{}'`),
+  recordedAt: integer("recorded_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),
 })

@@ -16,6 +16,7 @@ import type { MediaType } from "#/effect/domain/release"
 import { NotFoundError, SchedulerError } from "../errors"
 import { Db } from "./Db"
 import { DownloadClientService } from "./DownloadClientService"
+import { recordDownloadHistory } from "./DownloadHistoryService"
 import { recordDomainHistory } from "./OperationalHistoryService"
 import { SchedulerService } from "./SchedulerService"
 
@@ -206,6 +207,26 @@ export const QueueServiceLive = Layer.effect(
                 db.delete(downloadQueue).where(eq(downloadQueue.id, id)).pipe(Effect.asVoid),
               ),
             )
+          yield* recordDownloadHistory(db, {
+            queueId: item.id,
+            status: "removed",
+            mediaKind: item.media.type === "unlinked" ? null : item.media.type,
+            movieId: item.media.type === "movie" ? item.media.id : null,
+            seriesId: item.media.type === "series" ? item.media.id : null,
+            episodeIds: item.media.episodeIds,
+            mediaTitle: item.media.title,
+            downloadClientId: item.downloadClient.id,
+            downloadClientName: item.downloadClient.name,
+            externalId: item.externalId,
+            title: item.title,
+            sizeBytes: item.sizeBytes,
+            progress: item.progress,
+            errorMessage: item.errorMessage,
+            outputPath: item.outputPath,
+            metadata: {
+              deleteFiles: options?.deleteFiles ?? false,
+            },
+          })
           yield* recordDomainHistory(db, {
             eventType: "deleted",
             ...historyRefs(item),

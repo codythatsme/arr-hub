@@ -9,6 +9,7 @@ import { CryptoServiceLive } from "./services/CryptoService"
 import { DbLive } from "./services/Db"
 import { DiagnosticsServiceLive } from "./services/DiagnosticsService"
 import { DownloadClientServiceLive } from "./services/DownloadClientService"
+import { DownloadHistoryServiceLive } from "./services/DownloadHistoryService"
 import { DownloadMonitorLive } from "./services/DownloadMonitor"
 import { ImportServiceLive } from "./services/ImportService"
 import { IndexerApplicationServiceLive } from "./services/IndexerApplicationService"
@@ -69,6 +70,7 @@ export function makeAppLayer(tmdbClientLayer: Layer.Layer<TmdbClient> = TmdbClie
         SeriesServiceLive,
         IndexerServiceLive,
         DownloadClientServiceLive,
+        DownloadHistoryServiceLive,
         MediaServerServiceLive,
         ReleasePolicyEngineLive,
         SessionHistoryServiceLive,

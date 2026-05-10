@@ -1,0 +1,20 @@
+CREATE TABLE `download_history` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`queue_id` integer,
+	`download_client_id` integer,
+	`download_client_name` text,
+	`media_kind` text,
+	`movie_id` integer,
+	`series_id` integer,
+	`episode_ids` text,
+	`media_title` text,
+	`external_id` text NOT NULL,
+	`title` text NOT NULL,
+	`status` text NOT NULL,
+	`size_bytes` integer DEFAULT 0 NOT NULL,
+	`progress` real DEFAULT 0 NOT NULL,
+	`error_message` text,
+	`output_path` text,
+	`metadata` text DEFAULT '{}' NOT NULL,
+	`recorded_at` integer DEFAULT (unixepoch()) NOT NULL
+);

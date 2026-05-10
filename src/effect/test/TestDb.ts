@@ -373,6 +373,27 @@ const runDdl = Effect.gen(function* () {
     updated_at INTEGER NOT NULL DEFAULT (unixepoch())
   )`
 
+  yield* sql`CREATE TABLE download_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    queue_id INTEGER,
+    download_client_id INTEGER,
+    download_client_name TEXT,
+    media_kind TEXT,
+    movie_id INTEGER,
+    series_id INTEGER,
+    episode_ids TEXT,
+    media_title TEXT,
+    external_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    status TEXT NOT NULL,
+    size_bytes INTEGER NOT NULL DEFAULT 0,
+    progress REAL NOT NULL DEFAULT 0.0,
+    error_message TEXT,
+    output_path TEXT,
+    metadata TEXT NOT NULL DEFAULT '{}',
+    recorded_at INTEGER NOT NULL DEFAULT (unixepoch())
+  )`
+
   yield* sql`CREATE TABLE remote_path_mappings (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     download_client_id INTEGER REFERENCES download_clients(id) ON DELETE CASCADE,

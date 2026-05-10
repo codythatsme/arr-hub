@@ -5,7 +5,14 @@ import { SqlError } from "@effect/sql/SqlError"
 import { and, eq, inArray, isNotNull, or } from "drizzle-orm"
 import { Context, Effect, Layer } from "effect"
 
-import { downloadQueue, mediaServers, mediaServerLibraries } from "#/db/schema"
+import {
+  downloadClients,
+  downloadQueue,
+  mediaServers,
+  mediaServerLibraries,
+  movies,
+  series,
+} from "#/db/schema"
 import type {
   DownloadClientError,
   EncryptionError,
@@ -18,6 +25,7 @@ import type {
 
 import { Db } from "./Db"
 import { DownloadClientService } from "./DownloadClientService"
+import { recordDownloadHistory } from "./DownloadHistoryService"
 import { MediaImportService } from "./MediaImportService"
 import { MediaServerService } from "./MediaServerService"
 import { recordDomainHistory } from "./OperationalHistoryService"
@@ -201,14 +209,23 @@ export const DownloadMonitorLive = Layer.effect(
             .select({
               id: downloadQueue.id,
               downloadClientId: downloadQueue.downloadClientId,
+              downloadClientName: downloadClients.name,
               movieId: downloadQueue.movieId,
+              movieTitle: movies.title,
               seriesId: downloadQueue.seriesId,
+              seriesTitle: series.title,
               episodeIds: downloadQueue.episodeIds,
               externalId: downloadQueue.externalId,
               title: downloadQueue.title,
+              sizeBytes: downloadQueue.sizeBytes,
+              progress: downloadQueue.progress,
+              errorMessage: downloadQueue.errorMessage,
               outputPath: downloadQueue.outputPath,
             })
             .from(downloadQueue)
+            .innerJoin(downloadClients, eq(downloadQueue.downloadClientId, downloadClients.id))
+            .leftJoin(movies, eq(downloadQueue.movieId, movies.id))
+            .leftJoin(series, eq(downloadQueue.seriesId, series.id))
             .where(
               and(
                 eq(downloadQueue.status, "completed"),
@@ -260,6 +277,23 @@ export const DownloadMonitorLive = Layer.effect(
                 yield* markImportFailure(db, row.id, imported.left)
                 continue
               }
+              yield* recordDownloadHistory(db, {
+                queueId: row.id,
+                status: "completed",
+                mediaKind: "movie",
+                movieId: row.movieId,
+                seriesId: null,
+                episodeIds: row.episodeIds,
+                mediaTitle: row.movieTitle,
+                downloadClientId: row.downloadClientId,
+                downloadClientName: row.downloadClientName,
+                externalId: row.externalId,
+                title: row.title,
+                sizeBytes: row.sizeBytes,
+                progress: row.progress,
+                errorMessage: row.errorMessage,
+                outputPath: row.outputPath,
+              })
               yield* db.delete(downloadQueue).where(eq(downloadQueue.id, row.id))
               completions.push({
                 movieId: row.movieId,
@@ -299,6 +333,23 @@ export const DownloadMonitorLive = Layer.effect(
                 yield* markImportFailure(db, row.id, imported.left)
                 continue
               }
+              yield* recordDownloadHistory(db, {
+                queueId: row.id,
+                status: "completed",
+                mediaKind: "series",
+                movieId: null,
+                seriesId: row.seriesId,
+                episodeIds: row.episodeIds,
+                mediaTitle: row.seriesTitle,
+                downloadClientId: row.downloadClientId,
+                downloadClientName: row.downloadClientName,
+                externalId: row.externalId,
+                title: row.title,
+                sizeBytes: row.sizeBytes,
+                progress: row.progress,
+                errorMessage: row.errorMessage,
+                outputPath: row.outputPath,
+              })
               yield* db.delete(downloadQueue).where(eq(downloadQueue.id, row.id))
               completions.push({
                 movieId: null,

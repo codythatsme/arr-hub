@@ -8,6 +8,7 @@ import { Effect, Layer, Ref } from "effect"
 
 import {
   downloadClients,
+  downloadHistory,
   downloadQueue,
   episodes,
   mediaServerLibraries,
@@ -252,7 +253,12 @@ describe("DownloadMonitor", () => {
 
       const db = yield* Db
       const queueRows = yield* db.select().from(downloadQueue)
+      const historyRows = yield* db.select().from(downloadHistory)
       expect(queueRows).toHaveLength(0)
+      expect(historyRows).toHaveLength(1)
+      expect(historyRows[0]?.status).toBe("completed")
+      expect(historyRows[0]?.movieId).toBe(1)
+      expect(historyRows[0]?.downloadClientName).toBe("test-qbit")
     }).pipe(Effect.provide(TestLayer)),
   )
 
