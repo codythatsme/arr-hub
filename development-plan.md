@@ -38,6 +38,7 @@ Commands run from `/Users/codythatsme/Developer/arr-hub`:
 - Focused download-client remove-policy tests passed for completed-import cleanup and failed-download cleanup.
 - Focused import free-space tests passed for settings validation and copy-import reserve rejection.
 - Focused notification/history tests passed for channel event subscription edits, direct test-send deliveries, and operational event notification triggers.
+- Focused diagnostics tests passed for proactive health checks covering app data, missing root folders, remote path mappings, and completed-download cleanup warnings.
 - `bun run test:e2e`: last recorded passing smoke coverage for onboarding, settings, add movie, add TV from metadata, manual search display, calendar population, and queue page.
 - `bun run lint`: passed with 18 warnings and 0 errors.
 - `bun run fmt:check`: passed.
@@ -131,6 +132,7 @@ Completed in atomic commits after this plan was written. Milestone 5 is summariz
 - `b5dc0e4401` added import-time target free-space checks for copy, move, hardlink, and EXDEV fallback transfers, plus Media Management reserve settings UI.
 - `112d1162f7` added editable notification event subscriptions, direct channel test-send delivery, and Settings UI controls for both.
 - `7b847c2a4a` bridged operational history rows into notification events for grabs, downloads, imports, renames, deletes, blocklists, metadata refreshes, health changes, and settings changes.
+- `4deb114e6b` added proactive diagnostics health checks for app data access, missing root folders, inaccessible remote path mappings, all-disabled integrations, and completed-download cleanup policy warnings.
 - Subsequent Milestone 5 commits hardened the generic Cardigann runtime, request templating, category mapping, auth controls, and aggregate app-sync behavior enough for representative built-ins and checksum-pinned remote definitions. These commits are runtime support, not a decision to ship the expanded tracker catalogue.
 - `5cbb9c9e90` removed the deferred expanded built-in tracker catalogue from `main`. The safety branch `backup/milestone5-expanded-catalog` preserves the catalogue spike at `ab9e42393b`; those tracker definitions, including long-tail and adult/XXX sources, are not current built-in support.
 
@@ -624,6 +626,7 @@ Tasks:
 Current state:
 
 - Integration health is recorded when tests are run and aggregated in diagnostics.
+- Diagnostics now also checks app data path accessibility, missing root folders, inaccessible root folders, inaccessible remote path mapping targets, all-disabled indexers/download clients, and enabled download clients that leave completed downloads in the client after import.
 
 Gap:
 
@@ -631,8 +634,10 @@ Gap:
 
 Tasks:
 
-- Add checks for root folder missing/unwritable, indexer search/RSS failures, all-indexers-disabled, download client unavailable, remote path missing, download client not removing completed downloads, clock skew, app data path, update availability, and import mechanism problems.
-- Show checks in System and relevant settings pages.
+- [x] Add checks for root folder missing/unwritable, all-indexers-disabled, all-download-clients-disabled, remote path missing, download client not removing completed downloads, and app data path accessibility.
+- Add checks for indexer search/RSS failure rollups, download client unavailable beyond stored health, clock skew, update availability, and deeper import mechanism problems.
+- [x] Show checks in System.
+- Show checks in relevant settings pages.
 
 ### Backup, Update, And Maintenance Jobs
 
