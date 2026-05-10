@@ -22,7 +22,7 @@ Primary blockers:
 
 - The operator UI now exposes the existing backend workflows and has persisted browser smoke coverage, but deeper workflows still depend on backend work listed below.
 - The metadata lifecycle is now functional for TMDB-backed movie/TV adds, Sonarr episode import, refresh jobs, and calendar population, but still lacks Sonarr/Radarr-depth alternate titles, ratings, local artwork cache, availability semantics, and TVDB/SkyHook parity.
-- Completed download handling now has a real import path that resolves completed output paths and remote path mappings, waits for stable completed output/post-processing markers, rejects wrong-media/disallowed-quality/bad-upgrade imports, selects media files, filters samples, renames, copy/move/hardlinks into library folders, persists media file records, supports manual import, scans existing libraries, and exposes rename preview/action. It still lacks import-time free-space checks, recycle-bin support, and deeper Sonarr/Radarr import parity.
+- Completed download handling now has a real import path that resolves completed output paths and remote path mappings, waits for stable completed output/post-processing markers, rejects wrong-media/disallowed-quality/bad-upgrade imports, selects media files, filters samples, renames, checks target free space before file transfers, copy/move/hardlinks into library folders, persists media file records, supports manual import, scans existing libraries, and exposes rename preview/action. It still lacks recycle-bin support and deeper Sonarr/Radarr import parity.
 - The release decision engine now has persistent blocklist enforcement, focused specification modules, target title/year/episode/season checks, size/free-space/queue/protocol/client availability checks, minimum age/retention/seeder gates, required/ignored/preferred release terms, sample/hardcoded subtitle/raw-disk rejection, and first-pass TV/anime edge checks. It still lacks full Sonarr/Radarr parity for language profiles, tagged release profiles, deep media inspection, proper/repack version upgrade semantics, scene/XEM mapping, and exhaustive parser coverage.
 - Prowlarr replacement now has a first-pass foundation for common setups: generic Newznab and Torznab support, curated Newznab presets for NZBGeek, DrunkenSlug, NZBFinder, NinjaCentral, NZBPlanet, and altHUB, aggregate Torznab/Newznab feeds, persisted definitions, representative Cardigann/YAML torrent coverage, URL-backed checksum-pinned definition sources, proxy/health/stats basics, per-indexer category and policy controls, and first-pass Radarr/Sonarr app sync. The bundled catalogue is now intentionally curated; broad Prowlarr/Jackett-scale tracker breadth is deferred to remote definition sources or a later catalogue-maintenance milestone.
 - Download client coverage is still narrow: qBittorrent, SABnzbd, first-pass Transmission, first-pass Deluge, first-pass NZBGet, and first-pass torrent/usenet blackholes only.
@@ -36,6 +36,7 @@ Commands run from `/Users/codythatsme/Developer/arr-hub`:
 - `bun run test`: last full run passed, 51 test files plus 1 skipped live suite, 502 passed and 4 skipped tests.
 - Focused add-paused adapter tests passed for qBittorrent, Transmission, Deluge, NZBGet, and built-in adapter interop.
 - Focused download-client remove-policy tests passed for completed-import cleanup and failed-download cleanup.
+- Focused import free-space tests passed for settings validation and copy-import reserve rejection.
 - `bun run test:e2e`: last recorded passing smoke coverage for onboarding, settings, add movie, add TV from metadata, manual search display, calendar population, and queue page.
 - `bun run lint`: passed with 18 warnings and 0 errors.
 - `bun run fmt:check`: passed.
@@ -126,10 +127,11 @@ Completed in atomic commits after this plan was written. Milestone 5 is summariz
 - `627da8c859` hardened qBittorrent torrent-URL hash recovery and removed the unsafe `"unknown"` external ID fallback.
 - `33b19ce6cd` added an add-paused download-client option across qBittorrent, SABnzbd, Transmission, Deluge, and NZBGet, with Settings UI wiring and deterministic adapter coverage.
 - `d99b2ef9fd` added opt-in remove-completed and remove-failed download-client policies, fixed download-client settings schema persistence for add-paused, and added deterministic service/monitor coverage.
+- `b5dc0e4401` added import-time target free-space checks for copy, move, hardlink, and EXDEV fallback transfers, plus Media Management reserve settings UI.
 - Subsequent Milestone 5 commits hardened the generic Cardigann runtime, request templating, category mapping, auth controls, and aggregate app-sync behavior enough for representative built-ins and checksum-pinned remote definitions. These commits are runtime support, not a decision to ship the expanded tracker catalogue.
 - `5cbb9c9e90` removed the deferred expanded built-in tracker catalogue from `main`. The safety branch `backup/milestone5-expanded-catalog` preserves the catalogue spike at `ab9e42393b`; those tracker definitions, including long-tail and adult/XXX sources, are not current built-in support.
 
-Milestones 1, 2, 3, and 4 are complete for deterministic local coverage against the current backend surface. Milestone 5 is now scoped as a curated Prowlarr replacement foundation, not a broad tracker-porting effort. It includes persisted generic indexer definitions, core Newznab presets for NZBGeek, DrunkenSlug, NZBFinder, NinjaCentral, NZBPlanet, and altHUB, representative Cardigann/YAML torrent definitions, aggregate Torznab/Newznab feeds with offset/extended metadata forwarding, response/enclosure feed metadata, caps search-type normalization, nested category parsing, URL-backed checksum-pinned definition sources, proxy/health/stats basics, per-indexer category and policy controls, deterministic common Newznab-plus-torrent app-sync coverage, and first-pass Radarr/Sonarr aggregate app sync. Long-tail and adult/XXX tracker breadth is deferred to remote definition sources or a future catalogue-maintenance milestone. Milestone 6 now has first-pass Transmission, Deluge, NZBGet, and blackhole coverage plus Docker/NAS volume docs, backup/restore docs, root-folder permission diagnostics, and completed download history separate from active queue state; live multi-container validation remains. Milestone 3 still needs live qBittorrent/SABnzbd fixture validation in an environment with those services running, and Milestone 5 still needs live common-indexer validation with real credentials before claiming interoperability with specific upstream providers.
+Milestones 1, 2, 3, and 4 are complete for deterministic local coverage against the current backend surface. Milestone 5 is now scoped as a curated Prowlarr replacement foundation, not a broad tracker-porting effort. It includes persisted generic indexer definitions, core Newznab presets for NZBGeek, DrunkenSlug, NZBFinder, NinjaCentral, NZBPlanet, and altHUB, representative Cardigann/YAML torrent definitions, aggregate Torznab/Newznab feeds with offset/extended metadata forwarding, response/enclosure feed metadata, caps search-type normalization, nested category parsing, URL-backed checksum-pinned definition sources, proxy/health/stats basics, per-indexer category and policy controls, deterministic common Newznab-plus-torrent app-sync coverage, and first-pass Radarr/Sonarr aggregate app sync. Long-tail and adult/XXX tracker breadth is deferred to remote definition sources or a future catalogue-maintenance milestone. Milestone 6 now has first-pass Transmission, Deluge, NZBGet, and blackhole coverage plus Docker/NAS volume docs, backup/restore docs, root-folder permission diagnostics, and completed download history separate from active queue state; live multi-container validation remains. Milestone 3 now includes import-time target free-space guards but still needs live qBittorrent/SABnzbd fixture validation in an environment with those services running, and Milestone 5 still needs live common-indexer validation with real credentials before claiming interoperability with specific upstream providers.
 
 ## Current Functionality Inventory
 
@@ -177,7 +179,7 @@ Important scale differences visible in vendor:
 - Radarr has 31 decision-engine specification files; Sonarr has 41. ARR Hub now has a compact release specification module covering high-impact local guardrails, but not the full vendor rule surface.
 - Prowlarr has 143 files under `Indexers/Definitions` and 16 first-level definition families. ARR Hub has generic Torznab/Newznab consumption, core Newznab presets, a representative Cardigann/YAML built-in set, URL-backed checksum-pinned definition source refresh, aggregate feeds, proxy/health/stats basics, and first-pass Radarr/Sonarr app sync. Broad bundled tracker coverage is intentionally deferred to remote definition sources or a later catalogue-maintenance milestone.
 - Sonarr/Radarr support many download client families: qBittorrent, SABnzbd, NZBGet, Transmission, Deluge, rTorrent, uTorrent, Download Station, blackhole, and others. ARR Hub has qBittorrent, SABnzbd, first-pass Transmission, first-pass Deluge, first-pass NZBGet, and first-pass torrent/usenet blackholes.
-- Sonarr/Radarr have full media import pipelines with manual import, sample detection, free-space checks, upgrade checks, folder matching, grabbed-release matching, and naming services. ARR Hub now has a deterministic first-pass import pipeline with manual import, remote path mappings, library scan, rename preview/action, and media file records, but still lacks full vendor import rejection depth.
+- Sonarr/Radarr have full media import pipelines with manual import, sample detection, free-space checks, upgrade checks, folder matching, grabbed-release matching, and naming services. ARR Hub now has a deterministic first-pass import pipeline with manual import, remote path mappings, library scan, rename preview/action, target free-space checks, and media file records, but still lacks full vendor import rejection depth.
 
 ## Replacement-Grade Definition
 
@@ -266,11 +268,12 @@ Current state:
 - Completed imports are rejected before file operations when release titles target the wrong movie/show/episode, keyed episode files point at the wrong season/episode, the parsed quality is not allowed by the profile, or the import would be a bad upgrade.
 - `DownloadMonitor` now defers completed imports while output paths are still within the configured stability delay or contain post-processing marker files/directories.
 - Failed imports are left in the queue with a visible error instead of being deleted.
+- `MediaImportService` checks target filesystem free space before copy, move, hardlink, and cross-device fallback transfers using the configured minimum free-space reserve.
 - `RootFolderService` records paths and best-effort disk space only.
 
 Gap:
 
-- This remains one of the largest gaps versus Sonarr/Radarr. ARR Hub now has a usable completed download import foundation with remote path mappings, manual import, media file records, library scan, rename workflows, completed-output readiness checks, and first-pass import rejection reasons, but it does not yet have free-space checks, deeper edge-case import parity, or recycle-bin behavior.
+- This remains one of the largest gaps versus Sonarr/Radarr. ARR Hub now has a usable completed download import foundation with remote path mappings, manual import, media file records, library scan, rename workflows, completed-output readiness checks, target free-space checks, and first-pass import rejection reasons, but it still lacks deeper edge-case import parity and recycle-bin behavior.
 
 Tasks:
 
@@ -287,6 +290,7 @@ Tasks:
   - [x] Enumerate files and filter samples/extras.
   - [x] Parse title and match against grabbed media for basic movie and episode imports.
   - [x] Reject wrong movie/show/episode, wrong season, split/multi-episode mismatches, low quality, and bad upgrades with Sonarr/Radarr-grade reasons.
+  - [x] Check target free space before import file transfers and expose minimum reserve configuration.
   - [x] Move/copy/hardlink into root folder.
   - [x] Build final file name from naming settings for movies and deterministic TV episode naming.
   - [x] Store `filePath`, quality, and media info.
@@ -756,10 +760,11 @@ Tasks:
 7. [x] Add manual import UI.
 8. [x] Add library rescan workflow.
 9. [x] Add rename preview and rename action.
+10. [x] Add target free-space checks before file transfers.
 
 Acceptance:
 
-- Unit coverage verifies copy, move, hardlink, sample filtering, episode matching, and missing output path failures.
+- Unit coverage verifies copy, move, hardlink, sample filtering, episode matching, free-space reserve rejection, and missing output path failures.
 - Deterministic unit coverage verifies remote path mappings, media file records, library scanning, and movie/series renames.
 - Live qBittorrent/SAB smoke tests should download a fixture file and import it into a media root when those services are available.
 - The database records real file paths and quality.
