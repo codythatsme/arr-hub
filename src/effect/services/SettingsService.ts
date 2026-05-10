@@ -6,6 +6,7 @@ import { settings } from "#/db/schema"
 
 import { SettingsError } from "../errors"
 import { Db } from "./Db"
+import { recordDomainHistory } from "./OperationalHistoryService"
 
 export type SettingKey =
   | "app.name"
@@ -198,6 +199,8 @@ export const SettingsServiceLive = Layer.effect(
         Effect.gen(function* () {
           const key = yield* parseKey(rawKey)
           const value = yield* validateValue(key, rawValue)
+          const existingRows = yield* db.select().from(settings).where(eq(settings.key, key))
+          const previousValue = existingRows[0]?.value ?? DEFAULT_VALUES[key]
           yield* db
             .insert(settings)
             .values({ key, value })
@@ -207,7 +210,22 @@ export const SettingsServiceLive = Layer.effect(
             })
           const rows = yield* db.select().from(settings).where(eq(settings.key, key))
           const row = rows[0]
-          return buildEntry(key, row?.value ?? value, row?.updatedAt ?? null)
+          const entry = buildEntry(key, row?.value ?? value, row?.updatedAt ?? null)
+          if (previousValue !== value) {
+            yield* recordDomainHistory(db, {
+              eventType: "settings_changed",
+              title: `Changed ${entry.label}`,
+              message: `${entry.group} setting ${entry.key} changed`,
+              metadata: {
+                key: entry.key,
+                label: entry.label,
+                group: entry.group,
+                previousValue,
+                value,
+              },
+            })
+          }
+          return entry
         }),
     }
   }),

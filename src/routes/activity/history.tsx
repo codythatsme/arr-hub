@@ -20,6 +20,7 @@ const OPERATIONAL_EVENT_TYPES = [
   "indexer_health_changed",
   "download_client_health_changed",
   "notification_delivery",
+  "settings_changed",
 ] as const
 
 const OPERATIONAL_MEDIA_KINDS = ["movie", "series", "season", "episode"] as const

@@ -1,6 +1,9 @@
 import { describe, expect, it } from "@effect/vitest"
+import { eq } from "drizzle-orm"
 import { Effect, Layer } from "effect"
 
+import { domainHistory } from "#/db/schema"
+import { Db } from "#/effect/services/Db"
 import { TestDbLive } from "#/effect/test/TestDb"
 
 import { SettingsService, SettingsServiceLive } from "./SettingsService"
@@ -30,9 +33,22 @@ describe("SettingsService", () => {
       const service = yield* SettingsService
       const updated = yield* service.set("app.name", "Media Ops")
       const loaded = yield* service.get("app.name")
+      const db = yield* Db
+      const history = yield* db
+        .select()
+        .from(domainHistory)
+        .where(eq(domainHistory.eventType, "settings_changed"))
 
       expect(updated.value).toBe("Media Ops")
       expect(loaded.value).toBe("Media Ops")
+      expect(history).toHaveLength(1)
+      expect(history[0]?.metadata).toEqual(
+        expect.objectContaining({
+          key: "app.name",
+          previousValue: "ARR Hub",
+          value: "Media Ops",
+        }),
+      )
     }).pipe(Effect.provide(TestLayer)),
   )
 

@@ -40,6 +40,7 @@ export const domainHistoryEventTypes = [
   "indexer_health_changed",
   "download_client_health_changed",
   "notification_delivery",
+  "settings_changed",
 ] as const
 export type DomainHistoryEventType = (typeof domainHistoryEventTypes)[number]
 
