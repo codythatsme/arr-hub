@@ -43,6 +43,7 @@ Commands run from `/Users/codythatsme/Developer/arr-hub`:
 - Focused setup-import tests passed for rejecting Radarr/Sonarr connection tests after setup completion without outbound requests.
 - Focused auth/startup tests passed for persistent login lockout, failed-attempt cleanup after successful login, TRPC 429 mapping, and startup schema validation.
 - Focused auth tests passed for authenticated admin password change, active-session revocation, current-password rejection, and new-password validation.
+- Focused diagnostics tests passed for indexer search/RSS failure rollups, unavailable download clients, and stale download-client health checks.
 - `bun run test:e2e`: last recorded passing smoke coverage for onboarding, settings, add movie, add TV from metadata, manual search display, calendar population, and queue page.
 - `bun run lint`: passed with 18 warnings and 0 errors.
 - `bun run fmt:check`: passed.
@@ -143,6 +144,7 @@ Completed in atomic commits after this plan was written. Milestone 5 is summariz
 - `c611c06e74` blocked setup import connection tests after onboarding completion.
 - `4b9ff2253f` added persistent login failed-attempt tracking and username lockout with TRPC 429 mapping.
 - `9ffc8ca1ae` added authenticated admin password change, active-session revocation, and Security UI controls.
+- `78f57560b4` added diagnostics rollups for indexer search/RSS failures plus unavailable and stale download-client health.
 - Subsequent Milestone 5 commits hardened the generic Cardigann runtime, request templating, category mapping, auth controls, and aggregate app-sync behavior enough for representative built-ins and checksum-pinned remote definitions. These commits are runtime support, not a decision to ship the expanded tracker catalogue.
 - `5cbb9c9e90` removed the deferred expanded built-in tracker catalogue from `main`. The safety branch `backup/milestone5-expanded-catalog` preserves the catalogue spike at `ab9e42393b`; those tracker definitions, including long-tail and adult/XXX sources, are not current built-in support.
 
@@ -640,6 +642,7 @@ Current state:
 
 - Integration health is recorded when tests are run and aggregated in diagnostics.
 - Diagnostics now also checks app data path accessibility, missing root folders, inaccessible root folders, inaccessible remote path mapping targets, all-disabled indexers/download clients, and enabled download clients that leave completed downloads in the client after import.
+- Diagnostics also reports indexer search/RSS failure rollups, enabled download clients marked unavailable, and stale/missing download-client health checks.
 
 Gap:
 
@@ -648,7 +651,8 @@ Gap:
 Tasks:
 
 - [x] Add checks for root folder missing/unwritable, all-indexers-disabled, all-download-clients-disabled, remote path missing, download client not removing completed downloads, and app data path accessibility.
-- Add checks for indexer search/RSS failure rollups, download client unavailable beyond stored health, clock skew, update availability, and deeper import mechanism problems.
+- [x] Add checks for indexer search/RSS failure rollups and download client unavailable/stale health.
+- Add checks for clock skew, update availability, and deeper import mechanism problems.
 - [x] Show checks in System.
 - Show checks in relevant settings pages.
 
