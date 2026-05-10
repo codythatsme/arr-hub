@@ -38,7 +38,7 @@ Commands run from `/Users/codythatsme/Developer/arr-hub`:
 - Focused download-client remove-policy tests passed for completed-import cleanup and failed-download cleanup.
 - Focused import free-space tests passed for settings validation and copy-import reserve rejection.
 - Focused notification/history tests passed for channel event subscription edits, direct test-send deliveries, and operational event notification triggers.
-- Focused notification provider tests passed for generic webhook payload preservation, Discord/Slack webhook formatting, Ntfy topic delivery, Gotify message delivery, Telegram sendMessage formatting, Pushover form delivery, Apprise API delivery, Notifiarr passthrough delivery, custom script execution, SMTP email delivery, and provider URL/credential/path validation.
+- Focused notification provider tests passed for generic webhook payload preservation, Discord/Slack webhook formatting, Ntfy topic delivery, Gotify message delivery, Telegram sendMessage formatting, Pushover form delivery, Apprise API delivery, Notifiarr passthrough delivery, custom script execution, SMTP email delivery, notification channel secret redaction, and provider URL/credential/path validation.
 - Focused diagnostics tests passed for proactive health checks covering app data, missing root folders, remote path mappings, and completed-download cleanup warnings.
 - Focused plugin-loader tests passed for plugin contract status reporting, unsupported capability-version rejection, and plugin lifecycle log retrieval.
 - Focused setup-import tests passed for rejecting Radarr/Sonarr connection tests after setup completion without outbound requests.
@@ -157,6 +157,7 @@ Completed in atomic commits after this plan was written. Milestone 5 is summariz
 - `c756f06144` added a first-pass custom script notification channel with direct executable invocation, notification environment variables, and Settings UI fields.
 - `bf948c9e9e` added a first-pass SMTP email notification channel with STARTTLS/TLS/plain delivery support and Settings UI fields.
 - `2960ae285c` documented TMDB metadata credentials, current migration paths from existing Arr apps, and added `TMDB_API_KEY` to `.env.example`.
+- `7c499328d0` redacted notification channel response settings for webhook URLs, provider tokens/user keys, headers, script arguments, and SMTP passwords.
 - `413824fa91` added filtered diagnostics panels to Indexer, Download Client, Media Server, and Media Management settings pages.
 - Subsequent Milestone 5 commits hardened the generic Cardigann runtime, request templating, category mapping, auth controls, and aggregate app-sync behavior enough for representative built-ins and checksum-pinned remote definitions. These commits are runtime support, not a decision to ship the expanded tracker catalogue.
 - `5cbb9c9e90` removed the deferred expanded built-in tracker catalogue from `main`. The safety branch `backup/milestone5-expanded-catalog` preserves the catalogue spike at `ab9e42393b`; those tracker definitions, including long-tail and adult/XXX sources, are not current built-in support.
@@ -542,6 +543,7 @@ Current state:
 - Authenticated admins can change their password from Security settings; active sessions are revoked after a successful change.
 - tRPC app procedures are authenticated after onboarding.
 - Onboarding and import routers are public because they are setup flows; onboarding mutations, import execution, and import connection tests now reject after setup completion.
+- Normal service/UI responses omit encrypted indexer, download-client, media-server, and indexer-application credentials, and notification channels now redact webhook/provider/script/SMTP secret settings before returning channels.
 - There is no Sonarr/Radarr/Prowlarr-compatible REST API.
 
 Gap:
@@ -557,7 +559,7 @@ Tasks:
 - Add API key scoping if external API compatibility is implemented.
 - Decide whether to implement compatible `/api/v3` Sonarr/Radarr-style endpoints and Prowlarr-style `/api/v1`/Torznab endpoints.
 - Add OpenAPI or equivalent docs for public APIs.
-- Audit secret redaction in errors, logs, diagnostics, and UI.
+- [x] Audit secret redaction in errors, logs, diagnostics, and UI. Current coverage redacts normal service/UI credential responses for integration and notification-channel secrets; broader API compatibility secret scoping remains tied to any future compatible REST API.
 
 Acceptance criteria:
 
