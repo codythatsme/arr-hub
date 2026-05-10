@@ -41,6 +41,7 @@ Commands run from `/Users/codythatsme/Developer/arr-hub`:
 - Focused diagnostics tests passed for proactive health checks covering app data, missing root folders, remote path mappings, and completed-download cleanup warnings.
 - Focused plugin-loader tests passed for plugin contract status reporting, unsupported capability-version rejection, and plugin lifecycle log retrieval.
 - Focused setup-import tests passed for rejecting Radarr/Sonarr connection tests after setup completion without outbound requests.
+- Focused auth/startup tests passed for persistent login lockout, failed-attempt cleanup after successful login, TRPC 429 mapping, and startup schema validation.
 - `bun run test:e2e`: last recorded passing smoke coverage for onboarding, settings, add movie, add TV from metadata, manual search display, calendar population, and queue page.
 - `bun run lint`: passed with 18 warnings and 0 errors.
 - `bun run fmt:check`: passed.
@@ -139,6 +140,7 @@ Completed in atomic commits after this plan was written. Milestone 5 is summariz
 - `1fbf3287c4` added plugin lifecycle log recording, a plugin-scoped logs API, and a Settings plugin logs panel.
 - `3da82c74b7` documented the V1 plugin scope decision: plugins are adapter-only, while Cardigann indexer definitions stay in definition sources.
 - `c611c06e74` blocked setup import connection tests after onboarding completion.
+- `4b9ff2253f` added persistent login failed-attempt tracking and username lockout with TRPC 429 mapping.
 - Subsequent Milestone 5 commits hardened the generic Cardigann runtime, request templating, category mapping, auth controls, and aggregate app-sync behavior enough for representative built-ins and checksum-pinned remote definitions. These commits are runtime support, not a decision to ship the expanded tracker catalogue.
 - `5cbb9c9e90` removed the deferred expanded built-in tracker catalogue from `main`. The safety branch `backup/milestone5-expanded-catalog` preserves the catalogue spike at `ab9e42393b`; those tracker definitions, including long-tail and adult/XXX sources, are not current built-in support.
 
@@ -519,6 +521,7 @@ Acceptance criteria:
 Current state:
 
 - Local admin login and API keys exist.
+- Login now persists failed-attempt state and locks a username for a rolling window after repeated failures.
 - tRPC app procedures are authenticated after onboarding.
 - Onboarding and import routers are public because they are setup flows; onboarding mutations, import execution, and import connection tests now reject after setup completion.
 - There is no Sonarr/Radarr/Prowlarr-compatible REST API.
@@ -530,7 +533,7 @@ Gap:
 Tasks:
 
 - [x] Gate setup/import public procedures so they reject once setup is complete, including connection-test endpoints where appropriate.
-- Add rate limiting or lockout for login.
+- [x] Add rate limiting or lockout for login.
 - Add password change/reset flow.
 - Add API key scoping if external API compatibility is implemented.
 - Decide whether to implement compatible `/api/v3` Sonarr/Radarr-style endpoints and Prowlarr-style `/api/v1`/Torznab endpoints.
