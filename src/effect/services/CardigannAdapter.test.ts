@@ -1086,6 +1086,69 @@ const GREAT_POSTER_WALL_JSON_RESULTS = JSON.stringify({
   },
 })
 
+const ORPHEUS_JSON_RESULTS = JSON.stringify({
+  status: "success",
+  response: {
+    results: [
+      {
+        artist: "OPS Artist",
+        groupId: "941",
+        groupName: "Orpheus Album",
+        groupYear: "2026",
+        releaseType: "Album",
+        torrents: [
+          {
+            torrentId: 9411,
+            format: "FLAC",
+            encoding: "Lossless",
+            media: "WEB",
+            hasLog: true,
+            logScore: 95,
+            hasCue: false,
+            time: "2026-05-10T10:15:00.000Z",
+            size: "912345600",
+            fileCount: 11,
+            snatches: 31,
+            seeders: "49",
+            leechers: "4",
+            category: "Music",
+            isFreeLeech: false,
+            isNeutralLeech: false,
+            isPersonalFreeLeech: false,
+            canUseToken: true,
+          },
+        ],
+      },
+      {
+        groupId: "942",
+        groupName: "Orpheus Audiobook",
+        groupYear: "2026",
+        torrents: [
+          {
+            torrentId: 9412,
+            format: "MP3",
+            encoding: "V0",
+            media: "WEB",
+            hasLog: false,
+            hasCue: false,
+            time: "2026-05-09T06:30:00.000Z",
+            size: "223456000",
+            fileCount: 6,
+            snatches: 14,
+            seeders: "18",
+            leechers: "2",
+            category: "Audiobooks",
+            isFreeLeech: true,
+            isNeutralLeech: true,
+            isPersonalFreeLeech: false,
+            canUseToken: false,
+          },
+        ],
+      },
+    ],
+  },
+})
+
 const REDACTED_JSON_RESULTS = JSON.stringify({
   status: "success",
   response: {
@@ -5331,6 +5394,73 @@ search:
     expect(releases[1]).toMatchObject({
       title: "GreatPosterWall UHD Movie 2026 2160p WEB-DL HEVC-GPW",
       category: "2000",
+      downloadFactor: 0,
+      uploadFactor: 0,
+    })
+  })
+
+  it("parses Orpheus token-auth Gazelle JSON results", async () => {
+    const requests: Array<{ url: string; init: RequestInit | undefined }> = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      requests.push({ url: String(input), init })
+      return new Response(ORPHEUS_JSON_RESULTS, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 116,
+      name: "Orpheus",
+      type: "cardigann_yaml",
+      definitionKey: "orpheus",
+      baseUrl: "https://orpheus.network/",
+      apiKey: "ops-api-key",
+      configValues: {
+        useFreeleechToken: "1",
+      },
+      priority: 52,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({
+        term: "Orpheus Album",
+        type: "general",
+        categories: [3000],
+      }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const searchRequest = requests[0]
+    const searchUrl = new URL(searchRequest?.url ?? "")
+    expect(searchUrl.origin).toBe("https://orpheus.network")
+    expect(searchUrl.pathname).toBe("/ajax.php")
+    expect(searchUrl.searchParams.get("action")).toBe("browse")
+    expect(searchUrl.searchParams.get("order_by")).toBe("time")
+    expect(searchUrl.searchParams.get("order_way")).toBe("desc")
+    expect(searchUrl.searchParams.get("searchstr")).toBe("Orpheus Album")
+    expect(searchUrl.searchParams.get("filter_cat[1]")).toBe("1")
+    expect(searchUrl.searchParams.has("freetorrent")).toBe(false)
+    expect(new Headers(searchRequest?.init?.headers).get("authorization")).toBe("token ops-api-key")
+    expect(releases).toHaveLength(2)
+    expect(releases[0]).toMatchObject({
+      title: "OPS Artist - Orpheus Album (2026) [Album] [FLAC Lossless] [WEB] [Log (95%)]",
+      downloadUrl: "https://orpheus.network/ajax.php?action=download&id=9411&usetoken=1",
+      infoUrl: "https://orpheus.network/torrents.php?id=941&torrentid=9411",
+      category: "3000",
+      size: 912_345_600,
+      seeders: 49,
+      leechers: 4,
+      indexerId: 116,
+      indexerName: "Orpheus",
+      indexerPriority: 52,
+      downloadFactor: 1,
+      uploadFactor: 1,
+    })
+    expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-10T10:15:00.000Z")
+    expect(releases[1]).toMatchObject({
+      title: "Orpheus Audiobook (2026) [MP3 V0] [WEB]",
+      category: "3030",
       downloadFactor: 0,
       uploadFactor: 0,
     })

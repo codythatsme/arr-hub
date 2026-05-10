@@ -113,6 +113,7 @@ caps:
       "cgpeers",
       "dicmusic",
       "greatposterwall",
+      "orpheus",
       "redacted",
       "revolutiontt",
       "pretome",
@@ -1039,6 +1040,34 @@ caps:
       capabilities: {
         searchTypes: ["search", "movie"],
         categories: expect.arrayContaining([{ id: 2000, name: "Movies 电影" }]),
+      },
+    })
+    expect(
+      BUILT_IN_CARDIGANN_DEFINITIONS.find((definition) => definition.definitionKey === "orpheus"),
+    ).toMatchObject({
+      displayName: "Orpheus",
+      baseUrl: "https://orpheus.network/",
+      privacy: "private",
+      supportsRss: false,
+      supportsSearch: true,
+      tags: ["private", "music", "books", "apps", "json", "gazelle", "api-key"],
+      authFields: expect.arrayContaining([
+        expect.objectContaining({ name: "apiKey", type: "password", required: true }),
+        expect.objectContaining({
+          name: "useFreeleechToken",
+          type: "select",
+          defaultValue: "0",
+        }),
+      ]),
+      capabilities: {
+        searchTypes: ["search"],
+        categories: expect.arrayContaining([
+          { id: 3000, name: "Music" },
+          { id: 4000, name: "Applications" },
+          { id: 7020, name: "E-Books" },
+          { id: 3030, name: "Audiobooks" },
+          { id: 7030, name: "Comics" },
+        ]),
       },
     })
     expect(
