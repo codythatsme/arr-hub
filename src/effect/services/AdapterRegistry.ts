@@ -21,6 +21,7 @@ import { createPlexAdapter, plexMetadata } from "./PlexAdapter"
 import { createQBittorrentAdapter, qbittorrentMetadata } from "./QBittorrentAdapter"
 import { createSABnzbdAdapter, sabnzbdMetadata } from "./SABnzbdAdapter"
 import { createTorznabAdapter, newznabMetadata, torznabMetadata } from "./TorznabAdapter"
+import { createTransmissionAdapter, transmissionMetadata } from "./TransmissionAdapter"
 
 // ── Types ──
 
@@ -166,6 +167,7 @@ export const AdapterRegistryLive = Layer.sync(AdapterRegistry, () => {
   // Register built-in adapters
   registry.registerDownloadClient("qbittorrent", qbittorrentMetadata, createQBittorrentAdapter)
   registry.registerDownloadClient("sabnzbd", sabnzbdMetadata, createSABnzbdAdapter)
+  registry.registerDownloadClient("transmission", transmissionMetadata, createTransmissionAdapter)
   registry.registerIndexer("cardigann_yaml", cardigannYamlMetadata, createCardigannYamlAdapter)
   registry.registerIndexer("torznab", torznabMetadata, createTorznabAdapter)
   registry.registerIndexer("newznab", newznabMetadata, createTorznabAdapter)

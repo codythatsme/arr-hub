@@ -193,6 +193,7 @@ function Quickstart() {
                 >
                   <option value="qbittorrent">qBittorrent</option>
                   <option value="sabnzbd">SABnzbd</option>
+                  <option value="transmission">Transmission</option>
                 </select>
               </Field>
               <Field label="Host">
