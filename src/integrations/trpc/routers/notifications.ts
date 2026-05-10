@@ -22,6 +22,13 @@ const channelInputSchema = z.object({
       channelId: z.string().min(1).optional(),
       scriptPath: z.string().min(1).optional(),
       scriptArgs: z.array(z.string()).optional(),
+      smtpHost: z.string().min(1).optional(),
+      smtpPort: z.number().int().min(1).max(65_535).optional(),
+      smtpSecurity: z.enum(["none", "starttls", "tls"]).optional(),
+      smtpUsername: z.string().min(1).optional(),
+      smtpPassword: z.string().min(1).optional(),
+      fromEmail: z.string().email().optional(),
+      toEmails: z.array(z.string().email()).optional(),
       headers: z.record(z.string(), z.string()).optional(),
     })
     .default({}),

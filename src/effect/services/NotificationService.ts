@@ -21,6 +21,7 @@ import { Db } from "./Db"
 import type { MonitoringTrigger } from "./MonitoringTriggerBus"
 import { MonitoringTriggerBus } from "./MonitoringTriggerBus"
 import { recordDomainHistory } from "./OperationalHistoryService"
+import { sendSmtpEmail, type SmtpSecurity } from "./SmtpClient"
 
 const ALL_EVENTS: ReadonlyArray<NotificationEvent> = notificationEvents
 const ALL_CHANNEL_TYPES: ReadonlyArray<NotificationChannelType> = notificationChannelTypes
@@ -39,6 +40,7 @@ const OUTBOUND_CHANNEL_TYPES = new Set<NotificationChannelType>([
   "pushover",
   "notifiarr",
   "custom_script",
+  "email",
 ])
 
 interface FormattedNotification {
@@ -80,6 +82,8 @@ function channelTypeLabel(type: NotificationChannelType): string {
       return "Notifiarr"
     case "custom_script":
       return "custom script"
+    case "email":
+      return "email"
   }
 }
 
@@ -185,6 +189,7 @@ function formatOutboundPayload(
     case "ntfy":
     case "pushover":
     case "custom_script":
+    case "email":
     case "in_app":
       return { event, title, message, payload }
   }
@@ -192,6 +197,20 @@ function formatOutboundPayload(
 
 function stringifyNotifiarrPayload(payload: Record<string, unknown>, channelId: string): string {
   return JSON.stringify(payload).replace(`"${NOTIFIARR_CHANNEL_ID_PLACEHOLDER}"`, channelId)
+}
+
+function isEmailAddress(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+}
+
+function formatEmailBody(
+  event: NotificationEvent,
+  message: string,
+  payload: Record<string, unknown>,
+): string {
+  return [message, "", `Event: ${event}`, "", "Payload:", JSON.stringify(payload, null, 2)].join(
+    "\n",
+  )
 }
 
 function runCustomScript(
@@ -465,6 +484,40 @@ export const NotificationServiceLive = Layer.effect(
             )
           }
         }
+        if (input.type === "email") {
+          const smtpHost = settings.smtpHost?.trim()
+          const smtpPort = settings.smtpPort ?? 25
+          const smtpSecurity = settings.smtpSecurity ?? "none"
+          const fromEmail = settings.fromEmail?.trim()
+          const toEmails = settings.toEmails?.map((email) => email.trim()).filter(Boolean) ?? []
+
+          if (!smtpHost) {
+            return yield* Effect.fail(new ValidationError({ message: "SMTP host is required" }))
+          }
+          if (!Number.isInteger(smtpPort) || smtpPort < 1 || smtpPort > 65_535) {
+            return yield* Effect.fail(new ValidationError({ message: "SMTP port is invalid" }))
+          }
+          if (!["none", "starttls", "tls"].includes(smtpSecurity)) {
+            return yield* Effect.fail(
+              new ValidationError({ message: "SMTP security mode is invalid" }),
+            )
+          }
+          if (!fromEmail || !isEmailAddress(fromEmail)) {
+            return yield* Effect.fail(
+              new ValidationError({ message: "email from address is invalid" }),
+            )
+          }
+          if (toEmails.length === 0 || toEmails.some((email) => !isEmailAddress(email))) {
+            return yield* Effect.fail(
+              new ValidationError({ message: "email recipients are invalid" }),
+            )
+          }
+          if (settings.smtpUsername?.trim() && !settings.smtpPassword?.trim()) {
+            return yield* Effect.fail(
+              new ValidationError({ message: "SMTP password is required when username is set" }),
+            )
+          }
+        }
 
         const normalizedSettings =
           input.type === "pushover"
@@ -484,9 +537,20 @@ export const NotificationServiceLive = Layer.effect(
                         ?.map((argument) => argument.trim())
                         .filter((argument) => argument.length > 0) ?? [],
                   }
-                : isUrlChannelType(input.type)
-                  ? { ...settings, url: settings.url?.trim() }
-                  : settings
+                : input.type === "email"
+                  ? {
+                      ...settings,
+                      smtpHost: settings.smtpHost?.trim(),
+                      smtpPort: settings.smtpPort ?? 25,
+                      smtpSecurity: settings.smtpSecurity ?? "none",
+                      smtpUsername: settings.smtpUsername?.trim(),
+                      smtpPassword: settings.smtpPassword?.trim(),
+                      fromEmail: settings.fromEmail?.trim(),
+                      toEmails: settings.toEmails?.map((email) => email.trim()).filter(Boolean),
+                    }
+                  : isUrlChannelType(input.type)
+                    ? { ...settings, url: settings.url?.trim() }
+                    : settings
 
         return {
           name,
@@ -508,6 +572,20 @@ export const NotificationServiceLive = Layer.effect(
         try: async () => {
           if (channel.type === "custom_script") {
             await runCustomScript(channel, event, title, message, payload)
+            return
+          }
+          if (channel.type === "email") {
+            await sendSmtpEmail({
+              host: channel.settings.smtpHost ?? "",
+              port: channel.settings.smtpPort ?? 25,
+              security: (channel.settings.smtpSecurity ?? "none") as SmtpSecurity,
+              username: channel.settings.smtpUsername,
+              password: channel.settings.smtpPassword,
+              from: channel.settings.fromEmail ?? "",
+              to: channel.settings.toEmails ?? [],
+              subject: title,
+              text: formatEmailBody(event, message, payload),
+            })
             return
           }
 

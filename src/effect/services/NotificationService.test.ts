@@ -1,4 +1,5 @@
 import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
+import * as net from "node:net"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
@@ -39,6 +40,96 @@ function getFetchBody(fetchSpy: ReturnType<typeof stubSuccessfulFetch>): Record<
 afterEach(() => {
   vi.unstubAllGlobals()
 })
+
+async function startFakeSmtpServer(): Promise<{
+  readonly port: number
+  readonly commands: Array<string>
+  readonly messages: Array<string>
+  readonly close: () => Promise<void>
+}> {
+  const commands: Array<string> = []
+  const messages: Array<string> = []
+  const server = net.createServer((socket) => {
+    let buffer = ""
+    let inData = false
+    let messageLines: Array<string> = []
+
+    socket.setEncoding("utf8")
+    socket.write("220 arr-hub test smtp\r\n")
+    socket.on("data", (chunk) => {
+      buffer += chunk
+      while (true) {
+        const index = buffer.indexOf("\n")
+        if (index === -1) break
+
+        const line = buffer.slice(0, index).replace(/\r$/, "")
+        buffer = buffer.slice(index + 1)
+
+        if (inData) {
+          if (line === ".") {
+            messages.push(messageLines.join("\n"))
+            messageLines = []
+            inData = false
+            socket.write("250 queued\r\n")
+          } else {
+            messageLines.push(line)
+          }
+          continue
+        }
+
+        commands.push(line)
+        const upper = line.toUpperCase()
+        if (upper.startsWith("EHLO") || upper.startsWith("HELO")) {
+          socket.write("250-localhost\r\n250 AUTH PLAIN\r\n")
+        } else if (upper.startsWith("MAIL FROM:") || upper.startsWith("RCPT TO:")) {
+          socket.write("250 ok\r\n")
+        } else if (upper === "DATA") {
+          inData = true
+          socket.write("354 end with dot\r\n")
+        } else if (upper === "QUIT") {
+          socket.write("221 bye\r\n")
+          socket.end()
+        } else {
+          socket.write("250 ok\r\n")
+        }
+      }
+    })
+  })
+
+  await new Promise<void>((resolve, reject) => {
+    const onError = (error: Error) => {
+      server.off("listening", onListening)
+      reject(error)
+    }
+    const onListening = () => {
+      server.off("error", onError)
+      resolve()
+    }
+
+    server.once("error", onError)
+    server.listen(0, "127.0.0.1", onListening)
+  })
+  const address = server.address()
+  if (!address || typeof address === "string") {
+    throw new Error("fake SMTP server did not bind to a TCP port")
+  }
+
+  return {
+    port: address.port,
+    commands,
+    messages,
+    close: () =>
+      new Promise<void>((resolve, reject) => {
+        server.close((error) => {
+          if (error) {
+            reject(error)
+            return
+          }
+          resolve()
+        })
+      }),
+  }
+}
 
 const session: MediaServerSession = {
   mediaServerId: 1,
@@ -575,6 +666,45 @@ describe("NotificationService", () => {
     )
   })
 
+  it.effect("sends SMTP email deliveries", () => {
+    let smtpServer: Awaited<ReturnType<typeof startFakeSmtpServer>> | undefined
+
+    return Effect.gen(function* () {
+      smtpServer = yield* Effect.promise(() => startFakeSmtpServer())
+      const service = yield* NotificationService
+      const channel = yield* service.createChannel({
+        name: "Email",
+        type: "email",
+        enabled: true,
+        events: ["server_down"],
+        settings: {
+          smtpHost: "127.0.0.1",
+          smtpPort: smtpServer.port,
+          smtpSecurity: "none",
+          fromEmail: "alerts@example.com",
+          toEmails: ["ops@example.com"],
+        },
+      })
+
+      const delivery = yield* service.testChannel(channel.id, "server_down")
+
+      expect(delivery.status).toBe("sent")
+      expect(smtpServer.commands).toContain("MAIL FROM:<alerts@example.com>")
+      expect(smtpServer.commands).toContain("RCPT TO:<ops@example.com>")
+      expect(smtpServer.commands).toContain("DATA")
+      expect(smtpServer.messages[0]).toContain("Subject: Test media server offline")
+      expect(smtpServer.messages[0]).toContain("Example Server is not responding")
+      expect(smtpServer.messages[0]).toContain("Event: server_down")
+    }).pipe(
+      Effect.ensuring(
+        Effect.promise(async () => {
+          await smtpServer?.close()
+        }),
+      ),
+      Effect.provide(TestLayer),
+    )
+  })
+
   it.effect("requires Pushover credentials", () =>
     Effect.gen(function* () {
       const service = yield* NotificationService
@@ -670,6 +800,68 @@ describe("NotificationService", () => {
       expect(absent._tag).toBe("Left")
       if (absent._tag === "Left") {
         expect(absent.left.message).toBe("custom script path must point to a file")
+      }
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("requires valid SMTP email settings", () =>
+    Effect.gen(function* () {
+      const service = yield* NotificationService
+      const missingHost = yield* Effect.either(
+        service.createChannel({
+          name: "Email",
+          type: "email",
+          enabled: true,
+          events: ["server_down"],
+          settings: {
+            fromEmail: "alerts@example.com",
+            toEmails: ["ops@example.com"],
+          },
+        }),
+      )
+      const invalidRecipient = yield* Effect.either(
+        service.createChannel({
+          name: "Email",
+          type: "email",
+          enabled: true,
+          events: ["server_down"],
+          settings: {
+            smtpHost: "smtp.example.com",
+            smtpPort: 25,
+            smtpSecurity: "none",
+            fromEmail: "alerts@example.com",
+            toEmails: ["not-an-email"],
+          },
+        }),
+      )
+      const missingPassword = yield* Effect.either(
+        service.createChannel({
+          name: "Email",
+          type: "email",
+          enabled: true,
+          events: ["server_down"],
+          settings: {
+            smtpHost: "smtp.example.com",
+            smtpPort: 25,
+            smtpSecurity: "none",
+            smtpUsername: "alerts",
+            fromEmail: "alerts@example.com",
+            toEmails: ["ops@example.com"],
+          },
+        }),
+      )
+
+      expect(missingHost._tag).toBe("Left")
+      if (missingHost._tag === "Left") {
+        expect(missingHost.left.message).toBe("SMTP host is required")
+      }
+      expect(invalidRecipient._tag).toBe("Left")
+      if (invalidRecipient._tag === "Left") {
+        expect(invalidRecipient.left.message).toBe("email recipients are invalid")
+      }
+      expect(missingPassword._tag).toBe("Left")
+      if (missingPassword._tag === "Left") {
+        expect(missingPassword.left.message).toBe("SMTP password is required when username is set")
       }
     }).pipe(Effect.provide(TestLayer)),
   )

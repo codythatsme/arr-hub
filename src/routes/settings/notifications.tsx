@@ -119,6 +119,14 @@ const CHANNEL_TYPES = [
     urlLabel: "",
     placeholder: "",
   },
+  {
+    value: "email",
+    label: "Email",
+    defaultName: "Email alerts",
+    destination: "",
+    urlLabel: "",
+    placeholder: "",
+  },
 ] as const
 
 type ChannelType = (typeof CHANNEL_TYPES)[number]["value"]
@@ -142,6 +150,10 @@ function channelDestination(channel: {
     readonly user?: string
     readonly channelId?: string
     readonly scriptPath?: string
+    readonly smtpHost?: string
+    readonly smtpPort?: number
+    readonly fromEmail?: string
+    readonly toEmails?: ReadonlyArray<string>
   }
 }): string {
   const config = channelTypeConfig(channel.type)
@@ -156,6 +168,11 @@ function channelDestination(channel: {
   if (channel.type === "custom_script") {
     return channel.settings.scriptPath ?? "Script path missing"
   }
+  if (channel.type === "email") {
+    return channel.settings.toEmails?.length
+      ? `SMTP ${channel.settings.smtpHost ?? "host"} to ${channel.settings.toEmails.length} recipients`
+      : "SMTP settings missing"
+  }
   if (!requiresUrl(channel.type)) return config.destination
   return channel.settings.url ?? `${config.label} URL not configured`
 }
@@ -165,6 +182,13 @@ function parseScriptArgs(value: string): Array<string> {
     .split("\n")
     .map((argument) => argument.trim())
     .filter((argument) => argument.length > 0)
+}
+
+function parseEmailList(value: string): Array<string> {
+  return value
+    .split(/[,\n]/)
+    .map((email) => email.trim())
+    .filter((email) => email.length > 0)
 }
 
 function Notifications() {
@@ -179,6 +203,13 @@ function Notifications() {
   const [notifiarrChannelId, setNotifiarrChannelId] = useState("")
   const [scriptPath, setScriptPath] = useState("")
   const [scriptArgs, setScriptArgs] = useState("")
+  const [smtpHost, setSmtpHost] = useState("")
+  const [smtpPort, setSmtpPort] = useState(587)
+  const [smtpSecurity, setSmtpSecurity] = useState<"none" | "starttls" | "tls">("starttls")
+  const [smtpUsername, setSmtpUsername] = useState("")
+  const [smtpPassword, setSmtpPassword] = useState("")
+  const [fromEmail, setFromEmail] = useState("")
+  const [toEmails, setToEmails] = useState("")
   const [events, setEvents] = useState<ReadonlyArray<NotificationEvent>>(
     EVENTS.map((event) => event.value),
   )
@@ -199,6 +230,13 @@ function Notifications() {
         setNotifiarrChannelId("")
         setScriptPath("")
         setScriptArgs("")
+        setSmtpHost("")
+        setSmtpPort(587)
+        setSmtpSecurity("starttls")
+        setSmtpUsername("")
+        setSmtpPassword("")
+        setFromEmail("")
+        setToEmails("")
       },
     }),
   )
@@ -227,7 +265,12 @@ function Notifications() {
     (requiresUrl(type) && url.length === 0) ||
     (type === "pushover" && (pushoverToken.length === 0 || pushoverUser.length === 0)) ||
     (type === "notifiarr" && (notifiarrApiKey.length === 0 || notifiarrChannelId.length === 0)) ||
-    (type === "custom_script" && scriptPath.length === 0)
+    (type === "custom_script" && scriptPath.length === 0) ||
+    (type === "email" &&
+      (smtpHost.trim().length === 0 ||
+        smtpPort < 1 ||
+        fromEmail.trim().length === 0 ||
+        parseEmailList(toEmails).length === 0))
 
   return (
     <div className="space-y-6 p-6">
@@ -349,9 +392,19 @@ function Notifications() {
                     ? { token: notifiarrApiKey, channelId: notifiarrChannelId }
                     : type === "custom_script"
                       ? { scriptPath, scriptArgs: parseScriptArgs(scriptArgs) }
-                      : requiresUrl(type)
-                        ? { url }
-                        : {},
+                      : type === "email"
+                        ? {
+                            smtpHost: smtpHost.trim(),
+                            smtpPort,
+                            smtpSecurity,
+                            smtpUsername: smtpUsername.trim() || undefined,
+                            smtpPassword: smtpPassword.trim() || undefined,
+                            fromEmail: fromEmail.trim(),
+                            toEmails: parseEmailList(toEmails),
+                          }
+                        : requiresUrl(type)
+                          ? { url }
+                          : {},
             })
           }}
         >
@@ -457,6 +510,84 @@ function Notifications() {
                     value={scriptArgs}
                     onChange={(event) => setScriptArgs(event.target.value)}
                     placeholder={"--flag\nvalue"}
+                  />
+                </label>
+              </>
+            )}
+
+            {type === "email" && (
+              <>
+                <label className="block text-sm">
+                  <span className="font-medium">SMTP host</span>
+                  <input
+                    className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                    value={smtpHost}
+                    onChange={(event) => setSmtpHost(event.target.value)}
+                    placeholder="smtp.example.com"
+                  />
+                </label>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="block text-sm">
+                    <span className="font-medium">SMTP port</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={65_535}
+                      className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                      value={smtpPort}
+                      onChange={(event) => setSmtpPort(Number(event.target.value))}
+                    />
+                  </label>
+                  <label className="block text-sm">
+                    <span className="font-medium">Security</span>
+                    <select
+                      className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                      value={smtpSecurity}
+                      onChange={(event) =>
+                        setSmtpSecurity(event.target.value as "none" | "starttls" | "tls")
+                      }
+                    >
+                      <option value="starttls">STARTTLS</option>
+                      <option value="tls">TLS</option>
+                      <option value="none">None</option>
+                    </select>
+                  </label>
+                </div>
+                <label className="block text-sm">
+                  <span className="font-medium">Username</span>
+                  <input
+                    className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                    value={smtpUsername}
+                    onChange={(event) => setSmtpUsername(event.target.value)}
+                    placeholder="alerts@example.com"
+                  />
+                </label>
+                <label className="block text-sm">
+                  <span className="font-medium">Password</span>
+                  <input
+                    type="password"
+                    className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                    value={smtpPassword}
+                    onChange={(event) => setSmtpPassword(event.target.value)}
+                    placeholder="APP_PASSWORD"
+                  />
+                </label>
+                <label className="block text-sm">
+                  <span className="font-medium">From address</span>
+                  <input
+                    className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                    value={fromEmail}
+                    onChange={(event) => setFromEmail(event.target.value)}
+                    placeholder="alerts@example.com"
+                  />
+                </label>
+                <label className="block text-sm">
+                  <span className="font-medium">Recipient addresses</span>
+                  <textarea
+                    className="mt-1 min-h-24 w-full rounded border bg-transparent px-3 py-2"
+                    value={toEmails}
+                    onChange={(event) => setToEmails(event.target.value)}
+                    placeholder={"ops@example.com\nadmin@example.com"}
                   />
                 </label>
               </>

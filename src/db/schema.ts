@@ -804,6 +804,7 @@ export const notificationChannelTypes = [
   "apprise",
   "notifiarr",
   "custom_script",
+  "email",
 ] as const
 export type NotificationChannelType = (typeof notificationChannelTypes)[number]
 
@@ -814,6 +815,13 @@ export interface NotificationChannelSettings {
   readonly channelId?: string
   readonly scriptPath?: string
   readonly scriptArgs?: ReadonlyArray<string>
+  readonly smtpHost?: string
+  readonly smtpPort?: number
+  readonly smtpSecurity?: "none" | "starttls" | "tls"
+  readonly smtpUsername?: string
+  readonly smtpPassword?: string
+  readonly fromEmail?: string
+  readonly toEmails?: ReadonlyArray<string>
   readonly headers?: Record<string, string>
 }
 
