@@ -119,19 +119,19 @@ describe("IndexerService", () => {
       const second = yield* svc.refreshDefinitions()
 
       expect(first).toMatchObject({
-        total: 56,
-        created: 56,
+        total: 57,
+        created: 57,
         updated: 0,
         unchanged: 0,
       })
       expect(first.definitions.map((definition) => definition.action)).toEqual(
-        Array(56).fill("created"),
+        Array(57).fill("created"),
       )
       expect(second).toMatchObject({
-        total: 56,
+        total: 57,
         created: 0,
         updated: 0,
-        unchanged: 56,
+        unchanged: 57,
       })
       expect(second.definitions.every((definition) => definition.previousVersion !== null)).toBe(
         true,
@@ -435,6 +435,7 @@ describe("IndexerService", () => {
         "orpheus",
         "passthepopcorn",
         "pixelhd",
+        "pornolab",
         "pretome",
         "public-domain-movie-torrents",
         "redacted",
@@ -594,6 +595,17 @@ describe("IndexerService", () => {
           "html",
           "post-login",
         ],
+      })
+      expect(
+        definitions.find((definition) => definition.definitionKey === "pornolab"),
+      ).toMatchObject({
+        displayName: "PornoLab",
+        protocol: "torrent",
+        implementation: "cardigann_yaml",
+        baseUrl: "https://pornolab.net/",
+        privacy: "semi_private",
+        supportsRss: true,
+        tags: ["semi-private", "adult", "xxx", "html", "post-login"],
       })
       expect(
         definitions.find((definition) => definition.definitionKey === "myanonamouse"),

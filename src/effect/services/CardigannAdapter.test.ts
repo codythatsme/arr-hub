@@ -370,6 +370,42 @@ const RUTRACKER_HTML_RESULTS = `
   </body>
 </html>`
 
+const PORNOLAB_HTML_RESULTS = `
+<html>
+  <body>
+    <table id="tor-tbl">
+      <tbody>
+        <tr>
+          <td><a class="f" href="viewforum.php?f=1717">Full length movies high quality</a></td>
+          <td><a class="tLink" href="viewtopic.php?t=2001">PornoLab High Quality Release 2026</a></td>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td><a class="tr-dl" href="dl.php?t=2001">DL</a><u>1.5 GB</u></td>
+          <td><b>16</b></td>
+          <td>3</td>
+          <td>42</td>
+          <td></td>
+          <td><u>1778400900</u></td>
+        </tr>
+        <tr>
+          <td><a class="f" href="viewforum.php?f=883">Picture galleries</a></td>
+          <td><a class="tLink" href="viewtopic.php?t=2002">PornoLab Gallery Release 2026</a></td>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td><a class="tr-dl" href="dl.php?t=2002">DL</a><u>512 MB</u></td>
+          <td><b>7</b></td>
+          <td>1</td>
+          <td>19</td>
+          <td></td>
+          <td><u>1778312700</u></td>
+        </tr>
+      </tbody>
+    </table>
+  </body>
+</html>`
+
 const ANIME_TORRENTS_HTML_RESULTS = `
 <html><body>
   <table>
@@ -4532,6 +4568,97 @@ search:
       category: "3000",
       size: 734_003_200,
       seeders: 5,
+      leechers: 1,
+    })
+    expect(releases[1]?.publishedAt.toISOString()).toBe("2026-05-09T07:45:00.000Z")
+  })
+
+  it("parses PornoLab HTML results with POST login and category fan-out", async () => {
+    const requests: Array<{ url: string; init: RequestInit | undefined }> = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(String(input))
+      requests.push({ url: String(input), init })
+      if (url.pathname === "/forum/login.php") {
+        return new Response("<html><body>Вы зашли как: demo</body></html>", {
+          headers: { "set-cookie": "bb_session=pornolab-session; Path=/; HttpOnly" },
+          status: 200,
+        })
+      }
+
+      return new Response(PORNOLAB_HTML_RESULTS, {
+        headers: { "content-type": "text/html" },
+        status: 200,
+      })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 127,
+      name: "PornoLab",
+      type: "cardigann_yaml",
+      definitionKey: "pornolab",
+      baseUrl: "https://pornolab.net/",
+      apiKey: "",
+      configValues: {
+        username: "pl-user",
+        password: "pl-pass",
+      },
+      priority: 65,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({
+        term: "Adult-Release",
+        type: "movie",
+        categories: [6040],
+      }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    const loginRequest = requests[0]
+    expect(loginRequest?.url).toBe("https://pornolab.net/forum/login.php")
+    expect(loginRequest?.init?.method).toBe("POST")
+    const loginBody = loginRequest?.init?.body as URLSearchParams
+    expect(loginBody.get("login_username")).toBe("pl-user")
+    expect(loginBody.get("login_password")).toBe("pl-pass")
+    expect(loginBody.get("login")).toBe("Login")
+
+    const searchRequest = requests[1]
+    const url = new URL(searchRequest?.url ?? "")
+    expect(url.origin + url.pathname).toBe("https://pornolab.net/forum/tracker.php")
+    expect(url.searchParams.get("o")).toBe("1")
+    expect(url.searchParams.get("s")).toBe("2")
+    expect(url.searchParams.get("nm")).toBe("Adult Release")
+    expect(url.searchParams.getAll("f[]")).toEqual(["1717"])
+    expect(new Headers(searchRequest?.init?.headers).get("cookie")).toBe(
+      "bb_session=pornolab-session",
+    )
+
+    expect(releases).toHaveLength(2)
+    expect(releases[0]).toMatchObject({
+      title: "PornoLab High Quality Release 2026",
+      downloadUrl: "https://pornolab.net/forum/dl.php?t=2001",
+      infoUrl: "https://pornolab.net/forum/viewtopic.php?t=2001",
+      category: "6040",
+      size: 1_500_000_000,
+      seeders: 16,
+      leechers: 3,
+      indexerId: 127,
+      indexerName: "PornoLab",
+      indexerPriority: 65,
+      downloadFactor: 1,
+      uploadFactor: 1,
+    })
+    expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-10T08:15:00.000Z")
+    expect(releases[1]).toMatchObject({
+      title: "PornoLab Gallery Release 2026",
+      downloadUrl: "https://pornolab.net/forum/dl.php?t=2002",
+      infoUrl: "https://pornolab.net/forum/viewtopic.php?t=2002",
+      category: "6060",
+      size: 512_000_000,
+      seeders: 7,
       leechers: 1,
     })
     expect(releases[1]?.publishedAt.toISOString()).toBe("2026-05-09T07:45:00.000Z")

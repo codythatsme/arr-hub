@@ -88,6 +88,7 @@ caps:
       "norbits",
       "toloka",
       "rutracker",
+      "pornolab",
       "myanonamouse",
       "gazellegames",
       "anidex",
@@ -423,6 +424,30 @@ caps:
           { id: 3000, name: "Soundtracks, karaoke, and musicals" },
           { id: 7020, name: "Fiction ebooks" },
           { id: 4050, name: "Windows games" },
+        ]),
+      },
+    })
+    expect(
+      BUILT_IN_CARDIGANN_DEFINITIONS.find((definition) => definition.definitionKey === "pornolab"),
+    ).toMatchObject({
+      displayName: "PornoLab",
+      baseUrl: "https://pornolab.net/",
+      privacy: "semi_private",
+      supportsRss: true,
+      supportsSearch: true,
+      tags: ["semi-private", "adult", "xxx", "html", "post-login"],
+      authFields: expect.arrayContaining([
+        expect.objectContaining({ name: "username", type: "text", required: true }),
+        expect.objectContaining({ name: "password", type: "password", required: true }),
+      ]),
+      capabilities: {
+        searchTypes: ["search", "movie", "tvsearch"],
+        categories: expect.arrayContaining([
+          { id: 6000, name: "Full length movies" },
+          { id: 6040, name: "Full length movies high quality" },
+          { id: 6050, name: "Full length movie packs" },
+          { id: 6060, name: "Picture galleries" },
+          { id: 6070, name: "Games" },
         ]),
       },
     })

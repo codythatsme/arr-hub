@@ -1735,6 +1735,147 @@ search:
       text: "1"
 `
 
+const PORNOLAB = `
+id: pornolab
+name: PornoLab
+description: Semi-private Russian adult tracker exposed through a first-pass POST-login HTML Cardigann definition.
+type: semi-private
+links:
+  - https://pornolab.net/
+version: builtin-cardigann-1
+tags:
+  - semi-private
+  - adult
+  - xxx
+  - html
+  - post-login
+settings:
+  - name: username
+    label: Username
+    type: text
+    required: true
+  - name: password
+    label: Password
+    type: password
+    required: true
+caps:
+  categorymappings:
+    - id: "1670"
+      cat: XXX
+      desc: Erotic and softcore
+      newznab: 6000
+    - id: "1672"
+      cat: XXX
+      desc: Full length movies
+      newznab: 6000
+    - id: "1111"
+      cat: XXX/Pack
+      desc: Full length movie packs
+      newznab: 6050
+    - id: "1717"
+      cat: XXX/x264
+      desc: Full length movies high quality
+      newznab: 6040
+    - id: "1851"
+      cat: XXX/DVD
+      desc: Erotic and documentary DVD
+      newznab: 6010
+    - id: "1713"
+      cat: XXX/DVD
+      desc: Feature and classic DVD
+      newznab: 6010
+    - id: "1677"
+      cat: XXX
+      desc: Clips
+      newznab: 6000
+    - id: "1780"
+      cat: XXX/Pack
+      desc: SiteRip packs HD
+      newznab: 6050
+    - id: "1723"
+      cat: XXX/ImageSet
+      desc: Photos and magazines
+      newznab: 6060
+    - id: "883"
+      cat: XXX/ImageSet
+      desc: Picture galleries
+      newznab: 6060
+    - id: "1745"
+      cat: XXX
+      desc: Hentai and manga
+      newznab: 6000
+    - id: "1838"
+      cat: XXX/Other
+      desc: Games
+      newznab: 6070
+    - id: "1688"
+      cat: XXX
+      desc: Gay forum
+      newznab: 6000
+    - id: "1763"
+      cat: XXX/Pack
+      desc: Gay clip packs
+      newznab: 6050
+    - id: "1692"
+      cat: XXX/ImageSet
+      desc: Gay photo and magazine releases
+      newznab: 6060
+  modes:
+    search: [q]
+    movie-search: [q]
+    tv-search: [q, season, ep]
+login:
+  method: post
+  path: forum/login.php
+  inputs:
+    login_username: "{{ .Config.Username }}"
+    login_password: "{{ .Config.Password }}"
+    login: Login
+  headers:
+    referer: "{{ .Config.sitelink }}forum/login.php"
+  error:
+    - selector: h4.warnColor1.tCenter.mrg_16, div.msg-main
+search:
+  paths:
+    - path: 'forum/tracker.php?o=1&s=2&nm={{ .Keywords | replace "-" " " | urlencode }}{{ range .Categories }}&f[]={{ . }}{{ end }}'
+      response:
+        type: html
+  rows:
+    selector: 'table#tor-tbl > tbody > tr:has(a.tr-dl)'
+  fields:
+    title:
+      selector: a.tLink
+    details:
+      selector: a.tLink
+      attribute: href
+    download:
+      selector: a.tr-dl
+      attribute: href
+    category:
+      selector: a.f
+      attribute: href
+      filters:
+        - name: querystring
+          args: f
+    size:
+      selector: td:nth-child(6) u
+    grabs:
+      selector: td:nth-child(9)
+      optional: true
+    seeders:
+      selector: td:nth-child(7) b
+    leechers:
+      selector: td:nth-child(8)
+    date:
+      selector: td:nth-child(11) u
+      filters:
+        - name: unixtime
+    downloadvolumefactor:
+      text: "1"
+    uploadvolumefactor:
+      text: "1"
+`
+
 const MYANONAMOUSE = `
 id: myanonamouse
 name: MyAnonamouse
@@ -9301,6 +9442,7 @@ const BUILT_IN_CARDIGANN_SOURCES = [
   NORBITS,
   TOLOKA,
   RUTRACKER,
+  PORNOLAB,
   MYANONAMOUSE,
   GAZELLE_GAMES,
   ANIDEX,
