@@ -47,6 +47,7 @@ import { Route as ApiVersionTagRouteImport } from './routes/api.$version.tag'
 import { Route as ApiVersionRootfolderRouteImport } from './routes/api.$version.rootfolder'
 import { Route as ApiVersionQualityprofileRouteImport } from './routes/api.$version.qualityprofile'
 import { Route as ApiVersionHealthRouteImport } from './routes/api.$version.health'
+import { Route as ApiVersionCustomformatRouteImport } from './routes/api.$version.customformat'
 import { Route as ApiQueueIdRetryRouteImport } from './routes/api.queue.$id.retry'
 import { Route as ApiQueueIdRemoveRouteImport } from './routes/api.queue.$id.remove'
 import { Route as ApiQueueIdBlocklistRouteImport } from './routes/api.queue.$id.blocklist'
@@ -56,6 +57,7 @@ import { Route as ApiVersionTagIdRouteImport } from './routes/api.$version.tag.$
 import { Route as ApiVersionSystemStatusRouteImport } from './routes/api.$version.system.status'
 import { Route as ApiVersionRootfolderIdRouteImport } from './routes/api.$version.rootfolder.$id'
 import { Route as ApiVersionQualityprofileIdRouteImport } from './routes/api.$version.qualityprofile.$id'
+import { Route as ApiVersionCustomformatIdRouteImport } from './routes/api.$version.customformat.$id'
 import { Route as ApiSystemBackupsIdDownloadRouteImport } from './routes/api.system.backups.$id.download'
 import { Route as ApiIndexersAggregateProtocolApiRouteImport } from './routes/api.indexers.aggregate.$protocol.api'
 import { Route as ApiVersionTagDetailIdRouteImport } from './routes/api.$version.tag.detail.$id'
@@ -251,6 +253,11 @@ const ApiVersionHealthRoute = ApiVersionHealthRouteImport.update({
   path: '/api/$version/health',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiVersionCustomformatRoute = ApiVersionCustomformatRouteImport.update({
+  id: '/api/$version/customformat',
+  path: '/api/$version/customformat',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiQueueIdRetryRoute = ApiQueueIdRetryRouteImport.update({
   id: '/$id/retry',
   path: '/$id/retry',
@@ -297,6 +304,12 @@ const ApiVersionQualityprofileIdRoute =
     id: '/$id',
     path: '/$id',
     getParentRoute: () => ApiVersionQualityprofileRoute,
+  } as any)
+const ApiVersionCustomformatIdRoute =
+  ApiVersionCustomformatIdRouteImport.update({
+    id: '/$id',
+    path: '/$id',
+    getParentRoute: () => ApiVersionCustomformatRoute,
   } as any)
 const ApiSystemBackupsIdDownloadRoute =
   ApiSystemBackupsIdDownloadRouteImport.update({
@@ -346,6 +359,7 @@ export interface FileRoutesByFullPath {
   '/onboarding/': typeof OnboardingIndexRoute
   '/settings/': typeof SettingsIndexRoute
   '/tv/': typeof TvIndexRoute
+  '/api/$version/customformat': typeof ApiVersionCustomformatRouteWithChildren
   '/api/$version/health': typeof ApiVersionHealthRoute
   '/api/$version/qualityprofile': typeof ApiVersionQualityprofileRouteWithChildren
   '/api/$version/rootfolder': typeof ApiVersionRootfolderRouteWithChildren
@@ -355,6 +369,7 @@ export interface FileRoutesByFullPath {
   '/api/system/status': typeof ApiSystemStatusRoute
   '/api/system/tasks': typeof ApiSystemTasksRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
+  '/api/$version/customformat/$id': typeof ApiVersionCustomformatIdRoute
   '/api/$version/qualityprofile/$id': typeof ApiVersionQualityprofileIdRoute
   '/api/$version/rootfolder/$id': typeof ApiVersionRootfolderIdRoute
   '/api/$version/system/status': typeof ApiVersionSystemStatusRoute
@@ -398,6 +413,7 @@ export interface FileRoutesByTo {
   '/onboarding': typeof OnboardingIndexRoute
   '/settings': typeof SettingsIndexRoute
   '/tv': typeof TvIndexRoute
+  '/api/$version/customformat': typeof ApiVersionCustomformatRouteWithChildren
   '/api/$version/health': typeof ApiVersionHealthRoute
   '/api/$version/qualityprofile': typeof ApiVersionQualityprofileRouteWithChildren
   '/api/$version/rootfolder': typeof ApiVersionRootfolderRouteWithChildren
@@ -407,6 +423,7 @@ export interface FileRoutesByTo {
   '/api/system/status': typeof ApiSystemStatusRoute
   '/api/system/tasks': typeof ApiSystemTasksRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
+  '/api/$version/customformat/$id': typeof ApiVersionCustomformatIdRoute
   '/api/$version/qualityprofile/$id': typeof ApiVersionQualityprofileIdRoute
   '/api/$version/rootfolder/$id': typeof ApiVersionRootfolderIdRoute
   '/api/$version/system/status': typeof ApiVersionSystemStatusRoute
@@ -451,6 +468,7 @@ export interface FileRoutesById {
   '/onboarding/': typeof OnboardingIndexRoute
   '/settings/': typeof SettingsIndexRoute
   '/tv/': typeof TvIndexRoute
+  '/api/$version/customformat': typeof ApiVersionCustomformatRouteWithChildren
   '/api/$version/health': typeof ApiVersionHealthRoute
   '/api/$version/qualityprofile': typeof ApiVersionQualityprofileRouteWithChildren
   '/api/$version/rootfolder': typeof ApiVersionRootfolderRouteWithChildren
@@ -460,6 +478,7 @@ export interface FileRoutesById {
   '/api/system/status': typeof ApiSystemStatusRoute
   '/api/system/tasks': typeof ApiSystemTasksRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
+  '/api/$version/customformat/$id': typeof ApiVersionCustomformatIdRoute
   '/api/$version/qualityprofile/$id': typeof ApiVersionQualityprofileIdRoute
   '/api/$version/rootfolder/$id': typeof ApiVersionRootfolderIdRoute
   '/api/$version/system/status': typeof ApiVersionSystemStatusRoute
@@ -505,6 +524,7 @@ export interface FileRouteTypes {
     | '/onboarding/'
     | '/settings/'
     | '/tv/'
+    | '/api/$version/customformat'
     | '/api/$version/health'
     | '/api/$version/qualityprofile'
     | '/api/$version/rootfolder'
@@ -514,6 +534,7 @@ export interface FileRouteTypes {
     | '/api/system/status'
     | '/api/system/tasks'
     | '/api/trpc/$'
+    | '/api/$version/customformat/$id'
     | '/api/$version/qualityprofile/$id'
     | '/api/$version/rootfolder/$id'
     | '/api/$version/system/status'
@@ -557,6 +578,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/settings'
     | '/tv'
+    | '/api/$version/customformat'
     | '/api/$version/health'
     | '/api/$version/qualityprofile'
     | '/api/$version/rootfolder'
@@ -566,6 +588,7 @@ export interface FileRouteTypes {
     | '/api/system/status'
     | '/api/system/tasks'
     | '/api/trpc/$'
+    | '/api/$version/customformat/$id'
     | '/api/$version/qualityprofile/$id'
     | '/api/$version/rootfolder/$id'
     | '/api/$version/system/status'
@@ -609,6 +632,7 @@ export interface FileRouteTypes {
     | '/onboarding/'
     | '/settings/'
     | '/tv/'
+    | '/api/$version/customformat'
     | '/api/$version/health'
     | '/api/$version/qualityprofile'
     | '/api/$version/rootfolder'
@@ -618,6 +642,7 @@ export interface FileRouteTypes {
     | '/api/system/status'
     | '/api/system/tasks'
     | '/api/trpc/$'
+    | '/api/$version/customformat/$id'
     | '/api/$version/qualityprofile/$id'
     | '/api/$version/rootfolder/$id'
     | '/api/$version/system/status'
@@ -662,6 +687,7 @@ export interface RootRouteChildren {
   OnboardingIndexRoute: typeof OnboardingIndexRoute
   SettingsIndexRoute: typeof SettingsIndexRoute
   TvIndexRoute: typeof TvIndexRoute
+  ApiVersionCustomformatRoute: typeof ApiVersionCustomformatRouteWithChildren
   ApiVersionHealthRoute: typeof ApiVersionHealthRoute
   ApiVersionQualityprofileRoute: typeof ApiVersionQualityprofileRouteWithChildren
   ApiVersionRootfolderRoute: typeof ApiVersionRootfolderRouteWithChildren
@@ -944,6 +970,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiVersionHealthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/$version/customformat': {
+      id: '/api/$version/customformat'
+      path: '/api/$version/customformat'
+      fullPath: '/api/$version/customformat'
+      preLoaderRoute: typeof ApiVersionCustomformatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/queue/$id/retry': {
       id: '/api/queue/$id/retry'
       path: '/$id/retry'
@@ -1007,6 +1040,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiVersionQualityprofileIdRouteImport
       parentRoute: typeof ApiVersionQualityprofileRoute
     }
+    '/api/$version/customformat/$id': {
+      id: '/api/$version/customformat/$id'
+      path: '/$id'
+      fullPath: '/api/$version/customformat/$id'
+      preLoaderRoute: typeof ApiVersionCustomformatIdRouteImport
+      parentRoute: typeof ApiVersionCustomformatRoute
+    }
     '/api/system/backups/$id/download': {
       id: '/api/system/backups/$id/download'
       path: '/api/system/backups/$id/download'
@@ -1046,6 +1086,20 @@ const ApiQueueRouteChildren: ApiQueueRouteChildren = {
 const ApiQueueRouteWithChildren = ApiQueueRoute._addFileChildren(
   ApiQueueRouteChildren,
 )
+
+interface ApiVersionCustomformatRouteChildren {
+  ApiVersionCustomformatIdRoute: typeof ApiVersionCustomformatIdRoute
+}
+
+const ApiVersionCustomformatRouteChildren: ApiVersionCustomformatRouteChildren =
+  {
+    ApiVersionCustomformatIdRoute: ApiVersionCustomformatIdRoute,
+  }
+
+const ApiVersionCustomformatRouteWithChildren =
+  ApiVersionCustomformatRoute._addFileChildren(
+    ApiVersionCustomformatRouteChildren,
+  )
 
 interface ApiVersionQualityprofileRouteChildren {
   ApiVersionQualityprofileIdRoute: typeof ApiVersionQualityprofileIdRoute
@@ -1141,6 +1195,7 @@ const rootRouteChildren: RootRouteChildren = {
   OnboardingIndexRoute: OnboardingIndexRoute,
   SettingsIndexRoute: SettingsIndexRoute,
   TvIndexRoute: TvIndexRoute,
+  ApiVersionCustomformatRoute: ApiVersionCustomformatRouteWithChildren,
   ApiVersionHealthRoute: ApiVersionHealthRoute,
   ApiVersionQualityprofileRoute: ApiVersionQualityprofileRouteWithChildren,
   ApiVersionRootfolderRoute: ApiVersionRootfolderRouteWithChildren,
