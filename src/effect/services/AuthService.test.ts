@@ -14,6 +14,14 @@ const TestLayer = AuthServiceLive.pipe(
   Layer.provideMerge(TestDbLive),
 )
 
+function restoreRecoveryToken(value: string | undefined) {
+  if (value === undefined) {
+    delete process.env.ARR_HUB_PASSWORD_RECOVERY_TOKEN
+  } else {
+    process.env.ARR_HUB_PASSWORD_RECOVERY_TOKEN = value
+  }
+}
+
 /** Insert a test user, return its id. */
 const seedUser = (username: string, password: string) =>
   Effect.gen(function* () {
@@ -217,6 +225,114 @@ describe("AuthService", () => {
 
       const session = yield* auth.login("short-change", "old-password")
       expect(session.token).toHaveLength(64)
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("recoverPassword updates credentials and revokes active tokens", () =>
+    Effect.gen(function* () {
+      const previousToken = process.env.ARR_HUB_PASSWORD_RECOVERY_TOKEN
+      process.env.ARR_HUB_PASSWORD_RECOVERY_TOKEN = "unit-test-recovery-token"
+
+      try {
+        const userId = yield* seedUser("recover-me", "old-password")
+        const auth = yield* AuthService
+        const session = yield* auth.login("recover-me", "old-password")
+        const apiKey = yield* auth.createApiKey(userId, "automation")
+
+        yield* auth.recoverPassword("recover-me", "unit-test-recovery-token", "new-password")
+
+        const oldSessionError = yield* Effect.flip(auth.validateToken(session.token))
+        expect(oldSessionError._tag).toBe("AuthError")
+        if (oldSessionError._tag === "AuthError") expect(oldSessionError.reason).toBe("missing")
+
+        const apiKeyError = yield* Effect.flip(auth.validateToken(apiKey.token))
+        expect(apiKeyError._tag).toBe("AuthError")
+        if (apiKeyError._tag === "AuthError") expect(apiKeyError.reason).toBe("missing")
+
+        const oldPasswordError = yield* Effect.flip(auth.login("recover-me", "old-password"))
+        expect(oldPasswordError._tag).toBe("AuthError")
+        if (oldPasswordError._tag === "AuthError") {
+          expect(oldPasswordError.reason).toBe("invalid_credentials")
+        }
+
+        const nextSession = yield* auth.login("recover-me", "new-password")
+        expect(nextSession.token).toHaveLength(64)
+      } finally {
+        restoreRecoveryToken(previousToken)
+      }
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("recoverPassword rejects missing recovery configuration", () =>
+    Effect.gen(function* () {
+      const previousToken = process.env.ARR_HUB_PASSWORD_RECOVERY_TOKEN
+      delete process.env.ARR_HUB_PASSWORD_RECOVERY_TOKEN
+
+      try {
+        yield* seedUser("disabled-recovery", "old-password")
+        const auth = yield* AuthService
+        const error = yield* Effect.flip(
+          auth.recoverPassword("disabled-recovery", "token", "new-password"),
+        )
+        expect(error._tag).toBe("ValidationError")
+        if (error._tag === "ValidationError") {
+          expect(error.message).toBe("password recovery is not configured")
+        }
+      } finally {
+        restoreRecoveryToken(previousToken)
+      }
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("recoverPassword rejects invalid recovery tokens without changing password", () =>
+    Effect.gen(function* () {
+      const previousToken = process.env.ARR_HUB_PASSWORD_RECOVERY_TOKEN
+      process.env.ARR_HUB_PASSWORD_RECOVERY_TOKEN = "unit-test-recovery-token"
+
+      try {
+        yield* seedUser("bad-recovery", "old-password")
+        const auth = yield* AuthService
+        const error = yield* Effect.flip(
+          auth.recoverPassword("bad-recovery", "wrong-token", "new-password"),
+        )
+        expect(error._tag).toBe("AuthError")
+        if (error._tag === "AuthError") expect(error.reason).toBe("invalid_credentials")
+
+        const oldSession = yield* auth.login("bad-recovery", "old-password")
+        expect(oldSession.token).toHaveLength(64)
+
+        const newPasswordError = yield* Effect.flip(auth.login("bad-recovery", "new-password"))
+        expect(newPasswordError._tag).toBe("AuthError")
+        if (newPasswordError._tag === "AuthError") {
+          expect(newPasswordError.reason).toBe("invalid_credentials")
+        }
+      } finally {
+        restoreRecoveryToken(previousToken)
+      }
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("recoverPassword validates the new password length", () =>
+    Effect.gen(function* () {
+      const previousToken = process.env.ARR_HUB_PASSWORD_RECOVERY_TOKEN
+      process.env.ARR_HUB_PASSWORD_RECOVERY_TOKEN = "unit-test-recovery-token"
+
+      try {
+        yield* seedUser("short-recovery", "old-password")
+        const auth = yield* AuthService
+        const error = yield* Effect.flip(
+          auth.recoverPassword("short-recovery", "unit-test-recovery-token", "short"),
+        )
+        expect(error._tag).toBe("ValidationError")
+        if (error._tag === "ValidationError") {
+          expect(error.message).toBe("password must be at least 8 characters")
+        }
+
+        const session = yield* auth.login("short-recovery", "old-password")
+        expect(session.token).toHaveLength(64)
+      } finally {
+        restoreRecoveryToken(previousToken)
+      }
     }).pipe(Effect.provide(TestLayer)),
   )
 

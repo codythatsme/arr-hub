@@ -38,6 +38,23 @@ export const authRouter = {
       ),
     ),
 
+  recoverPassword: publicProcedure
+    .input(
+      z.object({
+        username: z.string().min(1),
+        recoveryToken: z.string().min(1),
+        newPassword: z.string().min(8),
+      }),
+    )
+    .mutation(({ input }) =>
+      runEffect(
+        Effect.gen(function* () {
+          const auth = yield* AuthService
+          yield* auth.recoverPassword(input.username, input.recoveryToken, input.newPassword)
+        }),
+      ),
+    ),
+
   revokeApiKey: authedProcedure.input(z.object({ id: z.number() })).mutation(({ input }) =>
     runEffect(
       Effect.gen(function* () {

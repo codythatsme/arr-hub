@@ -112,6 +112,7 @@ docker compose start arr-hub
 - `ARR_HUB_MOVIES_PATH` (Compose host path mounted at `/movies`)
 - `ARR_HUB_TV_PATH` (Compose host path mounted at `/tv`)
 - `ARR_HUB_LATEST_VERSION` (optional deployment metadata for System health update-available diagnostics)
+- `ARR_HUB_PASSWORD_RECOVERY_TOKEN` (temporary emergency login-screen password reset token)
 - `TMDB_API_KEY` (required for movie/TV metadata lookup, add flows, and refresh jobs)
 
 ### Development defaults
@@ -128,9 +129,15 @@ still tracked in [development-plan.md](./development-plan.md).
 
 ## Auth + UI Session
 
-1. Open **Settings → Security**.
-2. Sign in with local admin credentials.
+1. Sign in with local admin credentials.
+2. Open **Settings → Security** for password changes and API keys.
 3. Session token is stored locally and used automatically for tRPC requests.
+
+Password recovery is opt-in and operator-controlled. Set
+`ARR_HUB_PASSWORD_RECOVERY_TOKEN` to a temporary random value of at least 16
+characters, restart ARR Hub, use **Recover password** on the login screen, then
+clear the variable and restart again. A successful recovery reset revokes the
+admin's existing sessions and API keys.
 
 ## Available UI Validation Surfaces
 
@@ -141,7 +148,7 @@ still tracked in [development-plan.md](./development-plan.md).
 - **Settings → General**: update app name and release channel settings
 - **Settings → Media Management**: update naming/file-handling settings and root folders
 - **Settings → Profiles**: create/edit/delete quality profiles and apply starter bundles
-- **Settings → Security**: login + API key list/create/revoke
+- **Settings → Security**: password change/recovery + API key list/create/revoke
 - **Movies**: add/list/evaluate/search+grab/manual grab
 - **TV Shows**: manual add/list/edit/monitor/search+grab flows using local series data
 - **Activity → Queue**: live queue polling, retry, remove, delete-files, and clear-error actions

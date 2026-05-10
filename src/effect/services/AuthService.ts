@@ -1,3 +1,5 @@
+import { timingSafeEqual } from "node:crypto"
+
 import { SqlError } from "@effect/sql/SqlError"
 import { and, desc, eq, isNull } from "drizzle-orm"
 import { Context, Effect, Layer } from "effect"
@@ -46,6 +48,11 @@ export class AuthService extends Context.Tag("AuthService")<
       currentPassword: string,
       newPassword: string,
     ) => Effect.Effect<void, AuthError | ValidationError | SqlError>
+    readonly recoverPassword: (
+      username: string,
+      recoveryToken: string,
+      newPassword: string,
+    ) => Effect.Effect<void, AuthError | ValidationError | SqlError>
     readonly validateToken: (token: string) => Effect.Effect<ValidatedUser, AuthError | SqlError>
     readonly createApiKey: (userId: number, name: string) => Effect.Effect<ApiKeyResult, SqlError>
     readonly revokeApiKey: (id: number) => Effect.Effect<void, SqlError>
@@ -57,9 +64,40 @@ const SESSION_DURATION_MS = 24 * 60 * 60 * 1000
 const LOGIN_FAILURE_WINDOW_MS = 15 * 60 * 1000
 const LOGIN_LOCKOUT_MS = 15 * 60 * 1000
 const LOGIN_LOCKOUT_THRESHOLD = 5
+const PASSWORD_RECOVERY_TOKEN_MIN_LENGTH = 16
 
 function loginKey(username: string): string {
   return username.trim().toLowerCase()
+}
+
+function validateNewPassword(password: string): ValidationError | null {
+  if (password.length >= 8) return null
+  return new ValidationError({ message: "password must be at least 8 characters" })
+}
+
+function configuredRecoveryToken(): string | ValidationError {
+  const token = process.env.ARR_HUB_PASSWORD_RECOVERY_TOKEN?.trim()
+  if (!token) {
+    return new ValidationError({ message: "password recovery is not configured" })
+  }
+  if (token.length < PASSWORD_RECOVERY_TOKEN_MIN_LENGTH) {
+    return new ValidationError({
+      message: `ARR_HUB_PASSWORD_RECOVERY_TOKEN must be at least ${PASSWORD_RECOVERY_TOKEN_MIN_LENGTH} characters`,
+    })
+  }
+  return token
+}
+
+function recoveryTokenMatches(input: string, configured: string): boolean {
+  const configuredBuffer = Buffer.from(configured)
+  const inputBuffer = Buffer.from(input)
+  if (inputBuffer.length !== configuredBuffer.length) {
+    const paddedInput = Buffer.alloc(configuredBuffer.length)
+    inputBuffer.copy(paddedInput, 0, 0, Math.min(inputBuffer.length, configuredBuffer.length))
+    timingSafeEqual(paddedInput, configuredBuffer)
+    return false
+  }
+  return timingSafeEqual(inputBuffer, configuredBuffer)
 }
 
 export const AuthServiceLive = Layer.effect(
@@ -183,9 +221,8 @@ export const AuthServiceLive = Layer.effect(
 
       changePassword: (userId, currentPassword, newPassword) =>
         Effect.gen(function* () {
-          if (newPassword.length < 8) {
-            return yield* new ValidationError({ message: "password must be at least 8 characters" })
-          }
+          const passwordError = validateNewPassword(newPassword)
+          if (passwordError) return yield* passwordError
 
           const rows = yield* db.select().from(users).where(eq(users.id, userId))
           const user = rows[0]
@@ -215,6 +252,41 @@ export const AuthServiceLive = Layer.effect(
             )
 
           yield* clearLoginFailures(loginKey(user.username))
+        }),
+
+      recoverPassword: (username, recoveryToken, newPassword) =>
+        Effect.gen(function* () {
+          const passwordError = validateNewPassword(newPassword)
+          if (passwordError) return yield* passwordError
+
+          const configuredToken = configuredRecoveryToken()
+          if (configuredToken instanceof ValidationError) return yield* configuredToken
+
+          const key = loginKey(username)
+          const now = new Date()
+          yield* assertLoginAllowed(key, now)
+
+          if (!recoveryTokenMatches(recoveryToken.trim(), configuredToken)) {
+            yield* recordLoginFailure(key, now)
+            return yield* new AuthError({ reason: "invalid_credentials" })
+          }
+
+          const rows = yield* db.select().from(users).where(eq(users.username, username))
+          const user = rows[0]
+          if (!user) {
+            yield* recordLoginFailure(key, now)
+            return yield* new AuthError({ reason: "invalid_credentials" })
+          }
+
+          const passwordHash = yield* crypto.hashPassword(newPassword)
+          yield* db.update(users).set({ passwordHash, updatedAt: now }).where(eq(users.id, user.id))
+
+          yield* db
+            .update(apiKeys)
+            .set({ revokedAt: now })
+            .where(and(eq(apiKeys.userId, user.id), isNull(apiKeys.revokedAt)))
+
+          yield* clearLoginFailures(key)
         }),
 
       createApiKey: (userId, name) =>
