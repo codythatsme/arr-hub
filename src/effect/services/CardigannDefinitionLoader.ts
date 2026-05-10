@@ -6680,6 +6680,159 @@ search:
       text: "{{ if .Result.neutralflag }}0{{ else }}1{{ end }}"
 `
 
+const PASS_THE_POPCORN = `
+id: passthepopcorn
+name: PassThePopcorn
+description: Private movie tracker exposed through a first-pass API-header JSON Cardigann definition.
+type: private
+links:
+  - https://passthepopcorn.me/
+version: builtin-cardigann-1
+rss: true
+tags:
+  - private
+  - movies
+  - json
+  - api-key
+settings:
+  - name: apiUser
+    label: API user
+    type: text
+    required: true
+  - name: apiKey
+    label: API key
+    type: password
+    required: true
+  - name: freeleechOnly
+    label: Freeleech only
+    type: checkbox
+    default: false
+    required: false
+  - name: goldenPopcornOnly
+    label: Golden Popcorn only
+    type: checkbox
+    default: false
+    required: false
+caps:
+  categorymappings:
+    - id: "1"
+      cat: Movies
+      desc: Feature Film
+      newznab: 2000
+    - id: "2"
+      cat: Movies
+      desc: Short Film
+      newznab: 2000
+    - id: "3"
+      cat: Movies
+      desc: Miniseries
+      newznab: 2000
+    - id: "4"
+      cat: Movies
+      desc: Stand-up Comedy
+      newznab: 2000
+    - id: "5"
+      cat: Movies
+      desc: Live Performance
+      newznab: 2000
+    - id: "6"
+      cat: Movies
+      desc: Movie Collection
+      newznab: 2000
+  modes:
+    search: [q]
+    movie-search: [q, imdbid]
+search:
+  headers:
+    ApiUser: "{{ .Config.ApiUser }}"
+    ApiKey: "{{ .Config.APIKey }}"
+  paths:
+    - path: /torrents.php
+      response:
+        type: json
+      inputs:
+        action: advanced
+        json: noredirect
+        grouping: "0"
+        order_by: time
+        order_way: desc
+        searchstr: "{{ if .Query.IMDBID }}{{ .Query.IMDBID }}{{ else }}{{ .Keywords }}{{ end }}"
+        freetorrent: "{{ if .Config.FreeleechOnly }}1{{ end }}"
+        scene: "{{ if .Config.GoldenPopcornOnly }}2{{ end }}"
+        $raw: '{{ range .Categories }}filter_cat[{{ . }}]=1&{{ end }}'
+  rows:
+    selector: $.Movies, $.movies
+    attribute: Torrents, torrents
+    multiple: true
+    missingAttributeEqualsNoResults: true
+  fields:
+    id:
+      selector: Id, id
+    groupid:
+      selector: ..GroupId, groupId
+    movietitle:
+      selector: ..Title, title
+      filters:
+        - name: htmldecode
+    year:
+      selector: ..Year, year
+      optional: true
+    category:
+      selector: ..CategoryId, categoryId
+      default: "1"
+    releasename:
+      selector: ReleaseName, releaseName
+      optional: true
+      filters:
+        - name: htmldecode
+    quality:
+      selector: Quality, quality
+      optional: true
+    source:
+      selector: Source, source
+      optional: true
+    resolution:
+      selector: Resolution, resolution
+      optional: true
+    title:
+      text: "{{ if .Result.releasename }}{{ .Result.releasename }}{{ else }}{{ .Result.movietitle }} {{ .Result.year }} {{ .Result.quality }} {{ .Result.source }} {{ .Result.resolution }}{{ end }}"
+    details:
+      text: "/torrents.php?id={{ .Result.groupid }}&torrentid={{ .Result.id }}"
+    download:
+      text: "/torrents.php?action=download&id={{ .Result.id }}"
+    date:
+      selector: UploadTime, uploadTime
+      filters:
+        - name: append
+          args: " +00:00"
+        - name: dateparse
+          args: "yyyy-MM-dd HH:mm:ss zzz"
+    size:
+      selector: Size, size
+    grabs:
+      selector: Snatched, snatched
+    seeders:
+      selector: Seeders, seeders
+    leechers:
+      selector: Leechers, leechers
+    downloadvolumefactor:
+      selector: FreeleechType, freeleechType
+      case:
+        "FREELEECH": "0"
+        Freeleech: "0"
+        "NEUTRAL LEECH": "0"
+        "Neutral Leech": "0"
+        "HALF LEECH": "0.5"
+        "Half Leech": "0.5"
+        "*": "1"
+    uploadvolumefactor:
+      selector: FreeleechType, freeleechType
+      case:
+        "NEUTRAL LEECH": "0"
+        "Neutral Leech": "0"
+        "*": "1"
+`
+
 const REDACTED = `
 id: redacted
 name: Redacted
@@ -7593,6 +7746,7 @@ const BUILT_IN_CARDIGANN_SOURCES = [
   DICMUSIC,
   GREAT_POSTER_WALL,
   ORPHEUS,
+  PASS_THE_POPCORN,
   REDACTED,
   REVOLUTION_TT,
   PRETOME,

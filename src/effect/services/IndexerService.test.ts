@@ -119,19 +119,19 @@ describe("IndexerService", () => {
       const second = yield* svc.refreshDefinitions()
 
       expect(first).toMatchObject({
-        total: 47,
-        created: 47,
+        total: 48,
+        created: 48,
         updated: 0,
         unchanged: 0,
       })
       expect(first.definitions.map((definition) => definition.action)).toEqual(
-        Array(47).fill("created"),
+        Array(48).fill("created"),
       )
       expect(second).toMatchObject({
-        total: 47,
+        total: 48,
         created: 0,
         updated: 0,
-        unchanged: 47,
+        unchanged: 48,
       })
       expect(second.definitions.every((definition) => definition.previousVersion !== null)).toBe(
         true,
@@ -428,6 +428,7 @@ describe("IndexerService", () => {
         "nyaa",
         "open-tv-torrents",
         "orpheus",
+        "passthepopcorn",
         "pixelhd",
         "pretome",
         "public-domain-movie-torrents",
@@ -856,6 +857,17 @@ describe("IndexerService", () => {
         privacy: "private",
         supportsRss: false,
         tags: ["private", "music", "books", "apps", "json", "gazelle", "api-key"],
+      })
+      expect(
+        definitions.find((definition) => definition.definitionKey === "passthepopcorn"),
+      ).toMatchObject({
+        displayName: "PassThePopcorn",
+        protocol: "torrent",
+        implementation: "cardigann_yaml",
+        baseUrl: "https://passthepopcorn.me/",
+        privacy: "private",
+        supportsRss: true,
+        tags: ["private", "movies", "json", "api-key"],
       })
       expect(
         definitions.find((definition) => definition.definitionKey === "redacted"),

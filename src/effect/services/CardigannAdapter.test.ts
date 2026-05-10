@@ -1149,6 +1149,73 @@ const ORPHEUS_JSON_RESULTS = JSON.stringify({
   },
 })
 
+const PASS_THE_POPCORN_JSON_RESULTS = JSON.stringify({
+  TotalResults: "2",
+  Page: "1",
+  Movies: [
+    {
+      GroupId: "3001",
+      CategoryId: "1",
+      Title: "PassThePopcorn Feature",
+      Year: "2026",
+      Cover: "https://passthepopcorn.me/posters/3001.jpg",
+      Tags: ["drama", "thriller"],
+      ImdbId: "1234567",
+      Torrents: [
+        {
+          Id: 30011,
+          Quality: "High Definition",
+          Source: "Blu-ray",
+          Container: "MKV",
+          Codec: "H.264",
+          Resolution: "1080p",
+          Scene: false,
+          Size: "12345678900",
+          UploadTime: "2026-05-10 11:25:00",
+          RemasterTitle: "",
+          Snatched: "77",
+          Seeders: "88",
+          Leechers: "7",
+          ReleaseName: "PassThePopcorn.Feature.2026.1080p.BluRay.x264-PTP",
+          Checked: true,
+          GoldenPopcorn: true,
+          FreeleechType: "Neutral Leech",
+        },
+      ],
+    },
+    {
+      GroupId: "3002",
+      CategoryId: "6",
+      Title: "PassThePopcorn Collection",
+      Year: "2026",
+      Cover: "https://passthepopcorn.me/posters/3002.jpg",
+      Tags: ["collection"],
+      ImdbId: "",
+      Torrents: [
+        {
+          Id: 30012,
+          Quality: "Ultra High Definition",
+          Source: "WEB",
+          Container: "MKV",
+          Codec: "H.265",
+          Resolution: "2160p",
+          Scene: true,
+          Size: "22345678900",
+          UploadTime: "2026-05-09 08:10:00",
+          RemasterTitle: "",
+          Snatched: "29",
+          Seeders: "45",
+          Leechers: "4",
+          ReleaseName: "PassThePopcorn.Collection.2026.2160p.WEB-DL.HEVC-PTP",
+          Checked: false,
+          GoldenPopcorn: false,
+          FreeleechType: "Half Leech",
+        },
+      ],
+    },
+  ],
+})
+
 const REDACTED_JSON_RESULTS = JSON.stringify({
   status: "success",
   response: {
@@ -5463,6 +5530,82 @@ search:
       category: "3030",
       downloadFactor: 0,
       uploadFactor: 0,
+    })
+  })
+
+  it("parses PassThePopcorn API-header JSON results", async () => {
+    const requests: Array<{ url: string; init: RequestInit | undefined }> = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      requests.push({ url: String(input), init })
+      return new Response(PASS_THE_POPCORN_JSON_RESULTS, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 117,
+      name: "PassThePopcorn",
+      type: "cardigann_yaml",
+      definitionKey: "passthepopcorn",
+      baseUrl: "https://passthepopcorn.me/",
+      apiKey: "ptp-api-key",
+      configValues: {
+        apiUser: "ptp-user",
+        freeleechOnly: "true",
+        goldenPopcornOnly: "true",
+      },
+      priority: 53,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({
+        term: "PassThePopcorn Feature",
+        type: "movie",
+        categories: [2000],
+        imdbId: "tt1234567",
+      }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const searchRequest = requests[0]
+    const searchUrl = new URL(searchRequest?.url ?? "")
+    expect(searchUrl.origin).toBe("https://passthepopcorn.me")
+    expect(searchUrl.pathname).toBe("/torrents.php")
+    expect(searchUrl.searchParams.get("action")).toBe("advanced")
+    expect(searchUrl.searchParams.get("json")).toBe("noredirect")
+    expect(searchUrl.searchParams.get("grouping")).toBe("0")
+    expect(searchUrl.searchParams.get("order_by")).toBe("time")
+    expect(searchUrl.searchParams.get("order_way")).toBe("desc")
+    expect(searchUrl.searchParams.get("searchstr")).toBe("tt1234567")
+    expect(searchUrl.searchParams.get("freetorrent")).toBe("1")
+    expect(searchUrl.searchParams.get("scene")).toBe("2")
+    expect(searchUrl.searchParams.get("filter_cat[1]")).toBe("1")
+    expect(searchUrl.searchParams.get("filter_cat[6]")).toBe("1")
+    const headers = new Headers(searchRequest?.init?.headers)
+    expect(headers.get("apiuser")).toBe("ptp-user")
+    expect(headers.get("apikey")).toBe("ptp-api-key")
+    expect(releases).toHaveLength(2)
+    expect(releases[0]).toMatchObject({
+      title: "PassThePopcorn.Feature.2026.1080p.BluRay.x264-PTP",
+      downloadUrl: "https://passthepopcorn.me/torrents.php?action=download&id=30011",
+      infoUrl: "https://passthepopcorn.me/torrents.php?id=3001&torrentid=30011",
+      category: "2000",
+      size: 12_345_678_900,
+      seeders: 88,
+      leechers: 7,
+      indexerId: 117,
+      indexerName: "PassThePopcorn",
+      indexerPriority: 53,
+      downloadFactor: 0,
+      uploadFactor: 0,
+    })
+    expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-10T11:25:00.000Z")
+    expect(releases[1]).toMatchObject({
+      title: "PassThePopcorn.Collection.2026.2160p.WEB-DL.HEVC-PTP",
+      category: "2000",
+      downloadFactor: 0.5,
+      uploadFactor: 1,
     })
   })
 

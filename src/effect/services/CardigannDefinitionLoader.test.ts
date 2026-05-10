@@ -114,6 +114,7 @@ caps:
       "dicmusic",
       "greatposterwall",
       "orpheus",
+      "passthepopcorn",
       "redacted",
       "revolutiontt",
       "pretome",
@@ -1067,6 +1068,35 @@ caps:
           { id: 7020, name: "E-Books" },
           { id: 3030, name: "Audiobooks" },
           { id: 7030, name: "Comics" },
+        ]),
+      },
+    })
+    expect(
+      BUILT_IN_CARDIGANN_DEFINITIONS.find(
+        (definition) => definition.definitionKey === "passthepopcorn",
+      ),
+    ).toMatchObject({
+      displayName: "PassThePopcorn",
+      baseUrl: "https://passthepopcorn.me/",
+      privacy: "private",
+      supportsRss: true,
+      supportsSearch: true,
+      tags: ["private", "movies", "json", "api-key"],
+      authFields: expect.arrayContaining([
+        expect.objectContaining({ name: "apiUser", type: "text", required: true }),
+        expect.objectContaining({ name: "apiKey", type: "password", required: true }),
+        expect.objectContaining({ name: "freeleechOnly", type: "checkbox", defaultValue: "false" }),
+        expect.objectContaining({
+          name: "goldenPopcornOnly",
+          type: "checkbox",
+          defaultValue: "false",
+        }),
+      ]),
+      capabilities: {
+        searchTypes: ["search", "movie"],
+        categories: expect.arrayContaining([
+          { id: 2000, name: "Feature Film" },
+          { id: 2000, name: "Movie Collection" },
         ]),
       },
     })
