@@ -14,6 +14,7 @@ import { ValidationError } from "../errors"
 import { Db } from "./Db"
 import type { MonitoringTrigger } from "./MonitoringTriggerBus"
 import { MonitoringTriggerBus } from "./MonitoringTriggerBus"
+import { recordDomainHistory } from "./OperationalHistoryService"
 
 const ALL_EVENTS: ReadonlyArray<NotificationEvent> = [
   "session_start",
@@ -181,14 +182,34 @@ export const NotificationServiceLive = Layer.effect(
       status: "sent" | "failed" | "skipped",
       errorMessage?: string,
     ) =>
-      db.insert(notificationDeliveries).values({
-        channelId,
-        event,
-        title,
-        message,
-        payload,
-        status,
-        errorMessage,
+      Effect.gen(function* () {
+        const rows = yield* db
+          .insert(notificationDeliveries)
+          .values({
+            channelId,
+            event,
+            title,
+            message,
+            payload,
+            status,
+            errorMessage,
+          })
+          .returning()
+        const delivery = rows[0]
+        yield* recordDomainHistory(db, {
+          eventType: "notification_delivery",
+          notificationDeliveryId: delivery.id,
+          title: `Notification ${status}: ${title}`,
+          message,
+          metadata: {
+            channelId,
+            event,
+            status,
+            errorMessage: errorMessage ?? null,
+            payload,
+          },
+        })
+        return delivery
       })
 
     const deliverTrigger = (trigger: MonitoringTrigger) =>

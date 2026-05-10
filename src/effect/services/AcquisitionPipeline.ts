@@ -27,6 +27,7 @@ import { Db } from "./Db"
 import { DownloadClientService } from "./DownloadClientService"
 import { IndexerService } from "./IndexerService"
 import { MovieService } from "./MovieService"
+import { recordDomainHistory } from "./OperationalHistoryService"
 import { ReleasePolicyEngine } from "./ReleasePolicyEngine"
 import { SeriesService } from "./SeriesService"
 
@@ -43,6 +44,16 @@ const wantedEpisodes = (eps: ReadonlyArray<typeof episodesTable.$inferSelect>) =
 
 const isAcceptedDecision = (decision: RankedDecision) =>
   decision.decision === "accepted" || decision.decision === "upgrade"
+
+const decisionHistoryMetadata = (decision: RankedDecision) => ({
+  size: decision.candidate.size,
+  protocol: decision.candidate.protocol,
+  downloadUrl: decision.candidate.downloadUrl,
+  infoUrl: decision.candidate.infoUrl,
+  qualityRank: decision.qualityRank,
+  formatScore: decision.formatScore,
+  decision: decision.decision,
+})
 
 /** Build indexer search term from a series title. Identity for now — override later if needed. */
 const searchTermForSeries = (title: string) => title
@@ -374,6 +385,20 @@ export const AcquisitionPipelineLive = Layer.effect(
         const hash = yield* downloadClientService.addDownload(client.id, best.candidate.downloadUrl)
         yield* indexerService.recordGrab(best.candidate.indexerId)
         yield* linkQueueToMovie(hash, movie.id)
+        yield* recordDomainHistory(db, {
+          eventType: "grabbed",
+          mediaKind: "movie",
+          movieId: movie.id,
+          releaseTitle: best.candidate.title,
+          indexerId: best.candidate.indexerId,
+          indexerName: best.candidate.indexerName,
+          downloadClientId: client.id,
+          downloadClientName: client.name,
+          downloadExternalId: hash,
+          title: `Grabbed ${movie.title}`,
+          message: `Grabbed ${best.candidate.title} from ${best.candidate.indexerName}`,
+          metadata: decisionHistoryMetadata(best),
+        })
 
         return { hash, candidateTitle: best.candidate.title }
       })
@@ -401,6 +426,22 @@ export const AcquisitionPipelineLive = Layer.effect(
         const hash = yield* downloadClientService.addDownload(client.id, best.candidate.downloadUrl)
         yield* indexerService.recordGrab(best.candidate.indexerId)
         yield* linkQueueToTv(hash, ctx.series.id, [ctx.episode.id])
+        yield* recordDomainHistory(db, {
+          eventType: "grabbed",
+          mediaKind: "episode",
+          seriesId: ctx.series.id,
+          seasonId: ctx.season.id,
+          episodeId: ctx.episode.id,
+          releaseTitle: best.candidate.title,
+          indexerId: best.candidate.indexerId,
+          indexerName: best.candidate.indexerName,
+          downloadClientId: client.id,
+          downloadClientName: client.name,
+          downloadExternalId: hash,
+          title: `Grabbed ${ctx.series.title} S${String(ctx.season.seasonNumber).padStart(2, "0")}E${String(ctx.episode.episodeNumber).padStart(2, "0")}`,
+          message: `Grabbed ${best.candidate.title} from ${best.candidate.indexerName}`,
+          metadata: decisionHistoryMetadata(best),
+        })
 
         return { hash, candidateTitle: best.candidate.title }
       })
@@ -451,6 +492,24 @@ export const AcquisitionPipelineLive = Layer.effect(
 
             const coveredEpisodeIds = mapCandidateToEpisodes(packBest.parsed, ctx.episodes)
             yield* linkQueueToTv(hash, ctx.series.id, coveredEpisodeIds)
+            yield* recordDomainHistory(db, {
+              eventType: "grabbed",
+              mediaKind: "season",
+              seriesId: ctx.series.id,
+              seasonId: ctx.season.id,
+              releaseTitle: packBest.candidate.title,
+              indexerId: packBest.candidate.indexerId,
+              indexerName: packBest.candidate.indexerName,
+              downloadClientId: client.id,
+              downloadClientName: client.name,
+              downloadExternalId: hash,
+              title: `Grabbed ${ctx.series.title} season ${ctx.season.seasonNumber}`,
+              message: `Grabbed ${packBest.candidate.title} from ${packBest.candidate.indexerName}`,
+              metadata: {
+                ...decisionHistoryMetadata(packBest),
+                episodeIds: coveredEpisodeIds,
+              },
+            })
 
             return [{ hash, candidateTitle: packBest.candidate.title }]
           }
@@ -487,6 +546,22 @@ export const AcquisitionPipelineLive = Layer.effect(
           )
           yield* indexerService.recordGrab(best.candidate.indexerId)
           yield* linkQueueToTv(hash, ctx.series.id, [ep.id])
+          yield* recordDomainHistory(db, {
+            eventType: "grabbed",
+            mediaKind: "episode",
+            seriesId: ctx.series.id,
+            seasonId: ctx.season.id,
+            episodeId: ep.id,
+            releaseTitle: best.candidate.title,
+            indexerId: best.candidate.indexerId,
+            indexerName: best.candidate.indexerName,
+            downloadClientId: client.id,
+            downloadClientName: client.name,
+            downloadExternalId: hash,
+            title: `Grabbed ${ctx.series.title} S${String(ctx.season.seasonNumber).padStart(2, "0")}E${String(ep.episodeNumber).padStart(2, "0")}`,
+            message: `Grabbed ${best.candidate.title} from ${best.candidate.indexerName}`,
+            metadata: decisionHistoryMetadata(best),
+          })
 
           results.push({ hash, candidateTitle: best.candidate.title })
         }
@@ -543,6 +618,18 @@ export const AcquisitionPipelineLive = Layer.effect(
           const hash = yield* downloadClientService.addDownload(client.id, downloadUrl)
 
           yield* linkQueueToMovie(hash, movie.id)
+          yield* recordDomainHistory(db, {
+            eventType: "grabbed",
+            mediaKind: "movie",
+            movieId: movie.id,
+            releaseTitle: candidateTitle,
+            downloadClientId: client.id,
+            downloadClientName: client.name,
+            downloadExternalId: hash,
+            title: `Grabbed ${movie.title}`,
+            message: `Manually grabbed ${candidateTitle}`,
+            metadata: { downloadUrl },
+          })
 
           return { hash, candidateTitle }
         }),
@@ -595,6 +682,20 @@ export const AcquisitionPipelineLive = Layer.effect(
           const client = yield* pickClient()
           const hash = yield* downloadClientService.addDownload(client.id, downloadUrl)
           yield* linkQueueToTv(hash, ctx.series.id, [ctx.episode.id])
+          yield* recordDomainHistory(db, {
+            eventType: "grabbed",
+            mediaKind: "episode",
+            seriesId: ctx.series.id,
+            seasonId: ctx.season.id,
+            episodeId: ctx.episode.id,
+            releaseTitle: candidateTitle,
+            downloadClientId: client.id,
+            downloadClientName: client.name,
+            downloadExternalId: hash,
+            title: `Grabbed ${ctx.series.title} S${String(ctx.season.seasonNumber).padStart(2, "0")}E${String(ctx.episode.episodeNumber).padStart(2, "0")}`,
+            message: `Manually grabbed ${candidateTitle}`,
+            metadata: { downloadUrl },
+          })
           return { hash, candidateTitle }
         }),
 

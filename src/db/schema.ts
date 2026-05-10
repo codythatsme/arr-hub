@@ -25,6 +25,27 @@ import type {
   SchedulerJobType,
 } from "#/effect/domain/scheduler"
 
+export const systemLogLevels = ["debug", "info", "warn", "error"] as const
+export type SystemLogLevel = (typeof systemLogLevels)[number]
+
+export const domainHistoryEventTypes = [
+  "grabbed",
+  "download_failed",
+  "imported",
+  "import_failed",
+  "renamed",
+  "deleted",
+  "blocklisted",
+  "metadata_refreshed",
+  "indexer_health_changed",
+  "download_client_health_changed",
+  "notification_delivery",
+] as const
+export type DomainHistoryEventType = (typeof domainHistoryEventTypes)[number]
+
+export const domainHistoryMediaKinds = ["movie", "series", "season", "episode"] as const
+export type DomainHistoryMediaKind = (typeof domainHistoryMediaKinds)[number]
+
 export const users = sqliteTable("users", {
   id: integer().primaryKey({ autoIncrement: true }),
   username: text().notNull().unique(),
@@ -881,6 +902,48 @@ export const schedulerJobs = sqliteTable("scheduler_jobs", {
   startedAt: integer("started_at", { mode: "timestamp" }),
   completedAt: integer("completed_at", { mode: "timestamp" }),
   errorMessage: text("error_message"),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+})
+
+// ── Operational History And Logs ──
+
+export const systemLogs = sqliteTable("system_logs", {
+  id: integer().primaryKey({ autoIncrement: true }),
+  timestamp: integer({ mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  level: text().$type<SystemLogLevel>().notNull(),
+  message: text().notNull(),
+  context: text({ mode: "json" })
+    .$type<Record<string, unknown> | null>()
+    .default(sql`'null'`),
+})
+
+export const domainHistory = sqliteTable("domain_history", {
+  id: integer().primaryKey({ autoIncrement: true }),
+  eventType: text("event_type").$type<DomainHistoryEventType>().notNull(),
+  mediaKind: text("media_kind").$type<DomainHistoryMediaKind>(),
+  movieId: integer("movie_id"),
+  seriesId: integer("series_id"),
+  seasonId: integer("season_id"),
+  episodeId: integer("episode_id"),
+  releaseDecisionId: integer("release_decision_id"),
+  releaseTitle: text("release_title"),
+  indexerId: integer("indexer_id"),
+  indexerName: text("indexer_name"),
+  downloadClientId: integer("download_client_id"),
+  downloadClientName: text("download_client_name"),
+  downloadExternalId: text("download_external_id"),
+  schedulerJobId: integer("scheduler_job_id"),
+  notificationDeliveryId: integer("notification_delivery_id"),
+  title: text().notNull(),
+  message: text().notNull(),
+  metadata: text({ mode: "json" })
+    .$type<Record<string, unknown>>()
+    .notNull()
+    .default(sql`'{}'`),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),

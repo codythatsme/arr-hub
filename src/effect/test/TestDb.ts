@@ -591,6 +591,37 @@ const runDdl = Effect.gen(function* () {
     error_message TEXT,
     created_at INTEGER NOT NULL DEFAULT (unixepoch())
   )`
+
+  yield* sql`CREATE TABLE system_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp INTEGER NOT NULL DEFAULT (unixepoch()),
+    level TEXT NOT NULL,
+    message TEXT NOT NULL,
+    context TEXT DEFAULT 'null'
+  )`
+
+  yield* sql`CREATE TABLE domain_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_type TEXT NOT NULL,
+    media_kind TEXT,
+    movie_id INTEGER,
+    series_id INTEGER,
+    season_id INTEGER,
+    episode_id INTEGER,
+    release_decision_id INTEGER,
+    release_title TEXT,
+    indexer_id INTEGER,
+    indexer_name TEXT,
+    download_client_id INTEGER,
+    download_client_name TEXT,
+    download_external_id TEXT,
+    scheduler_job_id INTEGER,
+    notification_delivery_id INTEGER,
+    title TEXT NOT NULL,
+    message TEXT NOT NULL,
+    metadata TEXT NOT NULL DEFAULT '{}',
+    created_at INTEGER NOT NULL DEFAULT (unixepoch())
+  )`
 })
 
 /**

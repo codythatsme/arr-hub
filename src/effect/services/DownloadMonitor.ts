@@ -20,6 +20,7 @@ import { Db } from "./Db"
 import { DownloadClientService } from "./DownloadClientService"
 import { MediaImportService } from "./MediaImportService"
 import { MediaServerService } from "./MediaServerService"
+import { recordDomainHistory } from "./OperationalHistoryService"
 import { SettingsService } from "./SettingsService"
 
 // ── Types ──
@@ -240,6 +241,22 @@ export const DownloadMonitorLive = Layer.effect(
                 }),
               )
               if (imported._tag === "Left") {
+                const message = importFailureMessage(imported.left)
+                yield* recordDomainHistory(db, {
+                  eventType: "import_failed",
+                  mediaKind: "movie",
+                  movieId: row.movieId,
+                  downloadClientId: row.downloadClientId,
+                  downloadExternalId: row.externalId,
+                  releaseTitle: row.title,
+                  title: `Import failed for ${row.title}`,
+                  message,
+                  metadata: {
+                    queueId: row.id,
+                    outputPath: row.outputPath,
+                    errorTag: imported.left._tag,
+                  },
+                })
                 yield* markImportFailure(db, row.id, imported.left)
                 continue
               }
@@ -262,6 +279,23 @@ export const DownloadMonitorLive = Layer.effect(
                 }),
               )
               if (imported._tag === "Left") {
+                const message = importFailureMessage(imported.left)
+                yield* recordDomainHistory(db, {
+                  eventType: "import_failed",
+                  mediaKind: "series",
+                  seriesId: row.seriesId,
+                  downloadClientId: row.downloadClientId,
+                  downloadExternalId: row.externalId,
+                  releaseTitle: row.title,
+                  title: `Import failed for ${row.title}`,
+                  message,
+                  metadata: {
+                    queueId: row.id,
+                    episodeIds: row.episodeIds,
+                    outputPath: row.outputPath,
+                    errorTag: imported.left._tag,
+                  },
+                })
                 yield* markImportFailure(db, row.id, imported.left)
                 continue
               }

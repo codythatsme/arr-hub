@@ -28,6 +28,7 @@ import {
 } from "#/effect/errors"
 
 import { Db } from "./Db"
+import { recordDomainHistory } from "./OperationalHistoryService"
 import { SettingsService } from "./SettingsService"
 import { TitleParserService } from "./TitleParserService"
 
@@ -1266,6 +1267,23 @@ export const MediaImportServiceLive = Layer.effect(
           qualityRank,
           formatScore,
         })
+        yield* recordDomainHistory(db, {
+          eventType: "imported",
+          mediaKind: "movie",
+          movieId: movie.id,
+          releaseTitle: input.releaseTitle,
+          downloadClientId: input.downloadClientId ?? null,
+          title: `Imported ${movie.title}`,
+          message: `Imported ${candidate.path} to ${targetPath}`,
+          metadata: {
+            sourcePath: candidate.path,
+            targetPath,
+            sizeBytes: candidate.sizeBytes,
+            qualityName,
+            qualityRank,
+            formatScore,
+          },
+        })
 
         return {
           mediaKind: "movie" as const,
@@ -1364,6 +1382,25 @@ export const MediaImportServiceLive = Layer.effect(
             qualityName,
             qualityRank,
             formatScore,
+          })
+          yield* recordDomainHistory(db, {
+            eventType: "imported",
+            mediaKind: "episode",
+            seriesId: target.series.id,
+            seasonId: target.season.id,
+            episodeId: target.episode.id,
+            releaseTitle: input.releaseTitle,
+            downloadClientId: input.downloadClientId ?? null,
+            title: `Imported ${target.series.title} S${pad2(target.season.seasonNumber)}E${pad2(target.episode.episodeNumber)}`,
+            message: `Imported ${target.candidate.path} to ${targetPath}`,
+            metadata: {
+              sourcePath: target.candidate.path,
+              targetPath,
+              sizeBytes: target.candidate.sizeBytes,
+              qualityName,
+              qualityRank,
+              formatScore,
+            },
           })
 
           results.push({
@@ -1492,6 +1529,23 @@ export const MediaImportServiceLive = Layer.effect(
             qualityRank,
             formatScore: 0,
           })
+          yield* recordDomainHistory(db, {
+            eventType: "imported",
+            mediaKind: "movie",
+            movieId: movie.id,
+            releaseTitle,
+            title: `Imported ${movie.title}`,
+            message: `Indexed existing library file ${candidate.path}`,
+            metadata: {
+              sourcePath: candidate.path,
+              targetPath: candidate.path,
+              sizeBytes: candidate.sizeBytes,
+              qualityName,
+              qualityRank,
+              formatScore: 0,
+              source: "library_scan",
+            },
+          })
           moviesImported += 1
         }
 
@@ -1547,6 +1601,25 @@ export const MediaImportServiceLive = Layer.effect(
               qualityName,
               qualityRank,
               formatScore: 0,
+            })
+            yield* recordDomainHistory(db, {
+              eventType: "imported",
+              mediaKind: "episode",
+              seriesId: show.id,
+              seasonId: row.season.id,
+              episodeId: row.episode.id,
+              releaseTitle,
+              title: `Imported ${show.title} S${pad2(row.season.seasonNumber)}E${pad2(row.episode.episodeNumber)}`,
+              message: `Indexed existing library file ${candidate.path}`,
+              metadata: {
+                sourcePath: candidate.path,
+                targetPath: candidate.path,
+                sizeBytes: candidate.sizeBytes,
+                qualityName,
+                qualityRank,
+                formatScore: 0,
+                source: "library_scan",
+              },
             })
             importedEpisodeIds.add(row.episode.id)
             episodesImported += 1
@@ -1616,6 +1689,21 @@ export const MediaImportServiceLive = Layer.effect(
             qualityName,
             qualityRank: movie.existingQualityRank,
             formatScore: movie.existingFormatScore ?? 0,
+          })
+          yield* recordDomainHistory(db, {
+            eventType: "renamed",
+            mediaKind: "movie",
+            movieId: plan.mediaId,
+            title: `Renamed ${movie.title}`,
+            message: `Renamed ${plan.currentPath} to ${plan.targetPath}`,
+            metadata: {
+              sourcePath: plan.currentPath,
+              targetPath: plan.targetPath,
+              sizeBytes: before.sizeBytes,
+              qualityName,
+              qualityRank: movie.existingQualityRank,
+              formatScore: movie.existingFormatScore ?? 0,
+            },
           })
         }
         return plans
@@ -1690,6 +1778,33 @@ export const MediaImportServiceLive = Layer.effect(
             qualityName,
             qualityRank: episode.existingQualityRank,
             formatScore: episode.existingFormatScore ?? 0,
+          })
+          const contextRows = yield* db
+            .select({ episode: episodes, season: seasons, series })
+            .from(episodes)
+            .innerJoin(seasons, eq(episodes.seasonId, seasons.id))
+            .innerJoin(series, eq(seasons.seriesId, series.id))
+            .where(eq(episodes.id, plan.mediaId))
+            .limit(1)
+          const row = contextRows[0]
+          yield* recordDomainHistory(db, {
+            eventType: "renamed",
+            mediaKind: "episode",
+            seriesId: row?.series.id ?? seriesId,
+            seasonId: row?.season.id ?? episode.seasonId,
+            episodeId: plan.mediaId,
+            title: row
+              ? `Renamed ${row.series.title} S${pad2(row.season.seasonNumber)}E${pad2(row.episode.episodeNumber)}`
+              : `Renamed episode ${plan.mediaId}`,
+            message: `Renamed ${plan.currentPath} to ${plan.targetPath}`,
+            metadata: {
+              sourcePath: plan.currentPath,
+              targetPath: plan.targetPath,
+              sizeBytes: before.sizeBytes,
+              qualityName,
+              qualityRank: episode.existingQualityRank,
+              formatScore: episode.existingFormatScore ?? 0,
+            },
           })
         }
         return plans

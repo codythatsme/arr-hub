@@ -16,6 +16,7 @@ import type { MediaType } from "#/effect/domain/release"
 import { NotFoundError, SchedulerError } from "../errors"
 import { Db } from "./Db"
 import { DownloadClientService } from "./DownloadClientService"
+import { recordDomainHistory } from "./OperationalHistoryService"
 import { SchedulerService } from "./SchedulerService"
 
 export type QueueStatusFilter =
@@ -73,6 +74,16 @@ export class QueueService extends Context.Tag("@arr-hub/QueueService")<
     ) => Effect.Effect<QueueItem, NotFoundError | SchedulerError | SqlError>
   }
 >() {}
+
+function historyRefs(item: QueueItem) {
+  if (item.media.type === "movie" && item.media.id !== null) {
+    return { mediaKind: "movie" as const, movieId: item.media.id }
+  }
+  if (item.media.type === "series" && item.media.id !== null) {
+    return { mediaKind: "series" as const, seriesId: item.media.id }
+  }
+  return {}
+}
 
 export const QueueServiceLive = Layer.effect(
   QueueService,
@@ -195,6 +206,25 @@ export const QueueServiceLive = Layer.effect(
                 db.delete(downloadQueue).where(eq(downloadQueue.id, id)).pipe(Effect.asVoid),
               ),
             )
+          yield* recordDomainHistory(db, {
+            eventType: "deleted",
+            ...historyRefs(item),
+            downloadClientId: item.downloadClient.id,
+            downloadClientName: item.downloadClient.name,
+            downloadExternalId: item.externalId,
+            releaseTitle: item.title,
+            title: `Removed ${item.title}`,
+            message: options?.deleteFiles
+              ? "Removed queue item and requested download file deletion"
+              : "Removed queue item from the download client",
+            metadata: {
+              queueId: item.id,
+              status: item.status,
+              deleteFiles: options?.deleteFiles ?? false,
+              mediaTitle: item.media.title,
+              episodeIds: item.media.episodeIds,
+            },
+          })
         }),
 
       clearError: (id) =>
@@ -246,6 +276,22 @@ export const QueueServiceLive = Layer.effect(
                 ],
               })),
             )
+            yield* recordDomainHistory(db, {
+              eventType: "blocklisted",
+              ...historyRefs(item),
+              downloadClientId: item.downloadClient.id,
+              downloadClientName: item.downloadClient.name,
+              downloadExternalId: item.externalId,
+              releaseTitle: item.title,
+              title: `Blocklisted ${item.title}`,
+              message: reason,
+              metadata: {
+                queueId: item.id,
+                targets,
+                mediaTitle: item.media.title,
+                episodeIds: item.media.episodeIds,
+              },
+            })
           }
           if (item.media.id !== null && item.media.type !== "unlinked") {
             yield* enqueueSearch(item)

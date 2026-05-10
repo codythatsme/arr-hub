@@ -2,8 +2,8 @@ import { constants, existsSync, statSync } from "node:fs"
 import { access, stat } from "node:fs/promises"
 
 import { SqlError } from "@effect/sql/SqlError"
-import { count, eq } from "drizzle-orm"
-import { Context, Effect, Layer, Ref } from "effect"
+import { count, desc, eq } from "drizzle-orm"
+import { Context, Effect, Layer } from "effect"
 
 import {
   apiKeys,
@@ -16,6 +16,8 @@ import {
   schedulerJobs,
   series,
   settings,
+  systemLogs,
+  type SystemLogLevel,
 } from "#/db/schema"
 
 import type { JobTypeSummary } from "../domain/scheduler"
@@ -29,7 +31,7 @@ import { SchedulerService } from "./SchedulerService"
 const DB_PATH = process.env.DATABASE_PATH ?? "data/arr-hub.db"
 const LOG_LIMIT = 500
 
-export type LogLevel = "debug" | "info" | "warn" | "error"
+export type LogLevel = SystemLogLevel
 export type HealthStatus = "healthy" | "degraded" | "unhealthy"
 
 export interface SystemStatus {
@@ -162,8 +164,6 @@ export const DiagnosticsServiceLive = Layer.effect(
     const downloadClientService = yield* DownloadClientService
     const mediaServerService = yield* MediaServerService
     const schedulerService = yield* SchedulerService
-    const logsRef = yield* Ref.make<ReadonlyArray<LogEntry>>([])
-    const nextLogIdRef = yield* Ref.make(1)
 
     const tableCount = <T>(table: T) =>
       db
@@ -314,29 +314,31 @@ export const DiagnosticsServiceLive = Layer.effect(
       logs: (filters): Effect.Effect<ReadonlyArray<LogEntry>, DiagnosticsError> =>
         Effect.gen(function* () {
           const requestedCount = Math.min(Math.max(filters?.count ?? 100, 1), LOG_LIMIT)
-          const rows = yield* Ref.get(logsRef).pipe(
-            Effect.map((entries) =>
-              entries
-                .filter((entry) => !filters?.level || entry.level === filters.level)
-                .slice(-requestedCount)
-                .reverse(),
-            ),
-          )
-          return rows
+          return yield* db
+            .select()
+            .from(systemLogs)
+            .where(filters?.level ? eq(systemLogs.level, filters.level) : undefined)
+            .orderBy(desc(systemLogs.timestamp), desc(systemLogs.id))
+            .limit(requestedCount)
+            .pipe(
+              Effect.mapError(
+                (error) =>
+                  new DiagnosticsError({
+                    reason: "log_access_failed",
+                    message: error.message,
+                  }),
+              ),
+            )
         }),
 
       log: (level, message, context) =>
-        Effect.gen(function* () {
-          const id = yield* Ref.getAndUpdate(nextLogIdRef, (current) => current + 1)
-          const entry: LogEntry = {
-            id,
-            timestamp: new Date(),
-            level,
-            message,
-            context: context ?? null,
-          }
-          yield* Ref.update(logsRef, (entries) => [...entries, entry].slice(-LOG_LIMIT))
-        }),
+        db
+          .insert(systemLogs)
+          .values({ level, message, context: context ?? null, timestamp: new Date() })
+          .pipe(
+            Effect.asVoid,
+            Effect.catchAll(() => Effect.void),
+          ),
 
       tasks: () =>
         Effect.gen(function* () {

@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm"
 import { Effect, Layer } from "effect"
 
 import {
+  domainHistory,
   downloadClients,
   downloadQueue,
   movies,
@@ -131,12 +132,18 @@ describe("QueueService", () => {
         .select()
         .from(releaseBlocklist)
         .where(eq(releaseBlocklist.mediaId, seeded.movieId))
+      const history = yield* db
+        .select()
+        .from(domainHistory)
+        .where(eq(domainHistory.eventType, "blocklisted"))
 
       expect(blocked.status).toBe("failed")
       expect(decisions).toHaveLength(1)
       expect(decisions[0]?.reasons[0]?.rule).toBe("queue_blocklist")
       expect(blocklist).toHaveLength(1)
       expect(blocklist[0]?.candidateTitle).toBe("Example.Movie.2024.1080p-GROUP")
+      expect(history).toHaveLength(1)
+      expect(history[0]?.movieId).toBe(seeded.movieId)
     }).pipe(Effect.provide(TestLayer)),
   )
 })

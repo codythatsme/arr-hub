@@ -23,6 +23,7 @@ import {
 import { AdapterRegistry } from "./AdapterRegistry"
 import { CryptoService } from "./CryptoService"
 import { Db } from "./Db"
+import { recordDomainHistory } from "./OperationalHistoryService"
 
 // ── Input types ──
 
@@ -286,45 +287,76 @@ export const DownloadClientServiceLive = Layer.effect(
           const config = buildConfig(client, password)
           const adapter = yield* makeAdapter(config)
           const start = Date.now()
+          const previousHealth = yield* db
+            .select({ status: downloadClientHealth.status })
+            .from(downloadClientHealth)
+            .where(eq(downloadClientHealth.downloadClientId, id))
+            .limit(1)
 
           yield* adapter.testConnection().pipe(
             Effect.tapBoth({
               onSuccess: () =>
-                db
-                  .insert(downloadClientHealth)
-                  .values({
-                    downloadClientId: id,
-                    status: "healthy",
-                    responseTimeMs: Date.now() - start,
-                    errorMessage: null,
-                  })
-                  .onConflictDoUpdate({
-                    target: downloadClientHealth.downloadClientId,
-                    set: {
+                Effect.gen(function* () {
+                  const responseTimeMs = Date.now() - start
+                  yield* db
+                    .insert(downloadClientHealth)
+                    .values({
+                      downloadClientId: id,
                       status: "healthy",
-                      responseTimeMs: Date.now() - start,
+                      responseTimeMs,
                       errorMessage: null,
-                      lastCheck: new Date(),
-                    },
-                  }),
+                    })
+                    .onConflictDoUpdate({
+                      target: downloadClientHealth.downloadClientId,
+                      set: {
+                        status: "healthy",
+                        responseTimeMs,
+                        errorMessage: null,
+                        lastCheck: new Date(),
+                      },
+                    })
+                  if (previousHealth[0]?.status !== "healthy") {
+                    yield* recordDomainHistory(db, {
+                      eventType: "download_client_health_changed",
+                      downloadClientId: id,
+                      downloadClientName: client.name,
+                      title: `Download client healthy: ${client.name}`,
+                      message: "Connection test succeeded",
+                      metadata: { status: "healthy", responseTimeMs },
+                    })
+                  }
+                }),
               onFailure: (err) =>
-                db
-                  .insert(downloadClientHealth)
-                  .values({
-                    downloadClientId: id,
-                    status: "unhealthy",
-                    errorMessage: err.message,
-                    responseTimeMs: Date.now() - start,
-                  })
-                  .onConflictDoUpdate({
-                    target: downloadClientHealth.downloadClientId,
-                    set: {
+                Effect.gen(function* () {
+                  const responseTimeMs = Date.now() - start
+                  yield* db
+                    .insert(downloadClientHealth)
+                    .values({
+                      downloadClientId: id,
                       status: "unhealthy",
                       errorMessage: err.message,
-                      responseTimeMs: Date.now() - start,
-                      lastCheck: new Date(),
-                    },
-                  }),
+                      responseTimeMs,
+                    })
+                    .onConflictDoUpdate({
+                      target: downloadClientHealth.downloadClientId,
+                      set: {
+                        status: "unhealthy",
+                        errorMessage: err.message,
+                        responseTimeMs,
+                        lastCheck: new Date(),
+                      },
+                    })
+                  if (previousHealth[0]?.status !== "unhealthy") {
+                    yield* recordDomainHistory(db, {
+                      eventType: "download_client_health_changed",
+                      downloadClientId: id,
+                      downloadClientName: client.name,
+                      title: `Download client unhealthy: ${client.name}`,
+                      message: err.message,
+                      metadata: { status: "unhealthy", responseTimeMs },
+                    })
+                  }
+                }),
             }),
           )
 
@@ -381,6 +413,17 @@ export const DownloadClientServiceLive = Layer.effect(
 
                 // Upsert queue rows
                 for (const status of statuses) {
+                  const existingRows = yield* db
+                    .select({
+                      status: downloadQueue.status,
+                      movieId: downloadQueue.movieId,
+                      seriesId: downloadQueue.seriesId,
+                      episodeIds: downloadQueue.episodeIds,
+                    })
+                    .from(downloadQueue)
+                    .where(eq(downloadQueue.externalId, status.externalId))
+                    .limit(1)
+                  const existing = existingRows[0]
                   const updateData: {
                     status: NormalizedDownloadStatus
                     title: string
@@ -418,6 +461,33 @@ export const DownloadClientServiceLive = Layer.effect(
                       target: downloadQueue.externalId,
                       set: updateData,
                     })
+
+                  if (status.status === "failed" && existing?.status !== "failed") {
+                    yield* recordDomainHistory(db, {
+                      eventType: "download_failed",
+                      mediaKind:
+                        existing?.movieId !== null && existing?.movieId !== undefined
+                          ? "movie"
+                          : existing?.seriesId !== null && existing?.seriesId !== undefined
+                            ? "series"
+                            : null,
+                      movieId: existing?.movieId ?? null,
+                      seriesId: existing?.seriesId ?? null,
+                      downloadClientId: client.id,
+                      downloadClientName: client.name,
+                      downloadExternalId: status.externalId,
+                      releaseTitle: status.title,
+                      title: `Download failed: ${status.title}`,
+                      message: status.errorMessage ?? "Download client reported a failed download",
+                      metadata: {
+                        sizeBytes: status.sizeBytes,
+                        progress: status.progressFraction,
+                        etaSeconds: status.etaSeconds ?? null,
+                        outputPath: status.outputPath,
+                        episodeIds: existing?.episodeIds ?? null,
+                      },
+                    })
+                  }
                 }
 
                 return statuses

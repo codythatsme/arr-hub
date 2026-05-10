@@ -22,6 +22,7 @@ import { MonitoringTriggerBusLive } from "./services/MonitoringTriggerBus"
 import { MovieServiceLive } from "./services/MovieService"
 import { NotificationServiceLive } from "./services/NotificationService"
 import { OnboardingServiceLive } from "./services/OnboardingService"
+import { OperationalHistoryServiceLive } from "./services/OperationalHistoryService"
 import { PlexSessionMonitorLive } from "./services/PlexSessionMonitor"
 import { PlexUserServiceLive } from "./services/PlexUserService"
 import { PluginLoaderLive } from "./services/PluginLoader"
@@ -71,6 +72,7 @@ export function makeAppLayer(tmdbClientLayer: Layer.Layer<TmdbClient> = TmdbClie
         MediaServerServiceLive,
         ReleasePolicyEngineLive,
         SessionHistoryServiceLive,
+        OperationalHistoryServiceLive,
         PlexUserServiceLive,
         StatsServiceLive,
       ),

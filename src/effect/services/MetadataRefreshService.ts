@@ -7,6 +7,7 @@ import { TmdbClient } from "#/effect/services/TmdbClient"
 
 import { MetadataError, NotFoundError } from "../errors"
 import { Db } from "./Db"
+import { recordDomainHistory } from "./OperationalHistoryService"
 
 export interface MetadataRefreshSummary {
   readonly refreshed: number
@@ -78,6 +79,19 @@ export const MetadataRefreshServiceLive = Layer.effect(
           })
           .where(eq(movies.id, id))
           .returning()
+        yield* recordDomainHistory(db, {
+          eventType: "metadata_refreshed",
+          mediaKind: "movie",
+          movieId: id,
+          title: `Refreshed ${updated.title}`,
+          message: "Refreshed movie metadata from TMDB",
+          metadata: {
+            tmdbId: updated.tmdbId,
+            imdbId: updated.imdbId,
+            year: updated.year,
+            runtimeMinutes: updated.runtimeMinutes,
+          },
+        })
         return updated
       })
 
@@ -188,6 +202,21 @@ export const MetadataRefreshServiceLive = Layer.effect(
             })
           }
         }
+
+        yield* recordDomainHistory(db, {
+          eventType: "metadata_refreshed",
+          mediaKind: "series",
+          seriesId: id,
+          title: `Refreshed ${updated.title}`,
+          message: "Refreshed series metadata from TMDB",
+          metadata: {
+            tvdbId: updated.tvdbId,
+            tmdbId: updated.tmdbId,
+            imdbId: updated.imdbId,
+            year: updated.year,
+            seasons: details.seasons.length,
+          },
+        })
 
         return updated
       })

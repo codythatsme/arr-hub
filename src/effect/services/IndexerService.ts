@@ -39,6 +39,7 @@ import { AdapterRegistry } from "./AdapterRegistry"
 import { BUILT_IN_CARDIGANN_DEFINITIONS } from "./CardigannDefinitionLoader"
 import { CryptoService } from "./CryptoService"
 import { Db } from "./Db"
+import { recordDomainHistory } from "./OperationalHistoryService"
 
 // ── Input types ──
 
@@ -951,24 +952,45 @@ export const IndexerServiceLive = Layer.effect(
       })
 
     const markIndexerSearchHealthy = (indexerId: number, responseTimeMs: number) =>
-      db
-        .insert(indexerHealth)
-        .values({
-          indexerId,
-          status: "healthy",
-          errorMessage: null,
-          responseTimeMs,
-          lastCheck: new Date(),
-        })
-        .onConflictDoUpdate({
-          target: indexerHealth.indexerId,
-          set: {
+      Effect.gen(function* () {
+        const [previousHealth, indexerRows] = yield* Effect.all([
+          db
+            .select({ status: indexerHealth.status })
+            .from(indexerHealth)
+            .where(eq(indexerHealth.indexerId, indexerId))
+            .limit(1),
+          db.select({ name: indexers.name }).from(indexers).where(eq(indexers.id, indexerId)),
+        ])
+        yield* db
+          .insert(indexerHealth)
+          .values({
+            indexerId,
             status: "healthy",
             errorMessage: null,
             responseTimeMs,
             lastCheck: new Date(),
-          },
-        })
+          })
+          .onConflictDoUpdate({
+            target: indexerHealth.indexerId,
+            set: {
+              status: "healthy",
+              errorMessage: null,
+              responseTimeMs,
+              lastCheck: new Date(),
+            },
+          })
+        if (previousHealth[0]?.status !== "healthy") {
+          const name = indexerRows[0]?.name ?? `Indexer ${indexerId}`
+          yield* recordDomainHistory(db, {
+            eventType: "indexer_health_changed",
+            indexerId,
+            indexerName: name,
+            title: `Indexer healthy: ${name}`,
+            message: "Indexer request succeeded",
+            metadata: { status: "healthy", responseTimeMs },
+          })
+        }
+      })
 
     const markIndexerSearchUnhealthy = (
       indexerId: number,
@@ -976,12 +998,21 @@ export const IndexerServiceLive = Layer.effect(
       responseTimeMs: number,
     ) =>
       Effect.gen(function* () {
+        const [previousHealth, indexerRows] = yield* Effect.all([
+          db
+            .select({ status: indexerHealth.status })
+            .from(indexerHealth)
+            .where(eq(indexerHealth.indexerId, indexerId))
+            .limit(1),
+          db.select({ name: indexers.name }).from(indexers).where(eq(indexers.id, indexerId)),
+        ])
+        const message = `${err.reason}: ${err.message}`
         yield* db
           .insert(indexerHealth)
           .values({
             indexerId,
             status: "unhealthy",
-            errorMessage: `${err.reason}: ${err.message}`,
+            errorMessage: message,
             responseTimeMs,
             lastCheck: new Date(),
           })
@@ -989,11 +1020,23 @@ export const IndexerServiceLive = Layer.effect(
             target: indexerHealth.indexerId,
             set: {
               status: "unhealthy",
-              errorMessage: `${err.reason}: ${err.message}`,
+              errorMessage: message,
               responseTimeMs,
               lastCheck: new Date(),
             },
           })
+
+        if (previousHealth[0]?.status !== "unhealthy") {
+          const name = indexerRows[0]?.name ?? `Indexer ${indexerId}`
+          yield* recordDomainHistory(db, {
+            eventType: "indexer_health_changed",
+            indexerId,
+            indexerName: name,
+            title: `Indexer unhealthy: ${name}`,
+            message,
+            metadata: { status: "unhealthy", responseTimeMs, reason: err.reason },
+          })
+        }
 
         if (err.reason === "auth_failed") {
           yield* db
@@ -1191,43 +1234,10 @@ export const IndexerServiceLive = Layer.effect(
             Effect.tapBoth({
               onSuccess: (caps) =>
                 Effect.all([
-                  db
-                    .insert(indexerHealth)
-                    .values({
-                      indexerId: id,
-                      status: "healthy",
-                      responseTimeMs: Date.now() - start,
-                      errorMessage: null,
-                    })
-                    .onConflictDoUpdate({
-                      target: indexerHealth.indexerId,
-                      set: {
-                        status: "healthy",
-                        responseTimeMs: Date.now() - start,
-                        errorMessage: null,
-                        lastCheck: new Date(),
-                      },
-                    }),
+                  markIndexerSearchHealthy(id, Date.now() - start),
                   db.update(indexers).set({ capabilities: caps }).where(eq(indexers.id, id)),
                 ]),
-              onFailure: (err) =>
-                db
-                  .insert(indexerHealth)
-                  .values({
-                    indexerId: id,
-                    status: "unhealthy",
-                    errorMessage: err.message,
-                    responseTimeMs: Date.now() - start,
-                  })
-                  .onConflictDoUpdate({
-                    target: indexerHealth.indexerId,
-                    set: {
-                      status: "unhealthy",
-                      errorMessage: err.message,
-                      responseTimeMs: Date.now() - start,
-                      lastCheck: new Date(),
-                    },
-                  }),
+              onFailure: (err) => markIndexerSearchUnhealthy(id, err, Date.now() - start),
             }),
           )
 

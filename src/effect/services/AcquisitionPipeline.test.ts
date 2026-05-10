@@ -2,7 +2,7 @@ import { describe, expect, it } from "@effect/vitest"
 import { eq } from "drizzle-orm"
 import { Effect, Layer } from "effect"
 
-import { downloadClients, downloadQueue, qualityProfiles } from "#/db/schema"
+import { domainHistory, downloadClients, downloadQueue, qualityProfiles } from "#/db/schema"
 import type { ReleaseCandidate, SearchQuery, SearchResult } from "#/effect/domain/indexer"
 import type { ParsedTitle, RankedDecision } from "#/effect/domain/release"
 import { Db } from "#/effect/services/Db"
@@ -250,9 +250,17 @@ describe("AcquisitionPipeline", () => {
       const movie = yield* addTestMovie(1)
       const pipeline = yield* AcquisitionPipeline
       const result = yield* pipeline.searchAndGrab(movie.id)
+      const db = yield* Db
+      const history = yield* db
+        .select()
+        .from(domainHistory)
+        .where(eq(domainHistory.eventType, "grabbed"))
+
       expect(result).not.toBeNull()
       expect(result?.hash).toBe("hash_abc123")
       expect(result?.candidateTitle).toBe(mockCandidate.title)
+      expect(history).toHaveLength(1)
+      expect(history[0]?.movieId).toBe(movie.id)
     }).pipe(Effect.provide(TestLayer)),
   )
 
