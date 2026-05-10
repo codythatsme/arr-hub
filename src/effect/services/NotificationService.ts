@@ -20,7 +20,7 @@ import { recordDomainHistory } from "./OperationalHistoryService"
 
 const ALL_EVENTS: ReadonlyArray<NotificationEvent> = notificationEvents
 const ALL_CHANNEL_TYPES: ReadonlyArray<NotificationChannelType> = notificationChannelTypes
-const URL_CHANNEL_TYPES = new Set<NotificationChannelType>(["webhook", "discord", "slack"])
+const URL_CHANNEL_TYPES = new Set<NotificationChannelType>(["webhook", "discord", "slack", "ntfy"])
 
 interface FormattedNotification {
   readonly event: NotificationEvent
@@ -43,6 +43,8 @@ function channelTypeLabel(type: NotificationChannelType): string {
       return "Discord webhook"
     case "slack":
       return "Slack webhook"
+    case "ntfy":
+      return "Ntfy topic"
   }
 }
 
@@ -88,6 +90,7 @@ function formatOutboundPayload(
         ],
       }
     case "webhook":
+    case "ntfy":
     case "in_app":
       return { event, title, message, payload }
   }
@@ -296,11 +299,23 @@ export const NotificationServiceLive = Layer.effect(
         try: async () => {
           const response = await fetch(channel.settings.url ?? "", {
             method: "POST",
-            headers: {
-              "content-type": "application/json",
-              ...channel.settings.headers,
-            },
-            body: JSON.stringify(formatOutboundPayload(channel, event, title, message, payload)),
+            headers:
+              channel.type === "ntfy"
+                ? {
+                    "content-type": "text/plain; charset=utf-8",
+                    title,
+                    tags: event.includes("failed") || event.includes("down") ? "warning" : "bell",
+                    priority: event.includes("failed") || event.includes("down") ? "4" : "3",
+                    ...channel.settings.headers,
+                  }
+                : {
+                    "content-type": "application/json",
+                    ...channel.settings.headers,
+                  },
+            body:
+              channel.type === "ntfy"
+                ? message
+                : JSON.stringify(formatOutboundPayload(channel, event, title, message, payload)),
           })
           if (!response.ok) {
             throw new Error(`${channelTypeLabel(channel.type)} returned ${response.status}`)

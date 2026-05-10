@@ -63,6 +63,14 @@ const CHANNEL_TYPES = [
     urlLabel: "Slack webhook URL",
     placeholder: "https://hooks.slack.com/services/...",
   },
+  {
+    value: "ntfy",
+    label: "Ntfy",
+    defaultName: "Ntfy alerts",
+    destination: "",
+    urlLabel: "Ntfy topic URL",
+    placeholder: "https://ntfy.sh/arr-hub",
+  },
 ] as const
 
 type ChannelType = (typeof CHANNEL_TYPES)[number]["value"]

@@ -792,7 +792,7 @@ export const notificationEvents = [
 ] as const
 export type NotificationEvent = (typeof notificationEvents)[number]
 
-export const notificationChannelTypes = ["in_app", "webhook", "discord", "slack"] as const
+export const notificationChannelTypes = ["in_app", "webhook", "discord", "slack", "ntfy"] as const
 export type NotificationChannelType = (typeof notificationChannelTypes)[number]
 
 export interface NotificationChannelSettings {

@@ -293,6 +293,37 @@ describe("NotificationService", () => {
     }).pipe(Effect.provide(TestLayer))
   })
 
+  it.effect("formats Ntfy topic deliveries", () => {
+    const fetchSpy = stubSuccessfulFetch()
+
+    return Effect.gen(function* () {
+      const service = yield* NotificationService
+      const channel = yield* service.createChannel({
+        name: "Ntfy",
+        type: "ntfy",
+        enabled: true,
+        events: ["server_down"],
+        settings: { url: "https://ntfy.example/arr-hub" },
+      })
+
+      const delivery = yield* service.testChannel(channel.id, "server_down")
+      const init = getFetchInit(fetchSpy)
+
+      expect(delivery.status).toBe("sent")
+      expect(fetchSpy).toHaveBeenCalledWith(
+        "https://ntfy.example/arr-hub",
+        expect.objectContaining({ method: "POST" }),
+      )
+      expect(init.headers).toMatchObject({
+        "content-type": "text/plain; charset=utf-8",
+        title: "Test media server offline",
+        tags: "warning",
+        priority: "4",
+      })
+      expect(init.body).toBe("Example Server is not responding")
+    }).pipe(Effect.provide(TestLayer))
+  })
+
   it.effect("requires URLs for provider-backed webhook channels", () =>
     Effect.gen(function* () {
       const service = yield* NotificationService
