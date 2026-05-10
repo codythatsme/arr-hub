@@ -23,7 +23,7 @@ Primary blockers:
 - The operator UI now exposes the existing backend workflows and has persisted browser smoke coverage, but deeper workflows still depend on backend work listed below.
 - The metadata lifecycle is now functional for TMDB-backed movie/TV adds, Sonarr episode import, refresh jobs, and calendar population, but still lacks Sonarr/Radarr-depth alternate titles, ratings, local artwork cache, availability semantics, and TVDB/SkyHook parity.
 - Completed download handling now has a real import path that resolves completed output paths and remote path mappings, waits for stable completed output/post-processing markers, rejects wrong-media/disallowed-quality/bad-upgrade imports, selects media files, filters samples, renames, checks target free space before file transfers, copy/move/hardlinks into library folders, persists media file records, supports manual import, scans existing libraries, and exposes rename preview/action. It still lacks recycle-bin support and deeper Sonarr/Radarr import parity.
-- The release decision engine now has persistent blocklist enforcement, focused specification modules, target title/year/episode/season checks, size/free-space/queue/protocol/client availability checks, minimum age/retention/seeder gates, required/ignored/preferred release terms, sample/hardcoded subtitle/raw-disk rejection, first-pass proper/repack/version revision ranking/upgrades, and first-pass TV/anime edge checks. It still lacks full Sonarr/Radarr parity for language profiles, tagged release profiles, deep media inspection, persisted proper/repack state across imported media, scene/XEM mapping, and exhaustive parser coverage.
+- The release decision engine now has persistent blocklist enforcement, focused specification modules, target title/year/episode/season checks, size/free-space/queue/protocol/client availability checks, minimum age/retention/seeder gates, required/ignored/preferred release terms, sample/hardcoded subtitle/raw-disk rejection, first-pass proper/repack/version revision ranking/upgrades with imported-media revision persistence, and first-pass TV/anime edge checks. It still lacks full Sonarr/Radarr parity for language profiles, tagged release profiles, deep media inspection, replacement-grade revision policy controls, scene/XEM mapping, and exhaustive parser coverage.
 - Prowlarr replacement now has a first-pass foundation for common setups: generic Newznab and Torznab support, curated Newznab presets for NZBGeek, DrunkenSlug, NZBFinder, NinjaCentral, NZBPlanet, and altHUB, aggregate Torznab/Newznab feeds, persisted definitions, representative Cardigann/YAML torrent coverage, URL-backed checksum-pinned definition sources, proxy/health/stats basics, per-indexer category and policy controls, and first-pass Radarr/Sonarr app sync. The bundled catalogue is now intentionally curated; broad Prowlarr/Jackett-scale tracker breadth is deferred to remote definition sources or a later catalogue-maintenance milestone.
 - Download client coverage is still narrow: qBittorrent, SABnzbd, first-pass Transmission, first-pass Deluge, first-pass NZBGet, and first-pass torrent/usenet blackholes only.
 - There is no Radarr/Sonarr/Prowlarr REST API compatibility layer, which matters if existing tools are expected to treat ARR Hub as a drop-in replacement.
@@ -86,6 +86,7 @@ Completed in atomic commits after this plan was written. Milestone 5 is summariz
 - `6af5da144a` added TV release edge checks for unaired episodes, multi-episode releases, multi-season packs, and anime absolute episode numbering.
 - `0ab6b74069` expanded the title parser test corpus with vendor-inspired release fixtures.
 - `adc240b842` added first-pass proper/repack/version revision metadata parsing, same-quality revision ranking, same-quality revision upgrades, and known-release-group repack mismatch rejection.
+- `2c6abca0e5` persisted imported media revision metadata for movies, episodes, media file records, acquisition existing-file contexts, and import upgrade checks.
 - `b6864bf5f3` added first-pass indexer definition, proxy, and statistics persistence for the selected Prowlarr replacement path.
 - `62b0ac1be0` exposed authenticated aggregate Torznab/Newznab XML feeds for external clients.
 - `e2ee3e17b8` added a Cardigann-style YAML definition loader and seeded a tiny curated fixture set.
@@ -178,7 +179,7 @@ Backend/service surfaces:
 - `src/effect/services/DiagnosticsService.ts`: aggregates integration health and root-folder accessibility/write-permission checks for the System view and container health endpoint.
 - `src/effect/services/ReleasePolicyEngine.ts`: parses titles, checks allowed quality, custom format score, and basic upgrade scoring.
 - `src/effect/services/AcquisitionPipeline.ts`: movie search/evaluate/grab, episode search/evaluate/grab, season pack first search, series search, and RSS/recent candidate evaluation for movies and episodes.
-- `src/effect/services/MediaImportService.ts`: imports completed movie and episode files from downloader output paths, applies remote path mappings, filters samples, applies copy/move/hardlink settings, builds target names, stores real file paths, media file records, and quality state, supports manual import, scans existing libraries, and previews/applies renames.
+- `src/effect/services/MediaImportService.ts`: imports completed movie and episode files from downloader output paths, applies remote path mappings, filters samples, applies copy/move/hardlink settings, builds target names, stores real file paths, media file records, quality and revision state, supports manual import, scans existing libraries, and previews/applies renames.
 - `src/effect/services/DownloadMonitor.ts`: polls download clients, updates queue rows, calls media import for completed linked downloads, leaves failed imports visible in queue, triggers Plex library refresh.
 - `src/effect/services/MediaServerService.ts` and `PlexAdapter.ts`: Plex connection, libraries, library sync matching, refresh, active sessions, shared users.
 - `src/effect/services/PlexSessionMonitor.ts`: active stream monitoring and notification trigger emission.
@@ -351,7 +352,7 @@ Current state:
 
 Gap:
 
-- The app is safer than the initial plan baseline, but it is still not Sonarr/Radarr parity. Remaining gaps include language profiles, tagged release profiles, media-file inspection, persisted proper/repack state for imported media, scene/XEM mapping, broader anime behavior, and a much larger parser fixture corpus.
+- The app is safer than the initial plan baseline, but it is still not Sonarr/Radarr parity. Remaining gaps include language profiles, tagged release profiles, media-file inspection, replacement-grade proper/repack policy controls, scene/XEM mapping, broader anime behavior, and a much larger parser fixture corpus.
 
 Tasks:
 
@@ -368,7 +369,7 @@ Tasks:
 - Add release restrictions: required, ignored, preferred terms, tags. Implemented global required/ignored/preferred terms; tag-scoped profiles remain future work.
 - Add language support if replacement scope includes non-English libraries.
 - Add hardcoded subtitle/sample/raw disk checks. Implemented through unsafe artifact release specifications and deterministic decision-engine coverage.
-- Add repack/proper handling. First-pass parser and decision-engine coverage now ranks proper/repack/version revisions, upgrades same-quality existing files when explicit revision state is supplied, and rejects known release-group mismatches for repacks; persisted imported-media revision state remains future work.
+- Add repack/proper handling. First-pass parser, decision-engine, and import coverage now ranks proper/repack/version revisions, persists imported-media revision state, upgrades same-quality existing files when revision state is available, and rejects known release-group mismatches for repacks; fuller policy controls and replacement-grade revision history remain future work.
 - Add TV-specific checks:
   - air date gating,
   - season pack only / full season,
