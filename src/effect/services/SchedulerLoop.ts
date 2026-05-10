@@ -14,6 +14,7 @@ import { Db } from "./Db"
 import { DownloadMonitor } from "./DownloadMonitor"
 import { IndexerApplicationService } from "./IndexerApplicationService"
 import { IndexerDefinitionSourceService } from "./IndexerDefinitionSourceService"
+import { MaintenanceService } from "./MaintenanceService"
 import { MetadataRefreshService } from "./MetadataRefreshService"
 import { MovieService } from "./MovieService"
 import { SchedulerService } from "./SchedulerService"
@@ -28,6 +29,7 @@ const tick = Effect.gen(function* () {
   const monitor = yield* DownloadMonitor
   const indexerApplications = yield* IndexerApplicationService
   const definitionSources = yield* IndexerDefinitionSourceService
+  const maintenance = yield* MaintenanceService
   const metadataRefresh = yield* MetadataRefreshService
   const movieService = yield* MovieService
 
@@ -140,6 +142,13 @@ const tick = Effect.gen(function* () {
         yield* Effect.log(`database_backup: wrote ${backup.backupPath}`)
         break
       }
+      case "housekeeping": {
+        const summary = yield* maintenance.runHousekeeping()
+        yield* Effect.log(
+          `housekeeping: ${summary.schedulerJobsDeleted} jobs, ${summary.notificationDeliveriesDeleted} notifications, ${summary.releaseDecisionsDeleted} decisions, ${summary.releaseBlocklistDeleted} blocklist, ${summary.queueRowsDeleted} queue, ${summary.expiredSessionsDeleted} sessions deleted`,
+        )
+        break
+      }
       case "tv_rss_sync": {
         // For each monitored, wanted episode whose air_date is sufficiently past, search.
         const airCutoff = new Date(Date.now() - DEFAULT_AIR_DATE_DELAY_MINUTES * 60_000)
@@ -239,6 +248,8 @@ function payloadForType(jobType: SchedulerJobType): SchedulerJobPayload | null {
       return { _tag: "series_metadata_refresh" }
     case "database_backup":
       return { _tag: "database_backup" }
+    case "housekeeping":
+      return { _tag: "housekeeping" }
     case "search_cutoff":
       return { _tag: "search_cutoff" }
     case "search_missing":

@@ -17,6 +17,7 @@ type JobType =
   | "movie_metadata_refresh"
   | "series_metadata_refresh"
   | "database_backup"
+  | "housekeeping"
   | "tv_rss_sync"
   | "tv_search_cutoff"
   | "tv_search_series"
@@ -54,6 +55,7 @@ const jobTypeOptions: ReadonlyArray<JobType> = [
   "movie_metadata_refresh",
   "series_metadata_refresh",
   "database_backup",
+  "housekeeping",
   "tv_rss_sync",
   "tv_search_cutoff",
   "tv_search_series",

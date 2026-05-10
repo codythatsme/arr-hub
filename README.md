@@ -234,6 +234,9 @@ variables because a claimed server token is required.
   metadata when present, and a current schema shape before seeding background
   jobs. If validation fails, the startup log includes the database path and the
   migration command to run.
+- The scheduler runs daily housekeeping for old completed jobs, notification
+  deliveries, release decisions/blocklist rows, stale completed queue rows, and
+  expired local session tokens.
 
 ## Upgrades
 

@@ -14,6 +14,7 @@ import { ImportServiceLive } from "./services/ImportService"
 import { IndexerApplicationServiceLive } from "./services/IndexerApplicationService"
 import { IndexerDefinitionSourceServiceLive } from "./services/IndexerDefinitionSourceService"
 import { IndexerServiceLive } from "./services/IndexerService"
+import { MaintenanceServiceLive } from "./services/MaintenanceService"
 import { MediaImportServiceLive } from "./services/MediaImportService"
 import { MediaServerServiceLive } from "./services/MediaServerService"
 import { MetadataRefreshServiceLive } from "./services/MetadataRefreshService"
@@ -47,6 +48,7 @@ export function makeAppLayer(tmdbClientLayer: Layer.Layer<TmdbClient> = TmdbClie
   return Layer.mergeAll(
     DiagnosticsServiceLive,
     BackupServiceLive,
+    MaintenanceServiceLive,
     QueueServiceLive,
     AcquisitionPipelineLive,
     DownloadMonitorWithImportLive,
