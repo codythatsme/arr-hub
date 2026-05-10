@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import { Radio, RefreshCw, Save, Trash2 } from "lucide-react"
 import { type FormEvent, type ReactNode, useState } from "react"
 
+import { SettingsDiagnosticsPanel } from "#/components/settings-diagnostics-panel"
 import type {
   IndexerAuthField,
   IndexerDefinition,
@@ -60,6 +61,14 @@ const emptyForm: IndexerFormState = {
   searchEnabled: true,
   rssEnabled: true,
 }
+
+const INDEXER_DIAGNOSTIC_TYPES = new Set(["indexer"])
+const INDEXER_DIAGNOSTIC_FAILURE_TYPES = new Set([
+  "indexer",
+  "indexer_stats",
+  "indexer_search_failures",
+  "indexer_rss_failures",
+])
 
 interface ProxyFormState {
   readonly id: number | null
@@ -189,6 +198,7 @@ function Indexers() {
   const proxyListKey = trpc.indexers.listProxies.queryKey()
   const definitionSourceListKey = trpc.indexerDefinitionSources.list.queryKey()
   const applicationListKey = trpc.indexerApplications.list.queryKey()
+  const diagnosticsKey = trpc.diagnostics.health.queryKey()
   const indexers = useQuery(trpc.indexers.list.queryOptions())
   const types = useQuery(trpc.indexers.listTypes.queryOptions())
   const definitions = useQuery(trpc.indexers.listDefinitions.queryOptions())
@@ -196,8 +206,12 @@ function Indexers() {
   const stats = useQuery(trpc.indexers.listStats.queryOptions())
   const definitionSources = useQuery(trpc.indexerDefinitionSources.list.queryOptions())
   const applications = useQuery(trpc.indexerApplications.list.queryOptions())
+  const diagnostics = useQuery(trpc.diagnostics.health.queryOptions())
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: listKey })
+  const invalidate = async () => {
+    await queryClient.invalidateQueries({ queryKey: listKey })
+    await queryClient.invalidateQueries({ queryKey: diagnosticsKey })
+  }
   const invalidateDefinitions = () => queryClient.invalidateQueries({ queryKey: definitionsKey })
   const invalidateProxies = () => queryClient.invalidateQueries({ queryKey: proxyListKey })
   const invalidateDefinitionSources = () =>
@@ -642,6 +656,15 @@ function Indexers() {
           Manage Torznab/Newznab endpoints used for manual and scheduled searches.
         </p>
       </header>
+
+      <SettingsDiagnosticsPanel
+        health={diagnostics.data}
+        isLoading={diagnostics.isLoading}
+        errorMessage={diagnostics.error?.message}
+        integrationTypes={INDEXER_DIAGNOSTIC_TYPES}
+        failureTypes={INDEXER_DIAGNOSTIC_FAILURE_TYPES}
+        healthyMessage="No indexer diagnostics reported."
+      />
 
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
         <div className="space-y-3">

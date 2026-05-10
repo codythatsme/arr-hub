@@ -3,11 +3,15 @@ import { createFileRoute } from "@tanstack/react-router"
 import { FolderPlus, RefreshCw, Save, Trash2 } from "lucide-react"
 import { type FormEvent, useEffect, useState } from "react"
 
+import { SettingsDiagnosticsPanel } from "#/components/settings-diagnostics-panel"
 import { useTRPC } from "#/integrations/trpc/react"
 
 export const Route = createFileRoute("/settings/media-management")({
   component: MediaManagement,
 })
+
+const MEDIA_MANAGEMENT_DIAGNOSTIC_TYPES = new Set(["root_folder", "remote_path_mapping"])
+const MEDIA_MANAGEMENT_DIAGNOSTIC_FAILURE_TYPES = new Set(["root_folder", "remote_path_mapping"])
 
 function MediaManagement() {
   const trpc = useTRPC()
@@ -25,10 +29,12 @@ function MediaManagement() {
   const settingsKey = trpc.settings.list.queryKey()
   const rootFoldersKey = trpc.rootFolders.list.queryKey()
   const mappingsKey = trpc.mediaManagement.listRemotePathMappings.queryKey()
+  const diagnosticsKey = trpc.diagnostics.health.queryKey()
   const settings = useQuery(trpc.settings.list.queryOptions())
   const rootFolders = useQuery(trpc.rootFolders.list.queryOptions())
   const downloadClients = useQuery(trpc.downloadClients.list.queryOptions())
   const remotePathMappings = useQuery(trpc.mediaManagement.listRemotePathMappings.queryOptions())
+  const diagnostics = useQuery(trpc.diagnostics.health.queryOptions())
 
   const setSetting = useMutation(
     trpc.settings.set.mutationOptions({
@@ -41,7 +47,10 @@ function MediaManagement() {
   const addRootFolder = useMutation(
     trpc.rootFolders.add.mutationOptions({
       onSuccess: async (folder) => {
-        await queryClient.invalidateQueries({ queryKey: rootFoldersKey })
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: rootFoldersKey }),
+          queryClient.invalidateQueries({ queryKey: diagnosticsKey }),
+        ])
         setRootFolderPath("")
         setMessage(`Root folder added: ${folder.path}`)
       },
@@ -50,7 +59,10 @@ function MediaManagement() {
   const removeRootFolder = useMutation(
     trpc.rootFolders.remove.mutationOptions({
       onSuccess: async () => {
-        await queryClient.invalidateQueries({ queryKey: rootFoldersKey })
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: rootFoldersKey }),
+          queryClient.invalidateQueries({ queryKey: diagnosticsKey }),
+        ])
         setMessage("Root folder removed.")
       },
     }),
@@ -58,7 +70,10 @@ function MediaManagement() {
   const refreshRootFolder = useMutation(
     trpc.rootFolders.refreshSpace.mutationOptions({
       onSuccess: async (folder) => {
-        await queryClient.invalidateQueries({ queryKey: rootFoldersKey })
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: rootFoldersKey }),
+          queryClient.invalidateQueries({ queryKey: diagnosticsKey }),
+        ])
         setMessage(`Disk space refreshed for ${folder.path}.`)
       },
     }),
@@ -66,7 +81,10 @@ function MediaManagement() {
   const addRemotePathMapping = useMutation(
     trpc.mediaManagement.addRemotePathMapping.mutationOptions({
       onSuccess: async (mapping) => {
-        await queryClient.invalidateQueries({ queryKey: mappingsKey })
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: mappingsKey }),
+          queryClient.invalidateQueries({ queryKey: diagnosticsKey }),
+        ])
         setMappingRemotePath("")
         setMappingLocalPath("")
         setMessage(`Remote path mapping added: ${mapping.remotePath}`)
@@ -76,7 +94,10 @@ function MediaManagement() {
   const removeRemotePathMapping = useMutation(
     trpc.mediaManagement.removeRemotePathMapping.mutationOptions({
       onSuccess: async () => {
-        await queryClient.invalidateQueries({ queryKey: mappingsKey })
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: mappingsKey }),
+          queryClient.invalidateQueries({ queryKey: diagnosticsKey }),
+        ])
         setMessage("Remote path mapping removed.")
       },
     }),
@@ -183,6 +204,14 @@ function MediaManagement() {
 
       {message && <p className="text-sm text-emerald-600">{message}</p>}
       {error && <p className="text-destructive text-sm">{error}</p>}
+      <SettingsDiagnosticsPanel
+        health={diagnostics.data}
+        isLoading={diagnostics.isLoading}
+        errorMessage={diagnostics.error?.message}
+        integrationTypes={MEDIA_MANAGEMENT_DIAGNOSTIC_TYPES}
+        failureTypes={MEDIA_MANAGEMENT_DIAGNOSTIC_FAILURE_TYPES}
+        healthyMessage="No media-management diagnostics reported."
+      />
 
       <section className="grid gap-6 lg:grid-cols-2">
         <form className="rounded-md border p-4" onSubmit={saveNaming}>

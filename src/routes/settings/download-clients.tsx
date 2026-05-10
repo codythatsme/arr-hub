@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import { DownloadCloud, RefreshCw, Save, Trash2 } from "lucide-react"
 import { type FormEvent, type ReactNode, useState } from "react"
 
+import { SettingsDiagnosticsPanel } from "#/components/settings-diagnostics-panel"
 import { useTRPC } from "#/integrations/trpc/react"
 
 export const Route = createFileRoute("/settings/download-clients")({
@@ -55,6 +56,14 @@ const emptyForm: DownloadClientFormState = {
   enabled: true,
 }
 
+const DOWNLOAD_CLIENT_DIAGNOSTIC_TYPES = new Set(["download_client"])
+const DOWNLOAD_CLIENT_DIAGNOSTIC_FAILURE_TYPES = new Set([
+  "download_client",
+  "download_client_unavailable",
+  "download_client_health_stale",
+  "download_client_remove_completed",
+])
+
 function isBlackholeType(type: string): boolean {
   return type === "torrent_blackhole" || type === "usenet_blackhole"
 }
@@ -81,10 +90,15 @@ function DownloadClients() {
   const [message, setMessage] = useState<string | null>(null)
 
   const listKey = trpc.downloadClients.list.queryKey()
+  const diagnosticsKey = trpc.diagnostics.health.queryKey()
   const clients = useQuery(trpc.downloadClients.list.queryOptions())
   const types = useQuery(trpc.downloadClients.listTypes.queryOptions())
+  const diagnostics = useQuery(trpc.diagnostics.health.queryOptions())
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: listKey })
+  const invalidate = async () => {
+    await queryClient.invalidateQueries({ queryKey: listKey })
+    await queryClient.invalidateQueries({ queryKey: diagnosticsKey })
+  }
   const add = useMutation(
     trpc.downloadClients.add.mutationOptions({
       onSuccess: async () => {
@@ -181,6 +195,15 @@ function DownloadClients() {
           Configure download clients used when approved releases are grabbed.
         </p>
       </header>
+
+      <SettingsDiagnosticsPanel
+        health={diagnostics.data}
+        isLoading={diagnostics.isLoading}
+        errorMessage={diagnostics.error?.message}
+        integrationTypes={DOWNLOAD_CLIENT_DIAGNOSTIC_TYPES}
+        failureTypes={DOWNLOAD_CLIENT_DIAGNOSTIC_FAILURE_TYPES}
+        healthyMessage="No download-client diagnostics reported."
+      />
 
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
         <div className="space-y-3">

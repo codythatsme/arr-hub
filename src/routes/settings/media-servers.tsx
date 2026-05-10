@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import { RefreshCw, Save, Server, Trash2 } from "lucide-react"
 import { type FormEvent, type ReactNode, useState } from "react"
 
+import { SettingsDiagnosticsPanel } from "#/components/settings-diagnostics-panel"
 import { useTRPC } from "#/integrations/trpc/react"
 
 export const Route = createFileRoute("/settings/media-servers")({
@@ -35,6 +36,9 @@ const emptyForm: MediaServerFormState = {
   monitoringEnabled: true,
 }
 
+const MEDIA_SERVER_DIAGNOSTIC_TYPES = new Set(["media_server"])
+const MEDIA_SERVER_DIAGNOSTIC_FAILURE_TYPES = new Set(["media_server"])
+
 function MediaServers() {
   const trpc = useTRPC()
   const queryClient = useQueryClient()
@@ -43,8 +47,10 @@ function MediaServers() {
   const [message, setMessage] = useState<string | null>(null)
 
   const listKey = trpc.mediaServers.list.queryKey()
+  const diagnosticsKey = trpc.diagnostics.health.queryKey()
   const servers = useQuery(trpc.mediaServers.list.queryOptions())
   const types = useQuery(trpc.mediaServers.listTypes.queryOptions())
+  const diagnostics = useQuery(trpc.diagnostics.health.queryOptions())
   const libraries = useQuery(
     trpc.mediaServers.libraries.queryOptions(
       { id: selectedServerId ?? 0 },
@@ -52,7 +58,10 @@ function MediaServers() {
     ),
   )
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: listKey })
+  const invalidate = async () => {
+    await queryClient.invalidateQueries({ queryKey: listKey })
+    await queryClient.invalidateQueries({ queryKey: diagnosticsKey })
+  }
   const add = useMutation(
     trpc.mediaServers.add.mutationOptions({
       onSuccess: async () => {
@@ -149,6 +158,15 @@ function MediaServers() {
           Configure Plex or Jellyfin connections for library sync, refresh, and stream monitoring.
         </p>
       </header>
+
+      <SettingsDiagnosticsPanel
+        health={diagnostics.data}
+        isLoading={diagnostics.isLoading}
+        errorMessage={diagnostics.error?.message}
+        integrationTypes={MEDIA_SERVER_DIAGNOSTIC_TYPES}
+        failureTypes={MEDIA_SERVER_DIAGNOSTIC_FAILURE_TYPES}
+        healthyMessage="No media-server diagnostics reported."
+      />
 
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
         <div className="space-y-6">
