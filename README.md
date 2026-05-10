@@ -111,11 +111,19 @@ docker compose start arr-hub
 - `ARR_HUB_DOWNLOADS_PATH` (Compose host path mounted at `/downloads`)
 - `ARR_HUB_MOVIES_PATH` (Compose host path mounted at `/movies`)
 - `ARR_HUB_TV_PATH` (Compose host path mounted at `/tv`)
+- `TMDB_API_KEY` (required for movie/TV metadata lookup, add flows, and refresh jobs)
 
 ### Development defaults
 
 - If `ENCRYPTION_KEY` is missing outside production, a dev-only fallback key is used.
 - If `INITIAL_ADMIN_PASSWORD` is missing outside production and no users exist, default admin password is `admin`.
+
+### Metadata provider keys
+
+ARR Hub currently uses TMDB for movie and TV metadata. A `TMDB_API_KEY` is
+required for TMDB-backed search, add flows, metadata refresh jobs, and TV season
+hydration. There is no TVDB/SkyHook credential path yet; TVDB/SkyHook parity is
+still tracked in [development-plan.md](./development-plan.md).
 
 ## Auth + UI Session
 
@@ -180,6 +188,21 @@ APIs. The web app uses internal tRPC procedures plus a small set of HTTP
 surfaces including `/api/system/health` and aggregate Torznab/Newznab-compatible
 indexer feeds. Existing Arr ecosystem tools should not treat ARR Hub as a
 drop-in compatible Sonarr/Radarr/Prowlarr server yet.
+
+## Migration From Existing Arr Apps
+
+ARR Hub has a one-time setup import path for existing Radarr movie libraries and
+Sonarr series libraries. Use onboarding or the import setup flow before setup is
+completed; after onboarding, those public setup/import mutation endpoints are
+blocked. The import path is intended to bring over existing media records,
+monitored state, series seasons/episodes, file paths, and known quality where
+the source app provides them.
+
+Prowlarr migration is not a database import. Configure ARR Hub indexers directly
+with the built-in Newznab presets, generic Torznab/Newznab endpoints,
+representative Cardigann definitions, or checksum-pinned remote definition
+sources. ARR Hub can also sync its aggregate Torznab/Newznab endpoints into
+Radarr/Sonarr app records from Settings.
 
 ## Scripts
 
