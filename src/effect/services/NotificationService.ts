@@ -1,3 +1,7 @@
+import { execFile } from "node:child_process"
+import { existsSync, statSync } from "node:fs"
+import { isAbsolute } from "node:path"
+
 import { SqlError } from "@effect/sql/SqlError"
 import { desc, eq } from "drizzle-orm"
 import { Context, Effect, Layer } from "effect"
@@ -34,6 +38,7 @@ const OUTBOUND_CHANNEL_TYPES = new Set<NotificationChannelType>([
   ...URL_CHANNEL_TYPES,
   "pushover",
   "notifiarr",
+  "custom_script",
 ])
 
 interface FormattedNotification {
@@ -73,6 +78,8 @@ function channelTypeLabel(type: NotificationChannelType): string {
       return "Apprise API endpoint"
     case "notifiarr":
       return "Notifiarr"
+    case "custom_script":
+      return "custom script"
   }
 }
 
@@ -177,6 +184,7 @@ function formatOutboundPayload(
     case "webhook":
     case "ntfy":
     case "pushover":
+    case "custom_script":
     case "in_app":
       return { event, title, message, payload }
   }
@@ -184,6 +192,52 @@ function formatOutboundPayload(
 
 function stringifyNotifiarrPayload(payload: Record<string, unknown>, channelId: string): string {
   return JSON.stringify(payload).replace(`"${NOTIFIARR_CHANNEL_ID_PLACEHOLDER}"`, channelId)
+}
+
+function runCustomScript(
+  channel: NotificationChannel,
+  event: NotificationEvent,
+  title: string,
+  message: string,
+  payload: Record<string, unknown>,
+): Promise<void> {
+  const scriptPath = channel.settings.scriptPath ?? ""
+  const args = channel.settings.scriptArgs ?? []
+
+  return new Promise((resolve, reject) => {
+    execFile(
+      scriptPath,
+      [...args],
+      {
+        env: {
+          ...process.env,
+          ARR_HUB_CHANNEL_ID: String(channel.id),
+          ARR_HUB_CHANNEL_NAME: channel.name,
+          ARR_HUB_EVENT: event,
+          ARR_HUB_TITLE: title,
+          ARR_HUB_MESSAGE: message,
+          ARR_HUB_PAYLOAD: JSON.stringify(payload),
+          ARR_HUB_NOTIFICATION: JSON.stringify({ event, title, message, payload }),
+        },
+        timeout: 30_000,
+        windowsHide: true,
+      },
+      (error) => {
+        if (!error) {
+          resolve()
+          return
+        }
+
+        const failed = error as NodeJS.ErrnoException & { signal?: NodeJS.Signals | null }
+        if (failed.signal) {
+          reject(new Error(`custom script terminated by ${failed.signal}`))
+          return
+        }
+
+        reject(new Error(`custom script exited with code ${String(failed.code ?? "unknown")}`))
+      },
+    )
+  })
 }
 
 function formatTrigger(trigger: MonitoringTrigger): FormattedNotification {
@@ -386,6 +440,31 @@ export const NotificationServiceLive = Layer.effect(
             new ValidationError({ message: "Notifiarr Discord channel ID must be numeric" }),
           )
         }
+        if (input.type === "custom_script") {
+          const scriptPath = settings.scriptPath?.trim()
+          if (!scriptPath) {
+            return yield* Effect.fail(
+              new ValidationError({ message: "custom script path is required" }),
+            )
+          }
+          if (!isAbsolute(scriptPath)) {
+            return yield* Effect.fail(
+              new ValidationError({ message: "custom script path must be absolute" }),
+            )
+          }
+          const scriptFileExists = (() => {
+            try {
+              return existsSync(scriptPath) && statSync(scriptPath).isFile()
+            } catch {
+              return false
+            }
+          })()
+          if (!scriptFileExists) {
+            return yield* Effect.fail(
+              new ValidationError({ message: "custom script path must point to a file" }),
+            )
+          }
+        }
 
         const normalizedSettings =
           input.type === "pushover"
@@ -396,9 +475,18 @@ export const NotificationServiceLive = Layer.effect(
                   token: settings.token?.trim(),
                   channelId: settings.channelId?.trim(),
                 }
-              : isUrlChannelType(input.type)
-                ? { ...settings, url: settings.url?.trim() }
-                : settings
+              : input.type === "custom_script"
+                ? {
+                    ...settings,
+                    scriptPath: settings.scriptPath?.trim(),
+                    scriptArgs:
+                      settings.scriptArgs
+                        ?.map((argument) => argument.trim())
+                        .filter((argument) => argument.length > 0) ?? [],
+                  }
+                : isUrlChannelType(input.type)
+                  ? { ...settings, url: settings.url?.trim() }
+                  : settings
 
         return {
           name,
@@ -418,6 +506,11 @@ export const NotificationServiceLive = Layer.effect(
     ) =>
       Effect.tryPromise({
         try: async () => {
+          if (channel.type === "custom_script") {
+            await runCustomScript(channel, event, title, message, payload)
+            return
+          }
+
           const response =
             channel.type === "pushover"
               ? await fetch("https://api.pushover.net/1/messages.json", {

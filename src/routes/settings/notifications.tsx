@@ -111,6 +111,14 @@ const CHANNEL_TYPES = [
     urlLabel: "",
     placeholder: "",
   },
+  {
+    value: "custom_script",
+    label: "Custom script",
+    defaultName: "Script alerts",
+    destination: "",
+    urlLabel: "",
+    placeholder: "",
+  },
 ] as const
 
 type ChannelType = (typeof CHANNEL_TYPES)[number]["value"]
@@ -129,7 +137,12 @@ function requiresUrl(type: ChannelType): boolean {
 
 function channelDestination(channel: {
   readonly type: ChannelType
-  readonly settings: { readonly url?: string; readonly user?: string; readonly channelId?: string }
+  readonly settings: {
+    readonly url?: string
+    readonly user?: string
+    readonly channelId?: string
+    readonly scriptPath?: string
+  }
 }): string {
   const config = channelTypeConfig(channel.type)
   if (channel.type === "pushover") {
@@ -140,8 +153,18 @@ function channelDestination(channel: {
       ? "Notifiarr channel configured"
       : "Notifiarr settings missing"
   }
+  if (channel.type === "custom_script") {
+    return channel.settings.scriptPath ?? "Script path missing"
+  }
   if (!requiresUrl(channel.type)) return config.destination
   return channel.settings.url ?? `${config.label} URL not configured`
+}
+
+function parseScriptArgs(value: string): Array<string> {
+  return value
+    .split("\n")
+    .map((argument) => argument.trim())
+    .filter((argument) => argument.length > 0)
 }
 
 function Notifications() {
@@ -154,6 +177,8 @@ function Notifications() {
   const [pushoverUser, setPushoverUser] = useState("")
   const [notifiarrApiKey, setNotifiarrApiKey] = useState("")
   const [notifiarrChannelId, setNotifiarrChannelId] = useState("")
+  const [scriptPath, setScriptPath] = useState("")
+  const [scriptArgs, setScriptArgs] = useState("")
   const [events, setEvents] = useState<ReadonlyArray<NotificationEvent>>(
     EVENTS.map((event) => event.value),
   )
@@ -172,6 +197,8 @@ function Notifications() {
         setPushoverUser("")
         setNotifiarrApiKey("")
         setNotifiarrChannelId("")
+        setScriptPath("")
+        setScriptArgs("")
       },
     }),
   )
@@ -199,7 +226,8 @@ function Notifications() {
   const missingSettings =
     (requiresUrl(type) && url.length === 0) ||
     (type === "pushover" && (pushoverToken.length === 0 || pushoverUser.length === 0)) ||
-    (type === "notifiarr" && (notifiarrApiKey.length === 0 || notifiarrChannelId.length === 0))
+    (type === "notifiarr" && (notifiarrApiKey.length === 0 || notifiarrChannelId.length === 0)) ||
+    (type === "custom_script" && scriptPath.length === 0)
 
   return (
     <div className="space-y-6 p-6">
@@ -319,9 +347,11 @@ function Notifications() {
                   ? { token: pushoverToken, user: pushoverUser }
                   : type === "notifiarr"
                     ? { token: notifiarrApiKey, channelId: notifiarrChannelId }
-                    : requiresUrl(type)
-                      ? { url }
-                      : {},
+                    : type === "custom_script"
+                      ? { scriptPath, scriptArgs: parseScriptArgs(scriptArgs) }
+                      : requiresUrl(type)
+                        ? { url }
+                        : {},
             })
           }}
         >
@@ -404,6 +434,29 @@ function Notifications() {
                     value={notifiarrChannelId}
                     onChange={(event) => setNotifiarrChannelId(event.target.value)}
                     placeholder="735481457153277994"
+                  />
+                </label>
+              </>
+            )}
+
+            {type === "custom_script" && (
+              <>
+                <label className="block text-sm">
+                  <span className="font-medium">Script path</span>
+                  <input
+                    className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                    value={scriptPath}
+                    onChange={(event) => setScriptPath(event.target.value)}
+                    placeholder="/config/scripts/notify.sh"
+                  />
+                </label>
+                <label className="block text-sm">
+                  <span className="font-medium">Script arguments</span>
+                  <textarea
+                    className="mt-1 min-h-24 w-full rounded border bg-transparent px-3 py-2"
+                    value={scriptArgs}
+                    onChange={(event) => setScriptArgs(event.target.value)}
+                    placeholder={"--flag\nvalue"}
                   />
                 </label>
               </>

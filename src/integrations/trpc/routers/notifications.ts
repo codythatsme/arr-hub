@@ -20,6 +20,8 @@ const channelInputSchema = z.object({
       token: z.string().min(1).optional(),
       user: z.string().min(1).optional(),
       channelId: z.string().min(1).optional(),
+      scriptPath: z.string().min(1).optional(),
+      scriptArgs: z.array(z.string()).optional(),
       headers: z.record(z.string(), z.string()).optional(),
     })
     .default({}),

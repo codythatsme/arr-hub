@@ -803,6 +803,7 @@ export const notificationChannelTypes = [
   "pushover",
   "apprise",
   "notifiarr",
+  "custom_script",
 ] as const
 export type NotificationChannelType = (typeof notificationChannelTypes)[number]
 
@@ -811,6 +812,8 @@ export interface NotificationChannelSettings {
   readonly token?: string
   readonly user?: string
   readonly channelId?: string
+  readonly scriptPath?: string
+  readonly scriptArgs?: ReadonlyArray<string>
   readonly headers?: Record<string, string>
 }
 

@@ -1,3 +1,7 @@
+import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
+
 import { describe, expect, it } from "@effect/vitest"
 import { Effect, Layer } from "effect"
 import { afterEach, vi } from "vitest"
@@ -502,6 +506,75 @@ describe("NotificationService", () => {
     }).pipe(Effect.provide(TestLayer))
   })
 
+  it.effect("executes custom script deliveries with notification environment", () => {
+    let tempDir: string | undefined
+
+    return Effect.gen(function* () {
+      tempDir = yield* Effect.promise(() => mkdtemp(join(tmpdir(), "arr-hub-notify-")))
+      const scriptPath = join(tempDir, "notify.sh")
+      const envPath = join(tempDir, "env.txt")
+      const notificationPath = join(tempDir, "notification.json")
+
+      yield* Effect.promise(async () => {
+        await writeFile(
+          scriptPath,
+          [
+            "#!/bin/sh",
+            "{",
+            "  printf '%s\\n' \"$ARR_HUB_EVENT\"",
+            "  printf '%s\\n' \"$ARR_HUB_TITLE\"",
+            "  printf '%s\\n' \"$ARR_HUB_MESSAGE\"",
+            "  printf '%s\\n' \"$ARR_HUB_CHANNEL_NAME\"",
+            '} > "$1"',
+            'printf \'%s\' "$ARR_HUB_NOTIFICATION" > "$2"',
+            "",
+          ].join("\n"),
+        )
+        await chmod(scriptPath, 0o700)
+      })
+
+      const service = yield* NotificationService
+      const channel = yield* service.createChannel({
+        name: "Script",
+        type: "custom_script",
+        enabled: true,
+        events: ["server_down"],
+        settings: { scriptPath, scriptArgs: [envPath, notificationPath] },
+      })
+
+      const delivery = yield* service.testChannel(channel.id, "server_down")
+      const envOutput = yield* Effect.promise(() => readFile(envPath, "utf8"))
+      const notification = yield* Effect.promise(() => readFile(notificationPath, "utf8"))
+      const parsed = JSON.parse(notification) as {
+        event: string
+        title: string
+        message: string
+        payload: { test: boolean; serverName: string }
+      }
+
+      expect(delivery.status).toBe("sent")
+      expect(envOutput.split("\n").slice(0, 4)).toEqual([
+        "server_down",
+        "Test media server offline",
+        "Example Server is not responding",
+        "Script",
+      ])
+      expect(parsed).toMatchObject({
+        event: "server_down",
+        title: "Test media server offline",
+        message: "Example Server is not responding",
+        payload: { test: true, serverName: "Example Server" },
+      })
+    }).pipe(
+      Effect.ensuring(
+        Effect.promise(async () => {
+          if (tempDir) await rm(tempDir, { recursive: true, force: true })
+        }),
+      ),
+      Effect.provide(TestLayer),
+    )
+  })
+
   it.effect("requires Pushover credentials", () =>
     Effect.gen(function* () {
       const service = yield* NotificationService
@@ -551,6 +624,52 @@ describe("NotificationService", () => {
       expect(invalid._tag).toBe("Left")
       if (invalid._tag === "Left") {
         expect(invalid.left.message).toBe("Notifiarr Discord channel ID must be numeric")
+      }
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.effect("requires a valid custom script path", () =>
+    Effect.gen(function* () {
+      const service = yield* NotificationService
+      const missing = yield* Effect.either(
+        service.createChannel({
+          name: "Script",
+          type: "custom_script",
+          enabled: true,
+          events: ["server_down"],
+          settings: {},
+        }),
+      )
+      const relative = yield* Effect.either(
+        service.createChannel({
+          name: "Script",
+          type: "custom_script",
+          enabled: true,
+          events: ["server_down"],
+          settings: { scriptPath: "notify.sh" },
+        }),
+      )
+      const absent = yield* Effect.either(
+        service.createChannel({
+          name: "Script",
+          type: "custom_script",
+          enabled: true,
+          events: ["server_down"],
+          settings: { scriptPath: "/definitely/not/here/notify.sh" },
+        }),
+      )
+
+      expect(missing._tag).toBe("Left")
+      if (missing._tag === "Left") {
+        expect(missing.left.message).toBe("custom script path is required")
+      }
+      expect(relative._tag).toBe("Left")
+      if (relative._tag === "Left") {
+        expect(relative.left.message).toBe("custom script path must be absolute")
+      }
+      expect(absent._tag).toBe("Left")
+      if (absent._tag === "Left") {
+        expect(absent.left.message).toBe("custom script path must point to a file")
       }
     }).pipe(Effect.provide(TestLayer)),
   )
