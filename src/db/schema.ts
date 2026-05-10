@@ -799,6 +799,7 @@ export const notificationChannelTypes = [
   "slack",
   "ntfy",
   "gotify",
+  "telegram",
 ] as const
 export type NotificationChannelType = (typeof notificationChannelTypes)[number]
 

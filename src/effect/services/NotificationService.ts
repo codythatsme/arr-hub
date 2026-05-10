@@ -26,6 +26,7 @@ const URL_CHANNEL_TYPES = new Set<NotificationChannelType>([
   "slack",
   "ntfy",
   "gotify",
+  "telegram",
 ])
 
 interface FormattedNotification {
@@ -53,10 +54,16 @@ function channelTypeLabel(type: NotificationChannelType): string {
       return "Ntfy topic"
     case "gotify":
       return "Gotify message endpoint"
+    case "telegram":
+      return "Telegram sendMessage endpoint"
   }
 }
 
 function escapeSlackText(value: string): string {
+  return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
+}
+
+function escapeTelegramHtml(value: string): string {
   return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
 }
 
@@ -102,6 +109,12 @@ function formatOutboundPayload(
         title,
         message,
         priority: event.includes("failed") || event.includes("down") ? 8 : 4,
+      }
+    case "telegram":
+      return {
+        text: `<b>${escapeTelegramHtml(title)}</b>\n${escapeTelegramHtml(message)}`,
+        parse_mode: "HTML",
+        disable_web_page_preview: true,
       }
     case "webhook":
     case "ntfy":

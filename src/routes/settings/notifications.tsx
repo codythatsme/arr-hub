@@ -79,6 +79,14 @@ const CHANNEL_TYPES = [
     urlLabel: "Gotify message URL",
     placeholder: "https://gotify.example/message?token=...",
   },
+  {
+    value: "telegram",
+    label: "Telegram",
+    defaultName: "Telegram alerts",
+    destination: "",
+    urlLabel: "Telegram sendMessage URL",
+    placeholder: "https://api.telegram.org/bot.../sendMessage?chat_id=...",
+  },
 ] as const
 
 type ChannelType = (typeof CHANNEL_TYPES)[number]["value"]

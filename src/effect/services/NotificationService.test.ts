@@ -353,6 +353,40 @@ describe("NotificationService", () => {
     }).pipe(Effect.provide(TestLayer))
   })
 
+  it.effect("formats Telegram sendMessage deliveries", () => {
+    const fetchSpy = stubSuccessfulFetch()
+
+    return Effect.gen(function* () {
+      const service = yield* NotificationService
+      yield* service.createChannel({
+        name: "Telegram",
+        type: "telegram",
+        enabled: true,
+        events: ["grabbed"],
+        settings: { url: "https://api.telegram.example/bot-token/sendMessage?chat_id=1234" },
+      })
+
+      yield* service.deliverTrigger({
+        kind: "operational",
+        event: "grabbed",
+        title: "Release <grabbed> & queued",
+        message: "Movie > Series & more",
+        payload: { releaseTitle: "Example.Release.2026" },
+      })
+      const body = getFetchBody(fetchSpy)
+
+      expect(fetchSpy).toHaveBeenCalledWith(
+        "https://api.telegram.example/bot-token/sendMessage?chat_id=1234",
+        expect.objectContaining({ method: "POST" }),
+      )
+      expect(body).toMatchObject({
+        text: "<b>Release &lt;grabbed&gt; &amp; queued</b>\nMovie &gt; Series &amp; more",
+        parse_mode: "HTML",
+        disable_web_page_preview: true,
+      })
+    }).pipe(Effect.provide(TestLayer))
+  })
+
   it.effect("requires URLs for provider-backed webhook channels", () =>
     Effect.gen(function* () {
       const service = yield* NotificationService
