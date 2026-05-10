@@ -130,6 +130,17 @@ export const customFormats = sqliteTable("custom_formats", {
     .default(sql`(unixepoch())`),
 })
 
+export const tags = sqliteTable("tags", {
+  id: integer().primaryKey({ autoIncrement: true }),
+  label: text().notNull().unique(),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+})
+
 export const customFormatSpecs = sqliteTable("custom_format_specs", {
   id: integer().primaryKey({ autoIncrement: true }),
   customFormatId: integer("custom_format_id")
@@ -173,6 +184,10 @@ export const movies = sqliteTable("movies", {
     .$type<ReadonlyArray<string>>()
     .notNull()
     .default(sql`'[]'`),
+  tags: text({ mode: "json" })
+    .$type<ReadonlyArray<string>>()
+    .notNull()
+    .default(sql`'[]'`),
   runtimeMinutes: integer("runtime_minutes"),
   status: text({ enum: ["wanted", "available", "missing"] })
     .notNull()
@@ -209,6 +224,10 @@ export const series = sqliteTable("series", {
     .default("wanted"),
   network: text(),
   genres: text({ mode: "json" })
+    .$type<ReadonlyArray<string>>()
+    .notNull()
+    .default(sql`'[]'`),
+  tags: text({ mode: "json" })
     .$type<ReadonlyArray<string>>()
     .notNull()
     .default(sql`'[]'`),

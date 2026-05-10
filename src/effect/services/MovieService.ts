@@ -6,6 +6,7 @@ import { movies } from "#/db/schema"
 
 import { NotFoundError, ConflictError } from "../errors"
 import { Db } from "./Db"
+import { ensureTagRows } from "./TagService"
 
 type Movie = typeof movies.$inferSelect
 
@@ -19,6 +20,7 @@ interface MovieInput {
   readonly overview?: string | null
   readonly posterPath?: string | null
   readonly genres?: ReadonlyArray<string>
+  readonly tags?: ReadonlyArray<string>
   readonly runtimeMinutes?: number | null
   readonly status?: "wanted" | "available" | "missing"
   readonly qualityProfileId?: number | null
@@ -36,6 +38,7 @@ interface MovieUpdate {
   readonly overview?: string | null
   readonly posterPath?: string | null
   readonly genres?: ReadonlyArray<string>
+  readonly tags?: ReadonlyArray<string>
   readonly runtimeMinutes?: number | null
   readonly status?: "wanted" | "available" | "missing"
   readonly qualityProfileId?: number | null
@@ -85,6 +88,7 @@ export const MovieServiceLive = Layer.effect(
             })
           }
 
+          const tagLabels = yield* ensureTagRows(db, input.tags ?? [])
           const rows = yield* db
             .insert(movies)
             .values({
@@ -97,6 +101,7 @@ export const MovieServiceLive = Layer.effect(
               overview: input.overview ?? null,
               posterPath: input.posterPath ?? null,
               genres: input.genres ?? [],
+              tags: tagLabels,
               runtimeMinutes: input.runtimeMinutes ?? null,
               status: input.status ?? "wanted",
               qualityProfileId: input.qualityProfileId ?? null,
@@ -137,7 +142,15 @@ export const MovieServiceLive = Layer.effect(
 
       update: (id, data) =>
         Effect.gen(function* () {
-          const rows = yield* db.update(movies).set(data).where(eq(movies.id, id)).returning()
+          const tagLabels = data.tags !== undefined ? yield* ensureTagRows(db, data.tags) : null
+          const updateData =
+            tagLabels === null
+              ? data
+              : {
+                  ...data,
+                  tags: tagLabels,
+                }
+          const rows = yield* db.update(movies).set(updateData).where(eq(movies.id, id)).returning()
 
           const movie = rows[0]
           if (!movie) {

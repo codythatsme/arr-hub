@@ -19,6 +19,7 @@ import { Route as OnboardingIndexRouteImport } from './routes/onboarding/index'
 import { Route as MoviesIndexRouteImport } from './routes/movies/index'
 import { Route as ActivityIndexRouteImport } from './routes/activity/index'
 import { Route as TvIdRouteImport } from './routes/tv/$id'
+import { Route as SettingsTagsRouteImport } from './routes/settings/tags'
 import { Route as SettingsSecurityRouteImport } from './routes/settings/security'
 import { Route as SettingsSchedulerRouteImport } from './routes/settings/scheduler'
 import { Route as SettingsProfilesRouteImport } from './routes/settings/profiles'
@@ -97,6 +98,11 @@ const ActivityIndexRoute = ActivityIndexRouteImport.update({
 const TvIdRoute = TvIdRouteImport.update({
   id: '/tv/$id',
   path: '/tv/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsTagsRoute = SettingsTagsRouteImport.update({
+  id: '/settings/tags',
+  path: '/settings/tags',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsSecurityRoute = SettingsSecurityRouteImport.update({
@@ -271,6 +277,7 @@ export interface FileRoutesByFullPath {
   '/settings/profiles': typeof SettingsProfilesRoute
   '/settings/scheduler': typeof SettingsSchedulerRoute
   '/settings/security': typeof SettingsSecurityRoute
+  '/settings/tags': typeof SettingsTagsRoute
   '/tv/$id': typeof TvIdRoute
   '/activity/': typeof ActivityIndexRoute
   '/movies/': typeof MoviesIndexRoute
@@ -312,6 +319,7 @@ export interface FileRoutesByTo {
   '/settings/profiles': typeof SettingsProfilesRoute
   '/settings/scheduler': typeof SettingsSchedulerRoute
   '/settings/security': typeof SettingsSecurityRoute
+  '/settings/tags': typeof SettingsTagsRoute
   '/tv/$id': typeof TvIdRoute
   '/activity': typeof ActivityIndexRoute
   '/movies': typeof MoviesIndexRoute
@@ -354,6 +362,7 @@ export interface FileRoutesById {
   '/settings/profiles': typeof SettingsProfilesRoute
   '/settings/scheduler': typeof SettingsSchedulerRoute
   '/settings/security': typeof SettingsSecurityRoute
+  '/settings/tags': typeof SettingsTagsRoute
   '/tv/$id': typeof TvIdRoute
   '/activity/': typeof ActivityIndexRoute
   '/movies/': typeof MoviesIndexRoute
@@ -397,6 +406,7 @@ export interface FileRouteTypes {
     | '/settings/profiles'
     | '/settings/scheduler'
     | '/settings/security'
+    | '/settings/tags'
     | '/tv/$id'
     | '/activity/'
     | '/movies/'
@@ -438,6 +448,7 @@ export interface FileRouteTypes {
     | '/settings/profiles'
     | '/settings/scheduler'
     | '/settings/security'
+    | '/settings/tags'
     | '/tv/$id'
     | '/activity'
     | '/movies'
@@ -479,6 +490,7 @@ export interface FileRouteTypes {
     | '/settings/profiles'
     | '/settings/scheduler'
     | '/settings/security'
+    | '/settings/tags'
     | '/tv/$id'
     | '/activity/'
     | '/movies/'
@@ -521,6 +533,7 @@ export interface RootRouteChildren {
   SettingsProfilesRoute: typeof SettingsProfilesRoute
   SettingsSchedulerRoute: typeof SettingsSchedulerRoute
   SettingsSecurityRoute: typeof SettingsSecurityRoute
+  SettingsTagsRoute: typeof SettingsTagsRoute
   TvIdRoute: typeof TvIdRoute
   ActivityIndexRoute: typeof ActivityIndexRoute
   MoviesIndexRoute: typeof MoviesIndexRoute
@@ -606,6 +619,13 @@ declare module '@tanstack/react-router' {
       path: '/tv/$id'
       fullPath: '/tv/$id'
       preLoaderRoute: typeof TvIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/tags': {
+      id: '/settings/tags'
+      path: '/settings/tags'
+      fullPath: '/settings/tags'
+      preLoaderRoute: typeof SettingsTagsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings/security': {
@@ -867,6 +887,7 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsProfilesRoute: SettingsProfilesRoute,
   SettingsSchedulerRoute: SettingsSchedulerRoute,
   SettingsSecurityRoute: SettingsSecurityRoute,
+  SettingsTagsRoute: SettingsTagsRoute,
   TvIdRoute: TvIdRoute,
   ActivityIndexRoute: ActivityIndexRoute,
   MoviesIndexRoute: MoviesIndexRoute,

@@ -66,6 +66,7 @@ const runDdl = Effect.gen(function* () {
     overview TEXT,
     poster_path TEXT,
     genres TEXT NOT NULL DEFAULT '[]',
+    tags TEXT NOT NULL DEFAULT '[]',
     runtime_minutes INTEGER,
     status TEXT NOT NULL DEFAULT 'wanted',
     quality_profile_id INTEGER REFERENCES quality_profiles(id),
@@ -99,6 +100,13 @@ const runDdl = Effect.gen(function* () {
     created_at INTEGER NOT NULL DEFAULT (unixepoch())
   )`
 
+  yield* sql`CREATE TABLE tags (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    label TEXT NOT NULL UNIQUE,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+  )`
+
   yield* sql`CREATE TABLE custom_format_specs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     custom_format_id INTEGER NOT NULL REFERENCES custom_formats(id) ON DELETE CASCADE,
@@ -130,6 +138,7 @@ const runDdl = Effect.gen(function* () {
     status TEXT NOT NULL DEFAULT 'wanted',
     network TEXT,
     genres TEXT NOT NULL DEFAULT '[]',
+    tags TEXT NOT NULL DEFAULT '[]',
     runtime_minutes INTEGER,
     series_type TEXT,
     certification TEXT,

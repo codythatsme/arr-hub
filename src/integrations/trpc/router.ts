@@ -24,6 +24,7 @@ import { schedulerRouter } from "./routers/scheduler"
 import { seriesRouter } from "./routers/series"
 import { settingsRouter } from "./routers/settings"
 import { statsRouter } from "./routers/stats"
+import { tagsRouter } from "./routers/tags"
 import { tmdbRouter } from "./routers/tmdb"
 
 export const trpcRouter = createTRPCRouter({
@@ -52,6 +53,7 @@ export const trpcRouter = createTRPCRouter({
   scheduler: schedulerRouter,
   stats: statsRouter,
   diagnostics: diagnosticsRouter,
+  tags: tagsRouter,
   tmdb: tmdbRouter,
 })
 

@@ -6,6 +6,7 @@ import { series, seasons, episodes } from "#/db/schema"
 
 import { NotFoundError, ConflictError } from "../errors"
 import { Db } from "./Db"
+import { ensureTagRows } from "./TagService"
 
 // ── Types ──
 
@@ -58,6 +59,7 @@ export interface SeriesInput {
   readonly status?: "continuing" | "ended" | "wanted" | "available"
   readonly network?: string | null
   readonly genres?: ReadonlyArray<string>
+  readonly tags?: ReadonlyArray<string>
   readonly runtimeMinutes?: number | null
   readonly seriesType?: string | null
   readonly certification?: string | null
@@ -80,6 +82,7 @@ export interface SeriesUpdate {
   readonly status?: "continuing" | "ended" | "wanted" | "available"
   readonly network?: string | null
   readonly genres?: ReadonlyArray<string>
+  readonly tags?: ReadonlyArray<string>
   readonly runtimeMinutes?: number | null
   readonly seriesType?: string | null
   readonly certification?: string | null
@@ -186,6 +189,7 @@ export const SeriesServiceLive = Layer.effect(
           }
 
           const seriesMonitored = input.monitored ?? true
+          const tagLabels = yield* ensureTagRows(db, input.tags ?? [])
 
           const rows = yield* db
             .insert(series)
@@ -201,6 +205,7 @@ export const SeriesServiceLive = Layer.effect(
               status: input.status ?? "wanted",
               network: input.network ?? null,
               genres: input.genres ?? [],
+              tags: tagLabels,
               runtimeMinutes: input.runtimeMinutes ?? null,
               seriesType: input.seriesType ?? null,
               certification: input.certification ?? null,
@@ -271,7 +276,15 @@ export const SeriesServiceLive = Layer.effect(
 
       update: (id, data) =>
         Effect.gen(function* () {
-          const rows = yield* db.update(series).set(data).where(eq(series.id, id)).returning()
+          const tagLabels = data.tags !== undefined ? yield* ensureTagRows(db, data.tags) : null
+          const updateData =
+            tagLabels === null
+              ? data
+              : {
+                  ...data,
+                  tags: tagLabels,
+                }
+          const rows = yield* db.update(series).set(updateData).where(eq(series.id, id)).returning()
 
           if (rows.length === 0) {
             return yield* new NotFoundError({ entity: "series", id })

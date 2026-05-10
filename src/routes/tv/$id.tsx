@@ -40,6 +40,7 @@ function SeriesDetail() {
   const [overview, setOverview] = useState("")
   const [qualityProfileId, setQualityProfileId] = useState("")
   const [rootFolderPath, setRootFolderPath] = useState("")
+  const [tags, setTags] = useState("")
   const [monitored, setMonitored] = useState(true)
   const [seasonFolder, setSeasonFolder] = useState(true)
   const [selectedSeasonId, setSelectedSeasonId] = useState("")
@@ -170,6 +171,7 @@ function SeriesDetail() {
         : String(series.data.series.qualityProfileId),
     )
     setRootFolderPath(series.data.series.rootFolderPath ?? "")
+    setTags(series.data.series.tags.join(", "))
     setMonitored(series.data.series.monitored)
     setSeasonFolder(series.data.series.seasonFolder)
     setSelectedSeasonId((current) => current || String(series.data.seasons[0]?.season.id ?? ""))
@@ -219,6 +221,7 @@ function SeriesDetail() {
         overview: overview.trim().length > 0 ? overview.trim() : null,
         qualityProfileId: qualityProfileId.length > 0 ? Number(qualityProfileId) : null,
         rootFolderPath: rootFolderPath.length > 0 ? rootFolderPath : null,
+        tags: parseTags(tags),
         monitored,
         seasonFolder,
       },
@@ -270,6 +273,11 @@ function SeriesDetail() {
               </p>
               {series.data.series.overview && (
                 <p className="max-w-3xl text-sm">{series.data.series.overview}</p>
+              )}
+              {series.data.series.tags.length > 0 && (
+                <p className="text-muted-foreground text-sm">
+                  Tags: {series.data.series.tags.join(", ")}
+                </p>
               )}
             </div>
             <button
@@ -382,6 +390,15 @@ function SeriesDetail() {
                       </option>
                     ))}
                   </select>
+                </label>
+                <label className="block text-sm">
+                  <span className="font-medium">Tags</span>
+                  <input
+                    className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                    value={tags}
+                    onChange={(event) => setTags(event.target.value)}
+                    placeholder="Comma-separated"
+                  />
                 </label>
                 <div className="flex flex-wrap gap-4">
                   <label className="flex items-center gap-2 text-sm">
@@ -814,6 +831,17 @@ function WatchHistory(props: {
 function formatPercent(viewOffset: number, duration: number) {
   if (duration <= 0) return "unknown"
   return `${Math.round((viewOffset / duration) * 100)}%`
+}
+
+function parseTags(value: string): Array<string> {
+  return Array.from(
+    new Set(
+      value
+        .split(",")
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0),
+    ),
+  )
 }
 
 function formatBytes(bytes: number) {

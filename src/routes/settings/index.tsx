@@ -22,6 +22,7 @@ const groups = [
     href: "/settings/profiles",
     description: "Quality profiles and custom formats",
   },
+  { title: "Tags", href: "/settings/tags", description: "Shared media and policy labels" },
   { title: "Indexers", href: "/settings/indexers", description: "Indexer connections and health" },
   {
     title: "Download Clients",

@@ -38,6 +38,7 @@ function MovieDetail() {
   const [status, setStatus] = useState<MovieStatus>("wanted")
   const [qualityProfileId, setQualityProfileId] = useState("")
   const [rootFolderPath, setRootFolderPath] = useState("")
+  const [tags, setTags] = useState("")
   const [monitored, setMonitored] = useState(true)
   const [manualImportPath, setManualImportPath] = useState("")
   const [manualImportTitle, setManualImportTitle] = useState("")
@@ -129,6 +130,7 @@ function MovieDetail() {
       movie.data.qualityProfileId === null ? "" : String(movie.data.qualityProfileId),
     )
     setRootFolderPath(movie.data.rootFolderPath ?? "")
+    setTags(movie.data.tags.join(", "))
     setMonitored(movie.data.monitored)
   }, [movie.data])
 
@@ -162,6 +164,7 @@ function MovieDetail() {
         status,
         qualityProfileId: qualityProfileId.length > 0 ? Number(qualityProfileId) : null,
         rootFolderPath: rootFolderPath.length > 0 ? rootFolderPath : null,
+        tags: parseTags(tags),
         monitored,
       },
     })
@@ -197,6 +200,9 @@ function MovieDetail() {
                 {movie.data.status} · {movie.data.monitored ? "monitored" : "unmonitored"}
               </p>
               {movie.data.overview && <p className="max-w-3xl text-sm">{movie.data.overview}</p>}
+              {movie.data.tags.length > 0 && (
+                <p className="text-muted-foreground text-sm">Tags: {movie.data.tags.join(", ")}</p>
+              )}
             </div>
             <button
               type="button"
@@ -283,6 +289,15 @@ function MovieDetail() {
                       </option>
                     ))}
                   </select>
+                </label>
+                <label className="block text-sm">
+                  <span className="font-medium">Tags</span>
+                  <input
+                    className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+                    value={tags}
+                    onChange={(event) => setTags(event.target.value)}
+                    placeholder="Comma-separated"
+                  />
                 </label>
                 <label className="flex items-center gap-2 text-sm">
                   <input
@@ -505,6 +520,17 @@ function WatchHistory(props: {
 function formatPercent(viewOffset: number, duration: number) {
   if (duration <= 0) return "unknown"
   return `${Math.round((viewOffset / duration) * 100)}%`
+}
+
+function parseTags(value: string): Array<string> {
+  return Array.from(
+    new Set(
+      value
+        .split(",")
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0),
+    ),
+  )
 }
 
 function formatBytes(bytes: number) {

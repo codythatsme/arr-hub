@@ -37,6 +37,7 @@ import { SeriesServiceLive } from "./services/SeriesService"
 import { SessionHistoryServiceLive } from "./services/SessionHistoryService"
 import { SettingsServiceLive } from "./services/SettingsService"
 import { StatsServiceLive } from "./services/StatsService"
+import { TagServiceLive } from "./services/TagService"
 import { TitleParserServiceLive } from "./services/TitleParserService"
 import { TmdbClientLive } from "./services/TmdbClient"
 import type { TmdbClient } from "./services/TmdbClient"
@@ -77,6 +78,7 @@ export function makeAppLayer(tmdbClientLayer: Layer.Layer<TmdbClient> = TmdbClie
         OperationalHistoryServiceLive,
         PlexUserServiceLive,
         StatsServiceLive,
+        TagServiceLive,
       ),
     ),
     Layer.provideMerge(TitleParserServiceLive),

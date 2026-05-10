@@ -40,6 +40,7 @@ import { BUILT_IN_CARDIGANN_DEFINITIONS } from "./CardigannDefinitionLoader"
 import { CryptoService } from "./CryptoService"
 import { Db } from "./Db"
 import { recordDomainHistory } from "./OperationalHistoryService"
+import { ensureTagRows } from "./TagService"
 
 // ── Input types ──
 
@@ -1079,6 +1080,7 @@ export const IndexerServiceLive = Layer.effect(
           const definitionKey = input.definitionKey ?? defaultDefinitionKey(input.type)
           yield* validateDefinitionSelection(input.type, definitionKey)
           yield* validateProxyId(input.proxyId)
+          const tagLabels = yield* ensureTagRows(db, input.tags ?? [])
           const encrypted = yield* crypto.encrypt(input.apiKey)
           const configValuesEncrypted = yield* encryptConfigValues(input.configValues)
           const inserted = yield* db
@@ -1102,7 +1104,7 @@ export const IndexerServiceLive = Layer.effect(
               grabLimitCount: input.grabLimitCount ?? null,
               grabLimitWindowSeconds: input.grabLimitWindowSeconds ?? null,
               categories: input.categories ?? [],
-              tags: input.tags ?? [],
+              tags: tagLabels,
             })
             .returning()
 
@@ -1163,7 +1165,7 @@ export const IndexerServiceLive = Layer.effect(
             updateData.grabLimitWindowSeconds = data.grabLimitWindowSeconds
           }
           if (data.categories !== undefined) updateData.categories = data.categories
-          if (data.tags !== undefined) updateData.tags = data.tags
+          if (data.tags !== undefined) updateData.tags = yield* ensureTagRows(db, data.tags)
           if (data.apiKey !== undefined) {
             updateData.apiKeyEncrypted = yield* crypto.encrypt(data.apiKey)
           }
