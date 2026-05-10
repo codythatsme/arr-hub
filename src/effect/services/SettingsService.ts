@@ -13,6 +13,7 @@ export type SettingKey =
   | "app.updateChannel"
   | "media.namingConvention"
   | "media.fileHandling"
+  | "media.minimumFreeSpaceBytes"
   | "media.importStabilityDelaySeconds"
   | "release.allowedProtocols"
   | "release.ignoredTerms"
@@ -29,6 +30,10 @@ const SETTING_DEFINITIONS: Record<SettingKey, { readonly label: string; readonly
     "app.updateChannel": { label: "Update channel", group: "General" },
     "media.namingConvention": { label: "Naming convention", group: "Media Management" },
     "media.fileHandling": { label: "File handling", group: "Media Management" },
+    "media.minimumFreeSpaceBytes": {
+      label: "Minimum free space bytes",
+      group: "Media Management",
+    },
     "media.importStabilityDelaySeconds": {
       label: "Import stability delay seconds",
       group: "Media Management",
@@ -48,6 +53,7 @@ const DEFAULT_VALUES: Record<SettingKey, string> = {
   "app.updateChannel": "stable",
   "media.namingConvention": "{Title} ({Year})",
   "media.fileHandling": "copy",
+  "media.minimumFreeSpaceBytes": "0",
   "media.importStabilityDelaySeconds": "60",
   "release.allowedProtocols": "torrent,usenet",
   "release.ignoredTerms": "",
@@ -104,6 +110,17 @@ function validateValue(key: SettingKey, value: string): Effect.Effect<string, Se
         new SettingsError({
           reason: "invalid_value",
           message: "import stability delay must be a non-negative integer",
+        }),
+      )
+    }
+  }
+  if (key === "media.minimumFreeSpaceBytes") {
+    const parsedValue = Number(trimmed)
+    if (!Number.isInteger(parsedValue) || parsedValue < 0) {
+      return Effect.fail(
+        new SettingsError({
+          reason: "invalid_value",
+          message: "minimum free space must be a non-negative integer byte count",
         }),
       )
     }

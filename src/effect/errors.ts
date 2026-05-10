@@ -144,6 +144,7 @@ export type MediaImportErrorReason =
   | "media_mismatch"
   | "quality_not_allowed"
   | "upgrade_rejected"
+  | "insufficient_free_space"
   | "file_operation_failed"
   | "episode_match_failed"
 

@@ -1,5 +1,15 @@
 import { constants } from "node:fs"
-import { access, copyFile, link, mkdir, readdir, rename, stat, unlink } from "node:fs/promises"
+import {
+  access,
+  copyFile,
+  link,
+  mkdir,
+  readdir,
+  rename,
+  stat,
+  statfs,
+  unlink,
+} from "node:fs/promises"
 import path from "node:path"
 
 import { SqlError } from "@effect/sql/SqlError"
@@ -192,6 +202,8 @@ function nodeCode(error: unknown): string | null {
     : null
 }
 
+class InsufficientFreeSpaceError extends Error {}
+
 function isVideoFile(filePath: string): boolean {
   const extension = path.extname(filePath).toLowerCase()
   if (!VIDEO_EXTENSIONS.has(extension)) return false
@@ -283,6 +295,11 @@ function episodeKeyFromPath(
 
 function parseFileHandling(value: string): FileHandlingMode {
   return value === "move" || value === "hardlink" ? value : "copy"
+}
+
+function parseNonNegativeInteger(value: string): number {
+  const parsed = Number(value.trim())
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : 0
 }
 
 function releaseTitleFromPath(sourcePath: string): string {
@@ -892,18 +909,64 @@ function targetExists(targetPath: string): Promise<boolean> {
   )
 }
 
+async function targetFreeSpaceBytes(targetDir: string): Promise<number> {
+  const stats = await statfs(targetDir)
+  return Number(stats.bavail) * Number(stats.bsize)
+}
+
+async function requiresFullCopySpace(
+  sourcePath: string,
+  targetDir: string,
+  mode: FileHandlingMode,
+): Promise<boolean> {
+  if (mode === "copy") return true
+  if (mode === "hardlink") return false
+
+  const [sourceStats, targetStats] = await Promise.all([stat(sourcePath), stat(targetDir)])
+  return sourceStats.dev !== targetStats.dev
+}
+
+async function assertTargetFreeSpace(input: {
+  readonly sourcePath: string
+  readonly targetDir: string
+  readonly mode: FileHandlingMode
+  readonly fileSizeBytes: number
+  readonly minimumFreeSpaceBytes: number
+}): Promise<void> {
+  const needsSpace = await requiresFullCopySpace(input.sourcePath, input.targetDir, input.mode)
+  const requiredBytes = (needsSpace ? input.fileSizeBytes : 0) + input.minimumFreeSpaceBytes
+  if (requiredBytes <= 0) return
+
+  const availableBytes = await targetFreeSpaceBytes(input.targetDir)
+  if (availableBytes < requiredBytes) {
+    throw new InsufficientFreeSpaceError(
+      `target volume has ${availableBytes} free bytes, requires ${requiredBytes} bytes`,
+    )
+  }
+}
+
 function transferFile(
   sourcePath: string,
   targetPath: string,
   mode: FileHandlingMode,
+  fileSizeBytes: number,
+  minimumFreeSpaceBytes: number,
 ): Effect.Effect<void, MediaImportError> {
   return Effect.tryPromise({
     try: async () => {
       if (path.resolve(sourcePath) === path.resolve(targetPath)) return
-      await mkdir(path.dirname(targetPath), { recursive: true })
+      const targetDir = path.dirname(targetPath)
+      await mkdir(targetDir, { recursive: true })
       if (await targetExists(targetPath)) return
 
       if (mode === "copy") {
+        await assertTargetFreeSpace({
+          sourcePath,
+          targetDir,
+          mode,
+          fileSizeBytes,
+          minimumFreeSpaceBytes,
+        })
         await copyFile(sourcePath, targetPath)
         return
       }
@@ -914,19 +977,37 @@ function transferFile(
       }
 
       try {
+        await assertTargetFreeSpace({
+          sourcePath,
+          targetDir,
+          mode,
+          fileSizeBytes,
+          minimumFreeSpaceBytes,
+        })
         await rename(sourcePath, targetPath)
       } catch (error) {
         if (nodeCode(error) !== "EXDEV") throw error
+        await assertTargetFreeSpace({
+          sourcePath,
+          targetDir,
+          mode: "copy",
+          fileSizeBytes,
+          minimumFreeSpaceBytes,
+        })
         await copyFile(sourcePath, targetPath)
         await unlink(sourcePath)
       }
     },
-    catch: (error) =>
-      mediaImportError(
+    catch: (error) => {
+      if (error instanceof InsufficientFreeSpaceError) {
+        return mediaImportError("insufficient_free_space", error.message, true)
+      }
+      return mediaImportError(
         "file_operation_failed",
         `failed to ${mode} media file: ${errorMessage(error)}`,
         true,
-      ),
+      )
+    },
   })
 }
 
@@ -1191,6 +1272,11 @@ export const MediaImportServiceLive = Layer.effect(
     const loadNaming = () =>
       settings.get("media.namingConvention").pipe(Effect.map((setting) => setting.value))
 
+    const loadMinimumFreeSpaceBytes = () =>
+      settings
+        .get("media.minimumFreeSpaceBytes")
+        .pipe(Effect.map((setting) => parseNonNegativeInteger(setting.value)))
+
     const importMovie = (input: MovieImportInput) =>
       Effect.gen(function* () {
         const movieRows = yield* db.select().from(movies).where(eq(movies.id, input.movieId))
@@ -1230,9 +1316,10 @@ export const MediaImportServiceLive = Layer.effect(
           quality,
         })
 
-        const [handling, namingConvention, candidates] = yield* Effect.all([
+        const [handling, namingConvention, minimumFreeSpaceBytes, candidates] = yield* Effect.all([
           loadHandling(),
           loadNaming(),
+          loadMinimumFreeSpaceBytes(),
           collectMediaFiles(resolvedSourcePath),
         ])
         const candidate = candidates.toSorted(compareBySizeDesc)[0]
@@ -1244,7 +1331,13 @@ export const MediaImportServiceLive = Layer.effect(
           candidate,
         )
 
-        yield* transferFile(candidate.path, targetPath, handling)
+        yield* transferFile(
+          candidate.path,
+          targetPath,
+          handling,
+          candidate.sizeBytes,
+          minimumFreeSpaceBytes,
+        )
 
         yield* db
           .update(movies)
@@ -1336,8 +1429,9 @@ export const MediaImportServiceLive = Layer.effect(
           )
         }
 
-        const [handling, candidates] = yield* Effect.all([
+        const [handling, minimumFreeSpaceBytes, candidates] = yield* Effect.all([
           loadHandling(),
+          loadMinimumFreeSpaceBytes(),
           collectMediaFiles(resolvedSourcePath),
         ])
         const targets = yield* selectEpisodeFiles(episodeRows, candidates)
@@ -1362,7 +1456,13 @@ export const MediaImportServiceLive = Layer.effect(
 
         for (const target of targets) {
           const targetPath = yield* targetEpisodePath(target, qualityName, target.candidate)
-          yield* transferFile(target.candidate.path, targetPath, handling)
+          yield* transferFile(
+            target.candidate.path,
+            targetPath,
+            handling,
+            target.candidate.sizeBytes,
+            minimumFreeSpaceBytes,
+          )
           yield* db
             .update(episodes)
             .set({

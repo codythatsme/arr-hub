@@ -14,6 +14,7 @@ function MediaManagement() {
   const queryClient = useQueryClient()
   const [namingConvention, setNamingConvention] = useState("{Title} ({Year})")
   const [fileHandling, setFileHandling] = useState("copy")
+  const [minimumFreeSpaceBytes, setMinimumFreeSpaceBytes] = useState("0")
   const [importStabilityDelaySeconds, setImportStabilityDelaySeconds] = useState("60")
   const [rootFolderPath, setRootFolderPath] = useState("")
   const [mappingDownloadClientId, setMappingDownloadClientId] = useState("")
@@ -96,6 +97,9 @@ function MediaManagement() {
       rows.find((row) => row.key === "media.namingConvention")?.value ?? "{Title} ({Year})",
     )
     setFileHandling(rows.find((row) => row.key === "media.fileHandling")?.value ?? "copy")
+    setMinimumFreeSpaceBytes(
+      rows.find((row) => row.key === "media.minimumFreeSpaceBytes")?.value ?? "0",
+    )
     setImportStabilityDelaySeconds(
       rows.find((row) => row.key === "media.importStabilityDelaySeconds")?.value ?? "60",
     )
@@ -131,6 +135,14 @@ function MediaManagement() {
     event.preventDefault()
     setMessage(null)
     setSetting.mutate({ key: "media.fileHandling", value: fileHandling })
+  }
+  const saveMinimumFreeSpace = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setMessage(null)
+    setSetting.mutate({
+      key: "media.minimumFreeSpaceBytes",
+      value: minimumFreeSpaceBytes,
+    })
   }
   const saveImportDelay = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -219,6 +231,30 @@ function MediaManagement() {
           >
             <Save className="size-4" />
             Save file handling
+          </button>
+        </form>
+
+        <form className="rounded-md border p-4" onSubmit={saveMinimumFreeSpace}>
+          <h2 className="text-lg font-semibold">Free Space</h2>
+          <label className="mt-4 block text-sm">
+            <span className="font-medium">Minimum free bytes after import</span>
+            <input
+              type="number"
+              min="0"
+              step="1"
+              className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+              value={minimumFreeSpaceBytes}
+              onChange={(event) => setMinimumFreeSpaceBytes(event.target.value)}
+              required
+            />
+          </label>
+          <button
+            type="submit"
+            className="bg-primary text-primary-foreground mt-4 inline-flex items-center gap-2 rounded px-3 py-2 text-sm disabled:opacity-50"
+            disabled={pending}
+          >
+            <Save className="size-4" />
+            Save free space
           </button>
         </form>
 

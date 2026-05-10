@@ -24,6 +24,7 @@ describe("SettingsService", () => {
       expect(
         entries.find((entry) => entry.key === "media.importStabilityDelaySeconds")?.value,
       ).toBe("60")
+      expect(entries.find((entry) => entry.key === "media.minimumFreeSpaceBytes")?.value).toBe("0")
       expect(entries.find((entry) => entry.key === "release.minimumSeeders")?.value).toBe("1")
     }).pipe(Effect.provide(TestLayer)),
   )
@@ -62,6 +63,7 @@ describe("SettingsService", () => {
       const badImportDelay = yield* Effect.flip(
         service.set("media.importStabilityDelaySeconds", "-1"),
       )
+      const badFreeSpace = yield* Effect.flip(service.set("media.minimumFreeSpaceBytes", "-1"))
 
       expect(unknown._tag).toBe("SettingsError")
       if (unknown._tag === "SettingsError") expect(unknown.reason).toBe("invalid_key")
@@ -74,6 +76,10 @@ describe("SettingsService", () => {
       expect(badImportDelay._tag).toBe("SettingsError")
       if (badImportDelay._tag === "SettingsError") {
         expect(badImportDelay.reason).toBe("invalid_value")
+      }
+      expect(badFreeSpace._tag).toBe("SettingsError")
+      if (badFreeSpace._tag === "SettingsError") {
+        expect(badFreeSpace.reason).toBe("invalid_value")
       }
     }).pipe(Effect.provide(TestLayer)),
   )

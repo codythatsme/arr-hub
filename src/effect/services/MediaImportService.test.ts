@@ -362,6 +362,32 @@ describe("MediaImportService", () => {
     }).pipe(Effect.provide(TestLayer)),
   )
 
+  it.scoped("rejects copy imports that would violate the free-space reserve", () =>
+    Effect.gen(function* () {
+      const workspace = yield* withTempDir
+      const rootFolder = path.join(workspace, "library")
+      const sourceFile = path.join(workspace, "downloads", "Example.Movie.2026.1080p.WEB-DL.mkv")
+      yield* writeMediaFile(sourceFile, "full media")
+      const { movieId } = yield* seedMovie(rootFolder, 19)
+      const settings = yield* SettingsService
+      yield* settings.set("media.minimumFreeSpaceBytes", String(Number.MAX_SAFE_INTEGER))
+
+      const importer = yield* MediaImportService
+      const error = yield* Effect.flip(
+        importer.importMovie({
+          movieId,
+          sourcePath: sourceFile,
+          releaseTitle: "Example.Movie.2026.1080p.WEB-DL-GRP",
+        }),
+      )
+
+      expect(error._tag).toBe("MediaImportError")
+      if (error._tag === "MediaImportError") {
+        expect(error.reason).toBe("insufficient_free_space")
+      }
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
   it.scoped("scans existing movie and episode files into the library", () =>
     Effect.gen(function* () {
       const workspace = yield* withTempDir
