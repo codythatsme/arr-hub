@@ -84,6 +84,7 @@ interface QBitTorrent {
   readonly progress: number
   readonly eta: number
   readonly dlspeed: number
+  readonly added_on?: number
   readonly content_path?: string
   readonly save_path?: string
 }
@@ -92,6 +93,34 @@ interface QBitMainData {
   readonly server_state?: {
     readonly free_space_on_disk?: number
   }
+}
+
+const ADD_HASH_RECOVERY_ATTEMPTS = 5
+const ADD_HASH_RECOVERY_DELAY_MS = 250
+
+function torrentOutputPath(torrent: QBitTorrent): string | null {
+  const contentPath = torrent.content_path?.trim()
+  if (contentPath) return contentPath
+  const savePath = torrent.save_path?.trim()
+  return savePath || null
+}
+
+function newTorrentCandidates(
+  torrents: ReadonlyArray<QBitTorrent>,
+  beforeHashes: ReadonlyArray<string>,
+): ReadonlyArray<QBitTorrent> {
+  const before = new Set(beforeHashes.map((hash) => hash.toLowerCase()))
+  return torrents.filter((torrent) => !before.has(torrent.hash.toLowerCase()))
+}
+
+function newestByAddedOn(torrents: ReadonlyArray<QBitTorrent>): QBitTorrent | null {
+  const withAddedOn = torrents.filter((torrent) => typeof torrent.added_on === "number")
+  if (withAddedOn.length === 0) return null
+  return withAddedOn.toSorted((left, right) => (right.added_on ?? 0) - (left.added_on ?? 0))[0]
+}
+
+function delay(ms: number): Effect.Effect<void> {
+  return Effect.promise(() => new Promise((resolve) => setTimeout(resolve, ms)))
 }
 
 // ── Factory ──
@@ -275,13 +304,6 @@ export function createQBittorrentAdapter(config: DownloadClientConfig): Download
   const mapTorrentStatus = (state: string): NormalizedDownloadStatus =>
     QBIT_STATUS_MAP[state] ?? "failed"
 
-  const torrentOutputPath = (torrent: QBitTorrent): string | null => {
-    const contentPath = torrent.content_path?.trim()
-    if (contentPath) return contentPath
-    const savePath = torrent.save_path?.trim()
-    return savePath || null
-  }
-
   return {
     testConnection: () =>
       Effect.gen(function* () {
@@ -343,18 +365,32 @@ export function createQBittorrentAdapter(config: DownloadClientConfig): Download
 
         if (knownHash) return knownHash
 
-        // Diff torrent list to recover hash
-        // Small delay for qBit to process
-        yield* Effect.tryPromise({
-          try: () => new Promise<void>((resolve) => setTimeout(resolve, 500)),
-          catch: () => makeError(config, "invalid_response", "unexpected", false),
-        })
+        for (let attempt = 0; attempt < ADD_HASH_RECOVERY_ATTEMPTS; attempt++) {
+          if (attempt > 0) yield* delay(ADD_HASH_RECOVERY_DELAY_MS)
 
-        const after = yield* qbitJson<ReadonlyArray<QBitTorrent>>("/api/v2/torrents/info")
-        const newTorrent = after.find(
-          (t) => beforeHashes !== null && !beforeHashes.includes(t.hash),
+          const after = yield* qbitJson<ReadonlyArray<QBitTorrent>>("/api/v2/torrents/info")
+          const candidates = newTorrentCandidates(after, beforeHashes ?? [])
+          if (candidates.length === 1) return candidates[0].hash
+
+          if (candidates.length > 1) {
+            const newest = newestByAddedOn(candidates)
+            if (newest) return newest.hash
+
+            return yield* makeError(
+              config,
+              "invalid_response",
+              "qBittorrent accepted the download but multiple new torrents appeared without added_on metadata",
+              false,
+            )
+          }
+        }
+
+        return yield* makeError(
+          config,
+          "invalid_response",
+          "qBittorrent accepted the download but did not expose a torrent hash",
+          false,
         )
-        return newTorrent?.hash ?? "unknown"
       }),
 
     getQueue: () =>
