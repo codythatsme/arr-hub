@@ -382,6 +382,24 @@ export interface NotificationChannelInput {
 export type NotificationChannel = typeof notificationChannels.$inferSelect
 export type NotificationDelivery = typeof notificationDeliveries.$inferSelect
 
+const REDACTED_SETTING = "[redacted]"
+
+function redactChannelSettings(settings: NotificationChannelSettings): NotificationChannelSettings {
+  return {
+    ...settings,
+    url: settings.url ? REDACTED_SETTING : undefined,
+    token: undefined,
+    user: settings.user ? REDACTED_SETTING : undefined,
+    scriptArgs: settings.scriptArgs?.length ? [] : undefined,
+    smtpPassword: undefined,
+    headers: undefined,
+  }
+}
+
+function redactChannel(channel: NotificationChannel): NotificationChannel {
+  return { ...channel, settings: redactChannelSettings(channel.settings) }
+}
+
 export class NotificationService extends Context.Tag("@arr-hub/NotificationService")<
   NotificationService,
   {
@@ -758,13 +776,17 @@ export const NotificationServiceLive = Layer.effect(
 
     return {
       listChannels: () =>
-        db.select().from(notificationChannels).orderBy(desc(notificationChannels.updatedAt)),
+        db
+          .select()
+          .from(notificationChannels)
+          .orderBy(desc(notificationChannels.updatedAt))
+          .pipe(Effect.map((channels) => channels.map(redactChannel))),
 
       createChannel: (input) =>
         Effect.gen(function* () {
           const normalized = yield* normalizeInput(input)
           const inserted = yield* db.insert(notificationChannels).values(normalized).returning()
-          return inserted[0]
+          return redactChannel(inserted[0])
         }),
 
       updateChannel: (id, input) =>
@@ -789,7 +811,7 @@ export const NotificationServiceLive = Layer.effect(
             .set({ ...normalized, updatedAt: new Date() })
             .where(eq(notificationChannels.id, id))
             .returning()
-          return updated[0]
+          return redactChannel(updated[0])
         }),
 
       deleteChannel: (id) =>

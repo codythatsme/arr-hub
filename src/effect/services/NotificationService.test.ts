@@ -181,6 +181,54 @@ describe("NotificationService", () => {
     }).pipe(Effect.provide(TestLayer)),
   )
 
+  it.effect("redacts notification channel secrets from returned channels", () =>
+    Effect.gen(function* () {
+      const service = yield* NotificationService
+      const webhook = yield* service.createChannel({
+        name: "Webhook",
+        type: "webhook",
+        enabled: true,
+        events: ["server_down"],
+        settings: {
+          url: "https://hooks.example/secret-webhook-token",
+          headers: { Authorization: "Bearer secret-header-token" },
+        },
+      })
+      yield* service.createChannel({
+        name: "Pushover",
+        type: "pushover",
+        enabled: true,
+        events: ["server_down"],
+        settings: { token: "secret-pushover-token", user: "secret-pushover-user" },
+      })
+      yield* service.createChannel({
+        name: "Email",
+        type: "email",
+        enabled: true,
+        events: ["server_down"],
+        settings: {
+          smtpHost: "smtp.example.com",
+          smtpPort: 587,
+          smtpSecurity: "starttls",
+          smtpUsername: "alerts@example.com",
+          smtpPassword: "secret-smtp-password",
+          fromEmail: "alerts@example.com",
+          toEmails: ["ops@example.com"],
+        },
+      })
+
+      const channels = yield* service.listChannels()
+      const json = JSON.stringify([webhook, ...channels])
+
+      expect(json).toContain("[redacted]")
+      expect(json).not.toContain("secret-webhook-token")
+      expect(json).not.toContain("secret-header-token")
+      expect(json).not.toContain("secret-pushover-token")
+      expect(json).not.toContain("secret-pushover-user")
+      expect(json).not.toContain("secret-smtp-password")
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
   it.effect("records sent deliveries for subscribed channels", () =>
     Effect.gen(function* () {
       const service = yield* NotificationService
