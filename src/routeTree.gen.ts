@@ -56,6 +56,8 @@ import { Route as ApiQueueIdRetryRouteImport } from './routes/api.queue.$id.retr
 import { Route as ApiQueueIdRemoveRouteImport } from './routes/api.queue.$id.remove'
 import { Route as ApiQueueIdBlocklistRouteImport } from './routes/api.queue.$id.blocklist'
 import { Route as ApiIndexersAggregateProtocolRouteImport } from './routes/api.indexers.aggregate.$protocol'
+import { Route as ApiVersionWantedMissingRouteImport } from './routes/api.$version.wanted.missing'
+import { Route as ApiVersionWantedCutoffRouteImport } from './routes/api.$version.wanted.cutoff'
 import { Route as ApiVersionTagDetailRouteImport } from './routes/api.$version.tag.detail'
 import { Route as ApiVersionTagIdRouteImport } from './routes/api.$version.tag.$id'
 import { Route as ApiVersionSystemStatusRouteImport } from './routes/api.$version.system.status'
@@ -311,6 +313,16 @@ const ApiIndexersAggregateProtocolRoute =
     path: '/api/indexers/aggregate/$protocol',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiVersionWantedMissingRoute = ApiVersionWantedMissingRouteImport.update({
+  id: '/api/$version/wanted/missing',
+  path: '/api/$version/wanted/missing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiVersionWantedCutoffRoute = ApiVersionWantedCutoffRouteImport.update({
+  id: '/api/$version/wanted/cutoff',
+  path: '/api/$version/wanted/cutoff',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiVersionTagDetailRoute = ApiVersionTagDetailRouteImport.update({
   id: '/detail',
   path: '/detail',
@@ -459,6 +471,8 @@ export interface FileRoutesByFullPath {
   '/api/$version/system/status': typeof ApiVersionSystemStatusRoute
   '/api/$version/tag/$id': typeof ApiVersionTagIdRoute
   '/api/$version/tag/detail': typeof ApiVersionTagDetailRouteWithChildren
+  '/api/$version/wanted/cutoff': typeof ApiVersionWantedCutoffRoute
+  '/api/$version/wanted/missing': typeof ApiVersionWantedMissingRoute
   '/api/indexers/aggregate/$protocol': typeof ApiIndexersAggregateProtocolRouteWithChildren
   '/api/queue/$id/blocklist': typeof ApiQueueIdBlocklistRoute
   '/api/queue/$id/remove': typeof ApiQueueIdRemoveRoute
@@ -525,6 +539,8 @@ export interface FileRoutesByTo {
   '/api/$version/system/status': typeof ApiVersionSystemStatusRoute
   '/api/$version/tag/$id': typeof ApiVersionTagIdRoute
   '/api/$version/tag/detail': typeof ApiVersionTagDetailRouteWithChildren
+  '/api/$version/wanted/cutoff': typeof ApiVersionWantedCutoffRoute
+  '/api/$version/wanted/missing': typeof ApiVersionWantedMissingRoute
   '/api/indexers/aggregate/$protocol': typeof ApiIndexersAggregateProtocolRouteWithChildren
   '/api/queue/$id/blocklist': typeof ApiQueueIdBlocklistRoute
   '/api/queue/$id/remove': typeof ApiQueueIdRemoveRoute
@@ -592,6 +608,8 @@ export interface FileRoutesById {
   '/api/$version/system/status': typeof ApiVersionSystemStatusRoute
   '/api/$version/tag/$id': typeof ApiVersionTagIdRoute
   '/api/$version/tag/detail': typeof ApiVersionTagDetailRouteWithChildren
+  '/api/$version/wanted/cutoff': typeof ApiVersionWantedCutoffRoute
+  '/api/$version/wanted/missing': typeof ApiVersionWantedMissingRoute
   '/api/indexers/aggregate/$protocol': typeof ApiIndexersAggregateProtocolRouteWithChildren
   '/api/queue/$id/blocklist': typeof ApiQueueIdBlocklistRoute
   '/api/queue/$id/remove': typeof ApiQueueIdRemoveRoute
@@ -660,6 +678,8 @@ export interface FileRouteTypes {
     | '/api/$version/system/status'
     | '/api/$version/tag/$id'
     | '/api/$version/tag/detail'
+    | '/api/$version/wanted/cutoff'
+    | '/api/$version/wanted/missing'
     | '/api/indexers/aggregate/$protocol'
     | '/api/queue/$id/blocklist'
     | '/api/queue/$id/remove'
@@ -726,6 +746,8 @@ export interface FileRouteTypes {
     | '/api/$version/system/status'
     | '/api/$version/tag/$id'
     | '/api/$version/tag/detail'
+    | '/api/$version/wanted/cutoff'
+    | '/api/$version/wanted/missing'
     | '/api/indexers/aggregate/$protocol'
     | '/api/queue/$id/blocklist'
     | '/api/queue/$id/remove'
@@ -792,6 +814,8 @@ export interface FileRouteTypes {
     | '/api/$version/system/status'
     | '/api/$version/tag/$id'
     | '/api/$version/tag/detail'
+    | '/api/$version/wanted/cutoff'
+    | '/api/$version/wanted/missing'
     | '/api/indexers/aggregate/$protocol'
     | '/api/queue/$id/blocklist'
     | '/api/queue/$id/remove'
@@ -846,6 +870,8 @@ export interface RootRouteChildren {
   ApiSystemTasksRoute: typeof ApiSystemTasksRoute
   ApiTrpcSplatRoute: typeof ApiTrpcSplatRoute
   ApiVersionSystemStatusRoute: typeof ApiVersionSystemStatusRoute
+  ApiVersionWantedCutoffRoute: typeof ApiVersionWantedCutoffRoute
+  ApiVersionWantedMissingRoute: typeof ApiVersionWantedMissingRoute
   ApiIndexersAggregateProtocolRoute: typeof ApiIndexersAggregateProtocolRouteWithChildren
   ApiSystemBackupsIdDownloadRoute: typeof ApiSystemBackupsIdDownloadRoute
 }
@@ -1181,6 +1207,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiIndexersAggregateProtocolRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/$version/wanted/missing': {
+      id: '/api/$version/wanted/missing'
+      path: '/api/$version/wanted/missing'
+      fullPath: '/api/$version/wanted/missing'
+      preLoaderRoute: typeof ApiVersionWantedMissingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/$version/wanted/cutoff': {
+      id: '/api/$version/wanted/cutoff'
+      path: '/api/$version/wanted/cutoff'
+      fullPath: '/api/$version/wanted/cutoff'
+      preLoaderRoute: typeof ApiVersionWantedCutoffRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/$version/tag/detail': {
       id: '/api/$version/tag/detail'
       path: '/detail'
@@ -1495,6 +1535,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiSystemTasksRoute: ApiSystemTasksRoute,
   ApiTrpcSplatRoute: ApiTrpcSplatRoute,
   ApiVersionSystemStatusRoute: ApiVersionSystemStatusRoute,
+  ApiVersionWantedCutoffRoute: ApiVersionWantedCutoffRoute,
+  ApiVersionWantedMissingRoute: ApiVersionWantedMissingRoute,
   ApiIndexersAggregateProtocolRoute:
     ApiIndexersAggregateProtocolRouteWithChildren,
   ApiSystemBackupsIdDownloadRoute: ApiSystemBackupsIdDownloadRoute,
