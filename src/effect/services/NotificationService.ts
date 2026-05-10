@@ -20,7 +20,13 @@ import { recordDomainHistory } from "./OperationalHistoryService"
 
 const ALL_EVENTS: ReadonlyArray<NotificationEvent> = notificationEvents
 const ALL_CHANNEL_TYPES: ReadonlyArray<NotificationChannelType> = notificationChannelTypes
-const URL_CHANNEL_TYPES = new Set<NotificationChannelType>(["webhook", "discord", "slack", "ntfy"])
+const URL_CHANNEL_TYPES = new Set<NotificationChannelType>([
+  "webhook",
+  "discord",
+  "slack",
+  "ntfy",
+  "gotify",
+])
 
 interface FormattedNotification {
   readonly event: NotificationEvent
@@ -45,6 +51,8 @@ function channelTypeLabel(type: NotificationChannelType): string {
       return "Slack webhook"
     case "ntfy":
       return "Ntfy topic"
+    case "gotify":
+      return "Gotify message endpoint"
   }
 }
 
@@ -88,6 +96,12 @@ function formatOutboundPayload(
             elements: [{ type: "mrkdwn", text: `Event: \`${event}\`` }],
           },
         ],
+      }
+    case "gotify":
+      return {
+        title,
+        message,
+        priority: event.includes("failed") || event.includes("down") ? 8 : 4,
       }
     case "webhook":
     case "ntfy":

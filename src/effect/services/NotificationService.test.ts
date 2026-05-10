@@ -324,6 +324,35 @@ describe("NotificationService", () => {
     }).pipe(Effect.provide(TestLayer))
   })
 
+  it.effect("formats Gotify message deliveries", () => {
+    const fetchSpy = stubSuccessfulFetch()
+
+    return Effect.gen(function* () {
+      const service = yield* NotificationService
+      const channel = yield* service.createChannel({
+        name: "Gotify",
+        type: "gotify",
+        enabled: true,
+        events: ["server_down"],
+        settings: { url: "https://gotify.example/message?token=app-token" },
+      })
+
+      const delivery = yield* service.testChannel(channel.id, "server_down")
+      const body = getFetchBody(fetchSpy)
+
+      expect(delivery.status).toBe("sent")
+      expect(fetchSpy).toHaveBeenCalledWith(
+        "https://gotify.example/message?token=app-token",
+        expect.objectContaining({ method: "POST" }),
+      )
+      expect(body).toMatchObject({
+        title: "Test media server offline",
+        message: "Example Server is not responding",
+        priority: 8,
+      })
+    }).pipe(Effect.provide(TestLayer))
+  })
+
   it.effect("requires URLs for provider-backed webhook channels", () =>
     Effect.gen(function* () {
       const service = yield* NotificationService

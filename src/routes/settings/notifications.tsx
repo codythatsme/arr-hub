@@ -71,6 +71,14 @@ const CHANNEL_TYPES = [
     urlLabel: "Ntfy topic URL",
     placeholder: "https://ntfy.sh/arr-hub",
   },
+  {
+    value: "gotify",
+    label: "Gotify",
+    defaultName: "Gotify alerts",
+    destination: "",
+    urlLabel: "Gotify message URL",
+    placeholder: "https://gotify.example/message?token=...",
+  },
 ] as const
 
 type ChannelType = (typeof CHANNEL_TYPES)[number]["value"]
