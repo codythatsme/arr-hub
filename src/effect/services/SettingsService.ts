@@ -12,6 +12,7 @@ export type SettingKey =
   | "app.updateChannel"
   | "media.namingConvention"
   | "media.fileHandling"
+  | "media.importStabilityDelaySeconds"
   | "release.allowedProtocols"
   | "release.ignoredTerms"
   | "release.minimumAgeHours"
@@ -27,6 +28,10 @@ const SETTING_DEFINITIONS: Record<SettingKey, { readonly label: string; readonly
     "app.updateChannel": { label: "Update channel", group: "General" },
     "media.namingConvention": { label: "Naming convention", group: "Media Management" },
     "media.fileHandling": { label: "File handling", group: "Media Management" },
+    "media.importStabilityDelaySeconds": {
+      label: "Import stability delay seconds",
+      group: "Media Management",
+    },
     "release.allowedProtocols": { label: "Allowed protocols", group: "Release Decisions" },
     "release.ignoredTerms": { label: "Ignored terms", group: "Release Decisions" },
     "release.minimumAgeHours": { label: "Minimum age hours", group: "Release Decisions" },
@@ -42,6 +47,7 @@ const DEFAULT_VALUES: Record<SettingKey, string> = {
   "app.updateChannel": "stable",
   "media.namingConvention": "{Title} ({Year})",
   "media.fileHandling": "copy",
+  "media.importStabilityDelaySeconds": "60",
   "release.allowedProtocols": "torrent,usenet",
   "release.ignoredTerms": "",
   "release.minimumAgeHours": "0",
@@ -89,6 +95,17 @@ function validateValue(key: SettingKey, value: string): Effect.Effect<string, Se
         message: "file handling must be copy, move, or hardlink",
       }),
     )
+  }
+  if (key === "media.importStabilityDelaySeconds") {
+    const parsedValue = Number(trimmed)
+    if (!Number.isInteger(parsedValue) || parsedValue < 0) {
+      return Effect.fail(
+        new SettingsError({
+          reason: "invalid_value",
+          message: "import stability delay must be a non-negative integer",
+        }),
+      )
+    }
   }
   if (key === "release.allowedProtocols") {
     const protocols = trimmed

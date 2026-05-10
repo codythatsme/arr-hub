@@ -1,3 +1,7 @@
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import path from "node:path"
+
 import { describe, expect, it } from "@effect/vitest"
 import { and, eq } from "drizzle-orm"
 import { Effect, Layer, Ref } from "effect"
@@ -21,6 +25,7 @@ import { DownloadClientService } from "./DownloadClientService"
 import { DownloadMonitor, DownloadMonitorLive } from "./DownloadMonitor"
 import { MediaImportService } from "./MediaImportService"
 import { MediaServerService } from "./MediaServerService"
+import { SettingsServiceLive } from "./SettingsService"
 
 // ── Mocks ──
 
@@ -163,6 +168,7 @@ const BaseLayer = Layer.mergeAll(
   MockDownloadClientService,
   MockMediaServerService,
   MockMediaImportService,
+  SettingsServiceLive,
 ).pipe(Layer.provideMerge(TestDbLive))
 
 const TestLayer = DownloadMonitorLive.pipe(Layer.provideMerge(BaseLayer))
@@ -205,6 +211,18 @@ function seedData() {
   })
 }
 
+const withTempDir = Effect.acquireRelease(
+  Effect.tryPromise(() => mkdtemp(path.join(tmpdir(), "arr-hub-monitor-test-"))),
+  (dir) => Effect.tryPromise(() => rm(dir, { recursive: true, force: true })).pipe(Effect.orDie),
+)
+
+function writeDownloadFile(filePath: string, content = "media") {
+  return Effect.tryPromise(async () => {
+    await mkdir(path.dirname(filePath), { recursive: true })
+    await writeFile(filePath, content, "utf8")
+  })
+}
+
 // ── Tests ──
 
 describe("DownloadMonitor", () => {
@@ -235,6 +253,26 @@ describe("DownloadMonitor", () => {
       const db = yield* Db
       const queueRows = yield* db.select().from(downloadQueue)
       expect(queueRows).toHaveLength(0)
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.scoped("defers import while completed output is still stabilizing", () =>
+    Effect.gen(function* () {
+      const workspace = yield* withTempDir
+      const outputPath = path.join(workspace, "downloads", "Test.Movie.2024.1080p.mkv")
+      yield* writeDownloadFile(outputPath)
+      yield* seedData()
+      const db = yield* Db
+      yield* db.update(downloadQueue).set({ outputPath }).where(eq(downloadQueue.id, 1))
+
+      const monitor = yield* DownloadMonitor
+      const completions = yield* monitor.checkCompletions()
+
+      expect(completions).toHaveLength(0)
+      const queueRows = yield* db.select().from(downloadQueue)
+      expect(queueRows).toHaveLength(1)
+      expect(queueRows[0].status).toBe("importing")
+      expect(queueRows[0].errorMessage).toContain("stabilizing")
     }).pipe(Effect.provide(TestLayer)),
   )
 
@@ -446,6 +484,7 @@ describe("DownloadMonitor TV", () => {
             MockDownloadClientService,
             makeTrackingMediaServer(ref),
             MockMediaImportService,
+            SettingsServiceLive,
           ).pipe(Layer.provideMerge(TestDbLive)),
         ),
       )

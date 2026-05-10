@@ -14,6 +14,7 @@ function MediaManagement() {
   const queryClient = useQueryClient()
   const [namingConvention, setNamingConvention] = useState("{Title} ({Year})")
   const [fileHandling, setFileHandling] = useState("copy")
+  const [importStabilityDelaySeconds, setImportStabilityDelaySeconds] = useState("60")
   const [rootFolderPath, setRootFolderPath] = useState("")
   const [mappingDownloadClientId, setMappingDownloadClientId] = useState("")
   const [mappingRemotePath, setMappingRemotePath] = useState("")
@@ -95,6 +96,9 @@ function MediaManagement() {
       rows.find((row) => row.key === "media.namingConvention")?.value ?? "{Title} ({Year})",
     )
     setFileHandling(rows.find((row) => row.key === "media.fileHandling")?.value ?? "copy")
+    setImportStabilityDelaySeconds(
+      rows.find((row) => row.key === "media.importStabilityDelaySeconds")?.value ?? "60",
+    )
   }, [settings.data])
 
   const pending =
@@ -127,6 +131,14 @@ function MediaManagement() {
     event.preventDefault()
     setMessage(null)
     setSetting.mutate({ key: "media.fileHandling", value: fileHandling })
+  }
+  const saveImportDelay = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setMessage(null)
+    setSetting.mutate({
+      key: "media.importStabilityDelaySeconds",
+      value: importStabilityDelaySeconds,
+    })
   }
   const addFolder = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -207,6 +219,30 @@ function MediaManagement() {
           >
             <Save className="size-4" />
             Save file handling
+          </button>
+        </form>
+
+        <form className="rounded-md border p-4" onSubmit={saveImportDelay}>
+          <h2 className="text-lg font-semibold">Import Readiness</h2>
+          <label className="mt-4 block text-sm">
+            <span className="font-medium">Stability delay seconds</span>
+            <input
+              type="number"
+              min="0"
+              step="1"
+              className="mt-1 w-full rounded border bg-transparent px-3 py-2"
+              value={importStabilityDelaySeconds}
+              onChange={(event) => setImportStabilityDelaySeconds(event.target.value)}
+              required
+            />
+          </label>
+          <button
+            type="submit"
+            className="bg-primary text-primary-foreground mt-4 inline-flex items-center gap-2 rounded px-3 py-2 text-sm disabled:opacity-50"
+            disabled={pending}
+          >
+            <Save className="size-4" />
+            Save readiness
           </button>
         </form>
       </section>

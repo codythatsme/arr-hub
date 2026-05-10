@@ -18,6 +18,9 @@ describe("SettingsService", () => {
       expect(entries.map((entry) => entry.group)).toContain("Release Decisions")
       expect(entries.map((entry) => entry.group)).toContain("Scheduler")
       expect(entries.find((entry) => entry.key === "app.name")?.value).toBe("ARR Hub")
+      expect(
+        entries.find((entry) => entry.key === "media.importStabilityDelaySeconds")?.value,
+      ).toBe("60")
       expect(entries.find((entry) => entry.key === "release.minimumSeeders")?.value).toBe("1")
     }).pipe(Effect.provide(TestLayer)),
   )
@@ -40,6 +43,9 @@ describe("SettingsService", () => {
       const invalid = yield* Effect.flip(service.set("app.updateChannel", "nightly"))
       const badProtocol = yield* Effect.flip(service.set("release.allowedProtocols", "ed2k"))
       const badAge = yield* Effect.flip(service.set("release.minimumAgeHours", "-1"))
+      const badImportDelay = yield* Effect.flip(
+        service.set("media.importStabilityDelaySeconds", "-1"),
+      )
 
       expect(unknown._tag).toBe("SettingsError")
       if (unknown._tag === "SettingsError") expect(unknown.reason).toBe("invalid_key")
@@ -49,6 +55,10 @@ describe("SettingsService", () => {
       if (badProtocol._tag === "SettingsError") expect(badProtocol.reason).toBe("invalid_value")
       expect(badAge._tag).toBe("SettingsError")
       if (badAge._tag === "SettingsError") expect(badAge.reason).toBe("invalid_value")
+      expect(badImportDelay._tag).toBe("SettingsError")
+      if (badImportDelay._tag === "SettingsError") {
+        expect(badImportDelay.reason).toBe("invalid_value")
+      }
     }).pipe(Effect.provide(TestLayer)),
   )
 })
