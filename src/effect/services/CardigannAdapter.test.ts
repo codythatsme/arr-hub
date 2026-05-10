@@ -174,6 +174,47 @@ const TORRENT_DAY_JSON_RESULTS = JSON.stringify([
   },
 ])
 
+const MYANONAMOUSE_JSON_RESULTS = JSON.stringify({
+  data: [
+    {
+      id: 5001,
+      title: "MAM Audiobook 2026",
+      author_info: JSON.stringify({ 1: "Jane Doe", 2: "John Smith" }),
+      lang_code: "EN",
+      filetype: "mp3",
+      vip: true,
+      free: false,
+      personal_freeleech: true,
+      fl_vip: false,
+      category: "39",
+      added: "2026-05-10 06:30:00",
+      times_completed: 12,
+      seeders: 18,
+      leechers: 2,
+      numfiles: 10,
+      size: "1.2 GB",
+    },
+    {
+      id: 5002,
+      title: "MAM Ebook 2026",
+      author_info: JSON.stringify({ 1: "Alex Writer" }),
+      lang_code: "EN",
+      filetype: "epub",
+      vip: false,
+      free: false,
+      personal_freeleech: false,
+      fl_vip: true,
+      category: "60",
+      added: "2026-05-09 00:00:00",
+      times_completed: 8,
+      seeders: 7,
+      leechers: 1,
+      numfiles: 1,
+      size: "42 MB",
+    },
+  ],
+})
+
 const ANIME_TORRENTS_HTML_RESULTS = `
 <html><body>
   <table>
@@ -3983,6 +4024,92 @@ search:
       uploadFactor: 1,
     })
     expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-09T10:00:00.000Z")
+  })
+
+  it("parses MyAnonamouse JSON results with mam_id cookie auth", async () => {
+    const requests: Array<{ url: string; init: RequestInit | undefined }> = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      requests.push({ url: String(input), init })
+      return new Response(MYANONAMOUSE_JSON_RESULTS, { status: 200 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = createCardigannYamlAdapter({
+      id: 123,
+      name: "MyAnonamouse",
+      type: "cardigann_yaml",
+      definitionKey: "myanonamouse",
+      baseUrl: "https://www.myanonamouse.net/",
+      apiKey: "",
+      configValues: {
+        mamId: "mam-session",
+        searchType: "active",
+        searchInDescription: "true",
+        searchInSeries: "true",
+        searchInFilenames: "false",
+        searchLanguage: "1",
+        vipUser: "true",
+      },
+      priority: 59,
+      categories: [],
+      protocol: "torrent",
+    })
+
+    const releases = await Effect.runPromise(
+      adapter.search({
+        term: "MAM.Audio-book",
+        type: "general",
+        categories: [3030],
+        limit: 25,
+        offset: 100,
+      }),
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const request = requests[0]
+    const url = new URL(request?.url ?? "")
+    expect(url.pathname).toBe("/tor/js/loadSearchJSONbasic.php")
+    expect(url.searchParams.get("tor[text]")).toBe("MAM Audio book")
+    expect(url.searchParams.get("tor[searchType]")).toBe("active")
+    expect(url.searchParams.get("tor[srchIn][title]")).toBe("true")
+    expect(url.searchParams.get("tor[srchIn][author]")).toBe("true")
+    expect(url.searchParams.get("tor[srchIn][narrator]")).toBe("true")
+    expect(url.searchParams.get("tor[srchIn][description]")).toBe("true")
+    expect(url.searchParams.get("tor[srchIn][series]")).toBe("true")
+    expect(url.searchParams.get("tor[srchIn][filenames]")).toBeNull()
+    expect(url.searchParams.get("tor[perpage]")).toBe("25")
+    expect(url.searchParams.get("tor[startNumber]")).toBe("100")
+    expect(url.searchParams.get("tor[browse_lang][0]")).toBe("1")
+    expect(url.searchParams.get("tor[cat][0]")).toBe("13")
+    expect(new Headers(request?.init?.headers).get("cookie")).toBe("mam_id=mam-session")
+    expect(releases).toHaveLength(2)
+    expect(releases[0]).toMatchObject({
+      title: "MAM Audiobook 2026 by Jane Doe, John Smith [EN] [MP3] [VIP]",
+      downloadUrl: "https://www.myanonamouse.net/tor/download.php?tid=5001",
+      infoUrl: "https://www.myanonamouse.net/t/5001",
+      category: "3030",
+      size: 1_200_000_000,
+      seeders: 18,
+      leechers: 2,
+      indexerId: 123,
+      indexerName: "MyAnonamouse",
+      indexerPriority: 59,
+      downloadFactor: 0,
+      uploadFactor: 1,
+    })
+    expect(releases[0]?.publishedAt.toISOString()).toBe("2026-05-10T06:30:00.000Z")
+    expect(releases[1]).toMatchObject({
+      title: "MAM Ebook 2026 by Alex Writer [EN] [EPUB]",
+      downloadUrl: "https://www.myanonamouse.net/tor/download.php?tid=5002",
+      infoUrl: "https://www.myanonamouse.net/t/5002",
+      category: "7020",
+      size: 42_000_000,
+      seeders: 7,
+      leechers: 1,
+      downloadFactor: 0,
+      uploadFactor: 1,
+    })
+    expect(releases[1]?.publishedAt.toISOString()).toBe("2026-05-09T00:00:00.000Z")
   })
 
   it("parses AnimeTorrents AJAX HTML results with cookie auth and freeleech filtering", async () => {

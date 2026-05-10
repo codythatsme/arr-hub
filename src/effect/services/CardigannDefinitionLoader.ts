@@ -1261,6 +1261,288 @@ search:
       text: "1"
 `
 
+const MYANONAMOUSE = `
+id: myanonamouse
+name: MyAnonamouse
+description: Private ebook and audiobook tracker exposed through a first-pass mam_id cookie JSON Cardigann definition.
+type: private
+links:
+  - https://www.myanonamouse.net/
+version: builtin-cardigann-1
+rss: false
+tags:
+  - private
+  - books
+  - audiobooks
+  - json
+  - cookie-auth
+settings:
+  - name: mamId
+    label: MAM ID
+    type: password
+    required: true
+    helpText: MyAnonamouse mam_id session value created from Preferences > Security.
+  - name: searchType
+    label: Search type
+    type: select
+    default: all
+    required: false
+    options:
+      - value: all
+        label: All torrents
+      - value: active
+        label: Only active
+      - value: fl
+        label: Freeleech
+      - value: fl-VIP
+        label: Freeleech or VIP
+      - value: VIP
+        label: VIP
+      - value: nVIP
+        label: Not VIP
+  - name: searchInDescription
+    label: Search in description
+    type: checkbox
+    default: false
+    required: false
+  - name: searchInSeries
+    label: Search in series
+    type: checkbox
+    default: false
+    required: false
+  - name: searchInFilenames
+    label: Search in filenames
+    type: checkbox
+    default: false
+    required: false
+  - name: searchLanguage
+    label: Search language
+    type: select
+    default: "0"
+    required: false
+    options:
+      - value: "0"
+        label: All languages
+      - value: "1"
+        label: English
+      - value: "25"
+        label: Ukrainian
+      - value: "36"
+        label: French
+      - value: "37"
+        label: German
+      - value: "38"
+        label: Japanese
+      - value: "43"
+        label: Italian
+      - value: "45"
+        label: Polish
+  - name: vipUser
+    label: Account has VIP freeleech
+    type: checkbox
+    default: false
+    required: false
+    helpText: Count MAM VIP-freeleech rows as freeleech for VIP accounts.
+caps:
+  categorymappings:
+    - id: "13"
+      cat: Audio/Audiobook
+      desc: AudioBooks
+      newznab: 3030
+    - id: "14"
+      cat: Books/EBook
+      desc: E-Books
+      newznab: 7020
+    - id: "15"
+      cat: Audio/Audiobook
+      desc: Musicology
+      newznab: 3030
+    - id: "16"
+      cat: Audio/Audiobook
+      desc: Radio
+      newznab: 3030
+    - id: "39"
+      cat: Audio/Audiobook
+      desc: Audiobooks - Action/Adventure
+      newznab: 3030
+    - id: "42"
+      cat: Audio/Audiobook
+      desc: Audiobooks - General Fiction
+      newznab: 3030
+    - id: "47"
+      cat: Audio/Audiobook
+      desc: Audiobooks - Science Fiction
+      newznab: 3030
+    - id: "111"
+      cat: Audio/Audiobook
+      desc: Audiobooks - Young Adult
+      newznab: 3030
+    - id: "60"
+      cat: Books/EBook
+      desc: Ebooks - Action/Adventure
+      newznab: 7020
+    - id: "61"
+      cat: Books/Comics
+      desc: Ebooks - Comics/Graphic novels
+      newznab: 7030
+    - id: "64"
+      cat: Books/EBook
+      desc: Ebooks - General Fiction
+      newznab: 7020
+    - id: "69"
+      cat: Books/EBook
+      desc: Ebooks - Science Fiction
+      newznab: 7020
+    - id: "79"
+      cat: Books/Mags
+      desc: Ebooks - Magazines/Newspapers
+      newznab: 7010
+    - id: "80"
+      cat: Books/Technical
+      desc: Ebooks - Math/Science/Tech
+      newznab: 7040
+    - id: "118"
+      cat: Books/EBook
+      desc: Ebooks - Mixed Collections
+      newznab: 7020
+    - id: "19"
+      cat: Audio/Audiobook
+      desc: Guitar/Bass Tabs
+      newznab: 3030
+    - id: "20"
+      cat: Audio/Audiobook
+      desc: Individual Sheet
+      newznab: 3030
+    - id: "24"
+      cat: Audio/Audiobook
+      desc: Individual Sheet MP3
+      newznab: 3030
+    - id: "126"
+      cat: Audio/Audiobook
+      desc: Instructional Book with Video
+      newznab: 3030
+    - id: "17"
+      cat: Audio/Audiobook
+      desc: Music - Complete Editions
+      newznab: 3030
+    - id: "26"
+      cat: Audio/Audiobook
+      desc: Music Book
+      newznab: 3030
+    - id: "30"
+      cat: Audio/Audiobook
+      desc: Sheet Collection
+      newznab: 3030
+    - id: "127"
+      cat: Audio/Audiobook
+      desc: Radio - Comedy
+      newznab: 3030
+    - id: "130"
+      cat: Audio/Audiobook
+      desc: Radio - Drama
+      newznab: 3030
+    - id: "132"
+      cat: Audio/Audiobook
+      desc: Radio - Reading
+      newznab: 3030
+  modes:
+    search: [q]
+login:
+  method: cookie
+  inputs:
+    cookie: "mam_id={{ .Config.MamId }}"
+search:
+  paths:
+    - path: tor/js/loadSearchJSONbasic.php
+      response:
+        type: json
+      inputs:
+        tor[text]: '{{ re_replace .Keywords "[^\\w]+" " " | trim }}'
+        tor[searchType]: "{{ .Config.SearchType }}"
+        tor[srchIn][title]: "true"
+        tor[srchIn][author]: "true"
+        tor[srchIn][narrator]: "true"
+        tor[srchIn][description]: "{{ if .Config.SearchInDescription }}true{{ end }}"
+        tor[srchIn][series]: "{{ if .Config.SearchInSeries }}true{{ end }}"
+        tor[srchIn][filenames]: "{{ if .Config.SearchInFilenames }}true{{ end }}"
+        tor[searchIn]: torrents
+        tor[sortType]: default
+        tor[perpage]: '{{ .Query.Limit | default "100" }}'
+        tor[startNumber]: '{{ .Query.Offset | default "0" }}'
+        tor[browse_lang][0]: '{{ if ne .Config.SearchLanguage "0" }}{{ .Config.SearchLanguage }}{{ end }}'
+        thumbnails: "1"
+        description: "1"
+        $raw: '{{ if .Categories }}{{ range $i, $category := .Categories }}tor[cat][{{ $i }}]={{ . }}&{{ end }}{{ else }}tor[cat][]=0{{ end }}'
+  rows:
+    selector: $.data, $.Data
+    missingAttributeEqualsNoResults: true
+  fields:
+    id:
+      selector: id, Id
+    author:
+      selector: author_info, authorInfo, AuthorInfo
+      optional: true
+      filters:
+        - name: jsonjoinarray
+          args:
+            - "$.*"
+            - ", "
+    language:
+      selector: lang_code, languageCode, LanguageCode
+      optional: true
+    filetype:
+      selector: filetype, Filetype
+      optional: true
+    vipflag:
+      selector: vip, Vip
+      optional: true
+      case:
+        "true": "True"
+        "*": ""
+    basetitle:
+      selector: title, Title
+    title:
+      text: "{{ .Result.basetitle }}{{ if .Result.author }} by {{ .Result.author }}{{ end }}{{ if .Result.language }} [{{ .Result.language }}]{{ end }}{{ if .Result.filetype }} [{{ .Result.filetype | upper }}]{{ end }}{{ if .Result.vipflag }} [VIP]{{ end }}"
+    details:
+      text: "/t/{{ .Result.id }}"
+    download:
+      text: "/tor/download.php?tid={{ .Result.id }}"
+    category:
+      selector: category, Category
+    date:
+      selector: added, Added
+      filters:
+        - name: dateparse
+          args: "yyyy-MM-dd HH:mm:ss"
+    size:
+      selector: size, Size
+    grabs:
+      selector: times_completed, timesCompleted, Grabs
+      optional: true
+    seeders:
+      selector: seeders, Seeders
+    leechers:
+      selector: leechers, Leechers
+    freeflags:
+      selector: free, Free, personal_freeleech, personalFreeLeech, PersonalFreeLeech
+      optional: true
+      filters:
+        - name: regexp
+          args: "true"
+    freevipflag:
+      selector: fl_vip, freeVip, FreeVip
+      optional: true
+      filters:
+        - name: regexp
+          args: "true"
+    usablevipfreeflag:
+      text: '{{ if and .Config.VipUser .Result.freevipflag }}True{{ end }}'
+    downloadvolumefactor:
+      text: '{{ if or .Result.freeflags .Result.usablevipfreeflag }}0{{ else }}1{{ end }}'
+    uploadvolumefactor:
+      text: "1"
+`
+
 const ANIDEX = `
 id: anidex
 name: Anidex
@@ -8283,6 +8565,7 @@ const BUILT_IN_CARDIGANN_SOURCES = [
   SHAZBAT,
   NORBITS,
   TOLOKA,
+  MYANONAMOUSE,
   ANIDEX,
   SHIZA_PROJECT,
   SUBSPLEASE,

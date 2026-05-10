@@ -119,19 +119,19 @@ describe("IndexerService", () => {
       const second = yield* svc.refreshDefinitions()
 
       expect(first).toMatchObject({
-        total: 52,
-        created: 52,
+        total: 53,
+        created: 53,
         updated: 0,
         unchanged: 0,
       })
       expect(first.definitions.map((definition) => definition.action)).toEqual(
-        Array(52).fill("created"),
+        Array(53).fill("created"),
       )
       expect(second).toMatchObject({
-        total: 52,
+        total: 53,
         created: 0,
         updated: 0,
-        unchanged: 52,
+        unchanged: 53,
       })
       expect(second.definitions.every((definition) => definition.previousVersion !== null)).toBe(
         true,
@@ -425,6 +425,7 @@ describe("IndexerService", () => {
         "iptorrents",
         "knaben",
         "morethantv",
+        "myanonamouse",
         "nebulance",
         "norbits",
         "nyaa",
@@ -558,6 +559,17 @@ describe("IndexerService", () => {
           ],
         },
       )
+      expect(
+        definitions.find((definition) => definition.definitionKey === "myanonamouse"),
+      ).toMatchObject({
+        displayName: "MyAnonamouse",
+        protocol: "torrent",
+        implementation: "cardigann_yaml",
+        baseUrl: "https://www.myanonamouse.net/",
+        privacy: "private",
+        supportsRss: false,
+        tags: ["private", "books", "audiobooks", "json", "cookie-auth"],
+      })
       expect(definitions.find((definition) => definition.definitionKey === "anidex")).toMatchObject(
         {
           displayName: "Anidex",

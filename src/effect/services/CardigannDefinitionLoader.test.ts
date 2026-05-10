@@ -86,6 +86,7 @@ caps:
       "shazbat",
       "norbits",
       "toloka",
+      "myanonamouse",
       "anidex",
       "shizaproject",
       "subsplease",
@@ -347,6 +348,51 @@ caps:
           { id: 3040, name: "Українська музика (lossless)" },
           { id: 3030, name: "Аудіокниги українською" },
           { id: 4050, name: "Ігри українською" },
+        ]),
+      },
+    })
+    expect(
+      BUILT_IN_CARDIGANN_DEFINITIONS.find(
+        (definition) => definition.definitionKey === "myanonamouse",
+      ),
+    ).toMatchObject({
+      displayName: "MyAnonamouse",
+      baseUrl: "https://www.myanonamouse.net/",
+      privacy: "private",
+      supportsRss: false,
+      supportsSearch: true,
+      tags: ["private", "books", "audiobooks", "json", "cookie-auth"],
+      authFields: expect.arrayContaining([
+        expect.objectContaining({ name: "mamId", type: "password", required: true }),
+        expect.objectContaining({
+          name: "searchType",
+          type: "select",
+          defaultValue: "all",
+        }),
+        expect.objectContaining({
+          name: "searchInDescription",
+          type: "checkbox",
+          defaultValue: "false",
+        }),
+        expect.objectContaining({
+          name: "searchLanguage",
+          type: "select",
+          defaultValue: "0",
+        }),
+        expect.objectContaining({
+          name: "vipUser",
+          type: "checkbox",
+          defaultValue: "false",
+        }),
+      ]),
+      capabilities: {
+        searchTypes: ["search"],
+        categories: expect.arrayContaining([
+          { id: 3030, name: "AudioBooks" },
+          { id: 7020, name: "E-Books" },
+          { id: 7030, name: "Ebooks - Comics/Graphic novels" },
+          { id: 7010, name: "Ebooks - Magazines/Newspapers" },
+          { id: 7040, name: "Ebooks - Math/Science/Tech" },
         ]),
       },
     })
