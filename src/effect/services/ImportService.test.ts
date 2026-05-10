@@ -11,32 +11,41 @@ import { ImportService, ImportServiceLive } from "./ImportService"
 
 const unused = () => Effect.die("unused")
 
-const FakeOnboardingLive = Layer.succeed(OnboardingService, {
-  getStatus: () =>
-    Effect.succeed({
-      started: true,
-      completed: false,
-      hasAdmin: true,
-      path: "wizard" as const,
-      currentStep: "import",
-      completedSteps: [],
-      capabilities: { movies: true, tv: true },
-      startedAt: new Date("2026-01-01T00:00:00.000Z"),
-      completedAt: null,
-    }),
-  runQuickstart: unused,
-  submitAdmin: unused,
-  submitCapabilities: unused,
-  submitProfiles: unused,
-  submitRootFolders: unused,
-  submitIndexer: unused,
-  submitDownloadClient: unused,
-  submitMediaServer: unused,
-  skipStep: unused,
-  goBack: unused,
-  complete: unused,
-  startWizard: unused,
-})
+const onboardingLayer = (completed: boolean) =>
+  Layer.succeed(OnboardingService, {
+    getStatus: () =>
+      Effect.succeed({
+        started: true,
+        completed,
+        hasAdmin: true,
+        path: "wizard" as const,
+        currentStep: completed ? null : "import",
+        completedSteps: [],
+        capabilities: { movies: true, tv: true },
+        startedAt: new Date("2026-01-01T00:00:00.000Z"),
+        completedAt: completed ? new Date("2026-01-02T00:00:00.000Z") : null,
+      }),
+    runQuickstart: unused,
+    submitAdmin: unused,
+    submitCapabilities: unused,
+    submitProfiles: unused,
+    submitRootFolders: unused,
+    submitIndexer: unused,
+    submitDownloadClient: unused,
+    submitMediaServer: unused,
+    skipStep: unused,
+    goBack: unused,
+    complete: unused,
+    startWizard: unused,
+  })
+
+const FakeOnboardingLive = onboardingLayer(false)
+const CompletedOnboardingLive = onboardingLayer(true)
+
+const completedSetupLayer = ImportServiceLive.pipe(
+  Layer.provideMerge(TestDbLive),
+  Layer.provideMerge(CompletedOnboardingLive),
+)
 
 const TestLayer = ImportServiceLive.pipe(
   Layer.provideMerge(TestDbLive),
@@ -163,6 +172,34 @@ describe("ImportService", () => {
         expect(missing?.monitored).toBe(false)
         expect(missing?.airDate?.toISOString().slice(0, 10)).toBe("2026-01-09")
       }).pipe(Effect.provide(TestLayer)),
+    )
+  })
+
+  it("rejects connection tests after setup is complete", async () => {
+    const fetchSpy = vi.fn(async () => jsonResponse({}))
+    vi.stubGlobal("fetch", fetchSpy)
+
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const imports = yield* ImportService
+
+        const radarrError = yield* Effect.flip(
+          imports.testRadarr({ url: "http://radarr.test", apiKey: "test-key" }),
+        )
+        const sonarrError = yield* Effect.flip(
+          imports.testSonarr({ url: "http://sonarr.test", apiKey: "test-key" }),
+        )
+
+        expect(radarrError._tag).toBe("ImportError")
+        expect(sonarrError._tag).toBe("ImportError")
+        if (radarrError._tag === "ImportError") {
+          expect(radarrError.reason).toBe("setup_not_active")
+        }
+        if (sonarrError._tag === "ImportError") {
+          expect(sonarrError.reason).toBe("setup_not_active")
+        }
+        expect(fetchSpy).not.toHaveBeenCalled()
+      }).pipe(Effect.provide(completedSetupLayer)),
     )
   })
 })

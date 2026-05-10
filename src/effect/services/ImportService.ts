@@ -42,10 +42,10 @@ export class ImportService extends Context.Tag("@arr-hub/ImportService")<
   {
     readonly testRadarr: (
       input: ImportCredentials,
-    ) => Effect.Effect<ConnectionTestResult, ImportError>
+    ) => Effect.Effect<ConnectionTestResult, ImportError | SqlError>
     readonly testSonarr: (
       input: ImportCredentials,
-    ) => Effect.Effect<ConnectionTestResult, ImportError>
+    ) => Effect.Effect<ConnectionTestResult, ImportError | SqlError>
     readonly importFromRadarr: (
       input: ImportCredentials,
     ) => Effect.Effect<ImportResult, ImportError | SqlError>
@@ -154,15 +154,21 @@ export const ImportServiceLive = Layer.effect(
       })
 
     const testRadarr = (input: ImportCredentials) =>
-      Effect.tryPromise({
-        try: () => radarr.testConnection(input.url, input.apiKey),
-        catch: (e) => toImportError("radarr", e),
+      Effect.gen(function* () {
+        yield* assertSetupActive("radarr")
+        return yield* Effect.tryPromise({
+          try: () => radarr.testConnection(input.url, input.apiKey),
+          catch: (e) => toImportError("radarr", e),
+        })
       })
 
     const testSonarr = (input: ImportCredentials) =>
-      Effect.tryPromise({
-        try: () => sonarr.testConnection(input.url, input.apiKey),
-        catch: (e) => toImportError("sonarr", e),
+      Effect.gen(function* () {
+        yield* assertSetupActive("sonarr")
+        return yield* Effect.tryPromise({
+          try: () => sonarr.testConnection(input.url, input.apiKey),
+          catch: (e) => toImportError("sonarr", e),
+        })
       })
 
     const insertRadarrMovie = (m: RadarrMovie, defaultProfileId: number | null) =>
