@@ -1,14 +1,19 @@
 import { describe, expect, it } from "@effect/vitest"
-import { Effect, Layer } from "effect"
+import { Effect, Layer, Queue } from "effect"
 
 import { TestDbLive } from "#/effect/test/TestDb"
 
+import { MonitoringTriggerBus, MonitoringTriggerBusLive } from "./MonitoringTriggerBus"
 import {
   OperationalHistoryService,
   OperationalHistoryServiceLive,
 } from "./OperationalHistoryService"
 
 const TestLayer = OperationalHistoryServiceLive.pipe(Layer.provideMerge(TestDbLive))
+const BusTestLayer = OperationalHistoryServiceLive.pipe(
+  Layer.provideMerge(MonitoringTriggerBusLive),
+  Layer.provideMerge(TestDbLive),
+)
 
 describe("OperationalHistoryService", () => {
   it.effect("records and filters operational history rows", () =>
@@ -53,5 +58,29 @@ describe("OperationalHistoryService", () => {
       expect(secondPage.items.map((row) => row.title)).toEqual(["First"])
       expect(secondPage.nextCursor).toBeNull()
     }).pipe(Effect.provide(TestLayer)),
+  )
+
+  it.scoped("emits operational notification triggers for history rows", () =>
+    Effect.gen(function* () {
+      const history = yield* OperationalHistoryService
+      const bus = yield* MonitoringTriggerBus
+      const subscription = yield* bus.subscribe()
+
+      yield* history.record({
+        eventType: "import_failed",
+        mediaKind: "movie",
+        title: "Import failed",
+        message: "No media files found",
+        metadata: { reason: "no_media_files" },
+      })
+
+      const trigger = yield* Queue.take(subscription)
+      expect(trigger.kind).toBe("operational")
+      if (trigger.kind === "operational") {
+        expect(trigger.event).toBe("import_failed")
+        expect(trigger.title).toBe("Import failed")
+        expect(trigger.payload.metadata).toEqual({ reason: "no_media_files" })
+      }
+    }).pipe(Effect.provide(BusTestLayer)),
   )
 })

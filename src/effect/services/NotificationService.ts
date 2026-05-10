@@ -74,6 +74,13 @@ function formatTrigger(trigger: MonitoringTrigger): FormattedNotification {
           libraryName: trigger.libraryName,
         },
       }
+    case "operational":
+      return {
+        event: trigger.event,
+        title: trigger.title,
+        message: trigger.message,
+        payload: trigger.payload,
+      }
   }
 }
 
@@ -120,6 +127,13 @@ function formatTestNotification(event: NotificationEvent): FormattedNotification
         title: "Test new content added",
         message: "Example Movie was added to Movies",
         payload: { test: true, mediaType: "movie", title: "Example Movie", libraryName: "Movies" },
+      }
+    default:
+      return {
+        event,
+        title: `Test ${event.replaceAll("_", " ")}`,
+        message: `ARR Hub test notification for ${event.replaceAll("_", " ")}`,
+        payload: { test: true, event },
       }
   }
 }

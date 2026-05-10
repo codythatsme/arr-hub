@@ -1,7 +1,14 @@
 import type { Queue, Scope } from "effect"
 import { Context, Effect, Layer, PubSub } from "effect"
 
+import type { NotificationEvent } from "#/db/schema"
+
 import type { MediaServerSession, SessionMediaType } from "../domain/mediaServer"
+
+export type OperationalNotificationEvent = Exclude<
+  NotificationEvent,
+  "session_start" | "session_stop" | "media_watched" | "server_down" | "server_up" | "new_content"
+>
 
 export type MonitoringTrigger =
   | { readonly kind: "session_start"; readonly session: MediaServerSession }
@@ -18,6 +25,13 @@ export type MonitoringTrigger =
       readonly mediaType: SessionMediaType
       readonly title: string
       readonly libraryName: string
+    }
+  | {
+      readonly kind: "operational"
+      readonly event: OperationalNotificationEvent
+      readonly title: string
+      readonly message: string
+      readonly payload: Record<string, unknown>
     }
 
 export class MonitoringTriggerBus extends Context.Tag("@arr-hub/MonitoringTriggerBus")<

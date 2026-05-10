@@ -100,6 +100,33 @@ describe("NotificationService", () => {
     }).pipe(Effect.provide(TestLayer)),
   )
 
+  it.effect("records operational event deliveries for subscribed channels", () =>
+    Effect.gen(function* () {
+      const service = yield* NotificationService
+      yield* service.createChannel({
+        name: "Ops",
+        type: "in_app",
+        enabled: true,
+        events: ["grabbed"],
+        settings: {},
+      })
+
+      yield* service.deliverTrigger({
+        kind: "operational",
+        event: "grabbed",
+        title: "Release grabbed",
+        message: "Example.Release.2026 was grabbed",
+        payload: { releaseTitle: "Example.Release.2026" },
+      })
+      const deliveries = yield* service.listDeliveries()
+
+      expect(deliveries).toHaveLength(1)
+      expect(deliveries[0].event).toBe("grabbed")
+      expect(deliveries[0].status).toBe("sent")
+      expect(deliveries[0].message).toContain("Example.Release.2026")
+    }).pipe(Effect.provide(TestLayer)),
+  )
+
   it.effect("updates channel event subscriptions", () =>
     Effect.gen(function* () {
       const service = yield* NotificationService

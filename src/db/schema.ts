@@ -769,6 +769,17 @@ export const notificationEvents = [
   "server_down",
   "server_up",
   "new_content",
+  "grabbed",
+  "download_failed",
+  "imported",
+  "import_failed",
+  "renamed",
+  "deleted",
+  "blocklisted",
+  "metadata_refreshed",
+  "indexer_health_changed",
+  "download_client_health_changed",
+  "settings_changed",
 ] as const
 export type NotificationEvent = (typeof notificationEvents)[number]
 

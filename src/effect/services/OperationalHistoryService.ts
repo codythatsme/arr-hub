@@ -1,6 +1,6 @@
 import { SqlError } from "@effect/sql/SqlError"
 import { and, between, desc, eq, gte, lt, lte, type SQL } from "drizzle-orm"
-import { Context, Effect, Layer } from "effect"
+import { Context, Effect, Layer, Option } from "effect"
 
 import {
   domainHistory,
@@ -9,6 +9,7 @@ import {
 } from "#/db/schema"
 
 import { Db } from "./Db"
+import { MonitoringTriggerBus, type OperationalNotificationEvent } from "./MonitoringTriggerBus"
 
 export type DomainHistoryRow = typeof domainHistory.$inferSelect
 
@@ -63,6 +64,26 @@ type DbHandle = Context.Tag.Service<typeof Db>
 const DEFAULT_LIMIT = 50
 const MAX_LIMIT = 200
 
+function operationalNotificationPayload(input: DomainHistoryInput): Record<string, unknown> {
+  return {
+    eventType: input.eventType,
+    mediaKind: input.mediaKind ?? null,
+    movieId: input.movieId ?? null,
+    seriesId: input.seriesId ?? null,
+    seasonId: input.seasonId ?? null,
+    episodeId: input.episodeId ?? null,
+    releaseDecisionId: input.releaseDecisionId ?? null,
+    releaseTitle: input.releaseTitle ?? null,
+    indexerId: input.indexerId ?? null,
+    indexerName: input.indexerName ?? null,
+    downloadClientId: input.downloadClientId ?? null,
+    downloadClientName: input.downloadClientName ?? null,
+    downloadExternalId: input.downloadExternalId ?? null,
+    schedulerJobId: input.schedulerJobId ?? null,
+    metadata: input.metadata ?? {},
+  }
+}
+
 export function recordDomainHistory(
   db: DbHandle,
   input: DomainHistoryInput,
@@ -92,6 +113,20 @@ export function recordDomainHistory(
         createdAt: input.createdAt ?? new Date(),
       })
       .returning()
+
+    if (input.eventType !== "notification_delivery") {
+      const bus = yield* Effect.serviceOption(MonitoringTriggerBus)
+      if (Option.isSome(bus)) {
+        yield* bus.value.emit({
+          kind: "operational",
+          event: input.eventType as OperationalNotificationEvent,
+          title: input.title,
+          message: input.message,
+          payload: operationalNotificationPayload(input),
+        })
+      }
+    }
+
     return rows[0]
   })
 }

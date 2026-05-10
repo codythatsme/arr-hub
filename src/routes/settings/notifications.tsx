@@ -16,6 +16,17 @@ const EVENTS = [
   { value: "server_down", label: "Server offline" },
   { value: "server_up", label: "Server online" },
   { value: "new_content", label: "New content" },
+  { value: "grabbed", label: "Grabbed" },
+  { value: "download_failed", label: "Download failed" },
+  { value: "imported", label: "Imported" },
+  { value: "import_failed", label: "Import failed" },
+  { value: "renamed", label: "Renamed" },
+  { value: "deleted", label: "Deleted" },
+  { value: "blocklisted", label: "Blocklisted" },
+  { value: "metadata_refreshed", label: "Metadata refreshed" },
+  { value: "indexer_health_changed", label: "Indexer health" },
+  { value: "download_client_health_changed", label: "Download client health" },
+  { value: "settings_changed", label: "Settings changed" },
 ] as const
 
 type NotificationEvent = (typeof EVENTS)[number]["value"]
